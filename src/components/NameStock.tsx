@@ -1,9 +1,11 @@
 import { useRef } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { PageThumb } from './PageThumb';
 import type { DocumentState, PageId, StockLayout } from '../domain/types';
 import { createPointerKindTracker, stockPointerPolicy } from '../input/nativePointer';
+import { pointerPanGesture, pointerPinchGesture } from '../input/pointerGestures';
 import { colors, spacing, touchTarget } from '../theme/tokens';
 
 type NameStockProps = {
@@ -33,9 +35,10 @@ export function NameStock({
 }: NameStockProps) {
   const origin = useRef({ x: 0, y: 0 });
   const last = useRef({ x: 0, y: 0 });
-  const pinch = useRef({ d: 0, z: 1 });
   const draggingId = useRef<PageId | null>(null);
   const kindTracker = useRef(createPointerKindTracker()).current;
+  const panHeld = useRef(false);
+  const pinchStartZoom = useRef(1);
 
   function boardPoint(pageX: number, pageY: number) {
     const lx = (pageX - origin.current.x - doc.stockPanX) / doc.stockZoom;
@@ -52,6 +55,61 @@ export function NameStock({
     onDragStart({ type: 'stockPage', pageId });
     onDragMove(pageX, pageY);
   }
+
+  const boardPan = pointerPanGesture({
+    tracker: kindTracker,
+    heldRef: panHeld,
+    shouldCapture: (sample) => sample.kind === 'finger',
+    onGrant: (sample) => {
+      last.current = { x: sample.pageX, y: sample.pageY };
+      draggingId.current = null;
+      const policy = stockPointerPolicy(sample.kind);
+      if (!policy.dragPage && !policy.pan) {
+        return;
+      }
+      const pt = boardPoint(sample.pageX, sample.pageY);
+      const hit = [...doc.stock].reverse().find(
+        (item) => pt.x >= item.x && pt.x <= item.x + 88 && pt.y >= item.y && pt.y <= item.y + 120,
+      );
+      if (hit && policy.dragPage) {
+        startPageDrag(hit.pageId, sample.pageX, sample.pageY);
+      }
+    },
+    onMove: (sample) => {
+      if (sample.pointerCount >= 2) {
+        return;
+      }
+      const policy = stockPointerPolicy(sample.kind);
+      const dx = sample.pageX - last.current.x;
+      const dy = sample.pageY - last.current.y;
+      if (draggingId.current && policy.dragPage) {
+        const pt = boardPoint(sample.pageX, sample.pageY);
+        onPlace(draggingId.current, pt.x - 40, pt.y - 50);
+        onDragMove(sample.pageX, sample.pageY);
+      } else if (policy.pan && !draggingId.current) {
+        onPanZoom(doc.stockZoom, doc.stockPanX + dx, doc.stockPanY + dy);
+      }
+      last.current = { x: sample.pageX, y: sample.pageY };
+    },
+    onRelease: (sample) => {
+      kindTracker.release(sample.native);
+      onDragEnd(sample.pageX, sample.pageY);
+      draggingId.current = null;
+    },
+  });
+  const boardPinch = pointerPinchGesture({
+    onStart: () => {
+      pinchStartZoom.current = doc.stockZoom;
+    },
+    onPinch: (scale) => {
+      onPanZoom(
+        Math.min(3, Math.max(0.4, pinchStartZoom.current * scale)),
+        doc.stockPanX,
+        doc.stockPanY,
+      );
+    },
+  });
+  const boardGesture = Gesture.Simultaneous(boardPan, boardPinch);
 
   return (
     <View style={[styles.panel, compact && styles.panelCompact]}>
@@ -77,23 +135,28 @@ export function NameStock({
               const page = doc.pages[item.pageId];
               return (
                 <View key={item.pageId} style={styles.gridCard}>
-                  <View
-                    onStartShouldSetResponder={() => true}
-                    onResponderGrant={(evt) => {
-                      const kind = kindTracker.classify(evt.nativeEvent);
-                      if (stockPointerPolicy(kind).dragPage) {
-                        startPageDrag(item.pageId, evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-                      }
-                    }}
-                    onResponderMove={(evt) => onDragMove(evt.nativeEvent.pageX, evt.nativeEvent.pageY)}
-                    onResponderRelease={(evt) => {
-                      kindTracker.release(evt.nativeEvent);
-                      onDragEnd(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-                      draggingId.current = null;
-                    }}
+                  <GestureDetector
+                    gesture={pointerPanGesture({
+                      tracker: kindTracker,
+                      heldRef: panHeld,
+                      shouldCapture: (sample) => sample.kind === 'finger',
+                      onGrant: (sample) => {
+                        if (stockPointerPolicy(sample.kind).dragPage) {
+                          startPageDrag(item.pageId, sample.pageX, sample.pageY);
+                        }
+                      },
+                      onMove: (sample) => onDragMove(sample.pageX, sample.pageY),
+                      onRelease: (sample) => {
+                        kindTracker.release(sample.native);
+                        onDragEnd(sample.pageX, sample.pageY);
+                        draggingId.current = null;
+                      },
+                    })}
                   >
-                    <PageThumb page={page} width={thumbW} height={thumbH} />
-                  </View>
+                    <View>
+                      <PageThumb page={page} width={thumbW} height={thumbH} />
+                    </View>
+                  </GestureDetector>
                   <Text style={styles.order}>{index + 1}</Text>
                   <Pressable style={styles.del} onPress={() => onDelete(item.pageId)}>
                     <Text style={styles.delText}>削除</Text>
@@ -104,67 +167,13 @@ export function NameStock({
           )}
         </View>
       ) : (
+        <GestureDetector gesture={boardGesture}>
         <View
           style={styles.board}
           onLayout={(e) => {
             e.currentTarget.measureInWindow((x, y) => {
               origin.current = { x, y };
             });
-          }}
-          onStartShouldSetResponder={() => true}
-          onMoveShouldSetResponder={() => true}
-          onResponderGrant={(evt) => {
-            const kind = kindTracker.classify(evt.nativeEvent);
-            last.current = { x: evt.nativeEvent.pageX, y: evt.nativeEvent.pageY };
-            draggingId.current = null;
-            const policy = stockPointerPolicy(kind);
-            if (!policy.dragPage && !policy.pan) {
-              return;
-            }
-            const pt = boardPoint(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-            const hit = [...doc.stock].reverse().find(
-              (item) => pt.x >= item.x && pt.x <= item.x + 88 && pt.y >= item.y && pt.y <= item.y + 120,
-            );
-            if (hit && policy.dragPage) {
-              startPageDrag(hit.pageId, evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-            }
-          }}
-          onResponderMove={(evt) => {
-            const touches = evt.nativeEvent.touches ?? [];
-            if (touches.length >= 2) {
-              const dist = Math.hypot(
-                touches[0].pageX - touches[1].pageX,
-                touches[0].pageY - touches[1].pageY,
-              );
-              if (pinch.current.d > 0) {
-                onPanZoom(
-                  Math.min(3, Math.max(0.4, pinch.current.z * (dist / pinch.current.d))),
-                  doc.stockPanX,
-                  doc.stockPanY,
-                );
-              } else {
-                pinch.current = { d: dist, z: doc.stockZoom };
-              }
-              return;
-            }
-            const kind = kindTracker.classify(evt.nativeEvent);
-            const policy = stockPointerPolicy(kind);
-            const dx = evt.nativeEvent.pageX - last.current.x;
-            const dy = evt.nativeEvent.pageY - last.current.y;
-            if (draggingId.current && policy.dragPage) {
-              const pt = boardPoint(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-              onPlace(draggingId.current, pt.x - 40, pt.y - 50);
-              onDragMove(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-            } else if (policy.pan && !draggingId.current) {
-              onPanZoom(doc.stockZoom, doc.stockPanX + dx, doc.stockPanY + dy);
-            }
-            last.current = { x: evt.nativeEvent.pageX, y: evt.nativeEvent.pageY };
-          }}
-          onResponderRelease={(evt) => {
-            pinch.current = { d: 0, z: doc.stockZoom };
-            kindTracker.release(evt.nativeEvent);
-            onDragEnd(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-            draggingId.current = null;
           }}
         >
           <View
@@ -196,6 +205,7 @@ export function NameStock({
             )}
           </View>
         </View>
+        </GestureDetector>
       )}
     </View>
   );

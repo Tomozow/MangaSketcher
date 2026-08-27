@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 
 import { PageThumb } from './PageThumb';
 import { InkLayer } from './InkLayer';
@@ -18,7 +19,12 @@ import {
 import { LONG_PRESS_MS, PAN_SLOP, canGrabPage } from '../domain/workspaceGestures';
 import { findText, hitTextBox, selectedTextForEditor, uniformResizeFromSE } from '../domain/text';
 import { type DocumentState, type PageId, type Rect, type TextId } from '../domain/types';
-import { createPointerKindTracker, pressureFromNative, workspacePointerPolicy } from '../input/nativePointer';
+import { createPointerKindTracker, workspacePointerPolicy } from '../input/nativePointer';
+import {
+  pointerPanGesture,
+  pointerPinchGesture,
+  type PointerSample,
+} from '../input/pointerGestures';
 import { colors, spacing, touchTarget } from '../theme/tokens';
 
 type WorkspaceProps = {
@@ -69,6 +75,7 @@ export function Workspace({ doc, dispatch, onDragStart, onDragMove, onDragEnd }:
     pageId: PageId | null;
   } | null>(null);
   const kindTracker = useRef(createPointerKindTracker()).current;
+  const panHeld = useRef(false);
 
   useEffect(() => {
     setAskInsert(false);
@@ -142,6 +149,297 @@ export function Workspace({ doc, dispatch, onDragStart, onDragMove, onDragEnd }:
     setLiveStroke(null);
   }
 
+  function grantPointer(sample: PointerSample) {
+    const { kind, pageX, pageY, pressure } = sample;
+    const policy = workspacePointerPolicy(kind);
+    const { pageId } = hitPageAt(pageX, pageY);
+    // #region agent log
+    fetch('http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '442aa5' },
+      body: JSON.stringify({
+        sessionId: '442aa5',
+        runId: 'pencil-idle',
+        hypothesisId: 'I',
+        location: 'src/components/Workspace.tsx:grantPointer',
+        message: 'grantPointer',
+        data: {
+          kind,
+          tool: doc.tool,
+          pageId,
+          pageX,
+          pageY,
+          pressure,
+          ink: policy.ink,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+    // #endregion
+    pending.current = {
+      kind,
+      x: pageX,
+      y: pageY,
+      hitPage: pageId,
+      fromIndex: pageId ? doc.workspaceOrder.indexOf(pageId) : -1,
+      moved: false,
+      skipPan: false,
+    };
+    lastPan.current = { x: pageX, y: pageY };
+    if (longTimer.current) {
+      clearTimeout(longTimer.current);
+    }
+    if (kind === 'finger') {
+      const textHit = hitTextAt(pageX, pageY);
+      if (textHit && textHit.handle === 'body' && pending.current) {
+        dispatch({ type: 'selectText', textId: textHit.textId });
+        pending.current.skipPan = true;
+      }
+      const foundText = textHit ? findText(doc, textHit.textId) : null;
+      if (foundText?.where === 'pasteboard') {
+        longTimer.current = setTimeout(() => {
+          const p = pending.current;
+          if (!p || p.moved || p.kind !== 'finger' || !textHit) {
+            return;
+          }
+          onDragStart({ type: 'pasteboardText', textId: textHit.textId });
+        }, LONG_PRESS_MS);
+      } else if (
+        pageId &&
+        canGrabPage('finger', 'longpress') &&
+        !(textHit && textHit.handle === 'body')
+      ) {
+        longTimer.current = setTimeout(() => {
+          const p = pending.current;
+          if (!p || p.moved || p.kind !== 'finger' || !p.hitPage) {
+            return;
+          }
+          onDragStart({ type: 'workspacePage', pageId: p.hitPage, fromIndex: p.fromIndex });
+          grabbing.current = true;
+        }, LONG_PRESS_MS);
+      }
+    }
+    if (kind === 'pencil' && (policy.ink || policy.marquee || policy.text)) {
+      const hit = hitPageAt(pageX, pageY);
+      if ((doc.tool === 'pen' || doc.tool === 'eraser') && pageId) {
+        setLiveStroke({
+          pageId,
+          erase: doc.tool === 'eraser',
+          points: [{ x: hit.local.x, y: hit.local.y, pressure }],
+        });
+      } else if (doc.tool === 'select' && pageId) {
+        marqueeOrigin.current = { pageId, x: hit.local.x, y: hit.local.y };
+        setMarquee({
+          pageId,
+          rect: { x: hit.local.x, y: hit.local.y, width: 0, height: 0 },
+        });
+      } else if (doc.tool === 'text') {
+        const textHit = hitTextAt(pageX, pageY);
+        if (textHit) {
+          const found = findText(doc, textHit.textId);
+          if (!found) {
+            return;
+          }
+          dispatch({ type: 'selectText', textId: textHit.textId });
+          textDrag.current = {
+            textId: textHit.textId,
+            mode: textHit.handle === 'se' ? 'resize' : 'pendingMove',
+            originBox: { ...found.node.box },
+            offX: textHit.x - found.node.box.x,
+            offY: textHit.y - found.node.box.y,
+            pageId: found.pageId ?? null,
+          };
+        } else if (pageId) {
+          dispatch({
+            type: 'createText',
+            attachment: { kind: 'page', pageId },
+            box: { x: hit.local.x, y: hit.local.y, width: 8, height: 22 },
+          });
+        } else {
+          const world = worldOf(pageX, pageY);
+          dispatch({
+            type: 'createText',
+            attachment: { kind: 'pasteboard' },
+            box: { x: world.x, y: world.y, width: 12, height: 36 },
+          });
+        }
+      }
+    }
+  }
+
+  function movePointer(sample: PointerSample) {
+    if (sample.pointerCount >= 2) {
+      if (longTimer.current) {
+        clearTimeout(longTimer.current);
+      }
+      return;
+    }
+    const { kind, pageX, pageY, pressure } = sample;
+    const policy = workspacePointerPolicy(kind);
+    const dx = pageX - lastPan.current.x;
+    const dy = pageY - lastPan.current.y;
+    if (pending.current && Math.hypot(dx, dy) > PAN_SLOP) {
+      pending.current.moved = true;
+      if (longTimer.current) {
+        clearTimeout(longTimer.current);
+      }
+    }
+    if (kind === 'finger' && policy.pan) {
+      onDragMove(pageX, pageY);
+      if (
+        !grabbing.current &&
+        !liveStroke &&
+        !marquee &&
+        !textDrag.current &&
+        !pending.current?.skipPan
+      ) {
+        dispatch({
+          type: 'setWorkspaceView',
+          zoom: doc.workspaceZoom,
+          panX: doc.workspacePanX + dx,
+          panY: doc.workspacePanY + dy,
+        });
+      }
+    } else if (kind === 'pencil') {
+      const hit = hitPageAt(pageX, pageY);
+      if (textDrag.current) {
+        const session = textDrag.current;
+        let x = session.originBox.x;
+        let y = session.originBox.y;
+        if (session.pageId) {
+          const world = worldOf(pageX, pageY);
+          const frame = frames.find(
+            (f) => f.slot.kind === 'page' && f.slot.pageId === session.pageId,
+          );
+          if (frame) {
+            const local = pageLocalFromWorld(
+              frame,
+              world.x,
+              world.y,
+              doc.rasterWidth,
+              doc.rasterHeight,
+            );
+            x = local.x;
+            y = local.y;
+          }
+        } else {
+          const world = worldOf(pageX, pageY);
+          x = world.x;
+          y = world.y;
+        }
+        if (session.mode === 'pendingMove') {
+          if (Math.hypot(dx, dy) > PAN_SLOP) {
+            session.mode = 'move';
+          } else {
+            lastPan.current = { x: pageX, y: pageY };
+            return;
+          }
+        }
+        if (session.mode === 'move') {
+          dispatch({
+            type: 'moveText',
+            textId: session.textId,
+            x: x - session.offX,
+            y: y - session.offY,
+          });
+        } else if (session.mode === 'resize') {
+          dispatch({
+            type: 'resizeText',
+            textId: session.textId,
+            box: uniformResizeFromSE(session.originBox, x, y),
+          });
+        }
+      } else if (liveStroke && hit.pageId === liveStroke.pageId) {
+        setLiveStroke({
+          ...liveStroke,
+          points: [...liveStroke.points, { x: hit.local.x, y: hit.local.y, pressure }],
+        });
+      } else if (marquee && marqueeOrigin.current && hit.pageId === marquee.pageId) {
+        const o = marqueeOrigin.current;
+        setMarquee({
+          pageId: marquee.pageId,
+          rect: {
+            x: Math.min(o.x, hit.local.x),
+            y: Math.min(o.y, hit.local.y),
+            width: Math.abs(hit.local.x - o.x),
+            height: Math.abs(hit.local.y - o.y),
+          },
+        });
+      } else if (doc.tool === 'select' && doc.selectedClipId) {
+        const world = worldOf(pageX, pageY);
+        dispatch({ type: 'transformClip', clipId: doc.selectedClipId, x: world.x, y: world.y });
+      }
+    }
+    lastPan.current = { x: pageX, y: pageY };
+  }
+
+  function releasePointer(sample: PointerSample) {
+    if (longTimer.current) {
+      clearTimeout(longTimer.current);
+    }
+    pinch.current = { d: 0, z: doc.workspaceZoom };
+    commitStroke();
+    if (marquee && marquee.rect.width > 1 && marquee.rect.height > 1) {
+      const frame = frames.find(
+        (f) => f.slot.kind === 'page' && f.slot.pageId === marquee.pageId,
+      );
+      dispatch({
+        type: 'marqueeCut',
+        pageId: marquee.pageId,
+        rect: marquee.rect,
+        workspaceX: frame ? frame.x + 8 : 20,
+        workspaceY: frame ? frame.y + 8 : 20,
+      });
+    }
+    setMarquee(null);
+    marqueeOrigin.current = null;
+    grabbing.current = false;
+    textDrag.current = null;
+    onDragEnd(sample.pageX, sample.pageY);
+    if (sample.kind === 'finger' && pending.current && !pending.current.moved && pending.current.hitPage) {
+      dispatch({ type: 'selectPage', pageId: pending.current.hitPage });
+    }
+    kindTracker.release(sample.native);
+    pending.current = null;
+  }
+
+  const canvasPan = pointerPanGesture({
+    tracker: kindTracker,
+    heldRef: panHeld,
+    onGrant: grantPointer,
+    onMove: movePointer,
+    onRelease: releasePointer,
+    shouldCapture: (sample) => {
+      if (sample.kind === 'finger' && doc.selectedTextId) {
+        const hit = hitTextAt(sample.pageX, sample.pageY);
+        if (hit && hit.textId === doc.selectedTextId && hit.handle === 'body') {
+          return false;
+        }
+      }
+      return true;
+    },
+  });
+  const canvasPinch = pointerPinchGesture({
+    onStart: () => {
+      pinch.current = { d: 1, z: doc.workspaceZoom };
+      if (longTimer.current) {
+        clearTimeout(longTimer.current);
+      }
+    },
+    onPinch: (scale) => {
+      dispatch({
+        type: 'setWorkspaceView',
+        zoom: Math.min(4, Math.max(0.4, pinch.current.z * scale)),
+        panX: doc.workspacePanX,
+        panY: doc.workspacePanY,
+      });
+    },
+    onEnd: () => {
+      pinch.current = { d: 0, z: doc.workspaceZoom };
+    },
+  });
+  const canvasGesture = Gesture.Simultaneous(canvasPan, canvasPinch);
+
   return (
     <View style={styles.panel}>
       <View style={styles.titleRow}>
@@ -175,272 +473,13 @@ export function Workspace({ doc, dispatch, onDragStart, onDragMove, onDragEnd }:
           </Pressable>
         ) : null}
       </View>
+      <GestureDetector gesture={canvasGesture}>
       <View
         style={styles.canvas}
         onLayout={(e) => {
           e.currentTarget.measureInWindow((x, y) => {
             origin.current = { x, y };
           });
-        }}
-        onPointerDown={(evt) => {
-          kindTracker.classify(evt.nativeEvent);
-        }}
-        onStartShouldSetResponder={(evt) => {
-          const kind = kindTracker.classify(evt.nativeEvent);
-          if (kind === 'finger' && doc.selectedTextId) {
-            const hit = hitTextAt(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-            if (hit && hit.textId === doc.selectedTextId && hit.handle === 'body') {
-              return false;
-            }
-          }
-          return true;
-        }}
-        onMoveShouldSetResponder={() => true}
-        onResponderGrant={(evt) => {
-          const kind = kindTracker.classify(evt.nativeEvent);
-          const policy = workspacePointerPolicy(kind);
-          const { pageId } = hitPageAt(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-          pending.current = {
-            kind,
-            x: evt.nativeEvent.pageX,
-            y: evt.nativeEvent.pageY,
-            hitPage: pageId,
-            fromIndex: pageId ? doc.workspaceOrder.indexOf(pageId) : -1,
-            moved: false,
-            skipPan: false,
-          };
-          lastPan.current = { x: evt.nativeEvent.pageX, y: evt.nativeEvent.pageY };
-          if (longTimer.current) {
-            clearTimeout(longTimer.current);
-          }
-          if (kind === 'finger') {
-            const textHit = hitTextAt(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-            if (textHit && textHit.handle === 'body' && pending.current) {
-              dispatch({ type: 'selectText', textId: textHit.textId });
-              pending.current.skipPan = true;
-            }
-            const foundText = textHit ? findText(doc, textHit.textId) : null;
-            if (foundText?.where === 'pasteboard') {
-              longTimer.current = setTimeout(() => {
-                const p = pending.current;
-                if (!p || p.moved || p.kind !== 'finger' || !textHit) {
-                  return;
-                }
-                onDragStart({ type: 'pasteboardText', textId: textHit.textId });
-              }, LONG_PRESS_MS);
-            } else if (
-              pageId &&
-              canGrabPage('finger', 'longpress') &&
-              !(textHit && textHit.handle === 'body')
-            ) {
-              longTimer.current = setTimeout(() => {
-                const p = pending.current;
-                if (!p || p.moved || p.kind !== 'finger' || !p.hitPage) {
-                  return;
-                }
-                onDragStart({ type: 'workspacePage', pageId: p.hitPage, fromIndex: p.fromIndex });
-                grabbing.current = true;
-              }, LONG_PRESS_MS);
-            }
-          }
-          if (kind === 'pencil' && (policy.ink || policy.marquee || policy.text)) {
-            const hit = hitPageAt(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-            const pressure = pressureFromNative(evt.nativeEvent);
-            if ((doc.tool === 'pen' || doc.tool === 'eraser') && pageId) {
-              setLiveStroke({
-                pageId,
-                erase: doc.tool === 'eraser',
-                points: [{ x: hit.local.x, y: hit.local.y, pressure }],
-              });
-            } else if (doc.tool === 'select' && pageId) {
-              marqueeOrigin.current = { pageId, x: hit.local.x, y: hit.local.y };
-              setMarquee({
-                pageId,
-                rect: { x: hit.local.x, y: hit.local.y, width: 0, height: 0 },
-              });
-            } else if (doc.tool === 'text') {
-              const textHit = hitTextAt(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-              if (textHit) {
-                const found = findText(doc, textHit.textId);
-                if (!found) {
-                  return;
-                }
-                dispatch({ type: 'selectText', textId: textHit.textId });
-                textDrag.current = {
-                  textId: textHit.textId,
-                  mode: textHit.handle === 'se' ? 'resize' : 'pendingMove',
-                  originBox: { ...found.node.box },
-                  offX: textHit.x - found.node.box.x,
-                  offY: textHit.y - found.node.box.y,
-                  pageId: found.pageId ?? null,
-                };
-              } else if (pageId) {
-                dispatch({
-                  type: 'createText',
-                  attachment: { kind: 'page', pageId },
-                  box: { x: hit.local.x, y: hit.local.y, width: 8, height: 22 },
-                });
-              } else {
-                const world = worldOf(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-                dispatch({
-                  type: 'createText',
-                  attachment: { kind: 'pasteboard' },
-                  box: { x: world.x, y: world.y, width: 12, height: 36 },
-                });
-              }
-            }
-          }
-        }}
-        onResponderMove={(evt) => {
-          const touches = evt.nativeEvent.touches ?? [];
-          if (touches.length >= 2) {
-            if (longTimer.current) {
-              clearTimeout(longTimer.current);
-            }
-            const dist = Math.hypot(
-              touches[0].pageX - touches[1].pageX,
-              touches[0].pageY - touches[1].pageY,
-            );
-            if (pinch.current.d > 0) {
-              dispatch({
-                type: 'setWorkspaceView',
-                zoom: Math.min(4, Math.max(0.4, pinch.current.z * (dist / pinch.current.d))),
-                panX: doc.workspacePanX,
-                panY: doc.workspacePanY,
-              });
-            } else {
-              pinch.current = { d: dist, z: doc.workspaceZoom };
-            }
-            return;
-          }
-          const kind = kindTracker.classify(evt.nativeEvent);
-          const policy = workspacePointerPolicy(kind);
-          const dx = evt.nativeEvent.pageX - lastPan.current.x;
-          const dy = evt.nativeEvent.pageY - lastPan.current.y;
-          if (pending.current && Math.hypot(dx, dy) > PAN_SLOP) {
-            pending.current.moved = true;
-            if (longTimer.current) {
-              clearTimeout(longTimer.current);
-            }
-          }
-          if (kind === 'finger' && policy.pan) {
-            onDragMove(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-            if (
-              !grabbing.current &&
-              !liveStroke &&
-              !marquee &&
-              !textDrag.current &&
-              !pending.current?.skipPan
-            ) {
-              dispatch({
-                type: 'setWorkspaceView',
-                zoom: doc.workspaceZoom,
-                panX: doc.workspacePanX + dx,
-                panY: doc.workspacePanY + dy,
-              });
-            }
-          } else if (kind === 'pencil') {
-            const hit = hitPageAt(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-            const pressure = pressureFromNative(evt.nativeEvent);
-            if (textDrag.current) {
-              const session = textDrag.current;
-              let x = session.originBox.x;
-              let y = session.originBox.y;
-              if (session.pageId) {
-                const world = worldOf(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-                const frame = frames.find(
-                  (f) => f.slot.kind === 'page' && f.slot.pageId === session.pageId,
-                );
-                if (frame) {
-                  const local = pageLocalFromWorld(
-                    frame,
-                    world.x,
-                    world.y,
-                    doc.rasterWidth,
-                    doc.rasterHeight,
-                  );
-                  x = local.x;
-                  y = local.y;
-                }
-              } else {
-                const world = worldOf(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-                x = world.x;
-                y = world.y;
-              }
-              if (session.mode === 'pendingMove') {
-                if (Math.hypot(dx, dy) > PAN_SLOP) {
-                  session.mode = 'move';
-                } else {
-                  lastPan.current = { x: evt.nativeEvent.pageX, y: evt.nativeEvent.pageY };
-                  return;
-                }
-              }
-              if (session.mode === 'move') {
-                dispatch({
-                  type: 'moveText',
-                  textId: session.textId,
-                  x: x - session.offX,
-                  y: y - session.offY,
-                });
-              } else if (session.mode === 'resize') {
-                dispatch({
-                  type: 'resizeText',
-                  textId: session.textId,
-                  box: uniformResizeFromSE(session.originBox, x, y),
-                });
-              }
-            } else if (liveStroke && hit.pageId === liveStroke.pageId) {
-              setLiveStroke({
-                ...liveStroke,
-                points: [...liveStroke.points, { x: hit.local.x, y: hit.local.y, pressure }],
-              });
-            } else if (marquee && marqueeOrigin.current && hit.pageId === marquee.pageId) {
-              const o = marqueeOrigin.current;
-              setMarquee({
-                pageId: marquee.pageId,
-                rect: {
-                  x: Math.min(o.x, hit.local.x),
-                  y: Math.min(o.y, hit.local.y),
-                  width: Math.abs(hit.local.x - o.x),
-                  height: Math.abs(hit.local.y - o.y),
-                },
-              });
-            } else if (doc.tool === 'select' && doc.selectedClipId) {
-              const world = worldOf(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-              dispatch({ type: 'transformClip', clipId: doc.selectedClipId, x: world.x, y: world.y });
-            }
-          }
-          lastPan.current = { x: evt.nativeEvent.pageX, y: evt.nativeEvent.pageY };
-        }}
-        onResponderRelease={(evt) => {
-          if (longTimer.current) {
-            clearTimeout(longTimer.current);
-          }
-          pinch.current = { d: 0, z: doc.workspaceZoom };
-          commitStroke();
-          if (marquee && marquee.rect.width > 1 && marquee.rect.height > 1) {
-            const frame = frames.find(
-              (f) => f.slot.kind === 'page' && f.slot.pageId === marquee.pageId,
-            );
-            dispatch({
-              type: 'marqueeCut',
-              pageId: marquee.pageId,
-              rect: marquee.rect,
-              workspaceX: frame ? frame.x + 8 : 20,
-              workspaceY: frame ? frame.y + 8 : 20,
-            });
-          }
-          setMarquee(null);
-          marqueeOrigin.current = null;
-          grabbing.current = false;
-          textDrag.current = null;
-          onDragEnd(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-          const kind = kindTracker.classify(evt.nativeEvent);
-          if (kind === 'finger' && pending.current && !pending.current.moved && pending.current.hitPage) {
-            dispatch({ type: 'selectPage', pageId: pending.current.hitPage });
-          }
-          kindTracker.release(evt.nativeEvent);
-          pending.current = null;
         }}
       >
         <View
@@ -623,6 +662,7 @@ export function Workspace({ doc, dispatch, onDragStart, onDragMove, onDragEnd }:
           })}
         </View>
       </View>
+      </GestureDetector>
       {editor ? (
         <TextInput
           accessibilityLabel="テキスト本文"

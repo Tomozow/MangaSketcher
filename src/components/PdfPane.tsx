@@ -1,6 +1,7 @@
 import * as DocumentPicker from 'expo-document-picker';
 import { useEffect, useRef, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { WebView } from 'react-native-webview';
 
 import { pdfJsItemsToDomain } from '../domain/pdfExtract';
@@ -15,6 +16,7 @@ import { joinVerticalBody, rangeSelectBody } from '../domain/pdfText';
 import { clampPdfPage, pdfPageRenderCommand, pdfPageViewerHtml, pdfPageViewerKey } from '../domain/pdfView';
 import type { DocumentState, PdfTextItem, Rect } from '../domain/types';
 import { createPointerKindTracker, pdfPointerPolicy } from '../input/nativePointer';
+import { pointerPanGesture, pointerPinchGesture } from '../input/pointerGestures';
 import { colors, spacing, touchTarget } from '../theme/tokens';
 
 type PdfPaneProps = {
@@ -69,8 +71,9 @@ export function PdfPane({ doc, onLoad, onView, onTextDragStart, onDragMove, onDr
   const overlayOrigin = useRef({ x: 0, y: 0 });
   const extractor = useRef<WebView>(null);
   const viewer = useRef<WebView>(null);
-  const lastPinch = useRef({ d: 0, z: 1 });
   const kindTracker = useRef(createPointerKindTracker()).current;
+  const panHeld = useRef(false);
+  const pinchStartZoom = useRef(1);
 
   const pdf = doc.pdf;
   const current = pdf ? clampPdfPage(pdf.currentPage, pdf.pageCount) : 1;
@@ -147,6 +150,48 @@ export function PdfPane({ doc, onLoad, onView, onTextDragStart, onDragMove, onDr
     : null;
   const preview = pdfRange ? joinVerticalBody(rangeSelectBody(source, pdfRange)) : '';
 
+  const overlayPan = pointerPanGesture({
+    tracker: kindTracker,
+    heldRef: panHeld,
+    shouldCapture: (sample) => sample.kind === 'finger',
+    onGrant: (sample) => {
+      if (!pdfPointerPolicy(sample.kind).rangeSelect) {
+        return;
+      }
+      const localX = sample.pageX - overlayOrigin.current.x;
+      const localY = sample.pageY - overlayOrigin.current.y;
+      dragOrigin.current = { x: localX, y: localY };
+      setRange({ x: localX, y: localY, width: 0, height: 0 });
+    },
+    onMove: (sample) => {
+      if (sample.pointerCount >= 2) {
+        return;
+      }
+      if (pdfPointerPolicy(sample.kind).rangeSelect && dragOrigin.current) {
+        const localX = sample.pageX - overlayOrigin.current.x;
+        const localY = sample.pageY - overlayOrigin.current.y;
+        setRange(normalizeRect(dragOrigin.current.x, dragOrigin.current.y, localX, localY));
+      }
+      onDragMove(sample.pageX, sample.pageY);
+    },
+    onRelease: (sample) => {
+      dragOrigin.current = null;
+      kindTracker.release(sample.native);
+      onDragEnd(sample.pageX, sample.pageY);
+    },
+  });
+  const overlayPinch = pointerPinchGesture({
+    onStart: () => {
+      pinchStartZoom.current = pdf?.zoom ?? 1;
+    },
+    onPinch: (scale) => {
+      onView({
+        zoom: Math.min(4, Math.max(0.5, pinchStartZoom.current * scale)),
+      });
+    },
+  });
+  const overlayGesture = Gesture.Simultaneous(overlayPan, overlayPinch);
+
   return (
     <View style={styles.panel}>
       {!pdf ? (
@@ -174,6 +219,7 @@ export function PdfPane({ doc, onLoad, onView, onTextDragStart, onDragMove, onDr
                 <Text style={styles.hint}>ページ {current} を描画中…</Text>
               </View>
             )}
+            <GestureDetector gesture={overlayGesture}>
             <View
               style={styles.overlay}
               onLayout={(e) => {
@@ -181,55 +227,6 @@ export function PdfPane({ doc, onLoad, onView, onTextDragStart, onDragMove, onDr
                 e.currentTarget.measureInWindow((x, y) => {
                   overlayOrigin.current = { x, y };
                 });
-              }}
-              onStartShouldSetResponder={(evt) => {
-                const kind = kindTracker.classify(evt.nativeEvent);
-                const touches = evt.nativeEvent.touches ?? [];
-                if (touches.length >= 2) {
-                  return true;
-                }
-                return pdfPointerPolicy(kind).rangeSelect;
-              }}
-              onMoveShouldSetResponder={() => true}
-              onResponderGrant={(evt) => {
-                const kind = kindTracker.classify(evt.nativeEvent);
-                if (!pdfPointerPolicy(kind).rangeSelect) {
-                  return;
-                }
-                const localX = evt.nativeEvent.pageX - overlayOrigin.current.x;
-                const localY = evt.nativeEvent.pageY - overlayOrigin.current.y;
-                dragOrigin.current = { x: localX, y: localY };
-                setRange({ x: localX, y: localY, width: 0, height: 0 });
-              }}
-              onResponderMove={(evt) => {
-                const touches = evt.nativeEvent.touches ?? [];
-                if (touches.length >= 2) {
-                  const dist = Math.hypot(
-                    touches[0].pageX - touches[1].pageX,
-                    touches[0].pageY - touches[1].pageY,
-                  );
-                  if (lastPinch.current.d > 0) {
-                    onView({
-                      zoom: Math.min(4, Math.max(0.5, lastPinch.current.z * (dist / lastPinch.current.d))),
-                    });
-                  } else {
-                    lastPinch.current = { d: dist, z: pdf.zoom };
-                  }
-                  return;
-                }
-                const kind = kindTracker.classify(evt.nativeEvent);
-                if (pdfPointerPolicy(kind).rangeSelect && dragOrigin.current) {
-                  const localX = evt.nativeEvent.pageX - overlayOrigin.current.x;
-                  const localY = evt.nativeEvent.pageY - overlayOrigin.current.y;
-                  setRange(normalizeRect(dragOrigin.current.x, dragOrigin.current.y, localX, localY));
-                }
-                onDragMove(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
-              }}
-              onResponderRelease={(evt) => {
-                lastPinch.current = { d: 0, z: pdf.zoom };
-                dragOrigin.current = null;
-                kindTracker.release(evt.nativeEvent);
-                onDragEnd(evt.nativeEvent.pageX, evt.nativeEvent.pageY);
               }}
             >
               {body.slice(0, 80).map((item, i) => {
@@ -255,6 +252,7 @@ export function PdfPane({ doc, onLoad, onView, onTextDragStart, onDragMove, onDr
                 />
               ) : null}
             </View>
+            </GestureDetector>
           </View>
           {extractBytes ? (
             <WebView

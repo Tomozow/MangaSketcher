@@ -1,7 +1,17 @@
 import type { PointerKind } from '../domain/types';
 
+/** RNGH `PointerType.STYLUS`. UIKit `UITouchTypePencil` is 2 — do not mix the enums. */
+const RNGH_STYLUS = 1;
+const UITouchPencil = 2;
+
+export type StylusDataLike = {
+  pressure?: number;
+  altitudeAngle?: number;
+  azimuthAngle?: number;
+};
+
 export type NativePointerLike = {
-  pointerType?: string;
+  pointerType?: number | string;
   type?: string;
   touchType?: number | string;
   force?: number;
@@ -10,55 +20,69 @@ export type NativePointerLike = {
   azimuthAngle?: number;
   identifier?: number | string;
   pointerId?: number | string;
+  stylusData?: StylusDataLike;
   touches?: NativePointerLike[];
   changedTouches?: NativePointerLike[];
 };
 
-const PEN_TOKENS = new Set(['pen', 'pencil', 'stylus', '1']);
-const FINGER_TOKENS = new Set(['touch', 'finger', 'direct', 'mouse', '0']);
+const PEN_STRINGS = new Set(['pen', 'pencil', 'stylus']);
+const FINGER_STRINGS = new Set(['touch', 'finger', 'direct', 'mouse', 'key']);
 
 function firstTouch(nativeEvent: NativePointerLike): NativePointerLike {
   return nativeEvent.touches?.[0] ?? nativeEvent.changedTouches?.[0] ?? nativeEvent;
 }
 
-function tokenOf(nativeEvent: NativePointerLike): string {
-  const touch = firstTouch(nativeEvent);
-  return `${nativeEvent.pointerType ?? touch.pointerType ?? nativeEvent.touchType ?? touch.touchType ?? ''}`.toLowerCase();
+function asToken(value: number | string | undefined): string {
+  if (value === undefined) {
+    return '';
+  }
+  return `${value}`.toLowerCase();
 }
 
 /**
- * iPad: pointerType / touchType を優先。force だけでは判定しない
- * （弱い Pencil が指になり、3D Touch のない iPad では無意味なため）。
- * altitude/azimuth は Pencil の UITouch にだけ載ることが多い。
+ * RNGH は `pointerType` を数値で渡す（0=指, 1=Pencil）。
+ * W3C Pointer Events は `"pen"` / `"touch"`。
+ * Fabric の Responder には type が載らないので、それだけに頼らない。
  */
 export function pointerKindFromNative(nativeEvent: NativePointerLike): PointerKind {
-  const token = tokenOf(nativeEvent);
-  if (PEN_TOKENS.has(token) || token.includes('pen') || token.includes('stylus')) {
+  const touch = firstTouch(nativeEvent);
+  const pointerType = nativeEvent.pointerType ?? touch.pointerType;
+
+  if (pointerType === RNGH_STYLUS || PEN_STRINGS.has(asToken(pointerType))) {
     return 'pencil';
   }
-  if (FINGER_TOKENS.has(token) || token === 'direct' || token === 'finger') {
+  if (
+    pointerType === 0 ||
+    pointerType === 2 ||
+    pointerType === 3 ||
+    pointerType === 4 ||
+    FINGER_STRINGS.has(asToken(pointerType))
+  ) {
     return 'finger';
   }
-  const eventName = `${nativeEvent.type ?? ''}`.toLowerCase();
-  if (PEN_TOKENS.has(eventName) || eventName.includes('pencil') || eventName.includes('stylus')) {
+
+  if (nativeEvent.stylusData || touch.stylusData) {
     return 'pencil';
   }
-  const touch = firstTouch(nativeEvent);
+
+  const eventName = asToken(nativeEvent.type);
+  if (PEN_STRINGS.has(eventName) || eventName.includes('pencil') || eventName.includes('stylus')) {
+    return 'pencil';
+  }
+
   const touchType = nativeEvent.touchType ?? touch.touchType;
-  if (touchType === 1 || touchType === 'stylus') {
+  if (touchType === UITouchPencil || touchType === 'stylus' || touchType === 'pencil') {
     return 'pencil';
   }
   if (touchType === 0 || touchType === 'direct') {
     return 'finger';
   }
+
   const altitude = nativeEvent.altitudeAngle ?? touch.altitudeAngle;
-  const azimuth = nativeEvent.azimuthAngle ?? touch.azimuthAngle;
-  if (typeof altitude === 'number' && altitude > 0.02) {
+  if (typeof altitude === 'number' && Number.isFinite(altitude)) {
     return 'pencil';
   }
-  if (typeof azimuth === 'number' && azimuth !== 0) {
-    return 'pencil';
-  }
+
   return 'finger';
 }
 
@@ -77,7 +101,13 @@ export function pointerIdFromNative(nativeEvent: NativePointerLike): number {
 
 export function pressureFromNative(nativeEvent: NativePointerLike): number {
   const touch = firstTouch(nativeEvent);
-  const value = nativeEvent.pressure ?? touch.pressure ?? nativeEvent.force ?? touch.force;
+  const value =
+    nativeEvent.stylusData?.pressure ??
+    touch.stylusData?.pressure ??
+    nativeEvent.pressure ??
+    touch.pressure ??
+    nativeEvent.force ??
+    touch.force;
   if (typeof value === 'number' && value > 0) {
     return Math.min(1, Math.max(0.08, value));
   }
@@ -86,7 +116,7 @@ export function pressureFromNative(nativeEvent: NativePointerLike): number {
 
 /**
  * 同一 identifier は最初に Pencil と分かったら最後まで Pencil。
- * responder が pointerType を落としても、onPointerDown の seed が効く。
+ * 途中のイベントで pointerType が欠けても stroke が指に落ちない。
  */
 export function createPointerKindTracker() {
   const sticky = new Map<number, PointerKind>();
