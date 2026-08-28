@@ -13,7 +13,19 @@ describe('planTextCommit (§3.4)', () => {
     ).toEqual({ kind: 'commit', content: 'あい' });
   });
 
-  test('skips while composing even when explicit', () => {
+  test('commits on 完了 even while composing', () => {
+    expect(
+      planTextCommit({
+        draft: 'あ',
+        savedContent: '',
+        composing: true,
+        explicit: true,
+        forceOnExplicit: true,
+      }),
+    ).toEqual({ kind: 'commit', content: 'あ' });
+  });
+
+  test('skips blur while composing', () => {
     expect(
       planTextCommit({
         draft: 'あ',

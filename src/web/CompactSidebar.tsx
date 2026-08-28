@@ -28,6 +28,8 @@ type CompactSidebarProps = {
   onRedo: () => void;
 };
 
+const ERASER_SIZE_MAX = 128;
+
 export function CompactSidebar({
   doc,
   history,
@@ -114,7 +116,7 @@ export function CompactSidebar({
       <ValueSlider
         label={doc.tool === 'text' ? 'サイズ' : doc.tool === 'eraser' ? '消し' : '筆'}
         min={doc.tool === 'text' ? 12 : 1}
-        max={doc.tool === 'text' ? 96 : 64}
+        max={doc.tool === 'text' ? 96 : doc.tool === 'eraser' ? ERASER_SIZE_MAX : 64}
         step={1}
         value={sizeValue}
         onChange={handleSizeChange}

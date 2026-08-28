@@ -41,3 +41,41 @@ describe('reduceEditorDocument VIEW_ONLY', () => {
     expect(history.past).toHaveLength(1);
   });
 });
+
+describe('deleteText', () => {
+  test('ページ所属テキストを削除し選択を解除する', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId },
+        box: { x: 1, y: 2, width: 8, height: 20 },
+        content: '残す',
+      },
+      ids,
+    );
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId },
+        box: { x: 4, y: 2, width: 8, height: 20 },
+        content: '',
+      },
+      ids,
+    );
+    const emptyId = doc.selectedTextId!;
+    doc = reduceEditorDocument(doc, { type: 'deleteText', textId: emptyId }, ids);
+    expect(doc.pages[pageId]!.texts).toHaveLength(1);
+    expect(doc.pages[pageId]!.texts[0]!.content).toBe('残す');
+    expect(doc.selectedTextId).toBeNull();
+  });
+});

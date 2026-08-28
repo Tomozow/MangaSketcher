@@ -63,6 +63,7 @@ export type DocumentAction =
       content?: string;
     }
   | { type: 'editText'; textId: TextId; content: string }
+  | { type: 'deleteText'; textId: TextId }
   | { type: 'moveText'; textId: TextId; x: number; y: number }
   | { type: 'resizeText'; textId: TextId; box: Rect }
   | { type: 'setTextColor'; textId: TextId; color: string }
@@ -364,9 +365,30 @@ export function reduceTestDocument(
       }
       return doc;
     }
+    case 'deleteText': {
+      for (const page of Object.values(doc.pages)) {
+        const index = page.texts.findIndex((t) => t.id === action.textId);
+        if (index === -1) {
+          continue;
+        }
+        page.texts.splice(index, 1);
+        if (doc.selectedTextId === action.textId) {
+          doc.selectedTextId = null;
+        }
+        return doc;
+      }
+      const pbIndex = doc.pasteboardTexts.findIndex((t) => t.id === action.textId);
+      if (pbIndex !== -1) {
+        doc.pasteboardTexts.splice(pbIndex, 1);
+        if (doc.selectedTextId === action.textId) {
+          doc.selectedTextId = null;
+        }
+      }
+      return doc;
+    }
     case 'moveText': {
       const found = findText(doc, action.textId);
-      if (found) {
+      if (found && Number.isFinite(action.x) && Number.isFinite(action.y)) {
         found.node.box.x = action.x;
         found.node.box.y = action.y;
       }

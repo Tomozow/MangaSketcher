@@ -30,6 +30,7 @@ describe('resolveWorkspaceHit ink tool priority', () => {
         }) as DOMRect,
       contains: () => true,
       querySelector: () => null,
+      querySelectorAll: () => [],
     } as unknown as HTMLElement;
 
     const shared = {

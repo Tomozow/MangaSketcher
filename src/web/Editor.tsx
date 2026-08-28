@@ -24,6 +24,7 @@ export default function Editor({ projectId }: EditorProps) {
     dispatch,
     applyWorkspaceEffects,
     commitTextEdit,
+    deleteText,
     setTextEditing,
     undo,
     redo,
@@ -34,6 +35,7 @@ export default function Editor({ projectId }: EditorProps) {
     inkFrame,
     marqueePreview,
     clipLiveTransforms,
+    textLiveTransforms,
     autosaveStatus,
     getPageThumb,
     getClipRasterSize,
@@ -112,6 +114,7 @@ export default function Editor({ projectId }: EditorProps) {
         dispatch={dispatch}
         applyWorkspaceEffects={applyWorkspaceEffects}
         commitTextEdit={commitTextEdit}
+        deleteText={deleteText}
         onTextEditingChange={setTextEditing}
         onUndo={undo}
         onRedo={redo}
@@ -122,6 +125,7 @@ export default function Editor({ projectId }: EditorProps) {
         inkFrame={inkFrame}
         marqueePreview={marqueePreview}
         clipLiveTransforms={clipLiveTransforms}
+        textLiveTransforms={textLiveTransforms}
         autosaveStatus={autosaveStatus}
         getPageThumb={getPageThumb}
         getClipRasterSize={getClipRasterSize}

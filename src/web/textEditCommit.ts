@@ -8,11 +8,13 @@ export function planTextCommit(input: {
   savedContent: string;
   composing: boolean;
   explicit: boolean;
+  /** 完了ボタンなど、IME 変換中でも確定する */
+  forceOnExplicit?: boolean;
 }): TextCommitPlan {
   if (!input.explicit) {
     return { kind: 'skip', reason: 'not-explicit' };
   }
-  if (input.composing) {
+  if (input.composing && !input.forceOnExplicit) {
     return { kind: 'skip', reason: 'composing' };
   }
   if (input.draft === input.savedContent) {

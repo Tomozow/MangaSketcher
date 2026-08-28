@@ -87,7 +87,9 @@ export type EditorDocumentAction =
       content?: string;
     }
   | { type: 'editText'; textId: TextId; content: string }
+  | { type: 'deleteText'; textId: TextId }
   | { type: 'moveText'; textId: TextId; x: number; y: number }
+  | { type: 'transferTextToPage'; textId: TextId; pageId: PageId; x: number; y: number }
   | { type: 'resizeText'; textId: TextId; box: Rect }
   | { type: 'setTextColor'; textId: TextId; color: string }
   | { type: 'setTextFontSize'; textId: TextId; fontSize: number }
@@ -315,11 +317,57 @@ export function reduceEditorDocument(
       }
       return doc;
     }
+    case 'deleteText': {
+      for (const page of Object.values(doc.pages)) {
+        const index = page.texts.findIndex((t) => t.id === a.textId);
+        if (index === -1) {
+          continue;
+        }
+        page.texts.splice(index, 1);
+        if (doc.selectedTextId === a.textId) {
+          doc.selectedTextId = null;
+        }
+        return doc;
+      }
+      const pbIndex = doc.pasteboardTexts.findIndex((t) => t.id === a.textId);
+      if (pbIndex !== -1) {
+        doc.pasteboardTexts.splice(pbIndex, 1);
+        if (doc.selectedTextId === a.textId) {
+          doc.selectedTextId = null;
+        }
+      }
+      return doc;
+    }
     case 'moveText': {
       const found = findEditorText(doc, a.textId);
-      if (found) {
+      if (found && Number.isFinite(a.x) && Number.isFinite(a.y)) {
         found.node.box.x = a.x;
         found.node.box.y = a.y;
+      }
+      return doc;
+    }
+    case 'transferTextToPage': {
+      const target = doc.pages[a.pageId];
+      if (!target) {
+        return doc;
+      }
+      for (const page of Object.values(doc.pages)) {
+        const index = page.texts.findIndex((t) => t.id === a.textId);
+        if (index === -1) {
+          continue;
+        }
+        if (page.id === a.pageId) {
+          const item = page.texts[index]!;
+          item.box.x = a.x;
+          item.box.y = a.y;
+          return doc;
+        }
+        const [item] = page.texts.splice(index, 1);
+        target.texts.push({
+          ...item,
+          box: { ...item.box, x: a.x, y: a.y },
+        });
+        return doc;
       }
       return doc;
     }

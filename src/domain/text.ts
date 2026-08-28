@@ -17,6 +17,23 @@ export function defaultTextBox(rw: number, rh: number): Pick<Rect, 'width' | 'he
   };
 }
 
+/** Keep a text box origin inside page raster bounds. */
+export function clampTextBoxOrigin(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  rasterWidth: number,
+  rasterHeight: number,
+): { x: number; y: number } {
+  const safeWidth = Math.max(4, width);
+  const safeHeight = Math.max(4, height);
+  return {
+    x: Math.max(0, Math.min(x, rasterWidth - safeWidth)),
+    y: Math.max(0, Math.min(y, rasterHeight - safeHeight)),
+  };
+}
+
 export function createEmptyTextBox(
   id: string,
   box: Rect,
@@ -166,6 +183,11 @@ export function toPageText(pasteboardText: PasteboardText, pageBox: Rect): PageT
 
 export function isVerticalWriting(): true {
   return true;
+}
+
+/** 空枠（未入力）判定。空白・改行のみも空とみなす。 */
+export function isTextContentEmpty(content: string): boolean {
+  return content.trim().length === 0;
 }
 
 /** 縦書き表示用。空枠はグリフなし。 */

@@ -11,7 +11,8 @@ import {
 import { pointInRect } from '../../domain/drop';
 import type { ClipId, ClipMeta, PageId, PageText, PasteboardText, ToolId } from '../../domain/types';
 import { hitClipAt } from '../clip/clipGeometry';
-import { pageInkLocalFromClient, resolvePageDomHit } from './pageInkDom';
+import { pageInkLocalFromClient, resolveAppendDomHit, resolvePageDomHit } from './pageInkDom';
+import { hitPageTextFromDom } from './pageTextDom';
 import type { WorkspaceHit } from './types';
 
 export type ResolveWorkspaceHitInput = {
@@ -44,7 +45,17 @@ function hitPageTexts(
   for (let i = texts.length - 1; i >= 0; i -= 1) {
     const text = texts[i]!;
     if (pointInRect(localX, localY, text.box)) {
-      return { kind: 'pageText', textId: text.id, pageId, localX, localY, readingIndex, insertIndex };
+      return {
+        kind: 'pageText',
+        textId: text.id,
+        pageId,
+        localX,
+        localY,
+        grabOffsetX: localX - (Number.isFinite(text.box.x) ? text.box.x : 0),
+        grabOffsetY: localY - (Number.isFinite(text.box.y) ? text.box.y : 0),
+        readingIndex,
+        insertIndex,
+      };
     }
   }
   return null;
@@ -54,7 +65,12 @@ function hitPasteboardTexts(texts: PasteboardText[], worldX: number, worldY: num
   for (let i = texts.length - 1; i >= 0; i -= 1) {
     const text = texts[i]!;
     if (pointInRect(worldX, worldY, text.box)) {
-      return { kind: 'pasteboardText', textId: text.id };
+      return {
+        kind: 'pasteboardText',
+        textId: text.id,
+        grabOffsetX: worldX - (Number.isFinite(text.box.x) ? text.box.x : 0),
+        grabOffsetY: worldY - (Number.isFinite(text.box.y) ? text.box.y : 0),
+      };
     }
   }
   return null;
@@ -110,9 +126,20 @@ function resolvePageWorkspaceHit(
   worldX: number,
   worldY: number,
 ): WorkspaceHit | null {
+  if (input.tool === 'text') {
+    const textDomHit = hitPageTextFromDom(input);
+    if (textDomHit) {
+      return textDomHit;
+    }
+  }
+
   const pageDomHit = resolvePageDomHit(input);
   if (pageDomHit) {
     return pageDomHit;
+  }
+
+  if (input.tool === 'text') {
+    return resolveAppendDomHit(input) ?? { kind: 'empty' };
   }
 
   const { frames } = buildStripFrames(input.workspaceOrder);

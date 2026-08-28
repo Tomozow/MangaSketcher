@@ -4,19 +4,27 @@ import type { GestureHit } from '../../domain/workspaceGestures';
 
 export type { GestureHit };
 
-type GestureHitWithoutPageText = Exclude<GestureHit, { kind: 'pageText' }>;
+type GestureHitWithoutText = Exclude<GestureHit, { kind: 'pageText' | 'pasteboardText' }>;
 
 /** Page number band below a page frame (tap target). */
 export type WorkspaceHit =
-  | GestureHitWithoutPageText
+  | GestureHitWithoutText
   | {
       kind: 'pageText';
       textId: TextId;
       pageId: PageId;
       localX: number;
       localY: number;
+      grabOffsetX: number;
+      grabOffsetY: number;
       readingIndex: number;
       insertIndex: number;
+    }
+  | {
+      kind: 'pasteboardText';
+      textId: TextId;
+      grabOffsetX: number;
+      grabOffsetY: number;
     }
   | { kind: 'pageNumber'; pageId: PageId; readingIndex: number }
   | { kind: 'append' }
@@ -98,8 +106,26 @@ export type WorkspaceSession =
       cx: number;
       cy: number;
     }
-  | { mode: 'pendingTextMove'; kind: 'pencil'; textId: TextId; startX: number; startY: number }
-  | { mode: 'moveText'; kind: 'pencil'; textId: TextId }
+  | {
+      mode: 'pendingTextMove';
+      kind: 'pencil' | 'finger';
+      textId: TextId;
+      startX: number;
+      startY: number;
+      grabOffsetX: number;
+      grabOffsetY: number;
+      pageId?: PageId;
+      where: 'page' | 'pasteboard';
+    }
+  | {
+      mode: 'moveText';
+      kind: 'pencil' | 'finger';
+      textId: TextId;
+      grabOffsetX: number;
+      grabOffsetY: number;
+      pageId?: PageId;
+      where: 'page' | 'pasteboard';
+    }
   | { mode: 'resizeText'; kind: 'pencil'; textId: TextId }
   | {
       mode: 'pendingChromeTap';
@@ -128,6 +154,8 @@ export type WorkspaceEffect =
   | { type: 'createText'; pageId: PageId; x: number; y: number }
   | { type: 'selectText'; textId: TextId }
   | { type: 'moveText'; textId: TextId; x: number; y: number }
+  | { type: 'textTransformLive'; textId: TextId; x: number; y: number; pageId?: PageId }
+  | { type: 'commitTextTransform'; textId: TextId; x: number; y: number; pageId?: PageId }
   | { type: 'resizeText'; textId: TextId; x: number; y: number }
   | { type: 'moveClip'; clipId: ClipId; x: number; y: number }
   | { type: 'scaleClip'; clipId: ClipId; scale: number }
@@ -174,6 +202,8 @@ export type WorkspacePointerInput = {
   getClipMeta: (clipId: ClipId) => ClipMeta | undefined;
   getClipRasterSize: (clipId: ClipId) => { width: number; height: number };
   mapInkToPage?: (pageId: PageId, clientX: number, clientY: number) => { x: number; y: number } | null;
+  /** DOM page-frame coords only (no strip/world fallback). Used for text placement. */
+  mapPageDomLocal?: (pageId: PageId, clientX: number, clientY: number) => { x: number; y: number } | null;
   pointerType?: PointerEvent['pointerType'];
   desktopNav?: DesktopNavMode;
 };

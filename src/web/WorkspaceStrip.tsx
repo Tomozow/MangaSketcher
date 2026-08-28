@@ -2,20 +2,24 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { buildStripFrames, NUMBER_BAND } from '@/src/domain/stripGeometry';
-import { PAGE_INK_FRAME_ATTR, PAGE_NUMBER_BAND_ATTR } from '@/src/web/gestures/pageInkDom';
+import { PAGE_INK_FRAME_ATTR, PAGE_NUMBER_BAND_ATTR, APPEND_SLOT_ATTR } from '@/src/web/gestures/pageInkDom';
 import {
   TEMPLATE_PAGE_NUMBER_COVER,
   type ClipId,
   type ClipMeta,
   type PageId,
   type PasteboardText,
+  type TextId,
   type ToolId,
 } from '@/src/domain/types';
 import type { PageMeta } from '@/src/storage/types';
 import { createWorkspacePointerPipeline, type WorkspaceEffect } from '@/src/web/gestures';
 import { inkLocalOnPage, resolveWorkspaceHit } from '@/src/web/gestures/resolveHit';
+import { pageInkLocalFromClient } from '@/src/web/gestures/pageInkDom';
 import { PageDragThumbnail } from '@/src/web/PageDragThumbnail';
 import { effectiveClipPose, type ClipLiveTransform } from '@/src/web/clip/clipLiveTransform';
+import { PageTextsOnFrame, textsForFrame } from '@/src/web/PageTextOverlay';
+import type { TextLiveTransform } from '@/src/web/text/textLiveTransform';
 import styles from './editor.module.css';
 
 const TEMPLATE_URL = '/page_template.jpg';
@@ -28,6 +32,9 @@ type WorkspaceStripProps = {
   pasteboardTexts: PasteboardText[];
   selectedPageId: PageId | null;
   selectedClipId: ClipId | null;
+  selectedTextId: TextId | null;
+  textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
+  onDeleteText: (textId: TextId) => void;
   tool: ToolId;
   zoom: number;
   panX: number;
@@ -52,6 +59,9 @@ export function WorkspaceStrip({
   pasteboardTexts,
   selectedPageId,
   selectedClipId,
+  selectedTextId,
+  textLiveTransforms,
+  onDeleteText,
   tool,
   zoom,
   panX,
@@ -186,6 +196,20 @@ export function WorkspaceStrip({
           pageId,
         );
       },
+      mapPageDomLocal: (pageId, clientX, clientY) => {
+        const el = surfaceRef.current;
+        if (!el) {
+          return null;
+        }
+        return pageInkLocalFromClient(
+          el,
+          clientX,
+          clientY,
+          pageId,
+          ctxRef.current.rasterWidth,
+          ctxRef.current.rasterHeight,
+        );
+      },
       onEffects: (effects) => {
         const grabbed = applyWorkspaceEffects(
           effects,
@@ -247,6 +271,7 @@ export function WorkspaceStrip({
                 key={frame.key}
                 className={styles.appendButton}
                 style={{ position: 'absolute', left: frame.x, top: frame.y }}
+                {...{ [APPEND_SLOT_ATTR]: '' }}
                 aria-label="ページ追加"
               >
                 +
@@ -272,6 +297,7 @@ export function WorkspaceStrip({
 
           const { pageId, number } = frame.slot;
           const isGrabbed = grabbedPageId === pageId;
+          const pageTexts = textsForFrame(pageId, pages, textLiveTransforms);
 
           return (
             <div
@@ -292,6 +318,15 @@ export function WorkspaceStrip({
                     width: `${TEMPLATE_PAGE_NUMBER_COVER.width * 100}%`,
                     height: `${TEMPLATE_PAGE_NUMBER_COVER.height * 100}%`,
                   }}
+                />
+                <PageTextsOnFrame
+                  pageId={pageId}
+                  texts={pageTexts}
+                  rasterWidth={rasterWidth}
+                  rasterHeight={rasterHeight}
+                  selectedTextId={selectedTextId}
+                  textLiveTransforms={textLiveTransforms}
+                  onDeleteText={onDeleteText}
                 />
               </div>
               <div

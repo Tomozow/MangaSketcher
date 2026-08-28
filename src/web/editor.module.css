@@ -181,6 +181,7 @@
   position: relative;
   width: 216px;
   height: 306px;
+  overflow: visible;
   background-size: 100% 100%;
   background-repeat: no-repeat;
   background-color: #fff;
@@ -617,7 +618,7 @@
 .pageTextOverlay {
   position: absolute;
   inset: 0;
-  overflow: hidden;
+  overflow: visible;
   pointer-events: none;
   z-index: 3;
 }
@@ -632,16 +633,54 @@
   position: relative;
 }
 
+.pageTextWrap {
+  position: absolute;
+  box-sizing: border-box;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.pageTextWrapSelected {
+  z-index: 4;
+}
+
+.pageTextDeleteButton {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-4px, calc(-100% - 6px));
+  z-index: 5;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--ms-accent);
+  border-radius: 4px;
+  background: var(--ms-background);
+  color: var(--ms-accent);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.pageTextDeleteButton:active {
+  opacity: 0.75;
+}
+
 .pageTextBox {
   position: absolute;
+  inset: 0;
   writing-mode: vertical-rl;
   text-orientation: mixed;
-  overflow: hidden;
+  overflow: visible;
   white-space: pre-wrap;
   word-break: break-all;
   box-sizing: border-box;
   border: 1px solid transparent;
   pointer-events: none;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
 }
 
 .pageTextBoxSelected {

@@ -24,6 +24,8 @@ const pageText = {
   pageId: 'p1',
   localX: 5,
   localY: 5,
+  grabOffsetX: 2,
+  grabOffsetY: 3,
   readingIndex: 0,
   insertIndex: 0,
 };
@@ -158,6 +160,53 @@ describe('Web workspace FSM', () => {
       expect(up.effects).toEqual([{ type: 'appendPage' }]);
     });
 
+    test('text tool: pending up on + は appendPage しない', () => {
+      const store = createWorkspaceGestureStore();
+      finger(store, 'down', { tool: 'text', hit: { kind: 'append' }, now: 100 });
+      const up = finger(store, 'up', { tool: 'text', hit: { kind: 'append' }, now: 150 });
+      expect(up.effects).toEqual([]);
+    });
+
+    test('text tool: down=append / up=page なら UP 位置で createText', () => {
+      const store = createWorkspaceGestureStore();
+      const pageAtUp = {
+        kind: 'page' as const,
+        pageId: 'p1',
+        localX: 400,
+        localY: 500,
+        readingIndex: 0,
+        insertIndex: 0,
+      };
+      finger(store, 'down', { tool: 'text', hit: { kind: 'append' }, now: 100 });
+      const up = finger(store, 'up', {
+        tool: 'text',
+        hit: pageAtUp,
+        now: 150,
+        mapPageDomLocal: () => ({ x: 420, y: 520 }),
+      });
+      expect(up.effects).toEqual([{ type: 'createText', pageId: 'p1', x: 420, y: 520 }]);
+    });
+
+    test('text tool: DOM 座標が取れなければ createText しない', () => {
+      const store = createWorkspaceGestureStore();
+      const pageAtUp = {
+        kind: 'page' as const,
+        pageId: 'p1',
+        localX: 0,
+        localY: 500,
+        readingIndex: 0,
+        insertIndex: 0,
+      };
+      finger(store, 'down', { tool: 'text', hit: pageAtUp, now: 100 });
+      const up = finger(store, 'up', {
+        tool: 'text',
+        hit: pageAtUp,
+        now: 150,
+        mapPageDomLocal: () => null,
+      });
+      expect(up.effects).toEqual([]);
+    });
+
     test('番号帯でも移動 ≥12px ならパン（insert しない）', () => {
       const store = createWorkspaceGestureStore();
       finger(store, 'down', {
@@ -206,13 +255,33 @@ describe('Web workspace FSM', () => {
       expect(up.effects).toEqual([{ type: 'selectText', textId: 'tx' }]);
     });
 
-    test('移動 ≥ 8px なら moveText（tap ではない）', () => {
+    test('移動 ≥ 8px なら textTransformLive（tap ではない）', () => {
       const store = createWorkspaceGestureStore();
       pencilText(store, 'down', { x: 10, y: 10, now: 100 });
       const move = pencilText(store, 'move', { x: 20, y: 10, now: 120 });
       expect(getWorkspaceSession(store, 10)?.mode).toBe('moveText');
       expect(move.effects).toContainEqual({ type: 'selectText', textId: 'tx' });
-      expect(move.effects).toContainEqual({ type: 'moveText', textId: 'tx', x: 5, y: 5 });
+      expect(move.effects).toContainEqual({
+        type: 'textTransformLive',
+        textId: 'tx',
+        x: 3,
+        y: 2,
+        pageId: 'p1',
+      });
+
+      const up = pencilText(store, 'up', {
+        x: 25,
+        y: 12,
+        now: 150,
+        hit: { ...pageText, localX: 12, localY: 9 },
+      });
+      expect(up.effects).toContainEqual({
+        type: 'commitTextTransform',
+        textId: 'tx',
+        x: 10,
+        y: 6,
+        pageId: 'p1',
+      });
     });
   });
 

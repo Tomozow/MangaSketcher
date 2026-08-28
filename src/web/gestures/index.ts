@@ -30,6 +30,7 @@ export type WorkspacePointerContext = {
   getClipRasterSize: (clipId: ClipId) => { width: number; height: number };
   resolveHit: (clientX: number, clientY: number) => WorkspaceHit;
   mapInkToPage?: (pageId: PageId, clientX: number, clientY: number) => { x: number; y: number } | null;
+  mapPageDomLocal?: (pageId: PageId, clientX: number, clientY: number) => { x: number; y: number } | null;
   onEffects: (effects: WorkspaceEffect[]) => void;
   now?: () => number;
 };
@@ -131,6 +132,7 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
           getClipMeta: ctx.getClipMeta,
           getClipRasterSize: ctx.getClipRasterSize,
           mapInkToPage: ctx.mapInkToPage,
+          mapPageDomLocal: ctx.mapPageDomLocal,
           pointerType: pe.pointerType,
           desktopNav: pe.pointerType === 'mouse' ? nav : 'none',
         });

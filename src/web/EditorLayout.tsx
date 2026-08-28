@@ -8,7 +8,7 @@ import type { EditorDocument, EditorHistory } from '@/src/storage/types';
 import type { AutosaveStatus } from '@/src/storage/autosave';
 import type { WorkspaceEffect } from '@/src/web/gestures';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
-import type { MarqueePreview, ClipLiveTransform } from '@/src/web/useEditorController';
+import type { MarqueePreview, ClipLiveTransform, TextLiveTransform } from '@/src/web/useEditorController';
 import { colors } from '@/src/theme/tokens';
 import styles from './editor.module.css';
 import { CompactSidebar } from './CompactSidebar';
@@ -16,7 +16,6 @@ import { PdfPanePlaceholder } from './PdfPanePlaceholder';
 import { SplitHandle } from './SplitHandle';
 import { StockPane, type WorkspaceGrab } from './StockPane';
 import { PageInkOverlay } from './PageInkOverlay';
-import { PageTextOverlay } from './PageTextOverlay';
 import { TextEditBar } from './TextEditBar';
 import type { TextEditSelection } from '@/src/web/TextEditBar';
 import { WorkspaceStrip } from './WorkspaceStrip';
@@ -35,6 +34,7 @@ type EditorLayoutProps = {
     surfaceRect: DOMRect | null,
   ) => string | null | undefined;
   commitTextEdit: (textId: string, content: string) => void;
+  deleteText: (textId: string) => void;
   onTextEditingChange: (editing: boolean) => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -51,6 +51,7 @@ type EditorLayoutProps = {
   inkFrame: number;
   marqueePreview: MarqueePreview | null;
   clipLiveTransforms: Readonly<Record<string, ClipLiveTransform>>;
+  textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
   autosaveStatus: AutosaveStatus;
   getPageThumb: (pageId: PageId) => ImageBitmap | undefined;
   getClipRasterSize: (clipId: string) => { width: number; height: number };
@@ -66,6 +67,7 @@ export function EditorLayout({
   dispatch,
   applyWorkspaceEffects,
   commitTextEdit,
+  deleteText,
   onTextEditingChange,
   onUndo,
   onRedo,
@@ -77,6 +79,7 @@ export function EditorLayout({
   inkFrame,
   marqueePreview,
   clipLiveTransforms,
+  textLiveTransforms,
   autosaveStatus,
   getPageThumb,
   getClipRasterSize,
@@ -143,6 +146,9 @@ export function EditorLayout({
               getClipRasterSize={getClipRasterSize}
               applyWorkspaceEffects={handleWorkspaceEffects}
               getPageThumb={getPageThumb}
+              selectedTextId={doc.selectedTextId}
+              textLiveTransforms={textLiveTransforms}
+              onDeleteText={deleteText}
             />
             {inkEngine ? (
               <PageInkOverlay
@@ -153,7 +159,6 @@ export function EditorLayout({
                 clipLiveTransforms={clipLiveTransforms}
               />
             ) : null}
-            <PageTextOverlay doc={doc} hidden={textEditing} />
           </div>
 
           {doc.pdfViewerVisible ? (
@@ -230,6 +235,7 @@ export function EditorLayout({
         selection={textSelection}
         viewportBottom={viewportBottom}
         onCommit={commitTextEdit}
+        onDeleteText={deleteText}
         onEditingChange={onTextEditingChange}
       />
     </div>
