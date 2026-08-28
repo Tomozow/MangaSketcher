@@ -137,6 +137,11 @@ function TextBoxChrome({
   );
 }
 
+export type LiveTextContent = {
+  id: TextId;
+  content: string;
+};
+
 type PageTextsOnFrameProps = {
   pageId: PageId;
   texts: PageText[];
@@ -144,6 +149,7 @@ type PageTextsOnFrameProps = {
   rasterHeight: number;
   selectedTextId: TextId | null;
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
+  liveTextContent?: LiveTextContent | null;
 };
 
 /** Page-local text boxes. Must render inside the page frame, not a sibling overlay. */
@@ -154,6 +160,7 @@ export function PageTextsOnFrame({
   rasterHeight,
   selectedTextId,
   textLiveTransforms,
+  liveTextContent,
 }: PageTextsOnFrameProps) {
   const rw = rasterSize(rasterWidth, DEFAULT_RASTER_WIDTH);
   const rh = rasterSize(rasterHeight, DEFAULT_RASTER_HEIGHT);
@@ -191,7 +198,7 @@ export function PageTextsOnFrame({
                 lineHeight: 1.2,
               }}
             >
-              {text.content}
+              {liveTextContent?.id === text.id ? liveTextContent.content : text.content}
             </div>
             {selected ? <span className={styles.textResizeHandle} aria-hidden="true" /> : null}
           </div>
@@ -209,6 +216,7 @@ type PasteboardTextsLayerProps = {
   rasterHeight: number;
   selectedTextId: TextId | null;
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
+  liveTextContent?: LiveTextContent | null;
 };
 
 function pasteboardWorldItems(input: {
@@ -274,6 +282,7 @@ export function PasteboardTextsLayer({
   rasterHeight,
   selectedTextId,
   textLiveTransforms,
+  liveTextContent,
 }: PasteboardTextsLayerProps) {
   const items = pasteboardWorldItems({
     frames,
@@ -302,7 +311,7 @@ export function PasteboardTextsLayer({
               className={`${styles.pageTextBox} ${selected ? styles.pageTextBoxSelected : ''}`}
               style={{ color: text.color, fontSize, lineHeight: 1.2 }}
             >
-              {text.content}
+              {liveTextContent?.id === text.id ? liveTextContent.content : text.content}
             </div>
             {selected ? <span className={styles.textResizeHandle} aria-hidden="true" /> : null}
           </div>

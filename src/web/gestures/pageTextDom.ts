@@ -1,5 +1,11 @@
 import type { PageId, PageText } from '../../domain/types';
-import { PAGE_INK_FRAME_ATTR, pageFrameMapRect, pageInkLocalFromFrameRect } from './pageInkDom';
+import { buildStripFrames } from '../../domain/stripGeometry';
+import {
+  PAGE_INK_FRAME_ATTR,
+  pageFrameMapRect,
+  pageInkLocalFromFrameRect,
+  rasterGrabOffsetToWorld,
+} from './pageInkDom';
 import { MIN_TEXT_HIT_CSS } from './textHit';
 import type { WorkspaceHit } from './types';
 
@@ -120,7 +126,18 @@ export function hitPageTextFromDom(input: {
   const boxY = Number.isFinite(text.box.y) ? text.box.y : 0;
 
   const readingIndex = input.workspaceOrder.indexOf(pageId);
-  const insertIndex = Math.max(0, readingIndex);
+  const stripFrame = buildStripFrames(input.workspaceOrder).frames.find(
+    (item) => item.slot.kind === 'page' && item.slot.pageId === pageId,
+  );
+  const insertIndex = stripFrame?.insertIndex ?? Math.max(0, readingIndex);
+  const grab = rasterGrabOffsetToWorld(
+    localX - boxX,
+    localY - boxY,
+    input.rasterWidth,
+    input.rasterHeight,
+    stripFrame?.width ?? frameRect.width,
+    stripFrame?.height ?? frameRect.height,
+  );
 
   return {
     kind: 'pageText',
@@ -128,8 +145,8 @@ export function hitPageTextFromDom(input: {
     pageId,
     localX,
     localY,
-    grabOffsetX: localX - boxX,
-    grabOffsetY: localY - boxY,
+    grabOffsetX: grab.grabOffsetX,
+    grabOffsetY: grab.grabOffsetY,
     readingIndex,
     insertIndex,
   };

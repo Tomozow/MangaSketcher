@@ -27,7 +27,13 @@ import {
 import { pageInkLocalFromClient } from '@/src/web/gestures/pageInkDom';
 import { PageDragThumbnail } from '@/src/web/PageDragThumbnail';
 import { effectiveClipPose, type ClipLiveTransform } from '@/src/web/clip/clipLiveTransform';
-import { PageTextsOnFrame, PasteboardTextsLayer, TextChromeOverlay, textsForFrame } from '@/src/web/PageTextOverlay';
+import {
+  PageTextsOnFrame,
+  PasteboardTextsLayer,
+  TextChromeOverlay,
+  textsForFrame,
+  type LiveTextContent,
+} from '@/src/web/PageTextOverlay';
 import type { TextLiveTransform } from '@/src/web/text/textLiveTransform';
 import { styles } from './editorStyles';
 
@@ -43,6 +49,7 @@ type WorkspaceStripProps = {
   selectedClipId: ClipId | null;
   selectedTextId: TextId | null;
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
+  liveTextContent?: LiveTextContent | null;
   onDeleteText: (textId: TextId) => void;
   tool: ToolId;
   zoom: number;
@@ -70,6 +77,7 @@ export function WorkspaceStrip({
   selectedClipId,
   selectedTextId,
   textLiveTransforms,
+  liveTextContent,
   onDeleteText,
   tool,
   zoom,
@@ -387,6 +395,7 @@ export function WorkspaceStrip({
                   rasterHeight={rasterHeight}
                   selectedTextId={selectedTextId}
                   textLiveTransforms={textLiveTransforms}
+                  liveTextContent={liveTextContent}
                 />
               </div>
               <div
@@ -407,6 +416,7 @@ export function WorkspaceStrip({
           rasterHeight={rasterHeight}
           selectedTextId={selectedTextId}
           textLiveTransforms={textLiveTransforms}
+          liveTextContent={liveTextContent}
         />
       </div>
       {selectedTextId ? (

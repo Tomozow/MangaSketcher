@@ -1,6 +1,21 @@
 import { describe, expect, test } from 'vitest';
 
-import { PAGE_INK_FRAME_ATTR, pageFrameMapRect, pageInkLocalFromFrameRect, resolvePageDomHit } from '../pageInkDom';
+import {
+  PAGE_INK_FRAME_ATTR,
+  pageFrameMapRect,
+  pageInkLocalFromFrameRect,
+  rasterGrabOffsetToWorld,
+  resolvePageDomHit,
+} from '../pageInkDom';
+import { PAGE_DISPLAY_H, PAGE_DISPLAY_W } from '../../../domain/stripGeometry';
+
+describe('rasterGrabOffsetToWorld', () => {
+  test('scales page-raster grab delta into strip world units', () => {
+    const grab = rasterGrabOffsetToWorld(300, 170, 1200, 1700, PAGE_DISPLAY_W, PAGE_DISPLAY_H);
+    expect(grab.grabOffsetX).toBeCloseTo((300 / 1200) * PAGE_DISPLAY_W);
+    expect(grab.grabOffsetY).toBeCloseTo((170 / 1700) * PAGE_DISPLAY_H);
+  });
+});
 
 describe('pageInkLocalFromFrameRect', () => {
   test('maps client coords across the full page frame height', () => {

@@ -1,11 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
 import type { ToolId } from '@/src/domain/types';
 import { inkPalette } from '@/src/theme/tokens';
-import type { AutosaveStatus } from '@/src/storage/autosave';
 import type { EditorDocument, EditorHistory } from '@/src/storage/types';
 import { historyControlsDisabled } from './historyControls';
 import { ValueSlider } from './ValueSlider';
@@ -22,7 +20,6 @@ type CompactSidebarProps = {
   doc: EditorDocument;
   history: EditorHistory;
   textEditing: boolean;
-  autosaveStatus: AutosaveStatus;
   dispatch: (action: EditorDocumentAction) => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -34,7 +31,6 @@ export function CompactSidebar({
   doc,
   history,
   textEditing,
-  autosaveStatus,
   dispatch,
   onUndo,
   onRedo,
@@ -86,19 +82,6 @@ export function CompactSidebar({
 
   return (
     <div className={styles.sidebar}>
-      {(autosaveStatus.unsaved || autosaveStatus.encodingCount > 0) && (
-        <div className={styles.saveStatusRow} aria-live="polite">
-          <span
-            className={`${styles.saveStatusDot} ${
-              autosaveStatus.encodingCount > 0 ? styles.saveStatusEncoding : styles.saveStatusUnsaved
-            }`}
-            aria-hidden
-          />
-          <span className={styles.saveStatusLabel}>
-            {autosaveStatus.encodingCount > 0 ? 'エンコード中' : '未保存'}
-          </span>
-        </div>
-      )}
       <div className={styles.toolRow}>
         {TOOLS.map((tool) => (
           <button
@@ -187,9 +170,6 @@ export function CompactSidebar({
         >
           {doc.stockLayout === 'grid' ? '自由' : '整列'}
         </button>
-        <Link href="/" className={styles.linkButton}>
-          一覧
-        </Link>
       </div>
     </div>
   );

@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { EditorLayout } from '@/src/web/EditorLayout';
 import { EditorLoadingSurface } from '@/src/web/EditorLoadingSurface';
@@ -20,7 +19,6 @@ export default function Editor({ projectId }: EditorProps) {
     pdfBytes,
     textEditing,
     textSelection,
-    viewportBottom,
     dispatch,
     applyWorkspaceEffects,
     commitTextEdit,
@@ -98,12 +96,6 @@ export default function Editor({ projectId }: EditorProps) {
         ['--ms-accent' as string]: colors.accent,
       }}
     >
-      <header className={styles.header} data-ms-shell="header">
-        <Link href="/" className={styles.linkButton}>
-          一覧へ
-        </Link>
-        <h1 className={styles.headerTitle}>{history.present.name}</h1>
-      </header>
       <EditorLayout
         doc={history.present}
         history={history}
@@ -111,7 +103,6 @@ export default function Editor({ projectId }: EditorProps) {
         pdfBytes={pdfBytes}
         textEditing={textEditing}
         textSelection={textSelection}
-        viewportBottom={viewportBottom}
         dispatch={dispatch}
         applyWorkspaceEffects={applyWorkspaceEffects}
         commitTextEdit={commitTextEdit}

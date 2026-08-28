@@ -1,5 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { LONG_PRESS_MS, canGrabPage } from '../../../domain/workspaceGestures';
+import { buildStripFrames, pageLocalFromWorld } from '../../../domain/stripGeometry';
+import { rasterGrabOffsetToWorld } from '../pageInkDom';
 import {
   countActiveTouches,
   getWorkspaceSession,
@@ -308,6 +310,83 @@ describe('Web workspace FSM', () => {
         pageId: 'p1',
         pasteboard: undefined,
       });
+    });
+
+    test('ラスタ grabOffset のままだと原点がページ左上付近になり、ワールド換算では箱原点を維持する', () => {
+      const { frames } = buildStripFrames(['p1']);
+      const frame = frames.find((item) => item.slot.kind === 'page' && item.slot.pageId === 'p1')!;
+      const rasterWidth = 1200;
+      const rasterHeight = 1700;
+      const boxX = 200;
+      const boxY = 300;
+      const localX = 500;
+      const localY = 600;
+      const worldX = frame.x + (localX / rasterWidth) * frame.width;
+      const worldY = frame.y + (localY / rasterHeight) * frame.height;
+      const mapWorldToPage = (_pageId: string, x: number, y: number) =>
+        pageLocalFromWorld(frame, x, y, rasterWidth, rasterHeight);
+      const dropHit = {
+        kind: 'page' as const,
+        pageId: 'p1',
+        localX,
+        localY,
+        readingIndex: 0,
+        insertIndex: 0,
+      };
+
+      const rasterHit = {
+        ...pageText,
+        localX,
+        localY,
+        grabOffsetX: localX - boxX,
+        grabOffsetY: localY - boxY,
+      };
+      const rasterStore = createWorkspaceGestureStore();
+      pencilText(rasterStore, 'down', { x: 0, y: 0, worldX, worldY, hit: rasterHit, now: 100 });
+      const rasterMove = pencilText(rasterStore, 'move', {
+        x: 20,
+        y: 0,
+        worldX,
+        worldY,
+        hit: rasterHit,
+        dropHit,
+        mapWorldToPage,
+        now: 120,
+      });
+      const rasterLive = rasterMove.effects.find((e) => e.type === 'textTransformLive');
+      expect(rasterLive).toMatchObject({ type: 'textTransformLive', textId: 'tx', pageId: 'p1' });
+      if (rasterLive?.type === 'textTransformLive') {
+        expect(rasterLive.x).toBeLessThan(1);
+        expect(rasterLive.y).toBeLessThan(1);
+      }
+
+      const worldGrab = rasterGrabOffsetToWorld(
+        localX - boxX,
+        localY - boxY,
+        rasterWidth,
+        rasterHeight,
+        frame.width,
+        frame.height,
+      );
+      const worldHit = { ...pageText, localX, localY, ...worldGrab };
+      const worldStore = createWorkspaceGestureStore();
+      pencilText(worldStore, 'down', { x: 0, y: 0, worldX, worldY, hit: worldHit, now: 100 });
+      const worldMove = pencilText(worldStore, 'move', {
+        x: 20,
+        y: 0,
+        worldX,
+        worldY,
+        hit: worldHit,
+        dropHit,
+        mapWorldToPage,
+        now: 120,
+      });
+      const worldLive = worldMove.effects.find((e) => e.type === 'textTransformLive');
+      expect(worldLive).toMatchObject({ type: 'textTransformLive', textId: 'tx', pageId: 'p1' });
+      if (worldLive?.type === 'textTransformLive') {
+        expect(worldLive.x).toBeCloseTo(boxX);
+        expect(worldLive.y).toBeCloseTo(boxY);
+      }
     });
   });
 

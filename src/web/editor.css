@@ -73,7 +73,7 @@ body {
   align-self: stretch;
   min-height: 0;
   overflow: hidden;
-  border-left: 1px solid var(--ms-border);
+  border-right: 1px solid var(--ms-border);
   background: var(--ms-surface);
 }
 
@@ -83,6 +83,55 @@ body {
 
 #editor-sidebar-split[data-ms-sidebar='compact'] {
   width: 112px;
+}
+
+#editor-sidebar-split .ms-navRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ms-border);
+  background: var(--ms-surface);
+  flex-shrink: 0;
+  min-width: 0;
+  min-height: 52px;
+  box-sizing: border-box;
+}
+
+#editor-sidebar-split .ms-navRow .ms-headerTitle {
+  flex: 1 1 0%;
+  min-width: 0;
+}
+
+#editor-sidebar-split[data-ms-sidebar='compact'] .ms-navRow {
+  padding: 8px 6px;
+  gap: 4px;
+}
+
+#editor-sidebar-split[data-ms-sidebar='compact'] .ms-headerTitle {
+  font-size: 12px;
+}
+
+#editor-sidebar-split[data-ms-sidebar='compact'] .ms-linkButton {
+  flex: 0 0 auto;
+  min-height: 36px;
+  font-size: 12px;
+  padding: 0 2px;
+}
+
+#editor-sidebar-split[data-ms-sidebar='compact'] .ms-saveStatusRow {
+  min-width: 8px;
+}
+
+#editor-sidebar-split[data-ms-sidebar='compact'] .ms-saveStatusLabel {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
 }
 
 #editor-root [data-ms-shell='split-col'] {
@@ -202,6 +251,22 @@ body {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
+}
+
+.ms-navRow {
+  display: flex;
+  flex-direction: row;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ms-border);
+  background: var(--ms-surface);
+  flex-shrink: 0;
+  min-width: 0;
+  min-height: 52px;
+  box-sizing: border-box;
 }
 
 .ms-body {
@@ -230,7 +295,7 @@ body {
   align-self: stretch;
   min-height: 0;
   overflow: hidden;
-  border-left: 1px solid var(--ms-border);
+  border-right: 1px solid var(--ms-border);
   background: var(--ms-surface);
 }
 
@@ -922,21 +987,23 @@ body {
 
 .ms-textEditBar {
   position: fixed;
-  left: 0;
-  right: 0;
   z-index: 20;
   display: flex;
   align-items: stretch;
-  gap: 8px;
-  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
-  background: var(--ms-surface);
-  border-top: 1px solid var(--ms-border);
-  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+  width: auto;
+  padding: 0;
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  writing-mode: horizontal-tb;
+  direction: ltr;
 }
 
 .ms-textEditInput {
   flex: 1;
   min-height: 44px;
+  min-width: 0;
+  width: 100%;
   padding: 8px 10px;
   border: 1px solid var(--ms-border);
   border-radius: 8px;
@@ -946,27 +1013,30 @@ body {
   user-select: text;
   color: var(--ms-text);
   background: #fff;
-}
-
-.ms-textEditDone {
-  min-width: 64px;
-  min-height: 44px;
-  border: 1px solid var(--ms-accent);
-  border-radius: 8px;
-  background: var(--ms-accent);
-  color: #fff;
-  touch-action: manipulation;
-  cursor: pointer;
-  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
 .ms-saveStatusRow {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 8px;
+  margin: 0;
+  flex: 0 0 auto;
+  min-width: 6.5em;
+  justify-content: flex-end;
   font-size: 12px;
   color: var(--ms-text-muted);
+  white-space: nowrap;
+  position: relative;
+}
+
+.ms-saveStatusRow[data-ms-save='idle'] {
+  visibility: hidden;
+}
+
+.ms-saveStatusLabel {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .ms-saveStatusDot {

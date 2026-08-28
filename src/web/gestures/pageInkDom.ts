@@ -61,6 +61,23 @@ function pointInClientRect(
   );
 }
 
+/** Convert page-raster grab delta to strip world units (textMovePoint subtracts world). */
+export function rasterGrabOffsetToWorld(
+  rasterDx: number,
+  rasterDy: number,
+  rasterWidth: number,
+  rasterHeight: number,
+  frameWidth: number,
+  frameHeight: number,
+): { grabOffsetX: number; grabOffsetY: number } {
+  const rw = rasterWidth > 0 ? rasterWidth : 1;
+  const rh = rasterHeight > 0 ? rasterHeight : 1;
+  return {
+    grabOffsetX: (rasterDx / rw) * frameWidth,
+    grabOffsetY: (rasterDy / rh) * frameHeight,
+  };
+}
+
 function hitPageTexts(
   pageId: PageId,
   texts: PageText[],
@@ -69,6 +86,9 @@ function hitPageTexts(
   readingIndex: number,
   insertIndex: number,
   rasterWidth: number,
+  rasterHeight: number,
+  frameWidth: number,
+  frameHeight: number,
 ): WorkspaceHit | null {
   for (let i = texts.length - 1; i >= 0; i -= 1) {
     const text = texts[i]!;
@@ -79,14 +99,24 @@ function hitPageTexts(
       localY >= box.y &&
       localY <= box.y + box.height
     ) {
+      const boxX = Number.isFinite(text.box.x) ? text.box.x : 0;
+      const boxY = Number.isFinite(text.box.y) ? text.box.y : 0;
+      const grab = rasterGrabOffsetToWorld(
+        localX - boxX,
+        localY - boxY,
+        rasterWidth,
+        rasterHeight,
+        frameWidth,
+        frameHeight,
+      );
       return {
         kind: 'pageText',
         textId: text.id,
         pageId,
         localX,
         localY,
-        grabOffsetX: localX - (Number.isFinite(text.box.x) ? text.box.x : 0),
-        grabOffsetY: localY - (Number.isFinite(text.box.y) ? text.box.y : 0),
+        grabOffsetX: grab.grabOffsetX,
+        grabOffsetY: grab.grabOffsetY,
         readingIndex,
         insertIndex,
       };
@@ -127,7 +157,18 @@ function pageHitFromFrameEl(
 
   const page = input.pages[pageId];
   const pageTextHit = page
-    ? hitPageTexts(pageId, page.texts, localX, localY, readingIndex, insertIndex, input.rasterWidth)
+    ? hitPageTexts(
+        pageId,
+        page.texts,
+        localX,
+        localY,
+        readingIndex,
+        insertIndex,
+        input.rasterWidth,
+        input.rasterHeight,
+        frame?.width ?? rect.width,
+        frame?.height ?? rect.height,
+      )
     : null;
   if (pageTextHit) {
     return pageTextHit;

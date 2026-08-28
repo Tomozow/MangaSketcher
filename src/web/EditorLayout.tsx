@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import { mainPaneFlex, nextSplitFromDrag, sidebarPaneFlex } from '@/src/domain/uiLayout';
 import type { PageId, Rect } from '@/src/domain/types';
@@ -26,7 +27,6 @@ type EditorLayoutProps = {
   pdfMissing: boolean;
   textEditing: boolean;
   textSelection: TextEditSelection | null;
-  viewportBottom: number;
   dispatch: (action: EditorDocumentAction) => void;
   applyWorkspaceEffects: (
     effects: WorkspaceEffect[],
@@ -64,7 +64,6 @@ export function EditorLayout({
   pdfMissing,
   textEditing,
   textSelection,
-  viewportBottom,
   dispatch,
   applyWorkspaceEffects,
   commitTextEdit,
@@ -90,6 +89,7 @@ export function EditorLayout({
   const sideFlex = sidebarPaneFlex(doc);
   const sidebarClass = doc.sidebarCompact ? styles.sidebarCompact : styles.sidebarNormal;
   const [workspaceGrab, setWorkspaceGrab] = useState<WorkspaceGrab | null>(null);
+  const [liveTextDraft, setLiveTextDraft] = useState<string | null>(null);
 
   const handleWorkspaceEffects = useCallback(
     (
@@ -116,13 +116,85 @@ export function EditorLayout({
 
   const handlePaletteStockDrag = (deltaPx: number) => {
     const sideEl = document.getElementById('editor-sidebar-split');
-    const total = sideEl?.clientHeight ?? 1;
+    const splitCol = sideEl?.querySelector('[data-ms-shell="split-col"]');
+    const total = (splitCol instanceof HTMLElement ? splitCol.clientHeight : sideEl?.clientHeight) ?? 1;
     const next = nextSplitFromDrag(doc.paletteStockSplit, deltaPx, total);
     dispatch({ type: 'setUiLayout', paletteStockSplit: next });
   };
 
   return (
     <div className={styles.body} data-ms-shell="body" style={{ ['--ms-background' as string]: colors.background }}>
+      <div
+        id="editor-sidebar-split"
+        className={`${styles.sidebarColumn} ${sidebarClass}`}
+        data-ms-sidebar={doc.sidebarCompact ? 'compact' : 'normal'}
+      >
+        <div className={styles.navRow} data-ms-shell="nav">
+          <Link href="/" className={styles.linkButton}>
+            一覧へ
+          </Link>
+          <h1 className={styles.headerTitle}>{doc.name}</h1>
+          <div
+            className={styles.saveStatusRow}
+            data-ms-save={
+              autosaveStatus.encodingCount > 0
+                ? 'encoding'
+                : autosaveStatus.unsaved
+                  ? 'unsaved'
+                  : 'idle'
+            }
+            aria-live="polite"
+            aria-hidden={
+              !autosaveStatus.unsaved && autosaveStatus.encodingCount === 0
+            }
+          >
+            <span
+              className={`${styles.saveStatusDot} ${
+                autosaveStatus.encodingCount > 0
+                  ? styles.saveStatusEncoding
+                  : styles.saveStatusUnsaved
+              }`}
+              aria-hidden
+            />
+            <span className={styles.saveStatusLabel}>
+              {autosaveStatus.encodingCount > 0 ? 'エンコード中' : '未保存'}
+            </span>
+          </div>
+        </div>
+        <div className={styles.splitCol} data-ms-shell="split-col">
+          <div
+            className={styles.pane}
+            data-ms-shell="pane"
+            style={{ flexGrow: sideFlex.palette, flexShrink: 1, flexBasis: 0 }}
+          >
+            <span className={styles.paneLabel} data-ms-shell="pane-label">ツール</span>
+            <CompactSidebar
+              doc={doc}
+              history={history}
+              textEditing={textEditing}
+              dispatch={dispatch}
+              onUndo={onUndo}
+              onRedo={onRedo}
+            />
+          </div>
+          <SplitHandle orientation="vertical" onDrag={handlePaletteStockDrag} />
+          <div
+            className={styles.pane}
+            data-ms-shell="pane"
+            style={{ flexGrow: sideFlex.stock, flexShrink: 1, flexBasis: 0 }}
+          >
+            <span className={styles.paneLabel} data-ms-shell="pane-label">ストック</span>
+            <StockPane
+              doc={doc}
+              dispatch={dispatch}
+              workspaceGrab={workspaceGrab}
+              onWorkspaceGrabEnd={() => setWorkspaceGrab(null)}
+              getPageThumb={getPageThumb}
+            />
+          </div>
+        </div>
+      </div>
+
       <div id="editor-main-split" className={styles.mainColumn}>
         <div className={styles.splitRow} data-ms-shell="split-row">
           <div
@@ -151,6 +223,11 @@ export function EditorLayout({
               getPageThumb={getPageThumb}
               selectedTextId={doc.selectedTextId}
               textLiveTransforms={textLiveTransforms}
+              liveTextContent={
+                textSelection && liveTextDraft !== null
+                  ? { id: textSelection.id, content: liveTextDraft }
+                  : null
+              }
               onDeleteText={deleteText}
             />
             {inkEngine ? (
@@ -201,53 +278,16 @@ export function EditorLayout({
           ) : null}
         </div>
       </div>
-
-      <div
-        id="editor-sidebar-split"
-        className={`${styles.sidebarColumn} ${sidebarClass}`}
-        data-ms-sidebar={doc.sidebarCompact ? 'compact' : 'normal'}
-      >
-        <div className={styles.splitCol} data-ms-shell="split-col">
-          <div
-            className={styles.pane}
-            data-ms-shell="pane"
-            style={{ flexGrow: sideFlex.palette, flexShrink: 1, flexBasis: 0 }}
-          >
-            <span className={styles.paneLabel} data-ms-shell="pane-label">ツール</span>
-            <CompactSidebar
-              doc={doc}
-              history={history}
-              textEditing={textEditing}
-              autosaveStatus={autosaveStatus}
-              dispatch={dispatch}
-              onUndo={onUndo}
-              onRedo={onRedo}
-            />
-          </div>
-          <SplitHandle orientation="vertical" onDrag={handlePaletteStockDrag} />
-          <div
-            className={styles.pane}
-            data-ms-shell="pane"
-            style={{ flexGrow: sideFlex.stock, flexShrink: 1, flexBasis: 0 }}
-          >
-            <span className={styles.paneLabel} data-ms-shell="pane-label">ストック</span>
-            <StockPane
-              doc={doc}
-              dispatch={dispatch}
-              workspaceGrab={workspaceGrab}
-              onWorkspaceGrabEnd={() => setWorkspaceGrab(null)}
-              getPageThumb={getPageThumb}
-            />
-          </div>
-        </div>
-      </div>
       <TextEditBar
         selection={textSelection}
-        viewportBottom={viewportBottom}
+        layoutKey={`${doc.workspaceZoom}:${doc.workspacePanX}:${doc.workspacePanY}:${
+          textSelection ? JSON.stringify(textLiveTransforms[textSelection.id] ?? null) : ''
+        }`}
         onCommit={commitTextEdit}
         onDeleteText={deleteText}
         onDuplicateText={duplicateText}
         onEditingChange={onTextEditingChange}
+        onLiveContent={setLiveTextDraft}
       />
     </div>
   );

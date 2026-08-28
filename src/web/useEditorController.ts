@@ -79,7 +79,6 @@ type EditorController = {
   pdfBytes: ArrayBuffer | null;
   textEditing: boolean;
   textSelection: TextEditSelection | null;
-  viewportBottom: number;
   ink: InkEngineApi | null;
   inkFrame: number;
   marqueePreview: MarqueePreview | null;
@@ -263,7 +262,6 @@ export function useEditorController(projectId: string): EditorController {
   const [pdfBytes, setPdfBytes] = useState<ArrayBuffer | null>(null);
   const [pendingPdfTextDrop, setPendingPdfTextDrop] = useState(false);
   const [textEditing, setTextEditing] = useState(false);
-  const [viewportBottom, setViewportBottom] = useState(0);
   const [bootEncodedPng, setBootEncodedPng] = useState<ReadonlyMap<string, ArrayBuffer>>(new Map());
   const [inkFrame, setInkFrame] = useState(0);
   const inkFrameRafRef = useRef(0);
@@ -479,26 +477,6 @@ export function useEditorController(projectId: string): EditorController {
       autosaveRef.current = null;
     };
   }, [projectId, router]);
-
-  useEffect(() => {
-    const viewport = window.visualViewport;
-    if (!viewport) {
-      return;
-    }
-
-    const syncBarOffset = () => {
-      const gap = window.innerHeight - (viewport.offsetTop + viewport.height);
-      setViewportBottom(Math.max(0, gap));
-    };
-
-    syncBarOffset();
-    viewport.addEventListener('resize', syncBarOffset);
-    viewport.addEventListener('scroll', syncBarOffset);
-    return () => {
-      viewport.removeEventListener('resize', syncBarOffset);
-      viewport.removeEventListener('scroll', syncBarOffset);
-    };
-  }, []);
 
   useEffect(() => {
     const flushHidden = () => {
@@ -1293,7 +1271,6 @@ export function useEditorController(projectId: string): EditorController {
     pdfBytes,
     textEditing,
     textSelection,
-    viewportBottom,
     ink: history ? ink : null,
     inkFrame,
     marqueePreview,
