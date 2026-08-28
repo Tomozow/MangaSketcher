@@ -39,7 +39,7 @@ const noopClip = {
 
 function finger(
   store: ReturnType<typeof createWorkspaceGestureStore>,
-  phase: 'down' | 'move' | 'up',
+  phase: 'down' | 'move' | 'up' | 'cancel',
   overrides: Partial<Parameters<typeof stepWorkspacePointer>[1]> = {},
 ) {
   const x = overrides.x ?? 0;
@@ -66,7 +66,7 @@ function finger(
 
 function pencil(
   store: ReturnType<typeof createWorkspaceGestureStore>,
-  phase: 'down' | 'move' | 'up',
+  phase: 'down' | 'move' | 'up' | 'cancel',
   overrides: Partial<Parameters<typeof stepWorkspacePointer>[1]> = {},
 ) {
   const x = overrides.x ?? 4;
@@ -93,7 +93,7 @@ function pencil(
 
 function pencilText(
   store: ReturnType<typeof createWorkspaceGestureStore>,
-  phase: 'down' | 'move' | 'up',
+  phase: 'down' | 'move' | 'up' | 'cancel',
   overrides: Partial<Parameters<typeof stepWorkspacePointer>[1]> = {},
 ) {
   const x = overrides.x ?? 4;
@@ -187,7 +187,7 @@ describe('Web workspace FSM', () => {
       expect(up.effects).toEqual([{ type: 'createText', pageId: 'p1', x: 420, y: 520 }]);
     });
 
-    test('text tool: DOM 座標が取れなければ createText しない', () => {
+    test('text tool: DOM 座標が取れなくても幾何座標で createText する', () => {
       const store = createWorkspaceGestureStore();
       const pageAtUp = {
         kind: 'page' as const,
@@ -204,7 +204,7 @@ describe('Web workspace FSM', () => {
         now: 150,
         mapPageDomLocal: () => null,
       });
-      expect(up.effects).toEqual([]);
+      expect(up.effects).toEqual([{ type: 'createText', pageId: 'p1', x: 0, y: 500 }]);
     });
 
     test('番号帯でも移動 ≥12px ならパン（insert しない）', () => {
@@ -274,15 +274,22 @@ describe('Web workspace FSM', () => {
     test('移動 ≥ 8px なら textTransformLive（tap ではない）', () => {
       const store = createWorkspaceGestureStore();
       pencilText(store, 'down', { x: 10, y: 10, now: 100 });
-      const move = pencilText(store, 'move', { x: 20, y: 10, now: 120 });
+      const move = pencilText(store, 'move', {
+        x: 20,
+        y: 10,
+        now: 120,
+        dropHit: pageHit,
+        mapWorldToPage: (_pageId, x, y) => ({ x, y }),
+      });
       expect(getWorkspaceSession(store, 10)?.mode).toBe('moveText');
       expect(move.effects).toContainEqual({ type: 'selectText', textId: 'tx' });
       expect(move.effects).toContainEqual({
         type: 'textTransformLive',
         textId: 'tx',
-        x: 3,
-        y: 2,
+        x: 18,
+        y: 7,
         pageId: 'p1',
+        pasteboard: undefined,
       });
 
       const up = pencilText(store, 'up', {
@@ -290,13 +297,16 @@ describe('Web workspace FSM', () => {
         y: 12,
         now: 150,
         hit: { ...pageText, localX: 12, localY: 9 },
+        dropHit: pageHit,
+        mapWorldToPage: (_pageId, x, y) => ({ x, y }),
       });
       expect(up.effects).toContainEqual({
         type: 'commitTextTransform',
         textId: 'tx',
-        x: 10,
-        y: 6,
+        x: 23,
+        y: 9,
         pageId: 'p1',
+        pasteboard: undefined,
       });
     });
   });
@@ -485,6 +495,8 @@ describe('Web workspace FSM', () => {
           pageId: 'p3',
           localX: 1,
           localY: 2,
+          grabOffsetX: 0,
+          grabOffsetY: 0,
           readingIndex: 2,
           insertIndex: 2,
         }),
@@ -502,6 +514,8 @@ describe('Web workspace FSM', () => {
         pageId: 'p3',
         localX: 10,
         localY: 10,
+        grabOffsetX: 0,
+        grabOffsetY: 0,
         readingIndex: 2,
         insertIndex: 2,
       };
@@ -562,6 +576,15 @@ describe('Web workspace FSM', () => {
       });
     });
 
+    test('marquee below 4 raster pixels is a no-op', () => {
+      const store = createWorkspaceGestureStore();
+      pencil(store, 'down', { tool: 'select', hit: pageHit });
+      const tiny = { ...pageHit, localX: 13, localY: 12 };
+      pencil(store, 'move', { tool: 'select', hit: tiny });
+      const up = pencil(store, 'up', { tool: 'select', hit: tiny });
+      expect(up.effects).toEqual([]);
+    });
+
     test('pencil tap on page number selects page (mouse/pen)', () => {
       const store = createWorkspaceGestureStore();
       pencil(store, 'down', {
@@ -581,7 +604,7 @@ describe('Web workspace FSM', () => {
 
     test('moveClip uses world coordinates under zoom', () => {
       const store = createWorkspaceGestureStore();
-      const clip = { id: 'c1', x: 100, y: 80, scale: 1, rotation: 0 };
+      const clip = { id: 'c1', x: 100, y: 80, scale: 1, rotation: 0, rasterId: 'r1' };
       const clipHit = { kind: 'clip' as const, clipId: 'c1', handle: 'body' as const };
       pencil(store, 'down', {
         tool: 'select',
@@ -613,10 +636,128 @@ describe('Web workspace FSM', () => {
       const up = pencil(store, 'up', {
         tool: 'select',
         hit: clipHit,
+        worldX: 160,
+        worldY: 130,
         getClipMeta: () => clip,
         getClipRasterSize: () => ({ width: 40, height: 40 }),
       });
-      expect(up.effects).toEqual([{ type: 'commitClipTransform', clipId: 'c1' }]);
+      expect(up.effects).toEqual([
+        { type: 'clipTransformLive', clipId: 'c1', x: 110, y: 90 },
+        { type: 'commitClipTransform', clipId: 'c1' },
+      ]);
+    });
+
+    test('moveClip release on page emits one bake drop instead of transform commit', () => {
+      const store = createWorkspaceGestureStore();
+      const clip = { id: 'c1', x: 100, y: 80, scale: 1, rotation: 0, rasterId: 'r1' };
+      const clipHit = { kind: 'clip' as const, clipId: 'c1', handle: 'body' as const };
+      pencil(store, 'down', {
+        tool: 'select',
+        hit: clipHit,
+        worldX: 110,
+        worldY: 90,
+        getClipMeta: () => clip,
+      });
+      const up = pencil(store, 'up', {
+        tool: 'select',
+        hit: clipHit,
+        dropHit: pageHit,
+        worldX: 210,
+        worldY: 190,
+        getClipMeta: () => clip,
+      });
+      expect(up.effects).toEqual([
+        { type: 'clipTransformLive', clipId: 'c1', x: 200, y: 180 },
+        { type: 'dropClipOnPage', clipId: 'c1', pageId: 'p1', localX: 10, localY: 10 },
+      ]);
+    });
+
+    test('clip transform cancel discards the live pose', () => {
+      const store = createWorkspaceGestureStore();
+      const clip = { id: 'c1', x: 100, y: 80, scale: 1, rotation: 0, rasterId: 'r1' };
+      const clipHit = { kind: 'clip' as const, clipId: 'c1', handle: 'body' as const };
+      pencil(store, 'down', { tool: 'select', hit: clipHit, getClipMeta: () => clip });
+      const cancel = pencil(store, 'cancel', { tool: 'select', hit: clipHit, getClipMeta: () => clip });
+      expect(cancel.effects).toEqual([{ type: 'cancelClipTransform', clipId: 'c1' }]);
+    });
+
+    test('clip corner and rotate handles produce live transforms and one commit', () => {
+      const clip = { id: 'c1', x: 100, y: 80, scale: 1, rotation: 0, rasterId: 'r1' };
+      const raster = { getClipMeta: () => clip, getClipRasterSize: () => ({ width: 100, height: 100 }) };
+
+      const scaleStore = createWorkspaceGestureStore();
+      const cornerHit = { kind: 'clip' as const, clipId: 'c1', handle: 'corner' as const };
+      pencil(scaleStore, 'down', {
+        tool: 'select',
+        hit: cornerHit,
+        worldX: 118,
+        worldY: 98,
+        ...raster,
+      });
+      const scaleMove = pencil(scaleStore, 'move', {
+        tool: 'select',
+        hit: cornerHit,
+        worldX: 127,
+        worldY: 107,
+        ...raster,
+      });
+      expect(scaleMove.effects[0]).toMatchObject({ type: 'clipTransformLive', clipId: 'c1' });
+      expect(scaleMove.effects[0]?.type === 'clipTransformLive' && scaleMove.effects[0].scale).toBeGreaterThan(1);
+
+      const rotateStore = createWorkspaceGestureStore();
+      const rotateHit = { kind: 'clip' as const, clipId: 'c1', handle: 'rotate' as const };
+      pencil(rotateStore, 'down', {
+        tool: 'select',
+        hit: rotateHit,
+        worldX: 109,
+        worldY: 60,
+        ...raster,
+      });
+      const rotateUp = pencil(rotateStore, 'up', {
+        tool: 'select',
+        hit: rotateHit,
+        worldX: 130,
+        worldY: 89,
+        ...raster,
+      });
+      expect(rotateUp.effects[0]).toMatchObject({ type: 'clipTransformLive', clipId: 'c1' });
+      expect(rotateUp.effects[1]).toEqual({ type: 'commitClipTransform', clipId: 'c1' });
+    });
+
+    test('selected text SE handle resizes uniformly and commits only on up', () => {
+      const store = createWorkspaceGestureStore();
+      const handle = {
+        kind: 'resizeHandle' as const,
+        textId: 'tx',
+        owner: 'pasteboard' as const,
+        worldBox: { x: 0, y: 0, width: 10, height: 20 },
+      };
+      pencilText(store, 'down', { hit: handle, worldX: 10, worldY: 20 });
+      const move = pencilText(store, 'move', { hit: handle, worldX: 30, worldY: 60 });
+      expect(move.effects).toContainEqual({
+        type: 'textResizeLive',
+        textId: 'tx',
+        box: { x: 0, y: 0, width: 30, height: 60 },
+      });
+      const up = pencilText(store, 'up', { hit: handle, worldX: 30, worldY: 60 });
+      expect(up.effects).toContainEqual({
+        type: 'commitTextResize',
+        textId: 'tx',
+        box: { x: 0, y: 0, width: 30, height: 60 },
+      });
+    });
+
+    test('text resize cancel discards live dimensions', () => {
+      const store = createWorkspaceGestureStore();
+      const handle = {
+        kind: 'resizeHandle' as const,
+        textId: 'tx',
+        owner: 'pasteboard' as const,
+        worldBox: { x: 0, y: 0, width: 10, height: 20 },
+      };
+      pencilText(store, 'down', { hit: handle, worldX: 10, worldY: 20 });
+      const cancel = pencilText(store, 'cancel', { hit: handle, worldX: 30, worldY: 60 });
+      expect(cancel.effects).toEqual([{ type: 'cancelTextResize', textId: 'tx' }]);
     });
   });
 

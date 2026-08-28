@@ -69,9 +69,6 @@ export function reduceWorkspaceEffects(
         actions.push({ type: 'appendPage' });
         break;
       case 'selectText':
-        // #region agent log
-        fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'516081',hypothesisId:'D',location:'workspaceEffects.ts:selectText',message:'selectText effect',data:{textId:effect.textId},timestamp:Date.now()})}).catch(()=>{});
-        // #endregion
         actions.push({ type: 'selectText', textId: effect.textId });
         break;
       case 'selectClip':

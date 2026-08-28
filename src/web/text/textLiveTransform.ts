@@ -4,6 +4,10 @@ import type { PageId, Rect } from '@/src/domain/types';
 export type TextLiveTransform = {
   x: number;
   y: number;
+  width?: number;
+  height?: number;
+  /** Coordinate space used by x/y while dragging. */
+  where?: 'page' | 'pasteboard';
   /** When dragging across pages, preview on this page frame. */
   pageId?: PageId;
 };
@@ -27,7 +31,13 @@ export function effectiveTextBox(box: Rect, live?: TextLiveTransform | null): Re
   if (!live || !Number.isFinite(live.x) || !Number.isFinite(live.y)) {
     return safe;
   }
-  return { ...safe, x: live.x, y: live.y };
+  return {
+    ...safe,
+    x: live.x,
+    y: live.y,
+    width: finiteOr(live.width, safe.width),
+    height: finiteOr(live.height, safe.height),
+  };
 }
 
 export function mergeTextLive(
@@ -40,7 +50,10 @@ export function mergeTextLive(
   return {
     x: finiteOr(patch.x, base.x),
     y: finiteOr(patch.y, base.y),
+    width: patch.width !== undefined ? Math.max(4, finiteOr(patch.width, safe.width)) : base.width,
+    height: patch.height !== undefined ? Math.max(4, finiteOr(patch.height, safe.height)) : base.height,
     pageId: patch.pageId !== undefined ? patch.pageId : base.pageId,
+    where: patch.where !== undefined ? patch.where : base.where,
   };
 }
 
@@ -49,5 +62,5 @@ export function textRenderPageId(
   homePageId: PageId,
   live?: TextLiveTransform | null,
 ): PageId {
-  return live?.pageId ?? homePageId;
+  return live?.where === 'pasteboard' ? homePageId : (live?.pageId ?? homePageId);
 }

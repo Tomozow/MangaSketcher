@@ -22,6 +22,7 @@ import type {
   WorkspacePointerInput,
   WorkspaceSession,
 } from './types';
+import { MIN_MARQUEE_RASTER_PX } from '../clip/constants';
 
 function isTextBodyHit(
   hit: WorkspaceHit,
@@ -64,78 +65,40 @@ function textMoveSessionFromHit(hit: WorkspaceHit): TextMoveSession | null {
 
 function textMovePoint(
   session: TextMoveSession,
-  hit: WorkspaceHit,
   input: WorkspacePointerInput,
-): { x: number; y: number; pageId?: PageId } | null {
-  let targetPageId = session.pageId;
-  if (hit.kind === 'pageText' || hit.kind === 'page') {
-    targetPageId = hit.pageId;
-  }
+): { x: number; y: number; pageId?: PageId; pasteboard?: boolean } | null {
+  const worldX = input.worldX - session.grabOffsetX;
+  const worldY = input.worldY - session.grabOffsetY;
+  if (!Number.isFinite(worldX) || !Number.isFinite(worldY)) return null;
 
-  if (session.where === 'page' && targetPageId) {
-    let px: number | undefined;
-    let py: number | undefined;
-    if (input.mapInkToPage) {
-      const mapped = input.mapInkToPage(targetPageId, input.x, input.y);
-      if (mapped) {
-        px = mapped.x;
-        py = mapped.y;
-      }
-    }
-    if (px === undefined && (hit.kind === 'pageText' || hit.kind === 'page') && hit.pageId === targetPageId) {
-      px = hit.localX;
-      py = hit.localY;
-    }
-    if (px !== undefined && py !== undefined) {
-      const x = px - session.grabOffsetX;
-      const y = py - session.grabOffsetY;
-      if (!Number.isFinite(x) || !Number.isFinite(y)) {
-        return null;
-      }
-      // #region agent log
-      fetch('http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6c5c15'},body:JSON.stringify({sessionId:'6c5c15',location:'workspaceFsm.ts:textMovePoint',message:'text move point',data:{textId:session.textId,targetPageId,x,y,grabOffsetX:session.grabOffsetX,grabOffsetY:session.grabOffsetY,px,py,hitKind:hit.kind,usedMap:Boolean(input.mapInkToPage)},timestamp:Date.now(),hypothesisId:'F',runId:'coord-fix'})}).catch(()=>{});
-      // #endregion
-      return { x, y, pageId: targetPageId };
+  const dropHit = input.dropHit ?? input.hit;
+  if ((dropHit.kind === 'page' || dropHit.kind === 'pageText') && input.mapWorldToPage) {
+    const local = input.mapWorldToPage(dropHit.pageId, worldX, worldY);
+    if (local && Number.isFinite(local.x) && Number.isFinite(local.y)) {
+      return { x: local.x, y: local.y, pageId: dropHit.pageId };
     }
   }
-
-  if (session.where === 'pasteboard') {
-    let px = input.worldX;
-    let py = input.worldY;
-    let pageId: PageId | undefined;
-    if (hit.kind === 'page') {
-      pageId = hit.pageId;
-      px = hit.localX;
-      py = hit.localY;
-    }
-    const x = px - session.grabOffsetX;
-    const y = py - session.grabOffsetY;
-    if (!Number.isFinite(x) || !Number.isFinite(y)) {
-      return null;
-    }
-    return pageId ? { x, y, pageId } : { x, y };
-  }
-
-  return null;
+  return { x: worldX, y: worldY, pasteboard: true };
 }
 
 function textMoveEffects(
   session: TextMoveSession,
-  hit: WorkspaceHit,
   input: WorkspacePointerInput,
   phase: WorkspacePointerInput['phase'],
 ): WorkspaceEffect[] {
-  const point = textMovePoint(session, hit, input);
+  if (phase === 'cancel') {
+    return [{ type: 'cancelTextTransform', textId: session.textId }];
+  }
+  const point = textMovePoint(session, input);
   if (!point) {
     return [];
   }
-  const { x, y, pageId } = point;
-  if (phase === 'up' || phase === 'cancel') {
-    return [{ type: 'commitTextTransform', textId: session.textId, x, y, pageId }];
+  const { x, y, pageId, pasteboard } = point;
+  if (phase === 'up') {
+    return [{ type: 'commitTextTransform', textId: session.textId, x, y, pageId, pasteboard }];
   }
   return [
-    { type: 'selectText', textId: session.textId },
-    { type: 'textTransformLive', textId: session.textId, x, y, pageId },
+    { type: 'textTransformLive', textId: session.textId, x, y, pageId, pasteboard },
   ];
 }
 
@@ -244,7 +207,9 @@ function createTextCoords(
   if (dom) {
     return dom;
   }
-  return null;
+  return Number.isFinite(hit.localX) && Number.isFinite(hit.localY)
+    ? { x: hit.localX, y: hit.localY }
+    : null;
 }
 
 function tapEffects(
@@ -365,12 +330,12 @@ function stepTextDrag(
     if (input.phase === 'up' || input.phase === 'cancel') {
       return {
         session: { mode: 'idle' },
-        effects: textMoveEffects(session, hit, input, input.phase),
+        effects: textMoveEffects(session, input, input.phase),
       };
     }
     return {
       session,
-      effects: textMoveEffects(session, hit, input, input.phase),
+      effects: textMoveEffects(session, input, input.phase),
     };
   }
 
@@ -394,7 +359,10 @@ function stepTextDrag(
     };
     return {
       session: { mode: 'moveText', kind: session.kind, ...moveSession },
-      effects: textMoveEffects(moveSession, hit, input, input.phase),
+      effects: [
+        { type: 'selectText', textId: session.textId },
+        ...textMoveEffects(moveSession, input, input.phase),
+      ],
     };
   }
 
@@ -488,7 +456,13 @@ function stepLockedPencil(
         width: Math.abs(session.x1 - session.x0),
         height: Math.abs(session.y1 - session.y0),
       };
-      return { session: { mode: 'idle' }, effects: [{ type: 'completeMarquee', pageId: session.pageId, rect }] };
+      return {
+        session: { mode: 'idle' },
+        effects:
+          rect.width < MIN_MARQUEE_RASTER_PX || rect.height < MIN_MARQUEE_RASTER_PX
+            ? []
+            : [{ type: 'completeMarquee', pageId: session.pageId, rect }],
+      };
     }
     const point = inkRasterPoint(hit, session.x1, session.y1, session.pageId, input);
     const next = { ...session, x1: point.x, y1: point.y };
@@ -505,11 +479,48 @@ function stepLockedPencil(
   }
 
   if (session.mode === 'resizeText') {
+    if (input.phase === 'cancel') {
+      return {
+        session: { mode: 'idle' },
+        effects: [{ type: 'cancelTextResize', textId: session.textId }],
+      };
+    }
+    const start = session.startWorldBox;
+    const scale = Math.max(
+      0.15,
+      (input.worldX - start.x) / Math.max(1, start.width),
+      (input.worldY - start.y) / Math.max(1, start.height),
+    );
+    const worldBox = {
+      x: start.x,
+      y: start.y,
+      width: Math.max(4, start.width * scale),
+      height: Math.max(4, start.height * scale),
+    };
+    let box = worldBox;
+    if (session.owner === 'page' && session.pageId && input.mapWorldToPage) {
+      const origin = input.mapWorldToPage(session.pageId, worldBox.x, worldBox.y);
+      const corner = input.mapWorldToPage(
+        session.pageId,
+        worldBox.x + worldBox.width,
+        worldBox.y + worldBox.height,
+      );
+      if (origin && corner) {
+        box = {
+          x: origin.x,
+          y: origin.y,
+          width: Math.max(4, corner.x - origin.x),
+          height: Math.max(4, corner.y - origin.y),
+        };
+      }
+    }
     return {
-      session,
+      session: input.phase === 'up' ? { mode: 'idle' } : session,
       effects: [
         { type: 'selectText', textId: session.textId },
-        { type: 'resizeText', textId: session.textId, x: input.x, y: input.y },
+        input.phase === 'up'
+          ? { type: 'commitTextResize', textId: session.textId, box }
+          : { type: 'textResizeLive', textId: session.textId, box },
       ],
     };
   }
@@ -535,32 +546,59 @@ function stepLockedPencil(
   }
 
   if (session.mode === 'moveClip') {
-    if (input.phase === 'up' || input.phase === 'cancel') {
+    if (input.phase === 'cancel') {
       return {
         session: { mode: 'idle' },
-        effects: [{ type: 'commitClipTransform', clipId: session.clipId }],
+        effects: [{ type: 'cancelClipTransform', clipId: session.clipId }],
+      };
+    }
+    const clipLiveEffect: WorkspaceEffect = {
+      type: 'clipTransformLive',
+      clipId: session.clipId,
+      x: input.worldX - session.offsetX,
+      y: input.worldY - session.offsetY,
+    };
+    if (input.phase === 'up') {
+      const drop = input.dropHit ?? input.hit;
+      return {
+        session: { mode: 'idle' },
+        effects:
+          drop.kind === 'page' || drop.kind === 'pageText'
+            ? [
+                clipLiveEffect,
+                {
+                  type: 'dropClipOnPage',
+                  clipId: session.clipId,
+                  pageId: drop.pageId,
+                  localX: drop.localX,
+                  localY: drop.localY,
+                },
+              ]
+            : [clipLiveEffect, { type: 'commitClipTransform', clipId: session.clipId }],
       };
     }
     return {
       session,
-      effects: [
-        {
-          type: 'clipTransformLive',
-          clipId: session.clipId,
-          x: input.worldX - session.offsetX,
-          y: input.worldY - session.offsetY,
-        },
-      ],
+      effects: [clipLiveEffect],
     };
   }
 
   if (session.mode === 'scaleClip') {
     const dist = Math.hypot(input.worldX - session.cx, input.worldY - session.cy);
     const scale = scaleFromCornerDrag(session.startScale, session.startDist, dist);
-    if (input.phase === 'up' || input.phase === 'cancel') {
+    if (input.phase === 'cancel') {
       return {
         session: { mode: 'idle' },
-        effects: [{ type: 'commitClipTransform', clipId: session.clipId }],
+        effects: [{ type: 'cancelClipTransform', clipId: session.clipId }],
+      };
+    }
+    if (input.phase === 'up') {
+      return {
+        session: { mode: 'idle' },
+        effects: [
+          { type: 'clipTransformLive', clipId: session.clipId, scale },
+          { type: 'commitClipTransform', clipId: session.clipId },
+        ],
       };
     }
     return {
@@ -572,10 +610,19 @@ function stepLockedPencil(
   if (session.mode === 'rotateClip') {
     const angle = angleFromCenter(session.cx, session.cy, input.worldX, input.worldY);
     const rotation = rotationFromHandleDrag(session.startRotation, session.startAngle, angle);
-    if (input.phase === 'up' || input.phase === 'cancel') {
+    if (input.phase === 'cancel') {
       return {
         session: { mode: 'idle' },
-        effects: [{ type: 'commitClipTransform', clipId: session.clipId }],
+        effects: [{ type: 'cancelClipTransform', clipId: session.clipId }],
+      };
+    }
+    if (input.phase === 'up') {
+      return {
+        session: { mode: 'idle' },
+        effects: [
+          { type: 'clipTransformLive', clipId: session.clipId, rotation },
+          { type: 'commitClipTransform', clipId: session.clipId },
+        ],
       };
     }
     return {
@@ -731,11 +778,15 @@ function stepPencilDown(
   if (intent.type === 'textEdit') {
     if (isTextHandleHit(hit)) {
       return {
-        session: { mode: 'resizeText', kind: 'pencil', textId: hit.textId },
-        effects: [
-          { type: 'selectText', textId: hit.textId },
-          { type: 'resizeText', textId: hit.textId, x: input.x, y: input.y },
-        ],
+        session: {
+          mode: 'resizeText',
+          kind: 'pencil',
+          textId: hit.textId,
+          owner: hit.owner,
+          pageId: hit.pageId,
+          startWorldBox: hit.worldBox,
+        },
+        effects: [{ type: 'selectText', textId: hit.textId }],
       };
     }
     if (isTextBodyHit(hit)) {
@@ -776,11 +827,6 @@ function stepFinger(
   session: WorkspaceSession,
   input: WorkspacePointerInput,
 ): { session: WorkspaceSession; effects: WorkspaceEffect[] } {
-  const textDrag = stepTextDrag(session, input.hit, input);
-  if (textDrag) {
-    return textDrag;
-  }
-
   if (session.mode === 'pan') {
     if (input.phase === 'up' || input.phase === 'cancel') {
       return { session: { mode: 'idle' }, effects: [] };
@@ -850,11 +896,6 @@ function stepFinger(
       if (isTapPending(session, input)) {
         const tapHit = tapHitForEffects(session.hit, input);
         const effects = tapEffects(tapHit, input.selectedPageId, input.tool, input);
-        const createEffect = effects.find((effect) => effect.type === 'createText');
-        const domLocal = tapHit.kind === 'page' ? input.mapPageDomLocal?.(tapHit.pageId, input.x, input.y) : null;
-        // #region agent log
-        fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'6c5c15',location:'workspaceFsm.tsx:fingerTapUp',message:'finger tap up',data:{tool:input.tool,downHitKind:session.hit.kind,upHitKind:input.hit.kind,usedHitKind:tapHit.kind,effectTypes:effects.map((e)=>e.type),createX:createEffect?.type==='createText'?createEffect.x:undefined,createY:createEffect?.type==='createText'?createEffect.y:undefined,domLocalX:domLocal?.x,domLocalY:domLocal?.y,clientX:input.x,clientY:input.y},timestamp:Date.now(),hypothesisId:'A,D,F',runId:'ipad-fix3'})}).catch(()=>{});
-        // #endregion
         return {
           session: { mode: 'idle' },
           effects,
@@ -937,27 +978,6 @@ function stepFingerDown(
     const { sessionA, sessionB } = beginPinch(store, input.pointerId, partnerId);
     store.sessions.set(partnerId, sessionB);
     return { session: sessionA, effects: [], ignored: false };
-  }
-
-  if (input.tool === 'text' && input.hit.kind === 'pageText') {
-    const moveSession = textMoveSessionFromHit(input.hit);
-    if (moveSession) {
-      return {
-        session: {
-          mode: 'pendingTextMove',
-          kind: 'finger',
-          startX: input.x,
-          startY: input.y,
-          textId: moveSession.textId,
-          grabOffsetX: moveSession.grabOffsetX,
-          grabOffsetY: moveSession.grabOffsetY,
-          pageId: moveSession.pageId,
-          where: moveSession.where,
-        },
-        effects: [{ type: 'selectText', textId: moveSession.textId }],
-        ignored: false,
-      };
-    }
   }
 
   return {

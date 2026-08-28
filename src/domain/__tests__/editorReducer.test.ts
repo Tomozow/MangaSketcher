@@ -79,3 +79,58 @@ describe('deleteText', () => {
     expect(doc.selectedTextId).toBeNull();
   });
 });
+
+describe('text attachment placement', () => {
+  test('page/pasteboard conversion can preserve the rendered font scale', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'pasteboard' },
+        box: { x: 20, y: 30, width: 18, height: 36 },
+        content: '本文',
+      },
+      ids,
+    );
+    const textId = doc.selectedTextId!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'attachTextToPage',
+        textId,
+        pageId,
+        pageBox: { x: 100, y: 200, width: 100, height: 200 },
+        fontSize: 80,
+      },
+      ids,
+    );
+    expect(doc.pages[pageId]!.texts[0]).toMatchObject({
+      id: textId,
+      fontSize: 80,
+      box: { x: 100, y: 200, width: 100, height: 200 },
+    });
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'detachTextToPasteboard',
+        textId,
+        workspaceBox: { x: 50, y: 60, width: 18, height: 36 },
+        fontSize: 14,
+      },
+      ids,
+    );
+    expect(doc.pasteboardTexts[0]).toMatchObject({
+      id: textId,
+      fontSize: 14,
+      box: { x: 50, y: 60, width: 18, height: 36 },
+    });
+  });
+});

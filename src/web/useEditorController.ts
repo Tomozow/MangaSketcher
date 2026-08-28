@@ -7,7 +7,6 @@ import { reduceEditorDocument, type EditorDocumentAction } from '@/src/domain/ed
 import { extractPdfSourceText } from '@/src/domain/pdfExtract';
 import { brushRadius } from '@/src/domain/pointers';
 import { clampRasterPoint, pageLocalFromWorld, screenToWorld } from '@/src/domain/stripGeometry';
-import { TEXT_MOVE_SLOP } from '@/src/domain/workspaceGestures';
 import { defaultTextBox, findText, isTextContentEmpty, clampTextBoxOrigin } from '@/src/domain/text';
 import type { StrokePoint } from '@/src/domain/stroke';
 import { AutosaveManager, type AutosaveStatus } from '@/src/storage/autosave';
@@ -51,9 +50,9 @@ import {
   type InkEngineApi,
   repaintInkDisplay,
 } from '@/src/web/ink';
-import { rasterIdForClip } from '@/src/web/PageInkOverlay';
 import type { PageId, Rect } from '@/src/domain/types';
 import { resolveWorkspaceHit } from '@/src/web/gestures/resolveHit';
+import { pageBoxToWorld, worldBoxToPage } from '@/src/web/gestures/elementInteraction';
 import { PDF_WORKER_SRC } from '@/src/web/pdf/constants';
 import { dropPdfSession } from '@/src/web/pdf/pdfSession';
 
@@ -173,11 +172,22 @@ function workspaceVisibleRasterIdsKey(doc: EditorDocument): string {
 }
 
 function isClipLiveEffect(effect: WorkspaceEffect): boolean {
-  return effect.type === 'clipTransformLive' || effect.type === 'commitClipTransform';
+  return (
+    effect.type === 'clipTransformLive' ||
+    effect.type === 'commitClipTransform' ||
+    effect.type === 'cancelClipTransform'
+  );
 }
 
 function isTextLiveEffect(effect: WorkspaceEffect): boolean {
-  return effect.type === 'textTransformLive' || effect.type === 'commitTextTransform';
+  return (
+    effect.type === 'textTransformLive' ||
+    effect.type === 'textResizeLive' ||
+    effect.type === 'commitTextResize' ||
+    effect.type === 'cancelTextResize' ||
+    effect.type === 'commitTextTransform' ||
+    effect.type === 'cancelTextTransform'
+  );
 }
 
 function isClipCanvasEffect(effect: WorkspaceEffect): boolean {
@@ -243,13 +253,6 @@ type PendingCreate = {
   y: number;
 };
 
-type TextTapTrack = {
-  pointerId: number;
-  startX: number;
-  startY: number;
-  pendingCreate: PendingCreate | null;
-};
-
 export function useEditorController(projectId: string): EditorController {
   const router = useRouter();
   const [ready, setReady] = useState(false);
@@ -280,14 +283,7 @@ export function useEditorController(projectId: string): EditorController {
   const autosaveRef = useRef<AutosaveManager | null>(null);
   const inkUndoRef = useRef<Map<string, ArrayBuffer>>(new Map());
   const historyRef = useRef<EditorHistory | null>(null);
-  const textTapRef = useRef<TextTapTrack | null>(null);
-  const textTapHandledUpRef = useRef<number | null>(null);
-  const textCreateDispatchedRef = useRef(false);
-
-  const createTextAtPointer = useCallback((pending: PendingCreate, pointerType: string, source: string) => {
-    if (textCreateDispatchedRef.current) {
-      return;
-    }
+  const createTextAtPointer = useCallback((pending: PendingCreate) => {
     if (!Number.isFinite(pending.x) || !Number.isFinite(pending.y)) {
       return;
     }
@@ -295,7 +291,6 @@ export function useEditorController(projectId: string): EditorController {
     if (!present) {
       return;
     }
-    textCreateDispatchedRef.current = true;
     const { width, height } = defaultTextBox(present.rasterWidth, present.rasterHeight);
     const centered = clampTextBoxOrigin(
       pending.x - width / 2,
@@ -316,9 +311,6 @@ export function useEditorController(projectId: string): EditorController {
       };
       const nextPresent = reduceEditorDocument(prev.present, action, randomId);
       const nextHistory = pushEditorHistory(prev, nextPresent, inkUndoRef.current, false);
-      // #region agent log
-      fetch('http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6c5c15'},body:JSON.stringify({sessionId:'6c5c15',location:'useEditorController.tsx:createTextDispatch',message:'createText dispatched',data:{pageId:pending.pageId,tapX:pending.x,tapY:pending.y,boxX:centered.x,boxY:centered.y,width,height,selectedTextId:nextPresent.selectedTextId,pointerType,source},timestamp:Date.now(),hypothesisId:'E',runId:'coord-fix'})}).catch(()=>{});
-      // #endregion
       autosaveRef.current?.scheduleSave(nextHistory.present, [], false);
       return nextHistory;
     });
@@ -530,71 +522,6 @@ export function useEditorController(projectId: string): EditorController {
     };
   }, []);
 
-  useEffect(() => {
-    const onPointerDown = (event: PointerEvent) => {
-      const isPen = event.pointerType === 'pen';
-      const isMouseTool = event.pointerType === 'mouse' && event.button === 0;
-      const isFinger = event.pointerType === 'touch';
-      // #region agent log
-      fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'6c5c15',location:'useEditorController.tsx:textTapDown',message:'global pointerdown',data:{pointerType:event.pointerType,tracked:isPen||isMouseTool||isFinger},timestamp:Date.now(),hypothesisId:'A',runId:'post-fix'})}).catch(()=>{});
-      // #endregion
-      if (!isPen && !isMouseTool && !isFinger) {
-        return;
-      }
-      textTapHandledUpRef.current = null;
-      textCreateDispatchedRef.current = false;
-      textTapRef.current = {
-        pointerId: event.pointerId,
-        startX: event.clientX,
-        startY: event.clientY,
-        pendingCreate: null,
-      };
-    };
-
-    const onPointerUp = (event: PointerEvent) => {
-      if (textTapHandledUpRef.current === event.pointerId) {
-        return;
-      }
-      const track = textTapRef.current;
-      if (!track || track.pointerId !== event.pointerId) {
-        return;
-      }
-      const pointerId = event.pointerId;
-      const endX = event.clientX;
-      const endY = event.clientY;
-      const pointerType = event.pointerType;
-
-      queueMicrotask(() => {
-        const current = textTapRef.current;
-        if (!current || current.pointerId !== pointerId) {
-          return;
-        }
-        const pending = current.pendingCreate;
-        const dist = Math.hypot(endX - current.startX, endY - current.startY);
-        textTapRef.current = null;
-
-        // #region agent log
-        fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'6c5c15',location:'useEditorController.tsx:textTapUp',message:'text tap up',data:{pointerType,hasPending:Boolean(pending),dist,pendingPageId:pending?.pageId},timestamp:Date.now(),hypothesisId:'A,E',runId:'post-fix2'})}).catch(()=>{});
-        // #endregion
-
-        if (!pending || dist >= TEXT_MOVE_SLOP) {
-          return;
-        }
-        textTapHandledUpRef.current = pointerId;
-        createTextAtPointer(pending, pointerType, 'tap-up');
-      });
-    };
-
-    document.addEventListener('pointerdown', onPointerDown, true);
-    document.addEventListener('pointerup', onPointerUp, true);
-    document.addEventListener('pointercancel', onPointerUp, true);
-    return () => {
-      document.removeEventListener('pointerdown', onPointerDown, true);
-      document.removeEventListener('pointerup', onPointerUp, true);
-      document.removeEventListener('pointercancel', onPointerUp, true);
-    };
-  }, [createTextAtPointer]);
-
   const persist = useCallback((nextHistory: EditorHistory, viewOnly: boolean) => {
     autosaveRef.current?.scheduleSave(nextHistory.present, [], viewOnly);
   }, []);
@@ -723,11 +650,13 @@ export function useEditorController(projectId: string): EditorController {
             inkUndoRef.current.set(page.rasterId, pageUndo.slice(0));
           }
           dispatch({ type: 'commitClipBake', clipId: effect.clipId, pageId: effect.pageId });
+          clipLiveRef.current.delete(effect.clipId);
+          bumpClipDragFrame();
           bumpInkFrame();
         }
       }
     },
-    [bumpInkFrame, dispatch, scheduleMarqueePreview],
+    [bumpClipDragFrame, bumpInkFrame, dispatch, scheduleMarqueePreview],
   );
 
   const applyClipLiveEffects = useCallback(
@@ -759,6 +688,11 @@ export function useEditorController(projectId: string): EditorController {
             });
           }
           changed = true;
+          continue;
+        }
+        if (effect.type === 'cancelClipTransform') {
+          clipLiveRef.current.delete(effect.clipId);
+          changed = true;
         }
       }
       if (changed) {
@@ -787,6 +721,30 @@ export function useEditorController(projectId: string): EditorController {
 
       let changed = false;
       for (const effect of effects) {
+        if (effect.type === 'textResizeLive') {
+          const found = findText(present, effect.textId);
+          if (!found) continue;
+          const box = sanitizeTextBox(effect.box);
+          textLiveRef.current.set(
+            effect.textId,
+            mergeTextLive(found.node.box, textLiveRef.current.get(effect.textId), {
+              x: box.x,
+              y: box.y,
+              width: box.width,
+              height: box.height,
+              pageId: found.pageId,
+              where: found.where,
+            }),
+          );
+          changed = true;
+          continue;
+        }
+        if (effect.type === 'commitTextResize') {
+          textLiveRef.current.delete(effect.textId);
+          dispatch({ type: 'resizeText', textId: effect.textId, box: sanitizeTextBox(effect.box) });
+          changed = true;
+          continue;
+        }
         if (effect.type === 'textTransformLive') {
           if (!Number.isFinite(effect.x) || !Number.isFinite(effect.y)) {
             continue;
@@ -796,15 +754,32 @@ export function useEditorController(projectId: string): EditorController {
             continue;
           }
           const safeBox = sanitizeTextBox(found.node.box);
-          const clamped = clampOnPage(effect.pageId ?? found.pageId, {
+          const targetPageId = effect.pasteboard ? undefined : (effect.pageId ?? found.pageId);
+          let targetBox = {
             ...safeBox,
             x: effect.x,
             y: effect.y,
-          });
+          };
+          if (targetPageId && found.where === 'pasteboard') {
+            const frame = frameForPage(present.workspaceOrder, targetPageId);
+            if (frame) {
+              const converted = worldBoxToPage(
+                frame,
+                { x: frame.x, y: frame.y, width: safeBox.width, height: safeBox.height },
+                present.rasterWidth,
+                present.rasterHeight,
+              );
+              targetBox = { ...targetBox, width: converted.width, height: converted.height };
+            }
+          }
+          const clamped = clampOnPage(targetPageId, targetBox);
           const next = mergeTextLive(found.node.box, textLiveRef.current.get(effect.textId), {
             x: clamped.x,
             y: clamped.y,
+            width: clamped.width,
+            height: clamped.height,
             pageId: effect.pageId,
+            where: effect.pasteboard ? 'pasteboard' : 'page',
           });
           textLiveRef.current.set(effect.textId, next);
           changed = true;
@@ -815,12 +790,43 @@ export function useEditorController(projectId: string): EditorController {
           const found = findText(present, effect.textId);
           if (found && Number.isFinite(effect.x) && Number.isFinite(effect.y)) {
             const safeBox = sanitizeTextBox(found.node.box);
-            const clamped = clampOnPage(effect.pageId ?? found.pageId, {
+            const targetPageId = effect.pasteboard ? undefined : (effect.pageId ?? found.pageId);
+            let targetBox = {
               ...safeBox,
               x: effect.x,
               y: effect.y,
-            });
-            if (
+            };
+            if (targetPageId && found.where === 'pasteboard') {
+              const frame = frameForPage(present.workspaceOrder, targetPageId);
+              if (frame) {
+                const converted = worldBoxToPage(
+                  frame,
+                  { x: frame.x, y: frame.y, width: safeBox.width, height: safeBox.height },
+                  present.rasterWidth,
+                  present.rasterHeight,
+                );
+                targetBox = { ...targetBox, width: converted.width, height: converted.height };
+              }
+            }
+            const clamped = clampOnPage(targetPageId, targetBox);
+            if (effect.pasteboard && found.where === 'page' && found.pageId) {
+              const frame = frameForPage(present.workspaceOrder, found.pageId);
+              const worldBox = frame
+                ? pageBoxToWorld(frame, safeBox, present.rasterWidth, present.rasterHeight)
+                : safeBox;
+              dispatch({
+                type: 'detachTextToPasteboard',
+                textId: effect.textId,
+                workspaceBox: {
+                  ...worldBox,
+                  x: clamped.x,
+                  y: clamped.y,
+                },
+                fontSize: frame
+                  ? found.node.fontSize * (frame.width / present.rasterWidth)
+                  : found.node.fontSize,
+              });
+            } else if (
               effect.pageId &&
               found.where === 'page' &&
               found.pageId &&
@@ -834,16 +840,38 @@ export function useEditorController(projectId: string): EditorController {
                 y: clamped.y,
               });
             } else if (effect.pageId && found.where === 'pasteboard') {
+              const frame = frameForPage(present.workspaceOrder, effect.pageId);
+              const pageBox = frame
+                ? worldBoxToPage(
+                    frame,
+                    {
+                      x: frame.x,
+                      y: frame.y,
+                      width: safeBox.width,
+                      height: safeBox.height,
+                    },
+                    present.rasterWidth,
+                    present.rasterHeight,
+                  )
+                : safeBox;
               dispatch({
                 type: 'attachTextToPage',
                 textId: effect.textId,
                 pageId: effect.pageId,
-                pageBox: { ...safeBox, x: clamped.x, y: clamped.y },
+                pageBox: { ...pageBox, x: clamped.x, y: clamped.y },
+                fontSize: frame
+                  ? found.node.fontSize * (present.rasterWidth / frame.width)
+                  : found.node.fontSize,
               });
             } else {
               dispatch({ type: 'moveText', textId: effect.textId, x: clamped.x, y: clamped.y });
             }
           }
+          changed = true;
+          continue;
+        }
+        if (effect.type === 'cancelTextTransform' || effect.type === 'cancelTextResize') {
+          textLiveRef.current.delete(effect.textId);
           changed = true;
         }
       }
@@ -987,9 +1015,6 @@ export function useEditorController(projectId: string): EditorController {
 
   const deleteText = useCallback(
     (textId: string) => {
-      // #region agent log
-      fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'6c5c15',location:'useEditorController.tsx:deleteText',message:'deleteText called',data:{textId},timestamp:Date.now(),hypothesisId:'B,C'})}).catch(()=>{});
-      // #endregion
       textLiveRef.current.delete(textId);
       setTextLiveTransforms(Object.fromEntries(textLiveRef.current));
       dispatch({ type: 'deleteText', textId });
@@ -999,15 +1024,11 @@ export function useEditorController(projectId: string): EditorController {
 
   const commitTextEdit = useCallback(
     (textId: string, content: string) => {
-      // #region agent log
-      fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'6c5c15',location:'useEditorController.tsx:commitTextEdit',message:'commitTextEdit',data:{textId,contentLen:content.length,empty:isTextContentEmpty(content)},timestamp:Date.now(),hypothesisId:'C,D'})}).catch(()=>{});
-      // #endregion
       if (isTextContentEmpty(content)) {
         deleteText(textId);
         return;
       }
       dispatch({ type: 'editText', textId, content });
-      dispatch({ type: 'selectText', textId: null });
     },
     [deleteText, dispatch],
   );
@@ -1223,17 +1244,12 @@ export function useEditorController(projectId: string): EditorController {
       const deferred: WorkspaceEffect[] = [];
       for (const effect of effects) {
         if (effect.type === 'createText') {
-          const track = textTapRef.current;
           const pending = {
             pageId: effect.pageId,
             x: effect.x,
             y: effect.y,
           };
-          const pointerType = track ? 'touch' : 'unknown';
-          // #region agent log
-          fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'6c5c15',location:'useEditorController.tsx:createTextEffect',message:'createText effect',data:{pageId:effect.pageId,x:effect.x,y:effect.y,hasTrack:Boolean(track),tool:present.tool,pointerType},timestamp:Date.now(),hypothesisId:'A,E',runId:'ipad-fix'})}).catch(()=>{});
-          // #endregion
-          createTextAtPointer(pending, pointerType, 'effect');
+          createTextAtPointer(pending);
           continue;
         }
         if (isInkWorkspaceEffect(effect)) {
@@ -1259,12 +1275,12 @@ export function useEditorController(projectId: string): EditorController {
         applyInkEffects(inkEffects, present);
       }
 
-      if (clipEffects.length > 0) {
-        applyClipEffects(clipEffects, present);
-      }
-
       if (clipLiveEffects.length > 0) {
         applyClipLiveEffects(clipLiveEffects, present);
+      }
+
+      if (clipEffects.length > 0) {
+        applyClipEffects(clipEffects, present);
       }
 
       if (textLiveEffects.length > 0) {

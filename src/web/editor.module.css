@@ -651,6 +651,28 @@
   z-index: 4;
 }
 
+.pasteboardTextWrap {
+  position: absolute;
+  box-sizing: border-box;
+  pointer-events: none;
+  overflow: visible;
+  z-index: 3;
+}
+
+.textResizeHandle {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  background: var(--ms-accent);
+  box-shadow: 0 1px 4px rgb(0 0 0 / 35%);
+  pointer-events: none;
+}
+
 .pageTextDeleteButton {
   position: absolute;
   left: 0;

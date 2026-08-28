@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { TextId } from '@/src/domain/types';
 import { isTextContentEmpty } from '@/src/domain/text';
 import { planTextCommit } from '@/src/web/textEditCommit';
+import { PAGE_TEXT_DELETE_ATTR } from '@/src/web/gestures/pageTextDom';
 import styles from '@/src/web/editor.module.css';
 
 export type TextEditSelection = {
@@ -43,6 +44,29 @@ export function TextEditBar({
     }
   }, [selection?.id]);
 
+  useEffect(() => {
+    if (!selection) return;
+    const capturePointerDown = (event: PointerEvent) => {
+      const buttons = Array.from(document.querySelectorAll<HTMLElement>(`[${PAGE_TEXT_DELETE_ATTR}]`));
+      const hitDeleteButton = buttons.some((button) => {
+        const rect = button.getBoundingClientRect();
+        return (
+          event.clientX >= rect.left &&
+          event.clientX <= rect.right &&
+          event.clientY >= rect.top &&
+          event.clientY <= rect.bottom
+        );
+      });
+      if (hitDeleteButton) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        onDeleteText(selection.id);
+      }
+    };
+    document.addEventListener('pointerdown', capturePointerDown, true);
+    return () => document.removeEventListener('pointerdown', capturePointerDown, true);
+  }, [onDeleteText, selection?.id]);
+
   const runExplicitCommit = useCallback(
     (options?: { forceOnExplicit?: boolean }) => {
       const current = selectionRef.current;
@@ -57,9 +81,6 @@ export function TextEditBar({
         explicit: true,
         forceOnExplicit: options?.forceOnExplicit,
       });
-      // #region agent log
-      fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'6c5c15',location:'TextEditBar.tsx:runExplicitCommit',message:'commit plan',data:{textId:current.id,draftLen:draft.length,textareaLen:textareaValue.length,draftMatchTextarea:draft===textareaValue,savedLen:current.content.length,composing:composingRef.current,forceOnExplicit:Boolean(options?.forceOnExplicit),planKind:plan.kind,planReason:plan.kind==='skip'?plan.reason:undefined},timestamp:Date.now(),hypothesisId:'B,C',runId:'post-fix'})}).catch(()=>{});
-      // #endregion
       if (plan.kind === 'commit') {
         onCommit(current.id, plan.content);
       } else if (plan.reason === 'composing') {
@@ -72,9 +93,6 @@ export function TextEditBar({
   const handleDone = () => {
     const current = selectionRef.current;
     const textareaValue = textareaRef.current?.value ?? draft;
-    // #region agent log
-    fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'6c5c15',location:'TextEditBar.tsx:handleDone',message:'done tapped',data:{textId:current?.id,draftLen:draft.length,textareaLen:textareaValue.length,draftEmpty:isTextContentEmpty(draft),textareaEmpty:isTextContentEmpty(textareaValue)},timestamp:Date.now(),hypothesisId:'B',runId:'post-fix'})}).catch(()=>{});
-    // #endregion
     if (current && isTextContentEmpty(textareaValue)) {
       onDeleteText(current.id);
       textareaRef.current?.blur();
@@ -86,11 +104,6 @@ export function TextEditBar({
 
   const handleBlur = () => {
     onEditingChange(false);
-    const current = selectionRef.current;
-    const textareaValue = textareaRef.current?.value ?? draft;
-    // #region agent log
-    fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'6c5c15',location:'TextEditBar.tsx:handleBlur',message:'textarea blur',data:{textId:current?.id,draftLen:draft.length,textareaLen:textareaValue.length,draftEmpty:isTextContentEmpty(draft),textareaEmpty:isTextContentEmpty(textareaValue)},timestamp:Date.now(),hypothesisId:'B',runId:'post-fix'})}).catch(()=>{});
-    // #endregion
     runExplicitCommit();
   };
 

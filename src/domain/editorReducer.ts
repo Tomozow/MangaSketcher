@@ -93,8 +93,8 @@ export type EditorDocumentAction =
   | { type: 'resizeText'; textId: TextId; box: Rect }
   | { type: 'setTextColor'; textId: TextId; color: string }
   | { type: 'setTextFontSize'; textId: TextId; fontSize: number }
-  | { type: 'attachTextToPage'; textId: TextId; pageId: PageId; pageBox: Rect }
-  | { type: 'detachTextToPasteboard'; textId: TextId; workspaceBox: Rect }
+  | { type: 'attachTextToPage'; textId: TextId; pageId: PageId; pageBox: Rect; fontSize?: number }
+  | { type: 'detachTextToPasteboard'; textId: TextId; workspaceBox: Rect; fontSize?: number }
   | { type: 'selectText'; textId: TextId | null }
   | {
       type: 'loadPdf';
@@ -410,7 +410,7 @@ export function reduceEditorDocument(
         id: item.id,
         content: item.content,
         box: { ...a.pageBox },
-        fontSize: item.fontSize,
+        fontSize: a.fontSize ?? item.fontSize,
         color: item.color,
       });
       return doc;
@@ -424,7 +424,7 @@ export function reduceEditorDocument(
             id: item.id,
             content: item.content,
             box: { ...a.workspaceBox },
-            fontSize: item.fontSize,
+            fontSize: a.fontSize ?? item.fontSize,
             color: item.color,
           });
           break;

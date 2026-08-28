@@ -1,7 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { buildStripFrames, NUMBER_BAND } from '@/src/domain/stripGeometry';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { buildStripFrames, NUMBER_BAND, pageLocalFromWorld } from '@/src/domain/stripGeometry';
 import { PAGE_INK_FRAME_ATTR, PAGE_INK_PLANE_ATTR, PAGE_NUMBER_BAND_ATTR, APPEND_SLOT_ATTR } from '@/src/web/gestures/pageInkDom';
 import {
   TEMPLATE_PAGE_NUMBER_COVER,
@@ -14,11 +14,16 @@ import {
 } from '@/src/domain/types';
 import type { PageMeta } from '@/src/storage/types';
 import { createWorkspacePointerPipeline, type WorkspaceEffect } from '@/src/web/gestures';
-import { inkLocalOnPage, resolveWorkspaceHit } from '@/src/web/gestures/resolveHit';
+import {
+  frameForPage,
+  inkLocalOnPage,
+  resolveWorkspaceDropTarget,
+  resolveWorkspaceHit,
+} from '@/src/web/gestures/resolveHit';
 import { pageInkLocalFromClient } from '@/src/web/gestures/pageInkDom';
 import { PageDragThumbnail } from '@/src/web/PageDragThumbnail';
 import { effectiveClipPose, type ClipLiveTransform } from '@/src/web/clip/clipLiveTransform';
-import { PageTextsOnFrame, textsForFrame } from '@/src/web/PageTextOverlay';
+import { PageTextsOnFrame, PasteboardTextsLayer, textsForFrame } from '@/src/web/PageTextOverlay';
 import type { TextLiveTransform } from '@/src/web/text/textLiveTransform';
 import styles from './editor.module.css';
 
@@ -76,6 +81,10 @@ export function WorkspaceStrip({
   const pipelineRef = useRef<ReturnType<typeof createWorkspacePointerPipeline> | null>(null);
   const [grabbedPageId, setGrabbedPageId] = useState<PageId | null>(null);
   const [dragPointer, setDragPointer] = useState<{ x: number; y: number } | null>(null);
+  const { frames, contentWidth, contentHeight } = useMemo(
+    () => buildStripFrames(workspaceOrder),
+    [workspaceOrder],
+  );
 
   const syncDragPointer = useCallback(() => {
     const pipeline = pipelineRef.current;
@@ -101,6 +110,7 @@ export function WorkspaceStrip({
     pasteboardTexts,
     selectedPageId,
     selectedClipId,
+    selectedTextId,
     tool,
     panX,
     panY,
@@ -108,6 +118,7 @@ export function WorkspaceStrip({
     rasterWidth,
     rasterHeight,
     getClipRasterSize,
+    frames,
   });
   ctxRef.current = {
     workspaceOrder,
@@ -117,6 +128,7 @@ export function WorkspaceStrip({
     pasteboardTexts,
     selectedPageId,
     selectedClipId,
+    selectedTextId,
     tool,
     panX,
     panY,
@@ -124,6 +136,7 @@ export function WorkspaceStrip({
     rasterWidth,
     rasterHeight,
     getClipRasterSize,
+    frames,
   };
 
   useEffect(() => {
@@ -142,6 +155,9 @@ export function WorkspaceStrip({
       get selectedClipId() {
         return ctxRef.current.selectedClipId;
       },
+      get selectedTextId() {
+        return ctxRef.current.selectedTextId;
+      },
       get panX() {
         return ctxRef.current.panX;
       },
@@ -159,7 +175,7 @@ export function WorkspaceStrip({
       },
       getClipMeta: (clipId) => ctxRef.current.pasteboardClips.find((c) => c.id === clipId),
       getClipRasterSize: (clipId) => ctxRef.current.getClipRasterSize(clipId),
-      resolveHit: (clientX, clientY) => {
+      resolveHit: (clientX, clientY, surfaceRect) => {
         const el = surfaceRef.current;
         if (!el) {
           return { kind: 'empty' as const };
@@ -176,8 +192,23 @@ export function WorkspaceStrip({
           clientX,
           clientY,
           surfaceEl: el,
+          surfaceRect,
           ...ctxRef.current,
           pasteboardClips: clips,
+          tool: ctxRef.current.tool,
+        });
+      },
+      resolveDropHit: (clientX, clientY, surfaceRect) => {
+        const el = surfaceRef.current;
+        if (!el) {
+          return { kind: 'empty' as const };
+        }
+        return resolveWorkspaceDropTarget({
+          clientX,
+          clientY,
+          surfaceEl: el,
+          surfaceRect,
+          ...ctxRef.current,
           tool: ctxRef.current.tool,
         });
       },
@@ -206,6 +237,19 @@ export function WorkspaceStrip({
           clientX,
           clientY,
           pageId,
+          ctxRef.current.rasterWidth,
+          ctxRef.current.rasterHeight,
+        );
+      },
+      mapWorldToPage: (pageId, worldX, worldY) => {
+        const frame = frameForPage(ctxRef.current.workspaceOrder, pageId);
+        if (!frame) {
+          return null;
+        }
+        return pageLocalFromWorld(
+          frame,
+          worldX,
+          worldY,
           ctxRef.current.rasterWidth,
           ctxRef.current.rasterHeight,
         );
@@ -242,8 +286,6 @@ export function WorkspaceStrip({
       pipelineRef.current = null;
     };
   }, [applyWorkspaceEffects, syncDragPointer]);
-
-  const { frames, contentWidth, contentHeight } = buildStripFrames(workspaceOrder);
 
   return (
     <div ref={surfaceRef} className={styles.workspaceSurface}>
@@ -298,6 +340,20 @@ export function WorkspaceStrip({
           const { pageId, number } = frame.slot;
           const isGrabbed = grabbedPageId === pageId;
           const pageTexts = textsForFrame(pageId, pages, textLiveTransforms);
+          for (const text of pasteboardTexts) {
+            const live = textLiveTransforms[text.id];
+            if (live?.where !== 'page' || live.pageId !== pageId) continue;
+            pageTexts.push({
+              ...text,
+              box: {
+                x: live.x,
+                y: live.y,
+                width: live.width ?? text.box.width,
+                height: live.height ?? text.box.height,
+              },
+              fontSize: text.fontSize * (rasterWidth / frame.width),
+            });
+          }
 
           return (
             <div
@@ -340,6 +396,16 @@ export function WorkspaceStrip({
             </div>
           );
         })}
+        <PasteboardTextsLayer
+          frames={frames}
+          pages={pages}
+          texts={pasteboardTexts}
+          rasterWidth={rasterWidth}
+          rasterHeight={rasterHeight}
+          selectedTextId={selectedTextId}
+          textLiveTransforms={textLiveTransforms}
+          onDeleteText={onDeleteText}
+        />
       </div>
     </div>
   );

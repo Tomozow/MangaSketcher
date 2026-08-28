@@ -1,10 +1,10 @@
 import type { DesktopNavMode } from '../../input/desktopNavKeys';
-import type { ClipId, ClipMeta, PageId, PointerKind, TextId, ToolId } from '../../domain/types';
+import type { ClipId, ClipMeta, PageId, PointerKind, Rect, TextId, ToolId } from '../../domain/types';
 import type { GestureHit } from '../../domain/workspaceGestures';
 
 export type { GestureHit };
 
-type GestureHitWithoutText = Exclude<GestureHit, { kind: 'pageText' | 'pasteboardText' }>;
+type GestureHitWithoutText = Exclude<GestureHit, { kind: 'pageText' | 'pasteboardText' | 'resizeHandle' }>;
 
 /** Page number band below a page frame (tap target). */
 export type WorkspaceHit =
@@ -19,6 +19,13 @@ export type WorkspaceHit =
       grabOffsetY: number;
       readingIndex: number;
       insertIndex: number;
+    }
+  | {
+      kind: 'resizeHandle';
+      textId: TextId;
+      owner: 'page' | 'pasteboard';
+      pageId?: PageId;
+      worldBox: Rect;
     }
   | {
       kind: 'pasteboardText';
@@ -127,7 +134,14 @@ export type WorkspaceSession =
       pageId?: PageId;
       where: 'page' | 'pasteboard';
     }
-  | { mode: 'resizeText'; kind: 'pencil'; textId: TextId }
+  | {
+      mode: 'resizeText';
+      kind: 'pencil';
+      textId: TextId;
+      owner: 'page' | 'pasteboard';
+      pageId?: PageId;
+      startWorldBox: Rect;
+    }
   | {
       mode: 'pendingChromeTap';
       kind: 'pencil';
@@ -162,9 +176,12 @@ export type WorkspaceEffect =
   | { type: 'createText'; pageId: PageId; x: number; y: number }
   | { type: 'selectText'; textId: TextId }
   | { type: 'moveText'; textId: TextId; x: number; y: number }
-  | { type: 'textTransformLive'; textId: TextId; x: number; y: number; pageId?: PageId }
-  | { type: 'commitTextTransform'; textId: TextId; x: number; y: number; pageId?: PageId }
-  | { type: 'resizeText'; textId: TextId; x: number; y: number }
+  | { type: 'textTransformLive'; textId: TextId; x: number; y: number; pageId?: PageId; pasteboard?: boolean }
+  | { type: 'commitTextTransform'; textId: TextId; x: number; y: number; pageId?: PageId; pasteboard?: boolean }
+  | { type: 'cancelTextTransform'; textId: TextId }
+  | { type: 'textResizeLive'; textId: TextId; box: Rect }
+  | { type: 'commitTextResize'; textId: TextId; box: Rect }
+  | { type: 'cancelTextResize'; textId: TextId }
   | { type: 'moveClip'; clipId: ClipId; x: number; y: number }
   | { type: 'scaleClip'; clipId: ClipId; scale: number }
   | { type: 'rotateClip'; clipId: ClipId; rotation: number }
@@ -177,6 +194,7 @@ export type WorkspaceEffect =
       rotation?: number;
     }
   | { type: 'commitClipTransform'; clipId: ClipId }
+  | { type: 'cancelClipTransform'; clipId: ClipId }
   | { type: 'selectClip'; clipId: ClipId | null }
   | {
       type: 'dropClipOnPage';
@@ -201,10 +219,13 @@ export type WorkspacePointerInput = {
   worldY: number;
   pressure: number;
   hit: WorkspaceHit;
+  /** Page/chrome below the active element, used only when committing a drop. */
+  dropHit?: WorkspaceHit;
   now: number;
   isPrimary: boolean;
   selectedPageId: PageId | null;
   selectedClipId: ClipId | null;
+  selectedTextId?: TextId | null;
   rasterWidth: number;
   rasterHeight: number;
   getClipMeta: (clipId: ClipId) => ClipMeta | undefined;
@@ -212,6 +233,7 @@ export type WorkspacePointerInput = {
   mapInkToPage?: (pageId: PageId, clientX: number, clientY: number) => { x: number; y: number } | null;
   /** DOM page-frame coords only (no strip/world fallback). Used for text placement. */
   mapPageDomLocal?: (pageId: PageId, clientX: number, clientY: number) => { x: number; y: number } | null;
+  mapWorldToPage?: (pageId: PageId, worldX: number, worldY: number) => { x: number; y: number } | null;
   pointerType?: PointerEvent['pointerType'];
   desktopNav?: DesktopNavMode;
 };

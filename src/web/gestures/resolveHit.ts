@@ -7,24 +7,32 @@ import {
   hitStripFrame,
   pageLocalFromWorld,
   screenToWorld,
+  type StripFrame,
 } from '../../domain/stripGeometry';
-import { pointInRect } from '../../domain/drop';
-import type { ClipId, ClipMeta, PageId, PageText, PasteboardText, ToolId } from '../../domain/types';
+import type { ClipId, ClipMeta, PageId, PageText, PasteboardText, TextId, ToolId } from '../../domain/types';
 import { hitClipAt } from '../clip/clipGeometry';
 import { pageInkLocalFromClient, resolveAppendDomHit, resolvePageDomHit } from './pageInkDom';
-import { hitPageTextFromDom } from './pageTextDom';
-import { expandTextHitBox } from './textHit';
+import {
+  hitPageTextFromDom,
+  PAGE_TEXT_ID_ATTR,
+  PAGE_TEXT_PAGE_ATTR,
+  PAGE_TEXT_WRAP_ATTR,
+} from './pageTextDom';
+import { buildTextInteractionElements, hitTextInteraction } from './elementInteraction';
 import type { WorkspaceHit } from './types';
 
 export type ResolveWorkspaceHitInput = {
   clientX: number;
   clientY: number;
   surfaceEl: HTMLElement;
+  surfaceRect?: DOMRectReadOnly;
+  frames?: StripFrame[];
   workspaceOrder: PageId[];
   pages: Record<PageId, { texts: PageText[] }>;
   pasteboardClips: ClipMeta[];
   pasteboardTexts: PasteboardText[];
   selectedClipId: ClipId | null;
+  selectedTextId?: TextId | null;
   panX: number;
   panY: number;
   zoom: number;
@@ -35,47 +43,63 @@ export type ResolveWorkspaceHitInput = {
   tool?: ToolId;
 };
 
-function hitPageTexts(
-  pageId: PageId,
-  texts: PageText[],
-  localX: number,
-  localY: number,
-  readingIndex: number,
-  insertIndex: number,
-  rasterWidth: number,
+function hitRenderedTextFromDomStack(
+  input: ResolveWorkspaceHitInput,
+  rect: DOMRectReadOnly,
+  frames: StripFrame[],
+  worldX: number,
+  worldY: number,
 ): WorkspaceHit | null {
-  for (let i = texts.length - 1; i >= 0; i -= 1) {
-    const text = texts[i]!;
-    if (pointInRect(localX, localY, expandTextHitBox(text.box, rasterWidth))) {
-      return {
-        kind: 'pageText',
-        textId: text.id,
-        pageId,
-        localX,
-        localY,
-        grabOffsetX: localX - (Number.isFinite(text.box.x) ? text.box.x : 0),
-        grabOffsetY: localY - (Number.isFinite(text.box.y) ? text.box.y : 0),
-        readingIndex,
-        insertIndex,
-      };
-    }
-  }
-  return null;
-}
+  if (typeof document.elementsFromPoint !== 'function') return null;
+  const selector = `[${PAGE_TEXT_WRAP_ATTR}][${PAGE_TEXT_ID_ATTR}]`;
+  const wrap = document
+    .elementsFromPoint(input.clientX, input.clientY)
+    .map((element) => element.closest<HTMLElement>(selector))
+    .find((element): element is HTMLElement => element !== null);
+  if (!wrap) return null;
 
-function hitPasteboardTexts(texts: PasteboardText[], worldX: number, worldY: number): WorkspaceHit | null {
-  for (let i = texts.length - 1; i >= 0; i -= 1) {
-    const text = texts[i]!;
-    if (pointInRect(worldX, worldY, text.box)) {
-      return {
-        kind: 'pasteboardText',
-        textId: text.id,
-        grabOffsetX: worldX - (Number.isFinite(text.box.x) ? text.box.x : 0),
-        grabOffsetY: worldY - (Number.isFinite(text.box.y) ? text.box.y : 0),
-      };
-    }
+  const textId = wrap.getAttribute(PAGE_TEXT_ID_ATTR);
+  if (!textId) return null;
+  const wrapRect = wrap.getBoundingClientRect();
+  const wrapWorld = screenToWorld(
+    wrapRect.left - rect.left,
+    wrapRect.top - rect.top,
+    input.panX,
+    input.panY,
+    input.zoom,
+  );
+  const pageId = wrap.getAttribute(PAGE_TEXT_PAGE_ATTR) as PageId | null;
+  if (!pageId) {
+    return {
+      kind: 'pasteboardText',
+      textId,
+      grabOffsetX: worldX - wrapWorld.x,
+      grabOffsetY: worldY - wrapWorld.y,
+    };
   }
-  return null;
+
+  const frame = frames.find(
+    (candidate) => candidate.slot.kind === 'page' && candidate.slot.pageId === pageId,
+  );
+  if (!frame) return null;
+  const local = pageLocalFromWorld(
+    frame,
+    worldX,
+    worldY,
+    input.rasterWidth,
+    input.rasterHeight,
+  );
+  return {
+    kind: 'pageText',
+    textId,
+    pageId,
+    localX: local.x,
+    localY: local.y,
+    grabOffsetX: worldX - wrapWorld.x,
+    grabOffsetY: worldY - wrapWorld.y,
+    readingIndex: input.workspaceOrder.indexOf(pageId),
+    insertIndex: frame.insertIndex,
+  };
 }
 
 function hitPasteboardClips(
@@ -127,25 +151,20 @@ function resolvePageWorkspaceHit(
   input: ResolveWorkspaceHitInput,
   worldX: number,
   worldY: number,
+  frames: StripFrame[],
+  skipDom = false,
 ): WorkspaceHit | null {
-  if (input.tool === 'text') {
-    const textDomHit = hitPageTextFromDom(input);
-    if (textDomHit) {
-      return textDomHit;
+  if (!skipDom) {
+    const pageDomHit = resolvePageDomHit(input);
+    if (pageDomHit) {
+      return pageDomHit;
+    }
+    const appendHit = resolveAppendDomHit(input);
+    if (appendHit) {
+      return appendHit;
     }
   }
 
-  const pageDomHit = resolvePageDomHit(input);
-  if (pageDomHit) {
-    return pageDomHit;
-  }
-
-  const appendHit = resolveAppendDomHit(input);
-  if (appendHit) {
-    return appendHit;
-  }
-
-  const { frames } = buildStripFrames(input.workspaceOrder);
   const frame = hitStripFrame(frames, worldX, worldY);
   if (!frame) {
     return null;
@@ -176,7 +195,6 @@ function resolvePageWorkspaceHit(
     return null;
   }
 
-  const page = input.pages[pageId];
   const fallback = pageLocalFromWorld(
     frame,
     worldX,
@@ -185,13 +203,6 @@ function resolvePageWorkspaceHit(
     input.rasterHeight,
   );
   const clamped = clampRasterPoint(fallback.x, fallback.y, input.rasterWidth, input.rasterHeight);
-  const pageTextHit = page
-    ? hitPageTexts(pageId, page.texts, clamped.x, clamped.y, readingIndex, frame.insertIndex, input.rasterWidth)
-    : null;
-  if (pageTextHit) {
-    return pageTextHit;
-  }
-
   return {
     kind: 'page',
     pageId,
@@ -203,14 +214,81 @@ function resolvePageWorkspaceHit(
 }
 
 export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceHit {
-  const rect = input.surfaceEl.getBoundingClientRect();
+  const rect = input.surfaceRect ?? input.surfaceEl.getBoundingClientRect();
+  const frames = input.frames ?? buildStripFrames(input.workspaceOrder).frames;
+
   const localX = input.clientX - rect.left;
   const localY = input.clientY - rect.top;
   const { x: worldX, y: worldY } = screenToWorld(localX, localY, input.panX, input.panY, input.zoom);
 
   // Ink is stored on the page raster under the pointer; floating clips do not capture pen/eraser.
   if (input.tool === 'pen' || input.tool === 'eraser') {
-    return resolvePageWorkspaceHit(input, worldX, worldY) ?? { kind: 'empty' };
+    return resolvePageWorkspaceHit(input, worldX, worldY, frames) ?? { kind: 'empty' };
+  }
+
+  const renderedTextHit = hitRenderedTextFromDomStack(input, rect, frames, worldX, worldY);
+  if (renderedTextHit) {
+    return renderedTextHit;
+  }
+
+  const domTextHit = hitPageTextFromDom(input);
+  if (domTextHit) {
+    return domTextHit;
+  }
+
+  const textElements = buildTextInteractionElements({ ...input, frames });
+  const textHit = hitTextInteraction(
+    textElements,
+    worldX,
+    worldY,
+    input.selectedTextId ?? null,
+    14 / Math.max(0.1, input.zoom),
+  );
+  if (textHit?.handle === 'se') {
+    return {
+      kind: 'resizeHandle',
+      textId: textHit.element.id,
+      owner: textHit.element.owner.kind,
+      pageId: textHit.element.owner.kind === 'page' ? textHit.element.owner.pageId : undefined,
+      worldBox: textHit.element.worldBox,
+    };
+  }
+
+  if (textHit) {
+    const offsetX = worldX - textHit.element.worldBox.x;
+    const offsetY = worldY - textHit.element.worldBox.y;
+    if (textHit.element.owner.kind === 'pasteboard') {
+      return {
+        kind: 'pasteboardText',
+        textId: textHit.element.id,
+        grabOffsetX: offsetX,
+        grabOffsetY: offsetY,
+      };
+    }
+    const pageId = textHit.element.owner.pageId;
+    const frame = frames.find(
+      (candidate) => candidate.slot.kind === 'page' && candidate.slot.pageId === pageId,
+    );
+    if (frame) {
+      const local = pageLocalFromWorld(
+        frame,
+        worldX,
+        worldY,
+        input.rasterWidth,
+        input.rasterHeight,
+      );
+      return {
+        kind: 'pageText',
+        textId: textHit.element.id,
+        pageId,
+        localX: local.x,
+        localY: local.y,
+        grabOffsetX: offsetX,
+        grabOffsetY: offsetY,
+        readingIndex: input.workspaceOrder.indexOf(pageId),
+        insertIndex: frame.insertIndex,
+      };
+    }
   }
 
   const clipHit = hitPasteboardClips(
@@ -226,12 +304,21 @@ export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceH
     return clipHit;
   }
 
-  const textHit = hitPasteboardTexts(input.pasteboardTexts, worldX, worldY);
-  if (textHit) {
-    return textHit;
-  }
+  return resolvePageWorkspaceHit(input, worldX, worldY, frames) ?? { kind: 'empty' };
+}
 
-  return resolvePageWorkspaceHit(input, worldX, worldY) ?? { kind: 'empty' };
+/** Resolve the page below an active element without allowing that element to capture the drop. */
+export function resolveWorkspaceDropTarget(input: ResolveWorkspaceHitInput): WorkspaceHit {
+  const rect = input.surfaceRect ?? input.surfaceEl.getBoundingClientRect();
+  const { x: worldX, y: worldY } = screenToWorld(
+    input.clientX - rect.left,
+    input.clientY - rect.top,
+    input.panX,
+    input.panY,
+    input.zoom,
+  );
+  const frames = input.frames ?? buildStripFrames(input.workspaceOrder).frames;
+  return resolvePageWorkspaceHit(input, worldX, worldY, frames, true) ?? { kind: 'empty' };
 }
 
 export function frameForPage(workspaceOrder: PageId[], pageId: PageId) {

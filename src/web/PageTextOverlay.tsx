@@ -1,8 +1,14 @@
 'use client';
 
-import { useEffect } from 'react';
-import { DEFAULT_RASTER_HEIGHT, DEFAULT_RASTER_WIDTH, type PageId, type PageText, type TextId } from '@/src/domain/types';
-import { PAGE_DISPLAY_H, PAGE_DISPLAY_W } from '@/src/domain/stripGeometry';
+import {
+  DEFAULT_RASTER_HEIGHT,
+  DEFAULT_RASTER_WIDTH,
+  type PageId,
+  type PageText,
+  type PasteboardText,
+  type TextId,
+} from '@/src/domain/types';
+import { PAGE_DISPLAY_H, PAGE_DISPLAY_W, type StripFrame } from '@/src/domain/stripGeometry';
 import type { EditorDocument } from '@/src/storage/types';
 import {
   effectiveTextBox,
@@ -16,8 +22,8 @@ import {
   PAGE_TEXT_PAGE_ATTR,
   PAGE_TEXT_WRAP_ATTR,
 } from '@/src/web/gestures/pageTextDom';
-import { PAGE_INK_FRAME_ATTR } from '@/src/web/gestures/pageInkDom';
 import styles from '@/src/web/editor.module.css';
+import { pageBoxToWorld } from '@/src/web/gestures/elementInteraction';
 
 type PageTextOverlayProps = {
   doc: EditorDocument;
@@ -37,7 +43,8 @@ export function textsForFrame(
   const result: PageText[] = [];
   for (const [homePageId, page] of Object.entries(pages)) {
     for (const text of page.texts) {
-      if (textRenderPageId(homePageId, textLiveTransforms[text.id]) === framePageId) {
+      const live = textLiveTransforms[text.id];
+      if (live?.where !== 'pasteboard' && textRenderPageId(homePageId, live) === framePageId) {
         result.push(text);
       }
     }
@@ -77,35 +84,14 @@ export function PageTextsOnFrame({
   const rh = rasterSize(rasterHeight, DEFAULT_RASTER_HEIGHT);
   const scaleX = PAGE_DISPLAY_W / rw;
 
-  useEffect(() => {
-    const selected = texts.find((text) => text.id === selectedTextId);
-    if (!selected) {
-      return;
-    }
-    const wrap = document.querySelector<HTMLElement>(`[${PAGE_TEXT_ID_ATTR}="${selected.id}"]`);
-    const pageFrame = wrap?.closest<HTMLElement>(`[${PAGE_INK_FRAME_ATTR}]`);
-    const appendEl = document.querySelector<HTMLElement>('[aria-label="ページ追加"]');
-    const wrapRect = wrap?.getBoundingClientRect();
-    const pageRect = pageFrame?.getBoundingClientRect();
-    const appendRect = appendEl?.getBoundingClientRect();
-    const box = effectiveTextBox(sanitizeTextBox(selected.box), textLiveTransforms[selected.id]);
-    const cs = wrap ? getComputedStyle(wrap) : null;
-    const pageBottom = pageRect?.bottom;
-    const insidePageY = Boolean(
-      wrapRect && pageRect && wrapRect.top >= pageRect.top - 1 && wrapRect.top <= pageRect.bottom,
-    );
-    // #region agent log
-    fetch('http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'6c5c15'},body:JSON.stringify({sessionId:'6c5c15',location:'PageTextOverlay.tsx:PageTextsOnFrame',message:'selected text vs page vs append',data:{pageId,textId:selected.id,boxX:box.x,boxY:box.y,rw,rh,scaleX,cssLeft:cs?.left,cssTop:cs?.top,wrapLeft:wrapRect?.left,wrapTop:wrapRect?.top,pageLeft:pageRect?.left,pageTop:pageRect?.top,pageRight:pageRect?.right,pageBottom,dy:wrapRect&&pageRect?wrapRect.top-pageRect.top:undefined,insidePageX:Boolean(wrapRect&&pageRect&&wrapRect.left>=pageRect.left-1&&wrapRect.left<=pageRect.right),insidePageY,insideAppend:Boolean(wrapRect&&appendRect&&wrapRect.left>=appendRect.left-8&&wrapRect.left<=appendRect.right+8)},timestamp:Date.now(),hypothesisId:'H',runId:'ipad-fix5'})}).catch(()=>{});
-    // #endregion
-  }, [pageId, selectedTextId, texts, rw, rh, scaleX, textLiveTransforms]);
-
   return (
     <>
       {texts.map((text) => {
         const selected = selectedTextId === text.id;
         const box = effectiveTextBox(sanitizeTextBox(text.box), textLiveTransforms[text.id]);
         const fontSize = Number.isFinite(text.fontSize) ? text.fontSize : 12;
-        const cssFontSize = displayTextFontSize(fontSize, scaleX);
+        const resizeScale = box.width / Math.max(1, sanitizeTextBox(text.box).width);
+        const cssFontSize = displayTextFontSize(fontSize * resizeScale, scaleX);
         return (
           <div
             key={text.id}
@@ -151,6 +137,117 @@ export function PageTextsOnFrame({
             >
               {text.content}
             </div>
+            {selected ? <span className={styles.textResizeHandle} aria-hidden="true" /> : null}
+          </div>
+        );
+      })}
+    </>
+  );
+}
+
+type PasteboardTextsLayerProps = {
+  frames: StripFrame[];
+  pages: EditorDocument['pages'];
+  texts: PasteboardText[];
+  rasterWidth: number;
+  rasterHeight: number;
+  selectedTextId: TextId | null;
+  textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
+  onDeleteText: (textId: TextId) => void;
+};
+
+/** Texts whose current interaction owner is the infinite pasteboard. */
+export function PasteboardTextsLayer({
+  frames,
+  pages,
+  texts,
+  rasterWidth,
+  rasterHeight,
+  selectedTextId,
+  textLiveTransforms,
+  onDeleteText,
+}: PasteboardTextsLayerProps) {
+  const items: Array<{ text: PageText | PasteboardText; box: { x: number; y: number; width: number; height: number }; fontSize: number }> = [];
+  const frameByPage = new Map<PageId, StripFrame>();
+  for (const frame of frames) {
+    if (frame.slot.kind === 'page') {
+      frameByPage.set(frame.slot.pageId, frame);
+    }
+  }
+
+  for (const text of texts) {
+    const live = textLiveTransforms[text.id];
+    if (live?.where === 'page') continue;
+    const box =
+      live?.where === 'pasteboard'
+        ? effectiveTextBox(text.box, live)
+        : sanitizeTextBox(text.box);
+    items.push({
+      text,
+      box,
+      fontSize: text.fontSize * (box.width / Math.max(1, text.box.width)),
+    });
+  }
+
+  for (const [pageId, page] of Object.entries(pages)) {
+    const frame = frameByPage.get(pageId);
+    if (!frame) continue;
+    for (const text of page.texts) {
+      const live = textLiveTransforms[text.id];
+      if (live?.where !== 'pasteboard') continue;
+      const worldBox = pageBoxToWorld(frame, sanitizeTextBox(text.box), rasterWidth, rasterHeight);
+      items.push({
+        text,
+        box: {
+          ...worldBox,
+          x: live.x,
+          y: live.y,
+          width: live.width ?? worldBox.width,
+          height: live.height ?? worldBox.height,
+        },
+        fontSize: text.fontSize * (frame.width / rasterWidth),
+      });
+    }
+  }
+
+  return (
+    <>
+      {items.map(({ text, box, fontSize }) => {
+        const selected = selectedTextId === text.id;
+        return (
+          <div
+            key={text.id}
+            {...{
+              [PAGE_TEXT_WRAP_ATTR]: '',
+              [PAGE_TEXT_ID_ATTR]: text.id,
+            }}
+            className={`${styles.pasteboardTextWrap} ${selected ? styles.pageTextWrapSelected : ''}`}
+            style={{ left: box.x, top: box.y, width: box.width, height: box.height }}
+          >
+            {selected ? (
+              <button
+                type="button"
+                className={styles.pageTextDeleteButton}
+                {...{ [PAGE_TEXT_DELETE_ATTR]: '' }}
+                aria-label="テキストを削除"
+                onPointerDown={(event) => {
+                  event.stopPropagation();
+                }}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onDeleteText(text.id);
+                }}
+              >
+                ×
+              </button>
+            ) : null}
+            <div
+              className={`${styles.pageTextBox} ${selected ? styles.pageTextBoxSelected : ''}`}
+              style={{ color: text.color, fontSize, lineHeight: 1.2 }}
+            >
+              {text.content}
+            </div>
+            {selected ? <span className={styles.textResizeHandle} aria-hidden="true" /> : null}
           </div>
         );
       })}

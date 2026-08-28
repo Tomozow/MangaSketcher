@@ -211,9 +211,6 @@ export function resolvePageDomHit(input: {
   rasterHeight: number;
 }): WorkspaceHit | null {
   const rectHit = resolvePageDomHitFromRects(input);
-  // #region agent log
-  fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'6c5c15',location:'pageInkDom.ts:resolvePageDomHit',message:'dom hit resolved',data:{clientX:input.clientX,clientY:input.clientY,method:'rect',hitKind:rectHit?.kind??null,pageId:rectHit&&'pageId' in rectHit?rectHit.pageId:undefined,localX:rectHit&&'localX' in rectHit?rectHit.localX:undefined,localY:rectHit&&'localY' in rectHit?rectHit.localY:undefined},timestamp:Date.now(),hypothesisId:'B',runId:'ipad-fix2'})}).catch(()=>{});
-  // #endregion
   if (rectHit) {
     return rectHit;
   }
