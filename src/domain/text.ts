@@ -1,4 +1,21 @@
-import type { DocumentState, PageId, PageText, PasteboardText, Rect, TextId } from './types';
+import type {
+  EditorDocument,
+  PageId,
+  PageText,
+  PasteboardText,
+  Rect,
+  TextDocument,
+  TextId,
+} from './types';
+
+type SelectedTextDocument = TextDocument & Pick<EditorDocument, 'selectedTextId'>;
+
+export function defaultTextBox(rw: number, rh: number): Pick<Rect, 'width' | 'height'> {
+  return {
+    width: Math.round(rw * 0.08),
+    height: Math.round(rh * 0.25),
+  };
+}
 
 export function createEmptyTextBox(
   id: string,
@@ -16,7 +33,7 @@ export function createEmptyTextBox(
 }
 
 export function findText(
-  doc: DocumentState,
+  doc: TextDocument,
   textId: TextId,
 ): { node: PageText | PasteboardText; where: 'page' | 'pasteboard'; pageId?: PageId } | null {
   for (const page of Object.values(doc.pages)) {
@@ -30,7 +47,7 @@ export function findText(
 }
 
 /** 選択中テキスト枠の本文編集用。回転なし・縦書き。未選択は null。 */
-export function selectedTextForEditor(doc: DocumentState): {
+export function selectedTextForEditor(doc: SelectedTextDocument): {
   id: TextId;
   content: string;
   color: string;

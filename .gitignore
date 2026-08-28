@@ -3,7 +3,11 @@
 # dependencies
 node_modules/
 
-# Expo
+# Next.js
+.next/
+out/
+
+# Expo (legacy)
 .expo/
 dist/
 web-build/

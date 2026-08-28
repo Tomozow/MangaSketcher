@@ -88,7 +88,18 @@ export function stampBrush(
         continue;
       }
       if (erase) {
-        setPixel(raster, x, y, { r: 0, g: 0, b: 0, a: 0 });
+        const existing = getPixel(raster, x, y);
+        const k = Math.max(0, Math.min(1, color.a / 255));
+        if (k >= 0.999) {
+          setPixel(raster, x, y, { r: 0, g: 0, b: 0, a: 0 });
+        } else {
+          setPixel(raster, x, y, {
+            r: existing.r,
+            g: existing.g,
+            b: existing.b,
+            a: Math.round(existing.a * (1 - k)),
+          });
+        }
       } else {
         const existing = getPixel(raster, x, y);
         const srcA = color.a / 255;

@@ -1,0 +1,69 @@
+import type { EditorDocument, ProjectId, ToolProperties } from '../domain/types';
+
+export type {
+  ClipId,
+  ClipMeta,
+  EditorDocument,
+  PageId,
+  PageMeta,
+  PageText,
+  PasteboardText,
+  PdfDocument,
+  ProjectId,
+  StockItem,
+  StockLayout,
+  TextId,
+  ToolId,
+  ToolProperties,
+} from '../domain/types';
+
+/** Spec alias — same shape as domain `PdfDocument`. */
+export type PdfMeta = import('../domain/types').PdfDocument;
+
+export const DB_NAME = 'mangasketcher';
+export const DB_VERSION = 1;
+
+export const DEFAULT_RASTER_WIDTH = 1200;
+export const DEFAULT_RASTER_HEIGHT = 1700;
+
+export const DOCUMENT_SAVE_DEBOUNCE_MS = 800;
+export const VIEW_ONLY_SAVE_DEBOUNCE_MS = 1500;
+export const HISTORY_DEPTH = 50;
+
+export const OPFS_PDF_DIR = 'pdfs';
+
+export type ProjectMeta = {
+  id: ProjectId;
+  name: string;
+  updatedAt: string;
+  pageCount: number;
+};
+
+export type EditorHistoryEntry = {
+  doc: EditorDocument;
+  inkUndo: Map<string, ArrayBuffer>;
+};
+
+export type EditorHistory = {
+  present: EditorDocument;
+  past: EditorHistoryEntry[];
+  future: EditorHistoryEntry[];
+};
+
+export const DEFAULT_TOOL_PROPERTIES: ToolProperties = {
+  penColor: '#1A1A1A',
+  penSize: 12,
+  penOpacity: 1,
+  eraserSize: 28,
+  eraserOpacity: 1,
+  textColor: '#1A1A1A',
+  textFontSize: 36,
+};
+
+export const DEFAULT_UI_LAYOUT = {
+  workspacePdfSplit: 0.58,
+  paletteStockSplit: 0.46,
+  pdfViewerVisible: true,
+  sidebarCompact: false,
+  stockLayout: 'free' as import('../domain/types').StockLayout,
+};

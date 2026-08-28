@@ -44,10 +44,33 @@ export type Page = {
   texts: PageText[];
 };
 
+/** Production page metadata — pixels live in InkEngine, not here. */
+export type PageMeta = {
+  id: PageId;
+  texts: PageText[];
+  rasterId: string;
+};
+
+/** Text lookup shape shared by EditorDocument and TestDocument. */
+export type TextDocument = {
+  pages: Record<PageId, { id: PageId; texts: PageText[] }>;
+  pasteboardTexts: PasteboardText[];
+};
+
 export type InkClip = {
   id: ClipId;
   raster: Raster;
   /** Workspace coordinates of the clip origin. */
+  x: number;
+  y: number;
+  scale: number;
+  rotation: number;
+};
+
+/** Production clip metadata — pixels live in InkEngine. */
+export type ClipMeta = {
+  id: ClipId;
+  rasterId: string;
   x: number;
   y: number;
   scale: number;
@@ -74,7 +97,6 @@ export type ToolProperties = {
 };
 
 export type PdfDocument = {
-  uri: string;
   pageCount: number;
   currentPage: number;
   zoom: number;
@@ -82,6 +104,8 @@ export type PdfDocument = {
   panY: number;
   /** Raw extracted items kept so source PDF text is never mutated. */
   sourceTextByPage: Record<number, PdfTextItem[]>;
+  opfsPath: string;
+  generation: number;
 };
 
 export type PdfTextItem = {
@@ -94,6 +118,7 @@ export type PdfTextItem = {
   /** Tagged role when known, e.g. Ruby. */
   role?: string;
 };
+
 
 export type DocumentState = {
   projectId: ProjectId;
@@ -125,10 +150,52 @@ export type DocumentState = {
   stockLayout: StockLayout;
 };
 
+/** Production React state / IDB JSON — no Uint8ClampedArray. */
+export type EditorDocument = {
+  projectId: ProjectId;
+  name: string;
+  rasterWidth: number;
+  rasterHeight: number;
+  pages: Record<PageId, PageMeta>;
+  workspaceOrder: PageId[];
+  stock: StockItem[];
+  pasteboardClips: ClipMeta[];
+  pasteboardTexts: PasteboardText[];
+  selectedPageId: PageId | null;
+  selectedClipId: ClipId | null;
+  selectedTextId: TextId | null;
+  tool: ToolId;
+  tools: ToolProperties;
+  pdf: PdfDocument | null;
+  workspaceZoom: number;
+  workspacePanX: number;
+  workspacePanY: number;
+  stockZoom: number;
+  stockPanX: number;
+  stockPanY: number;
+  workspacePdfSplit: number;
+  paletteStockSplit: number;
+  pdfViewerVisible: boolean;
+  sidebarCompact: boolean;
+  stockLayout: StockLayout;
+  inkGeneration: number;
+};
+
 export type HistoryState = {
   present: DocumentState;
   past: DocumentState[];
   future: DocumentState[];
+};
+
+export type EditorHistoryEntry = {
+  doc: EditorDocument;
+  inkUndo: Record<string, ArrayBuffer>;
+};
+
+export type EditorHistoryState = {
+  present: EditorDocument;
+  past: EditorHistoryEntry[];
+  future: EditorHistoryEntry[];
 };
 
 export type ProjectMeta = {
@@ -153,15 +220,18 @@ export const TEMPLATE_PAGE_NUMBER_COVER: Rect = {
   height: 0.055,
 };
 
-export const DEFAULT_RASTER_WIDTH = 48;
-export const DEFAULT_RASTER_HEIGHT = 68;
+export const DEFAULT_RASTER_WIDTH = 1200;
+export const DEFAULT_RASTER_HEIGHT = 1700;
 
 export const DEFAULT_TOOL_PROPERTIES: ToolProperties = {
   penColor: '#1A1A1A',
-  penSize: 2,
+  penSize: 12,
   penOpacity: 1,
-  eraserSize: 4,
+  eraserSize: 28,
   eraserOpacity: 1,
   textColor: '#1A1A1A',
-  textFontSize: 14,
+  textFontSize: 36,
 };
+
+/** In-memory test document with embedded raster bytes (Vitest only). */
+export type TestDocument = DocumentState;

@@ -1,0 +1,56 @@
+import { PDF_WORKER_SRC } from './constants';
+
+type PdfJsModule = typeof import('pdfjs-dist');
+type PdfDocumentProxy = Awaited<ReturnType<PdfJsModule['getDocument']>['promise']>;
+
+type SessionEntry = {
+  opfsPath: string;
+  generation: number;
+  proxy: PdfDocumentProxy;
+};
+
+const sessions = new Map<string, SessionEntry>();
+let pdfjsReady: Promise<PdfJsModule> | null = null;
+
+function sessionKey(opfsPath: string, generation: number): string {
+  return `${opfsPath}#g=${generation}`;
+}
+
+async function loadPdfJs(): Promise<PdfJsModule> {
+  if (!pdfjsReady) {
+    pdfjsReady = import('pdfjs-dist').then((pdfjs) => {
+      pdfjs.GlobalWorkerOptions.workerSrc = PDF_WORKER_SRC;
+      return pdfjs;
+    });
+  }
+  return pdfjsReady;
+}
+
+/** §7.9 / §10.2 — keep PDFDocumentProxy for the session; do not re-getDocument on page turns. */
+export async function getOrLoadPdfProxy(
+  opfsPath: string,
+  generation: number,
+  data: ArrayBuffer | Uint8Array,
+): Promise<PdfDocumentProxy> {
+  const key = sessionKey(opfsPath, generation);
+  const existing = sessions.get(key);
+  if (existing) {
+    return existing.proxy;
+  }
+  const pdfjs = await loadPdfJs();
+  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const loadingTask = pdfjs.getDocument({ data: bytes });
+  const proxy = await loadingTask.promise;
+  sessions.set(key, { opfsPath, generation, proxy });
+  return proxy;
+}
+
+export function dropPdfSession(opfsPath: string, generation: number): void {
+  sessions.delete(sessionKey(opfsPath, generation));
+}
+
+export function clearPdfSessions(): void {
+  sessions.clear();
+}
+
+export type { PdfDocumentProxy };

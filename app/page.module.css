@@ -1,0 +1,153 @@
+.main {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  padding: max(24px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right))
+    max(24px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left));
+  gap: 24px;
+}
+
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.title {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.subtitle {
+  margin: 0;
+  color: #6f675c;
+}
+
+.list {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid #c9c0b0;
+  border-radius: 12px;
+  background: #fff;
+  padding: 16px;
+}
+
+.empty,
+.hint,
+.error {
+  margin: 0;
+}
+
+.hint {
+  margin-top: 8px;
+  color: #6f675c;
+  font-size: 0.875rem;
+}
+
+.error {
+  margin-top: 12px;
+  color: #9b2c2c;
+  font-size: 0.875rem;
+}
+
+.projectRows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.projectRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 12px;
+  border: 1px solid #e8e2d6;
+  border-radius: 10px;
+  background: #faf8f4;
+}
+
+.projectOpen {
+  flex: 1;
+  min-width: 0;
+  min-height: 44px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  text-decoration: none;
+  color: inherit;
+  touch-action: manipulation;
+}
+
+.projectName {
+  font-weight: 600;
+}
+
+.projectMeta {
+  font-size: 0.8125rem;
+  color: #6f675c;
+}
+
+.projectActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.secondaryButton,
+.dangerButton {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid #c9c0b0;
+  background: #fff;
+  color: #2b2620;
+  touch-action: manipulation;
+}
+
+.secondaryButton:disabled,
+.dangerButton:disabled,
+.primaryButton:disabled {
+  opacity: 0.5;
+}
+
+.dangerButton {
+  border-color: #d4a5a5;
+  color: #9b2c2c;
+}
+
+.footer {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.primaryButton {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 20px;
+  border: none;
+  border-radius: 10px;
+  background: #3d5a80;
+  color: #fff;
+  touch-action: manipulation;
+}
+
+.primaryButton:disabled {
+  opacity: 0.5;
+}
+
+.link {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: #3d5a80;
+  touch-action: manipulation;
+}

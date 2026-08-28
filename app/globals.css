@@ -1,0 +1,37 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background: #f4f1ea;
+  color: #2b2620;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+:root {
+  --ms-background: #f4f1ea;
+  --ms-surface: #ffffff;
+  --ms-surface-muted: #e8e2d6;
+  --ms-border: #c9c0b0;
+  --ms-text: #2b2620;
+  --ms-text-muted: #6f675c;
+  --ms-accent: #3d5a80;
+}

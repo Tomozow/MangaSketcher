@@ -1,9 +1,24 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
+/**
+ * Web storage replaces Expo AsyncStorage. Legacy imports should migrate to projectStore.
+ */
+export {
+  createProject,
+  deleteProject,
+  listProjects,
+  loadDocument,
+  loadProjectRasters,
+  renameProject,
+  runStartupGc,
+  saveProjectDocument,
+  writeProjectPdf,
+} from './projectStore';
 
-import type { KeyValueStore } from '../domain/projects';
-
-export const appStore: KeyValueStore = {
-  getItem: (key) => AsyncStorage.getItem(key),
-  setItem: (key, value) => AsyncStorage.setItem(key, value),
-  removeItem: (key) => AsyncStorage.removeItem(key),
-};
+export { loadEditorBoot, readPdfArrayBuffer, editorHistoryFromBoot } from './editorBoot';
+export { AutosaveManager } from './autosave';
+export {
+  createEditorHistory,
+  isViewOnlyHistoryAction,
+  pushEditorHistory,
+  redoEditorHistory,
+  undoEditorHistory,
+} from './history';

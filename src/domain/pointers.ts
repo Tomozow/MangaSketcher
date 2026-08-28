@@ -1,4 +1,4 @@
-import type { PointerEvent, ToolId } from './types';
+import type { PointerEvent, ToolId, PointerKind } from './types';
 
 export type PointerIntent =
   | { type: 'pan' }
@@ -49,4 +49,28 @@ export function brushRadius(baseSize: number, pressure: number, kind: PointerEve
     return Math.max(0.5, baseSize * Math.max(0.05, pressure));
   }
   return baseSize;
+}
+
+export function workspacePointerPolicy(kind: PointerKind): {
+  pan: boolean;
+  grabPage: boolean;
+  ink: boolean;
+  marquee: boolean;
+  text: boolean;
+} {
+  if (kind === 'finger') {
+    return { pan: true, grabPage: true, ink: false, marquee: false, text: false };
+  }
+  return { pan: false, grabPage: false, ink: true, marquee: true, text: true };
+}
+
+export function pdfPointerPolicy(kind: PointerKind): { rangeSelect: boolean } {
+  return { rangeSelect: kind === 'finger' };
+}
+
+export function stockPointerPolicy(kind: PointerKind): { pan: boolean; dragPage: boolean } {
+  if (kind === 'finger') {
+    return { pan: true, dragPage: true };
+  }
+  return { pan: false, dragPage: false };
 }

@@ -72,9 +72,10 @@ export type DocumentAction =
   | { type: 'selectText'; textId: TextId | null }
   | {
       type: 'loadPdf';
-      uri: string;
+      opfsPath: string;
       pageCount: number;
       sourceTextByPage: Record<number, PdfTextItem[]>;
+      generation?: number;
     }
   | { type: 'setPdfView'; currentPage?: number; zoom?: number; panX?: number; panY?: number }
   | {
@@ -105,7 +106,7 @@ function removePageFromWorkspace(doc: DocumentState, pageId: PageId): void {
   }
 }
 
-export function reduceDocument(
+export function reduceTestDocument(
   state: DocumentState,
   action: DocumentAction,
   ids: IdFactory,
@@ -439,16 +440,17 @@ export function reduceDocument(
       }
       return doc;
     case 'loadPdf': {
-      const sameUri = doc.pdf?.uri === action.uri;
-      const keepPage = sameUri ? doc.pdf!.currentPage : 1;
+      const sameSource = doc.pdf?.opfsPath === action.opfsPath;
+      const keepPage = sameSource ? doc.pdf!.currentPage : 1;
       doc.pdf = {
-        uri: action.uri,
+        opfsPath: action.opfsPath,
         pageCount: action.pageCount,
         currentPage: clampPdfPage(keepPage, action.pageCount),
-        zoom: sameUri ? doc.pdf!.zoom : 1,
-        panX: sameUri ? doc.pdf!.panX : 0,
-        panY: sameUri ? doc.pdf!.panY : 0,
+        zoom: sameSource ? doc.pdf!.zoom : 1,
+        panX: sameSource ? doc.pdf!.panX : 0,
+        panY: sameSource ? doc.pdf!.panY : 0,
         sourceTextByPage: action.sourceTextByPage,
+        generation: action.generation ?? (sameSource ? doc.pdf!.generation : 1),
       };
       return doc;
     }
@@ -528,7 +530,7 @@ export function applyStampFromPointer(
   if (intent.type !== 'drawInk' && intent.type !== 'eraseInk') {
     return doc;
   }
-  return reduceDocument(
+  return reduceTestDocument(
     doc,
     {
       type: 'stampInk',
@@ -542,5 +544,8 @@ export function applyStampFromPointer(
     ids,
   );
 }
+
+/** @deprecated Test-only — use reduceTestDocument or reduceEditorDocument in production. */
+export const reduceDocument = reduceTestDocument;
 
 export { layoutWorkspace, resolvePointerIntent };

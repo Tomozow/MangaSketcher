@@ -25,3 +25,6 @@ export const layout = {
   sidebarCompactWidth: 112,
   splitHandle: 16,
 } as const;
+
+/** Pen / text swatches (manga draft + ink contrast). */
+export const inkPalette = ['#1A1A1A', '#6F675C', '#FFFFFF', '#C45C26', '#3D5A80', '#2A9D8F'] as const;

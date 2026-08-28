@@ -1,4 +1,5 @@
 import type { DocumentAction } from './reducer';
+import { defaultTextBox } from './text';
 import type { ClipId, PageId, Rect, TextId } from './types';
 
 export type DragPayload =
@@ -14,7 +15,13 @@ export type DropTarget =
   | { zone: 'page'; pageId: PageId; localX: number; localY: number }
   | { zone: 'pasteboard'; x: number; y: number };
 
-export function dropActions(payload: DragPayload, target: DropTarget): DocumentAction[] {
+export function dropActions(
+  payload: DragPayload,
+  target: DropTarget,
+  rasterWidth: number,
+  rasterHeight: number,
+): DocumentAction[] {
+  const defaultBox = defaultTextBox(rasterWidth, rasterHeight);
   if (payload.type === 'pdfText') {
     if (target.zone === 'page') {
       return [
@@ -23,7 +30,12 @@ export function dropActions(payload: DragPayload, target: DropTarget): DocumentA
           pdfPage: payload.pdfPage,
           range: payload.range,
           attachment: { kind: 'page', pageId: target.pageId },
-          box: { x: target.localX, y: target.localY, width: 10, height: 40 },
+          box: {
+            x: target.localX,
+            y: target.localY,
+            width: defaultBox.width,
+            height: defaultBox.height,
+          },
         },
       ];
     }
@@ -36,7 +48,7 @@ export function dropActions(payload: DragPayload, target: DropTarget): DocumentA
           pdfPage: payload.pdfPage,
           range: payload.range,
           attachment: { kind: 'pasteboard' },
-          box: { x, y, width: 12, height: 48 },
+          box: { x, y, width: defaultBox.width, height: defaultBox.height },
         },
       ];
     }
@@ -96,7 +108,12 @@ export function dropActions(payload: DragPayload, target: DropTarget): DocumentA
           type: 'attachTextToPage',
           textId: payload.textId,
           pageId: target.pageId,
-          pageBox: { x: target.localX, y: target.localY, width: 10, height: 40 },
+          pageBox: {
+            x: target.localX,
+            y: target.localY,
+            width: defaultBox.width,
+            height: defaultBox.height,
+          },
         },
       ];
     }

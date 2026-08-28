@@ -1,13 +1,16 @@
+import { describe, expect, test } from 'vitest';
+
 import { dropActions, pageIdFromDrag } from '../drop';
 import { layoutWorkspace, describeSpreads } from '../layout';
 import { DEFAULT_PDF_MEDIA, normalizeRect, selectPdfBodyRange, viewRectToPdf } from '../pdfLayout';
 import { joinVerticalBody, rangeSelectBody } from '../pdfText';
+import { densifyStroke, streamlineStroke } from '../stroke';
 import { canGrabPage, stepWorkspaceGesture } from '../workspaceGestures';
 import { buildStripFrames, insertIndexForSlot } from '../stripGeometry';
 import { hitTextBox, uniformResizeFromSE } from '../text';
 import { inkPixelCount } from '../raster';
 import { createDocument, sequentialIds } from '../document';
-import { reduceDocument } from '../reducer';
+import { reduceTestDocument } from '../reducer';
 import type { PdfTextItem } from '../types';
 
 const source: PdfTextItem[] = [
@@ -36,24 +39,26 @@ describe('PDF 範囲選択してドロップ', () => {
 
     const ids = sequentialIds('x');
     let doc = docN(1);
-    doc = reduceDocument(
+    doc = reduceTestDocument(
       doc,
-      { type: 'loadPdf', uri: 'file://s.pdf', pageCount: 1, sourceTextByPage: { 1: source.map((i) => ({ ...i })) } },
+      { type: 'loadPdf', opfsPath: 'pdfs/p/s.pdf', pageCount: 1, sourceTextByPage: { 1: source.map((i) => ({ ...i })) } },
       ids,
     );
     const before = JSON.stringify(doc.pdf?.sourceTextByPage[1]);
     const actions = dropActions(
       { type: 'pdfText', pdfPage: 1, range: { x: 198, y: 5, width: 22, height: 30 }, preview: '本文' },
       { zone: 'page', pageId: doc.workspaceOrder[0], localX: 3, localY: 4 },
+      doc.rasterWidth,
+      doc.rasterHeight,
     );
     for (const action of actions) {
-      doc = reduceDocument(doc, action, ids);
+      doc = reduceTestDocument(doc, action, ids);
     }
     expect(doc.pages[doc.workspaceOrder[0]].texts[0].content).toBe('本文');
     expect(JSON.stringify(doc.pdf?.sourceTextByPage[1])).toBe(before);
 
     const textId = doc.pages[doc.workspaceOrder[0]].texts[0].id;
-    doc = reduceDocument(doc, { type: 'editText', textId, content: '本文を直した' }, ids);
+    doc = reduceTestDocument(doc, { type: 'editText', textId, content: '本文を直した' }, ids);
     expect(doc.pages[doc.workspaceOrder[0]].texts[0].content).toBe('本文を直した');
     expect(JSON.stringify(doc.pdf?.sourceTextByPage[1])).toBe(before);
   });
@@ -79,21 +84,25 @@ describe('ストックの自由配置と列への復帰', () => {
     for (const action of dropActions(
       { type: 'workspacePage', pageId: page2, fromIndex: 1 },
       { zone: 'stock', x: 40, y: 18 },
+      doc.rasterWidth,
+      doc.rasterHeight,
     )) {
-      doc = reduceDocument(doc, action, ids);
+      doc = reduceTestDocument(doc, action, ids);
     }
     expect(doc.workspaceOrder).toHaveLength(2);
     expect(doc.stock[0]).toEqual({ pageId: page2, x: 40, y: 18 });
     expect(pageIdFromDrag({ type: 'workspacePage', pageId: page2, fromIndex: 1 })).toBe(page2);
     expect(pageIdFromDrag({ type: 'stockPage', pageId: page2 })).toBe(page2);
     expect(pageIdFromDrag({ type: 'pdfText', pdfPage: 1, range: { x: 0, y: 0, width: 1, height: 1 }, preview: 'a' })).toBeNull();
-    doc = reduceDocument(doc, { type: 'placeStock', pageId: page2, x: 90, y: 40 }, ids);
+    doc = reduceTestDocument(doc, { type: 'placeStock', pageId: page2, x: 90, y: 40 }, ids);
     expect(doc.stock[0].x).toBe(90);
     for (const action of dropActions(
       { type: 'stockPage', pageId: page2 },
       { zone: 'workspaceInsert', readingIndex: 0 },
+      doc.rasterWidth,
+      doc.rasterHeight,
     )) {
-      doc = reduceDocument(doc, action, ids);
+      doc = reduceTestDocument(doc, action, ids);
     }
     expect(doc.workspaceOrder[0]).toBe(page2);
     expect(doc.stock).toHaveLength(0);
@@ -179,8 +188,10 @@ describe('指の長押し並べ替え（Pencil では掴まない）', () => {
     for (const action of dropActions(
       { type: 'workspacePage', pageId: first, fromIndex: 0 },
       { zone: 'workspaceInsert', readingIndex: 2 },
+      doc.rasterWidth,
+      doc.rasterHeight,
     )) {
-      doc = reduceDocument(doc, action, ids);
+      doc = reduceTestDocument(doc, action, ids);
     }
     expect(doc.workspaceOrder[2]).toBe(first);
     expect(layoutWorkspace(doc.workspaceOrder).pageNumbers).toEqual([1, 2, 3, 4]);
@@ -193,7 +204,7 @@ describe('ペンストロークとクリップ焼き込み', () => {
     const ids = sequentialIds('i');
     let doc = docN(1);
     const pageId = doc.workspaceOrder[0];
-    doc = reduceDocument(
+    doc = reduceTestDocument(
       doc,
       {
         type: 'strokeInk',
@@ -208,7 +219,7 @@ describe('ペンストロークとクリップ焼き込み', () => {
       ids,
     );
     expect(inkPixelCount(doc.pages[pageId].raster)).toBeGreaterThan(8);
-    doc = reduceDocument(
+    doc = reduceTestDocument(
       doc,
       {
         type: 'createText',
@@ -218,7 +229,7 @@ describe('ペンストロークとクリップ焼き込み', () => {
       },
       ids,
     );
-    doc = reduceDocument(
+    doc = reduceTestDocument(
       doc,
       {
         type: 'strokeInk',
@@ -233,6 +244,16 @@ describe('ペンストロークとクリップ焼き込み', () => {
       ids,
     );
     expect(doc.pages[pageId].texts[0].content).toBe('セリフ');
+  });
+
+  test('perfect-freehand 風の補間で隙間なく焼ける', () => {
+    const raw = [
+      { x: 0, y: 0, pressure: 1 },
+      { x: 8, y: 0, pressure: 0.5 },
+    ];
+    const smooth = streamlineStroke(raw);
+    expect(smooth.length).toBeGreaterThan(1);
+    expect(densifyStroke(smooth, 0.8).length).toBeGreaterThan(smooth.length);
   });
 });
 
@@ -256,7 +277,7 @@ describe('テキストツールの移動・リサイズ・プロパティ', () =
         x: 12,
         y: 14,
         pressure: 1,
-        hit: { kind: 'pageText', textId: 'tx', localX: 12, localY: 14 },
+        hit: { kind: 'pageText', textId: 'tx', pageId: 'p1', localX: 12, localY: 14 },
         touchCount: 1,
         now: 1,
         selectedClipId: null,
@@ -298,7 +319,7 @@ describe('テキストツールの移動・リサイズ・プロパティ', () =
         x: 12,
         y: 14,
         pressure: 1,
-        hit: { kind: 'pageText', textId: 'tx', localX: 12, localY: 14 },
+        hit: { kind: 'pageText', textId: 'tx', pageId: 'p1', localX: 12, localY: 14 },
         touchCount: 1,
         now: 1,
         selectedClipId: null,
@@ -317,7 +338,7 @@ describe('テキストツールの移動・リサイズ・プロパティ', () =
         x: 12,
         y: 14,
         pressure: 1,
-        hit: { kind: 'pageText', textId: 'tx', localX: 12, localY: 14 },
+        hit: { kind: 'pageText', textId: 'tx', pageId: 'p1', localX: 12, localY: 14 },
         touchCount: 1,
         now: 1,
         selectedClipId: null,
@@ -333,7 +354,7 @@ describe('テキストツールの移動・リサイズ・プロパティ', () =
       x: 40,
       y: 50,
       pressure: 1,
-      hit: { kind: 'pageText', textId: 'tx', localX: 40, localY: 50 },
+        hit: { kind: 'pageText', textId: 'tx', pageId: 'p1', localX: 40, localY: 50 },
       touchCount: 1,
       now: 2,
       selectedClipId: null,
@@ -357,5 +378,116 @@ describe('テキストツールの移動・リサイズ・プロパティ', () =
       },
     );
     expect(pbDown.effects).toEqual([{ type: 'selectText', textId: 'pb' }]);
+  });
+
+  test('描画中はテキストヒットを無視し、リサイズ開始後はパンしない', () => {
+    const pageText = {
+      kind: 'pageText' as const,
+      textId: 'tx',
+      pageId: 'p1',
+      localX: 4,
+      localY: 5,
+    };
+    const ink = stepWorkspaceGesture(
+      { mode: 'idle' },
+      {
+        kind: 'pencil',
+        phase: 'move',
+        tool: 'pen',
+        x: 4,
+        y: 5,
+        pressure: 1,
+        hit: pageText,
+        touchCount: 1,
+        now: 1,
+        selectedClipId: null,
+      },
+    );
+    expect(ink.effects[0]).toMatchObject({ type: 'stampPage', pageId: 'p1', erase: false });
+
+    const resized = stepWorkspaceGesture(
+      { mode: 'idle' },
+      {
+        kind: 'pencil',
+        phase: 'down',
+        tool: 'text',
+        x: 50,
+        y: 90,
+        pressure: 1,
+        hit: { kind: 'resizeHandle', textId: 'tx', localX: 50, localY: 90 },
+        touchCount: 1,
+        now: 1,
+        selectedClipId: null,
+      },
+    );
+    expect(resized.state.mode).toBe('resizeText');
+    const stillResize = stepWorkspaceGesture(resized.state, {
+      kind: 'pencil',
+      phase: 'move',
+      tool: 'text',
+      x: 80,
+      y: 120,
+      pressure: 1,
+      hit: { kind: 'empty' },
+      touchCount: 1,
+      now: 2,
+      selectedClipId: null,
+    });
+    expect(stillResize.state.mode).toBe('resizeText');
+    expect(stillResize.effects.some((e) => e.type === 'panBy')).toBe(false);
+    expect(stillResize.effects).toEqual(
+      expect.arrayContaining([{ type: 'resizeText', textId: 'tx', x: 80, y: 120 }]),
+    );
+
+    const pending = stepWorkspaceGesture(
+      { mode: 'idle' },
+      {
+        kind: 'finger',
+        phase: 'down',
+        tool: 'pen',
+        x: 0,
+        y: 0,
+        pressure: 1,
+        hit: {
+          kind: 'page',
+          pageId: 'p1',
+          localX: 1,
+          localY: 1,
+          readingIndex: 0,
+          insertIndex: 0,
+        },
+        touchCount: 1,
+        now: 1,
+        selectedClipId: null,
+      },
+    );
+    const panned = stepWorkspaceGesture(pending.state, {
+      kind: 'finger',
+      phase: 'move',
+      tool: 'pen',
+      x: 40,
+      y: 0,
+      pressure: 1,
+      hit: pageText,
+      touchCount: 1,
+      now: 2,
+      selectedClipId: null,
+    });
+    expect(panned.state.mode).toBe('pan');
+    expect(panned.effects[0]).toMatchObject({ type: 'panBy', dx: 40, dy: 0 });
+    const keepPan = stepWorkspaceGesture(panned.state, {
+      kind: 'finger',
+      phase: 'move',
+      tool: 'pen',
+      x: 50,
+      y: 4,
+      pressure: 1,
+      hit: pageText,
+      touchCount: 1,
+      now: 3,
+      selectedClipId: null,
+    });
+    expect(keepPan.state.mode).toBe('pan');
+    expect(keepPan.effects.some((e) => e.type === 'moveText')).toBe(false);
   });
 });

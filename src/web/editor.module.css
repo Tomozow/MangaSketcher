@@ -1,0 +1,727 @@
+.editorRoot {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ms-border);
+  background: var(--ms-surface);
+  flex-shrink: 0;
+}
+
+.headerTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ms-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+}
+
+.mainColumn {
+  flex: 1;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}
+
+.sidebarColumn {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  min-height: 0;
+  border-left: 1px solid var(--ms-border);
+  background: var(--ms-surface);
+}
+
+.sidebarNormal {
+  width: clamp(280px, 28vw, 360px);
+}
+
+.sidebarCompact {
+  width: 112px;
+}
+
+.pane {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  background: var(--ms-background);
+}
+
+.paneLabel {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  z-index: 2;
+  font-size: 11px;
+  color: var(--ms-text-muted);
+  pointer-events: none;
+}
+
+.splitRow {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.splitCol {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.splitHandleHorizontal,
+.splitHandleVertical {
+  flex-shrink: 0;
+  touch-action: none;
+  background: var(--ms-border);
+  position: relative;
+}
+
+.splitHandleHorizontal {
+  width: 16px;
+  cursor: col-resize;
+}
+
+.splitHandleVertical {
+  height: 16px;
+  cursor: row-resize;
+}
+
+.splitHandleHorizontal::after,
+.splitHandleVertical::after {
+  content: '';
+  position: absolute;
+  background: var(--ms-text-muted);
+  border-radius: 2px;
+  opacity: 0.45;
+}
+
+.splitHandleHorizontal::after {
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 32px;
+  transform: translate(-50%, -50%);
+}
+
+.splitHandleVertical::after {
+  top: 50%;
+  left: 50%;
+  width: 32px;
+  height: 4px;
+  transform: translate(-50%, -50%);
+}
+
+.workspaceSurface {
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  overflow: hidden;
+}
+
+.workspaceTransform {
+  transform-origin: 0 0;
+  will-change: transform;
+}
+
+.stripFrame {
+  position: relative;
+  display: inline-block;
+  vertical-align: top;
+}
+
+.pageFrame {
+  position: relative;
+  width: 216px;
+  height: 306px;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-color: #fff;
+  box-shadow: inset 0 0 0 1px var(--ms-border);
+}
+
+.pageFrameSelected {
+  box-shadow: inset 0 0 0 2px var(--ms-accent);
+}
+
+.pageFrameGrabbed {
+  opacity: 0.35;
+}
+
+.pageDragThumb {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.28);
+  border: 2px solid var(--ms-accent);
+  border-radius: 2px;
+  overflow: hidden;
+  background: #fff;
+}
+
+.pageDragThumbTemplate {
+  position: absolute;
+  inset: 0;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+.pageDragThumbInk {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.templateCover {
+  position: absolute;
+  background: #fff;
+  pointer-events: none;
+}
+
+.blankSlot {
+  width: 216px;
+  height: 306px;
+  background: repeating-linear-gradient(
+    -45deg,
+    transparent,
+    transparent 8px,
+    rgba(201, 192, 176, 0.35) 8px,
+    rgba(201, 192, 176, 0.35) 9px
+  );
+  box-shadow: inset 0 0 0 1px var(--ms-border);
+}
+
+.appendButton {
+  width: 56px;
+  height: 306px;
+  border: 1px dashed var(--ms-border);
+  background: var(--ms-surface);
+  color: var(--ms-accent);
+  font-size: 28px;
+  font-weight: 300;
+  touch-action: none;
+  cursor: default;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.pageNumberBand {
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: var(--ms-text);
+  touch-action: none;
+  cursor: default;
+  min-height: 44px;
+  user-select: none;
+}
+
+.pageNumberBandSelected {
+  color: var(--ms-accent);
+  font-weight: 600;
+}
+
+.spreadGap {
+  display: inline-block;
+  width: 16px;
+}
+
+.stripGap {
+  display: inline-block;
+  width: 8px;
+}
+
+.pairGap {
+  display: inline-block;
+  width: 4px;
+}
+
+.pdfPlaceholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  touch-action: none;
+  color: var(--ms-text-muted);
+  font-size: 14px;
+  padding: 16px;
+  text-align: center;
+}
+
+.pdfPaneInner {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  touch-action: none;
+  overflow: hidden;
+  position: relative;
+}
+
+.pdfNav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px;
+  flex-shrink: 0;
+  touch-action: manipulation;
+}
+
+.pdfNavButton {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--ms-border);
+  border-radius: 8px;
+  background: var(--ms-surface);
+  color: var(--ms-text);
+  font-size: 14px;
+}
+
+.pdfNavButton:disabled {
+  opacity: 0.4;
+}
+
+.pdfNavLabel {
+  font-size: 13px;
+  color: var(--ms-text-muted);
+  min-width: 64px;
+  text-align: center;
+}
+
+.pdfViewport {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  touch-action: none;
+  background: var(--ms-surface-muted);
+}
+
+.pdfTransform {
+  position: absolute;
+  transform-origin: top left;
+}
+
+.pdfCanvas {
+  display: block;
+  touch-action: none;
+}
+
+.pdfRangeOverlay {
+  position: absolute;
+  border: 2px dashed var(--ms-accent);
+  background: rgba(0, 0, 0, 0.08);
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.pdfRenderError {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  color: #a33;
+  font-size: 13px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.pdfPickButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--ms-border);
+  border-radius: 8px;
+  background: var(--ms-surface);
+  color: var(--ms-text);
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.pdfFileInput {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+.stockSurface {
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  overflow: hidden;
+  position: relative;
+}
+
+.stockGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: 8px;
+  padding: 8px;
+  overflow: auto;
+  height: 100%;
+  touch-action: pan-y;
+}
+
+.stockThumb {
+  width: 112px;
+  height: 158px;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-color: #fff;
+  box-shadow: inset 0 0 0 1px var(--ms-border);
+}
+
+.stockTransform {
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+}
+
+.stockThumbDragging {
+  opacity: 0.35;
+}
+
+.stockThumbFree {
+  position: absolute;
+  width: 144px;
+  height: 204px;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  background-color: #fff;
+  box-shadow: inset 0 0 0 1px var(--ms-border);
+}
+
+.sidebar {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.toolRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px;
+  justify-content: center;
+}
+
+.toolButton {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--ms-surface-muted);
+  color: var(--ms-text);
+  touch-action: manipulation;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+}
+
+.toolButtonActive {
+  border-color: var(--ms-accent);
+  background: #e8eef5;
+  color: var(--ms-accent);
+}
+
+.toolButton:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.sliderBlock {
+  padding: 4px 8px 8px;
+}
+
+.sliderLabel {
+  display: block;
+  font-size: 11px;
+  color: var(--ms-text-muted);
+  margin-bottom: 4px;
+}
+
+.sliderInput {
+  width: 100%;
+  min-height: 44px;
+  touch-action: manipulation;
+}
+
+.colorRow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 4px 8px 8px;
+}
+
+.colorSwatch {
+  width: 44px;
+  height: 44px;
+  border-radius: 8px;
+  border: 2px solid var(--ms-border);
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+.palettePopover {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 8px;
+  justify-content: center;
+  border-top: 1px solid var(--ms-border);
+}
+
+.paletteChip {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  border: 1px solid var(--ms-border);
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+.actionRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px;
+  justify-content: center;
+  border-top: 1px solid var(--ms-border);
+}
+
+.iconButton {
+  min-width: 44px;
+  min-height: 44px;
+  border: 1px solid var(--ms-border);
+  border-radius: 8px;
+  background: var(--ms-surface);
+  color: var(--ms-text);
+  touch-action: manipulation;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.iconButton:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.linkButton {
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--ms-accent);
+  text-decoration: none;
+  touch-action: manipulation;
+  padding: 0 4px;
+}
+
+.loading,
+.error {
+  flex: 1;
+  display: grid;
+  place-items: center;
+  color: var(--ms-text-muted);
+}
+
+.pageInkOverlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.pageTextOverlay {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.pageTextOverlayHidden {
+  visibility: hidden;
+}
+
+.pageTextTransform {
+  transform-origin: 0 0;
+  position: relative;
+}
+
+.pageTextBox {
+  position: absolute;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-all;
+  box-sizing: border-box;
+  border: 1px solid transparent;
+}
+
+.pageTextBoxSelected {
+  border-color: var(--ms-accent);
+}
+
+.textEditBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  align-items: stretch;
+  gap: 8px;
+  padding: 8px 12px calc(8px + env(safe-area-inset-bottom));
+  background: var(--ms-surface);
+  border-top: 1px solid var(--ms-border);
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
+}
+
+.textEditInput {
+  flex: 1;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--ms-border);
+  border-radius: 8px;
+  resize: none;
+  touch-action: manipulation;
+  -webkit-user-select: text;
+  user-select: text;
+  color: var(--ms-text);
+  background: #fff;
+}
+
+.textEditDone {
+  min-width: 64px;
+  min-height: 44px;
+  border: 1px solid var(--ms-accent);
+  border-radius: 8px;
+  background: var(--ms-accent);
+  color: #fff;
+  touch-action: manipulation;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.saveStatusRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--ms-text-muted);
+}
+
+.saveStatusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.saveStatusUnsaved {
+  background: #c45c26;
+}
+
+.saveStatusEncoding {
+  background: #3d5a80;
+  animation: ms-pulse 1s ease-in-out infinite;
+}
+
+@keyframes ms-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+.marqueePreview {
+  position: absolute;
+  box-sizing: border-box;
+  border: 1px dashed var(--ms-accent);
+  background: rgba(196, 92, 38, 0.12);
+  pointer-events: none;
+}
+
+.clipFrame {
+  pointer-events: none;
+}
+
+.clipHandleRotate,
+.clipHandleCorner {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--ms-accent);
+  border: 1px solid #fff;
+  pointer-events: none;
+}
+
+.clipHandleRotate {
+  top: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.clipHandleCorner {
+  right: -6px;
+  bottom: -6px;
+}

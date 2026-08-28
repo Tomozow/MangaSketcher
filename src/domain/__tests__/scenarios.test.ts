@@ -1,13 +1,14 @@
+import { describe, expect, test } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
 import { createDocument, sequentialIds } from '../document';
 import { layoutWorkspace, describeLtr, describeSpreads } from '../layout';
 import { reduceHistory, createHistory } from '../history';
-import { reduceDocument, type DocumentAction } from '../reducer';
+import { reduceTestDocument, type DocumentAction } from '../reducer';
 import { inkPixelCount } from '../raster';
-import { resolvePointerIntent, brushRadius } from '../pointers';
-import { pdfPageViewerHtml, pdfPageViewerKey } from '../pdfView';
+import { resolvePointerIntent, brushRadius, workspacePointerPolicy, pdfPointerPolicy, stockPointerPolicy } from '../pointers';
+import { pdfPageViewerKey } from '../pdfView';
 import { mainPaneFlex, nextSplitFromDrag, SPLIT_MAX, SPLIT_MIN } from '../uiLayout';
 import { findText, selectedTextForEditor, verticalGlyphs } from '../text';
 import { stripRuby, joinVerticalBody } from '../pdfText';
@@ -26,7 +27,7 @@ function ids() {
 }
 
 function apply(doc: DocumentState, action: DocumentAction): DocumentState {
-  return reduceDocument(doc, action, ids());
+  return reduceTestDocument(doc, action, ids());
 }
 
 function blankDoc(pageCount: number, name = 'ネーム'): DocumentState {
@@ -186,7 +187,7 @@ describe('シナリオ: PDF 本文抽出とドロップ', () => {
     let doc = blankDoc(1);
     doc = apply(doc, {
       type: 'loadPdf',
-      uri: 'file://sample.pdf',
+      opfsPath: 'pdfs/p1/sample.pdf',
       pageCount: 1,
       sourceTextByPage: { 1: source.map((i) => ({ ...i })) },
     });
@@ -361,7 +362,7 @@ describe('シナリオ: テキストツール', () => {
 
   test('空枠と既存文字をページ所属・台紙の両方でキーボード相当に編集できる', () => {
     const factory = ids();
-    const run = (state: DocumentState, action: DocumentAction) => reduceDocument(state, action, factory);
+    const run = (state: DocumentState, action: DocumentAction) => reduceTestDocument(state, action, factory);
     let doc = blankDoc(1);
     const pageId = doc.workspaceOrder[0];
     doc = run(doc, {
@@ -462,30 +463,35 @@ describe('シナリオ: ポインタ分担（指はパン、ペンはインク�
     expect(resolvePointerIntent('select', { kind: 'finger', phase: 'longpress' })).toEqual({
       type: 'longPressReorder',
     });
+    expect(workspacePointerPolicy('finger')).toMatchObject({ pan: true, grabPage: true, ink: false });
+    expect(workspacePointerPolicy('pencil')).toMatchObject({ ink: true, pan: false });
+    expect(pdfPointerPolicy('finger').rangeSelect).toBe(true);
+    expect(pdfPointerPolicy('pencil').rangeSelect).toBe(false);
+    expect(stockPointerPolicy('finger')).toEqual({ pan: true, dragPage: true });
+    expect(stockPointerPolicy('pencil')).toEqual({ pan: false, dragPage: false });
   });
 });
 
-describe('シナリオ: PDF ページ送りで画像が差し替わる', () => {
-  test('ページ番号が変わるとビューア key と描画 HTML が変わる', () => {
-    expect(pdfPageViewerKey('file://a.pdf', 1)).not.toBe(pdfPageViewerKey('file://a.pdf', 2));
-    expect(pdfPageViewerKey('file://a.pdf', 2)).toContain('#page=2');
-    expect(pdfPageViewerHtml('AAA', 2)).toContain('"page":2');
-    expect(pdfPageViewerHtml('AAA', 1)).not.toContain('"page":2');
+describe('シナリオ: PDF ページ送りでビューア key が差し替わる', () => {
+  test('ページ番号と generation が変わると key が変わる', () => {
+    expect(pdfPageViewerKey('pdfs/p1.pdf', 1, 1)).not.toBe(pdfPageViewerKey('pdfs/p1.pdf', 2, 1));
+    expect(pdfPageViewerKey('pdfs/p1.pdf', 2, 1)).toContain('#page=2');
+    expect(pdfPageViewerKey('pdfs/p1.pdf', 1, 2)).not.toBe(pdfPageViewerKey('pdfs/p1.pdf', 1, 1));
 
     let doc = blankDoc(1);
     doc = apply(doc, {
       type: 'loadPdf',
-      uri: 'file://novel.pdf',
+      opfsPath: 'pdfs/p1/novel.pdf',
       pageCount: 4,
       sourceTextByPage: { 1: [], 2: [], 3: [], 4: [] },
     });
     expect(doc.pdf?.currentPage).toBe(1);
     doc = apply(doc, { type: 'setPdfView', currentPage: 3 });
     expect(doc.pdf?.currentPage).toBe(3);
-    expect(pdfPageViewerKey(doc.pdf!.uri, doc.pdf!.currentPage)).toContain('#page=3');
+    expect(pdfPageViewerKey(doc.pdf!.opfsPath, doc.pdf!.currentPage, doc.pdf!.generation)).toContain('#page=3');
     doc = apply(doc, {
       type: 'loadPdf',
-      uri: 'file://novel.pdf',
+      opfsPath: 'pdfs/p1/novel.pdf',
       pageCount: 4,
       sourceTextByPage: { 1: [], 2: [], 3: [], 4: [] },
     });

@@ -1,0 +1,125 @@
+import { AutosaveManager } from '../autosave';
+import { MemoryStorageDatabase } from '../testUtils/memoryDb';
+import type { EditorDocument } from '../types';
+
+function sampleDoc(): EditorDocument {
+  return {
+    projectId: 'p1',
+    name: 'test',
+    rasterWidth: 16,
+    rasterHeight: 20,
+    pages: {
+      a: { id: 'a', texts: [], rasterId: 'p1:page:a' },
+    },
+    workspaceOrder: ['a'],
+    stock: [],
+    pasteboardClips: [],
+    pasteboardTexts: [],
+    selectedPageId: 'a',
+    selectedClipId: null,
+    selectedTextId: null,
+    tool: 'pen',
+    tools: {
+      penColor: '#1A1A1A',
+      penSize: 12,
+      penOpacity: 1,
+      eraserSize: 28,
+      eraserOpacity: 1,
+      textColor: '#1A1A1A',
+      textFontSize: 36,
+    },
+    pdf: null,
+    workspaceZoom: 1,
+    workspacePanX: 0,
+    workspacePanY: 0,
+    stockZoom: 1,
+    stockPanX: 0,
+    stockPanY: 0,
+    workspacePdfSplit: 0.58,
+    paletteStockSplit: 0.46,
+    pdfViewerVisible: true,
+    sidebarCompact: false,
+    stockLayout: 'free',
+    inkGeneration: 0,
+  };
+}
+
+describe('AutosaveManager', () => {
+  test('route-leave flush writes rasters before documents without waiting debounce', async () => {
+    const db = new MemoryStorageDatabase();
+    const encoded = new Map<string, ArrayBuffer>([['p1:page:a', new ArrayBuffer(4)]]);
+    const order: string[] = [];
+    const originalPutRaster = db.putRaster.bind(db);
+    const originalPutDocument = db.putDocument.bind(db);
+    db.putRaster = async (id, png) => {
+      order.push(`raster:${id}`);
+      return originalPutRaster(id, png);
+    };
+    db.putDocument = async (doc) => {
+      order.push(`document:${doc.projectId}`);
+      return originalPutDocument(doc);
+    };
+
+    const manager = new AutosaveManager({
+      db,
+      getEncodedPng: () => encoded,
+    });
+    manager.scheduleSave(sampleDoc(), ['p1:page:a'], false);
+    await manager.flushRouteLeave();
+    expect(order).toEqual(['raster:p1:page:a', 'document:p1']);
+    expect(manager.getStatus().unsaved).toBe(false);
+    manager.dispose();
+  });
+
+  test('tracks encoding state for unsaved dot while PNG encode is pending', () => {
+    const encoded = new Map<string, ArrayBuffer>();
+    const manager = new AutosaveManager({
+      db: new MemoryStorageDatabase(),
+      getEncodedPng: () => encoded,
+    });
+    manager.notifyEncodingStarted('p1:page:a');
+    expect(manager.getStatus()).toEqual({ unsaved: true, encodingCount: 1 });
+    encoded.set('p1:page:a', new ArrayBuffer(2));
+    manager.notifyEncodingComplete('p1:page:a', encoded.get('p1:page:a')!);
+    expect(manager.getStatus()).toEqual({ unsaved: true, encodingCount: 0 });
+    manager.dispose();
+  });
+
+  test('flushHidden puts existing encoded PNG without debounce', async () => {
+    const db = new MemoryStorageDatabase();
+    const encoded = new Map<string, ArrayBuffer>([['p1:page:a', new ArrayBuffer(9)]]);
+    const manager = new AutosaveManager({ db, getEncodedPng: () => encoded });
+    manager.flushHidden();
+    await Promise.resolve();
+    const png = await db.getRaster('p1:page:a');
+    expect(png?.byteLength).toBe(9);
+    manager.dispose();
+  });
+
+  test('flushHidden never calls convertToBlob or encoding pipeline', async () => {
+    const db = new MemoryStorageDatabase();
+    const convertToBlob = vi.fn(async () => new Blob());
+    const buffer = new ArrayBuffer(7);
+    const encoded = new Map<string, ArrayBuffer>([['p1:page:a', buffer]]);
+    let encodingStarted = false;
+
+    const manager = new AutosaveManager({
+      db,
+      getEncodedPng: () => encoded,
+    });
+    const originalNotify = manager.notifyEncodingStarted.bind(manager);
+    manager.notifyEncodingStarted = (rasterId: string) => {
+      encodingStarted = true;
+      originalNotify(rasterId);
+    };
+
+    manager.flushHidden();
+    await Promise.resolve();
+
+    expect(convertToBlob).not.toHaveBeenCalled();
+    expect(encodingStarted).toBe(false);
+    const stored = await db.getRaster('p1:page:a');
+    expect(stored?.byteLength).toBe(buffer.byteLength);
+    manager.dispose();
+  });
+});

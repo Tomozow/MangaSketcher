@@ -1,8 +1,8 @@
 import { layoutWorkspace, type VisualSlot } from './layout';
 import type { PageId } from './types';
 
-export const PAGE_DISPLAY_W = 108;
-export const PAGE_DISPLAY_H = 152;
+export const PAGE_DISPLAY_W = 216;
+export const PAGE_DISPLAY_H = 306;
 export const APPEND_W = 56;
 export const STRIP_GAP = 8;
 export const SPREAD_GAP = 16;
