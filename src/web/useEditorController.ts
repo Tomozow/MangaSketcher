@@ -52,7 +52,7 @@ import {
 } from '@/src/web/ink';
 import type { PageId, Rect } from '@/src/domain/types';
 import { resolveWorkspaceHit } from '@/src/web/gestures/resolveHit';
-import { pageBoxToWorld, worldBoxToPage } from '@/src/web/gestures/elementInteraction';
+import { textBoxForOwnerMove } from '@/src/web/gestures/elementInteraction';
 import { PDF_WORKER_SRC } from '@/src/web/pdf/constants';
 import { dropPdfSession } from '@/src/web/pdf/pdfSession';
 
@@ -96,6 +96,7 @@ type EditorController = {
   ) => string | null | undefined;
   commitTextEdit: (textId: string, content: string) => void;
   deleteText: (textId: string) => void;
+  duplicateText: (textId: string) => void;
   setTextEditing: (editing: boolean) => void;
   undo: () => void;
   redo: () => void;
@@ -753,25 +754,19 @@ export function useEditorController(projectId: string): EditorController {
           if (!found) {
             continue;
           }
-          const safeBox = sanitizeTextBox(found.node.box);
           const targetPageId = effect.pasteboard ? undefined : (effect.pageId ?? found.pageId);
-          let targetBox = {
-            ...safeBox,
+          const targetBox = textBoxForOwnerMove({
+            sourceWhere: found.where,
+            sourcePageId: found.pageId,
+            sourceBox: found.node.box,
             x: effect.x,
             y: effect.y,
-          };
-          if (targetPageId && found.where === 'pasteboard') {
-            const frame = frameForPage(present.workspaceOrder, targetPageId);
-            if (frame) {
-              const converted = worldBoxToPage(
-                frame,
-                { x: frame.x, y: frame.y, width: safeBox.width, height: safeBox.height },
-                present.rasterWidth,
-                present.rasterHeight,
-              );
-              targetBox = { ...targetBox, width: converted.width, height: converted.height };
-            }
-          }
+            targetPasteboard: Boolean(effect.pasteboard),
+            targetPageId,
+            frameForPageId: (pageId) => frameForPage(present.workspaceOrder, pageId),
+            rasterWidth: present.rasterWidth,
+            rasterHeight: present.rasterHeight,
+          });
           const clamped = clampOnPage(targetPageId, targetBox);
           const next = mergeTextLive(found.node.box, textLiveRef.current.get(effect.textId), {
             x: clamped.x,
@@ -789,39 +784,26 @@ export function useEditorController(projectId: string): EditorController {
           textLiveRef.current.delete(effect.textId);
           const found = findText(present, effect.textId);
           if (found && Number.isFinite(effect.x) && Number.isFinite(effect.y)) {
-            const safeBox = sanitizeTextBox(found.node.box);
             const targetPageId = effect.pasteboard ? undefined : (effect.pageId ?? found.pageId);
-            let targetBox = {
-              ...safeBox,
+            const targetBox = textBoxForOwnerMove({
+              sourceWhere: found.where,
+              sourcePageId: found.pageId,
+              sourceBox: found.node.box,
               x: effect.x,
               y: effect.y,
-            };
-            if (targetPageId && found.where === 'pasteboard') {
-              const frame = frameForPage(present.workspaceOrder, targetPageId);
-              if (frame) {
-                const converted = worldBoxToPage(
-                  frame,
-                  { x: frame.x, y: frame.y, width: safeBox.width, height: safeBox.height },
-                  present.rasterWidth,
-                  present.rasterHeight,
-                );
-                targetBox = { ...targetBox, width: converted.width, height: converted.height };
-              }
-            }
+              targetPasteboard: Boolean(effect.pasteboard),
+              targetPageId,
+              frameForPageId: (pageId) => frameForPage(present.workspaceOrder, pageId),
+              rasterWidth: present.rasterWidth,
+              rasterHeight: present.rasterHeight,
+            });
             const clamped = clampOnPage(targetPageId, targetBox);
             if (effect.pasteboard && found.where === 'page' && found.pageId) {
               const frame = frameForPage(present.workspaceOrder, found.pageId);
-              const worldBox = frame
-                ? pageBoxToWorld(frame, safeBox, present.rasterWidth, present.rasterHeight)
-                : safeBox;
               dispatch({
                 type: 'detachTextToPasteboard',
                 textId: effect.textId,
-                workspaceBox: {
-                  ...worldBox,
-                  x: clamped.x,
-                  y: clamped.y,
-                },
+                workspaceBox: clamped,
                 fontSize: frame
                   ? found.node.fontSize * (frame.width / present.rasterWidth)
                   : found.node.fontSize,
@@ -841,24 +823,11 @@ export function useEditorController(projectId: string): EditorController {
               });
             } else if (effect.pageId && found.where === 'pasteboard') {
               const frame = frameForPage(present.workspaceOrder, effect.pageId);
-              const pageBox = frame
-                ? worldBoxToPage(
-                    frame,
-                    {
-                      x: frame.x,
-                      y: frame.y,
-                      width: safeBox.width,
-                      height: safeBox.height,
-                    },
-                    present.rasterWidth,
-                    present.rasterHeight,
-                  )
-                : safeBox;
               dispatch({
                 type: 'attachTextToPage',
                 textId: effect.textId,
                 pageId: effect.pageId,
-                pageBox: { ...pageBox, x: clamped.x, y: clamped.y },
+                pageBox: clamped,
                 fontSize: frame
                   ? found.node.fontSize * (present.rasterWidth / frame.width)
                   : found.node.fontSize,
@@ -1018,6 +987,14 @@ export function useEditorController(projectId: string): EditorController {
       textLiveRef.current.delete(textId);
       setTextLiveTransforms(Object.fromEntries(textLiveRef.current));
       dispatch({ type: 'deleteText', textId });
+    },
+    [dispatch],
+  );
+
+  const duplicateText = useCallback(
+    (textId: string) => {
+      dispatch({ type: 'duplicateText', textId });
+      setTextEditing(true);
     },
     [dispatch],
   );
@@ -1329,6 +1306,7 @@ export function useEditorController(projectId: string): EditorController {
     applyWorkspaceEffects,
     commitTextEdit,
     deleteText,
+    duplicateText,
     setTextEditing,
     undo,
     redo,

@@ -7,6 +7,8 @@ export const PAGE_TEXT_WRAP_ATTR = 'data-page-text-wrap';
 export const PAGE_TEXT_ID_ATTR = 'data-text-id';
 export const PAGE_TEXT_PAGE_ATTR = 'data-page-id';
 export const PAGE_TEXT_DELETE_ATTR = 'data-page-text-delete';
+export const PAGE_TEXT_COPY_ATTR = 'data-page-text-copy';
+export const PAGE_TEXT_CHROME_ATTR = 'data-page-text-chrome';
 
 function workspaceRoot(surfaceEl: HTMLElement): HTMLElement {
   return surfaceEl;
@@ -56,6 +58,12 @@ export function hitPageTextFromDom(input: {
   rasterHeight: number;
 }): WorkspaceHit | null {
   const root = workspaceRoot(input.surfaceEl);
+  const chromeHits = Array.from(root.querySelectorAll<HTMLElement>(`[${PAGE_TEXT_CHROME_ATTR}]`));
+  if (
+    chromeHits.some((chrome) => pointInClientRect(input.clientX, input.clientY, chrome.getBoundingClientRect()))
+  ) {
+    return null;
+  }
   const wraps = Array.from(root.querySelectorAll<HTMLElement>(`[${PAGE_TEXT_WRAP_ATTR}]`));
 
   const candidates = wraps
@@ -66,13 +74,6 @@ export function hitPageTextFromDom(input: {
       }
       if (!pointInExpandedClientRect(input.clientX, input.clientY, rect)) {
         return null;
-      }
-      const deleteBtn = wrap.querySelector<HTMLElement>(`[${PAGE_TEXT_DELETE_ATTR}]`);
-      if (deleteBtn) {
-        const deleteRect = deleteBtn.getBoundingClientRect();
-        if (pointInClientRect(input.clientX, input.clientY, deleteRect)) {
-          return null;
-        }
       }
       return { wrap, domIndex, zIndex: parseZIndex(wrap) };
     })

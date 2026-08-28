@@ -88,6 +88,7 @@ export type EditorDocumentAction =
     }
   | { type: 'editText'; textId: TextId; content: string }
   | { type: 'deleteText'; textId: TextId }
+  | { type: 'duplicateText'; textId: TextId }
   | { type: 'moveText'; textId: TextId; x: number; y: number }
   | { type: 'transferTextToPage'; textId: TextId; pageId: PageId; x: number; y: number }
   | { type: 'resizeText'; textId: TextId; box: Rect }
@@ -336,6 +337,32 @@ export function reduceEditorDocument(
           doc.selectedTextId = null;
         }
       }
+      return doc;
+    }
+    case 'duplicateText': {
+      const found = findEditorText(doc, a.textId);
+      if (!found) {
+        return doc;
+      }
+      const id = ids();
+      const offset = found.where === 'pasteboard' ? 16 : 32;
+      const clone = {
+        id,
+        content: found.node.content,
+        box: {
+          ...found.node.box,
+          x: found.node.box.x + offset,
+          y: found.node.box.y + offset,
+        },
+        fontSize: found.node.fontSize,
+        color: found.node.color,
+      };
+      if (found.where === 'page' && found.pageId) {
+        doc.pages[found.pageId]?.texts.push(clone);
+      } else {
+        doc.pasteboardTexts.push(clone);
+      }
+      doc.selectedTextId = id;
       return doc;
     }
     case 'moveText': {

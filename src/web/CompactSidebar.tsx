@@ -9,7 +9,7 @@ import type { AutosaveStatus } from '@/src/storage/autosave';
 import type { EditorDocument, EditorHistory } from '@/src/storage/types';
 import { historyControlsDisabled } from './historyControls';
 import { ValueSlider } from './ValueSlider';
-import styles from './editor.module.css';
+import { styles } from './editorStyles';
 
 const TOOLS: { id: ToolId; label: string }[] = [
   { id: 'pen', label: 'ペン' },

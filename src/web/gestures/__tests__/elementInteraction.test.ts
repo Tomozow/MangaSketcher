@@ -3,6 +3,7 @@ import {
   buildTextInteractionElements,
   hitTextInteraction,
   pageBoxToWorld,
+  textBoxForOwnerMove,
   worldBoxToPage,
 } from '../elementInteraction';
 import { buildStripFrames } from '../../../domain/stripGeometry';
@@ -18,6 +19,39 @@ describe('workspace element interaction geometry', () => {
     expect(roundTrip.y).toBeCloseTo(source.y);
     expect(roundTrip.width).toBeCloseTo(source.width);
     expect(roundTrip.height).toBeCloseTo(source.height);
+    expect(
+      textBoxForOwnerMove({
+        sourceWhere: 'page',
+        sourcePageId: 'p1',
+        sourceBox: { x: 0, y: 0, width: 1200, height: 1700 },
+        x: 40,
+        y: 50,
+        targetPasteboard: true,
+        frameForPageId: (pageId) =>
+          pageId === 'p1' ? { x: 0, y: 0, width: frame.width, height: frame.height } : null,
+        rasterWidth: 1200,
+        rasterHeight: 1700,
+      }),
+    ).toMatchObject({
+      x: 40,
+      y: 50,
+      width: frame.width,
+      height: frame.height,
+    });
+    const onPage = pageBoxToWorld(frame, { x: 120, y: 340, width: 96, height: 425 }, 1200, 1700);
+    expect(
+      textBoxForOwnerMove({
+        sourceWhere: 'page',
+        sourcePageId: 'p1',
+        sourceBox: { x: 120, y: 340, width: 96, height: 425 },
+        x: 10,
+        y: 20,
+        targetPasteboard: true,
+        frameForPageId: () => frame,
+        rasterWidth: 1200,
+        rasterHeight: 1700,
+      }).width,
+    ).toBeCloseTo(onPage.width);
   });
 
   test('pasteboard text is topmost, but the selected page handle has priority', () => {

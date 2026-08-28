@@ -1,8 +1,18 @@
-.editorRoot {
+/* Global editor styles (stable class names for Fast Refresh). */
+
+/* Stable selectors: CSS module hashes break on Fast Refresh and drop flex layout. */
+
+html,
+body {
+  height: 100%;
+}
+
+#editor-root {
   position: fixed;
   inset: 0;
   width: 100%;
   height: 100%;
+  height: 100dvh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -16,7 +26,7 @@
   padding-left: env(safe-area-inset-left);
 }
 
-.header {
+#editor-root [data-ms-shell='header'] {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -27,17 +37,7 @@
   flex-shrink: 0;
 }
 
-.headerTitle {
-  margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--ms-text);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.body {
+#editor-root [data-ms-shell='body'] {
   flex: 1 1 0%;
   display: flex;
   flex-direction: row;
@@ -47,7 +47,7 @@
   overflow: hidden;
 }
 
-.mainColumn {
+#editor-main-split {
   flex: 1 1 0%;
   display: flex;
   flex-direction: column;
@@ -56,7 +56,17 @@
   overflow: hidden;
 }
 
-.sidebarColumn {
+#editor-root [data-ms-shell='split-row'] {
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 0%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+#editor-sidebar-split {
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
@@ -67,45 +77,15 @@
   background: var(--ms-surface);
 }
 
-.sidebarNormal {
+#editor-sidebar-split[data-ms-sidebar='normal'] {
   width: clamp(280px, 28vw, 360px);
 }
 
-.sidebarCompact {
+#editor-sidebar-split[data-ms-sidebar='compact'] {
   width: 112px;
 }
 
-.pane {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  position: relative;
-  background: var(--ms-background);
-}
-
-.paneLabel {
-  position: absolute;
-  top: 6px;
-  left: 8px;
-  z-index: 2;
-  font-size: 11px;
-  color: var(--ms-text-muted);
-  pointer-events: none;
-}
-
-.splitRow {
-  display: flex;
-  flex-direction: row;
-  flex: 1 1 0%;
-  min-width: 0;
-  min-height: 0;
-  overflow: hidden;
-  width: 100%;
-}
-
-.splitCol {
+#editor-root [data-ms-shell='split-col'] {
   display: flex;
   flex-direction: column;
   flex: 1 1 0%;
@@ -115,50 +95,67 @@
   height: 100%;
 }
 
-.splitHandleHorizontal,
-.splitHandleVertical {
+#editor-root [data-ms-shell='pane'] {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  background: var(--ms-background);
+}
+
+#editor-root [data-ms-shell='pane-label'] {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  z-index: 2;
+  font-size: 11px;
+  color: var(--ms-text-muted);
+  pointer-events: none;
+}
+
+#editor-root [role='separator'][aria-orientation='vertical'] {
   flex-shrink: 0;
   touch-action: none;
   background: var(--ms-border);
   position: relative;
-}
-
-.splitHandleHorizontal {
   width: 16px;
   cursor: col-resize;
 }
 
-.splitHandleVertical {
+#editor-root [role='separator'][aria-orientation='horizontal'] {
+  flex-shrink: 0;
+  touch-action: none;
+  background: var(--ms-border);
+  position: relative;
   height: 16px;
   cursor: row-resize;
 }
 
-.splitHandleHorizontal::after,
-.splitHandleVertical::after {
+#editor-root [role='separator'][aria-orientation='vertical']::after,
+#editor-root [role='separator'][aria-orientation='horizontal']::after {
   content: '';
   position: absolute;
   background: var(--ms-text-muted);
   border-radius: 2px;
   opacity: 0.45;
-}
-
-.splitHandleHorizontal::after {
   top: 50%;
   left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+#editor-root [role='separator'][aria-orientation='vertical']::after {
   width: 4px;
   height: 32px;
-  transform: translate(-50%, -50%);
 }
 
-.splitHandleVertical::after {
-  top: 50%;
-  left: 50%;
+#editor-root [role='separator'][aria-orientation='horizontal']::after {
   width: 32px;
   height: 4px;
-  transform: translate(-50%, -50%);
 }
 
-.workspaceSurface {
+#editor-root [data-ms-shell='workspace'] {
   flex: 1 1 0%;
   width: 100%;
   min-height: 0;
@@ -166,44 +163,218 @@
   overflow: hidden;
 }
 
-.workspaceTransform {
+
+.ms-editorRoot {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  overscroll-behavior: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  padding-top: env(safe-area-inset-top);
+  padding-right: env(safe-area-inset-right);
+  padding-bottom: env(safe-area-inset-bottom);
+  padding-left: env(safe-area-inset-left);
+}
+
+.ms-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--ms-border);
+  background: var(--ms-surface);
+  flex-shrink: 0;
+}
+
+.ms-headerTitle {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ms-text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ms-body {
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ms-mainColumn {
+  flex: 1 1 0%;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ms-sidebarColumn {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  align-self: stretch;
+  min-height: 0;
+  overflow: hidden;
+  border-left: 1px solid var(--ms-border);
+  background: var(--ms-surface);
+}
+
+.ms-sidebarNormal {
+  width: clamp(280px, 28vw, 360px);
+}
+
+.ms-sidebarCompact {
+  width: 112px;
+}
+
+.ms-pane {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  position: relative;
+  background: var(--ms-background);
+}
+
+.ms-paneLabel {
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  z-index: 2;
+  font-size: 11px;
+  color: var(--ms-text-muted);
+  pointer-events: none;
+}
+
+.ms-splitRow {
+  display: flex;
+  flex-direction: row;
+  flex: 1 1 0%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  width: 100%;
+}
+
+.ms-splitCol {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 0%;
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  height: 100%;
+}
+
+.ms-splitHandleHorizontal,
+.ms-splitHandleVertical {
+  flex-shrink: 0;
+  touch-action: none;
+  background: var(--ms-border);
+  position: relative;
+}
+
+.ms-splitHandleHorizontal {
+  width: 16px;
+  cursor: col-resize;
+}
+
+.ms-splitHandleVertical {
+  height: 16px;
+  cursor: row-resize;
+}
+
+.ms-splitHandleHorizontal::after,
+.ms-splitHandleVertical::after {
+  content: '';
+  position: absolute;
+  background: var(--ms-text-muted);
+  border-radius: 2px;
+  opacity: 0.45;
+}
+
+.ms-splitHandleHorizontal::after {
+  top: 50%;
+  left: 50%;
+  width: 4px;
+  height: 32px;
+  transform: translate(-50%, -50%);
+}
+
+.ms-splitHandleVertical::after {
+  top: 50%;
+  left: 50%;
+  width: 32px;
+  height: 4px;
+  transform: translate(-50%, -50%);
+}
+
+.ms-workspaceSurface {
+  position: relative;
+  flex: 1 1 0%;
+  width: 100%;
+  min-height: 0;
+  touch-action: none;
+  overflow: hidden;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.ms-workspaceTransform {
   transform-origin: 0 0;
   will-change: transform;
 }
 
-.stripFrame {
+.ms-stripFrame {
   position: relative;
   display: inline-block;
   vertical-align: top;
 }
 
-.pageFrame {
+.ms-pageFrame {
   position: relative;
+  isolation: isolate;
   width: 216px;
   height: 306px;
-  overflow: visible;
+  overflow: hidden;
   background-size: 100% 100%;
   background-repeat: no-repeat;
   background-color: #fff;
   box-shadow: inset 0 0 0 1px var(--ms-border);
 }
 
-.pageInkPlane {
+.ms-pageInkPlane {
   position: absolute;
   inset: 0;
   pointer-events: none;
   z-index: 0;
 }
 
-.pageFrameSelected {
+.ms-pageFrameSelected {
   box-shadow: inset 0 0 0 2px var(--ms-accent);
 }
 
-.pageFrameGrabbed {
+.ms-pageFrameGrabbed {
   opacity: 0.35;
 }
 
-.pageDragThumb {
+.ms-pageDragThumb {
   position: fixed;
   z-index: 1000;
   pointer-events: none;
@@ -215,14 +386,14 @@
   background: #fff;
 }
 
-.pageDragThumbTemplate {
+.ms-pageDragThumbTemplate {
   position: absolute;
   inset: 0;
   background-size: 100% 100%;
   background-repeat: no-repeat;
 }
 
-.pageDragThumbInk {
+.ms-pageDragThumbInk {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -230,13 +401,13 @@
   display: block;
 }
 
-.templateCover {
+.ms-templateCover {
   position: absolute;
   background: #fff;
   pointer-events: none;
 }
 
-.blankSlot {
+.ms-blankSlot {
   width: 216px;
   height: 306px;
   background: repeating-linear-gradient(
@@ -249,7 +420,7 @@
   box-shadow: inset 0 0 0 1px var(--ms-border);
 }
 
-.appendButton {
+.ms-appendButton {
   width: 56px;
   height: 306px;
   border: 1px dashed var(--ms-border);
@@ -266,7 +437,7 @@
   user-select: none;
 }
 
-.pageNumberBand {
+.ms-pageNumberBand {
   height: 32px;
   display: flex;
   align-items: center;
@@ -279,27 +450,27 @@
   user-select: none;
 }
 
-.pageNumberBandSelected {
+.ms-pageNumberBandSelected {
   color: var(--ms-accent);
   font-weight: 600;
 }
 
-.spreadGap {
+.ms-spreadGap {
   display: inline-block;
   width: 16px;
 }
 
-.stripGap {
+.ms-stripGap {
   display: inline-block;
   width: 8px;
 }
 
-.pairGap {
+.ms-pairGap {
   display: inline-block;
   width: 4px;
 }
 
-.pdfPlaceholder {
+.ms-pdfPlaceholder {
   width: 100%;
   flex: 1 1 0%;
   min-height: 0;
@@ -315,7 +486,7 @@
   text-align: center;
 }
 
-.pdfPaneInner {
+.ms-pdfPaneInner {
   width: 100%;
   flex: 1 1 0%;
   min-height: 0;
@@ -326,7 +497,7 @@
   position: relative;
 }
 
-.pdfNav {
+.ms-pdfNav {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -336,7 +507,7 @@
   touch-action: manipulation;
 }
 
-.pdfNavButton {
+.ms-pdfNavButton {
   min-width: 44px;
   min-height: 44px;
   padding: 0 12px;
@@ -347,18 +518,18 @@
   font-size: 14px;
 }
 
-.pdfNavButton:disabled {
+.ms-pdfNavButton:disabled {
   opacity: 0.4;
 }
 
-.pdfNavLabel {
+.ms-pdfNavLabel {
   font-size: 13px;
   color: var(--ms-text-muted);
   min-width: 64px;
   text-align: center;
 }
 
-.pdfViewport {
+.ms-pdfViewport {
   flex: 1;
   position: relative;
   overflow: hidden;
@@ -366,17 +537,17 @@
   background: var(--ms-surface-muted);
 }
 
-.pdfTransform {
+.ms-pdfTransform {
   position: absolute;
   transform-origin: top left;
 }
 
-.pdfCanvas {
+.ms-pdfCanvas {
   display: block;
   touch-action: none;
 }
 
-.pdfRangeOverlay {
+.ms-pdfRangeOverlay {
   position: absolute;
   border: 2px dashed var(--ms-accent);
   background: rgba(0, 0, 0, 0.08);
@@ -384,7 +555,7 @@
   box-sizing: border-box;
 }
 
-.pdfRenderError {
+.ms-pdfRenderError {
   position: absolute;
   inset: 0;
   display: flex;
@@ -397,7 +568,7 @@
   pointer-events: none;
 }
 
-.pdfPickButton {
+.ms-pdfPickButton {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -412,7 +583,7 @@
   touch-action: manipulation;
 }
 
-.pdfFileInput {
+.ms-pdfFileInput {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -421,7 +592,7 @@
   clip: rect(0, 0, 0, 0);
 }
 
-.stockSurface {
+.ms-stockSurface {
   flex: 1 1 0%;
   width: 100%;
   min-height: 0;
@@ -430,7 +601,7 @@
   position: relative;
 }
 
-.stockGrid {
+.ms-stockGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
   gap: 8px;
@@ -440,7 +611,7 @@
   touch-action: pan-y;
 }
 
-.stockThumb {
+.ms-stockThumb {
   width: 112px;
   height: 158px;
   background-size: 100% 100%;
@@ -449,17 +620,17 @@
   box-shadow: inset 0 0 0 1px var(--ms-border);
 }
 
-.stockTransform {
+.ms-stockTransform {
   width: 100%;
   height: 100%;
   touch-action: none;
 }
 
-.stockThumbDragging {
+.ms-stockThumbDragging {
   opacity: 0.35;
 }
 
-.stockThumbFree {
+.ms-stockThumbFree {
   position: absolute;
   width: 144px;
   height: 204px;
@@ -469,7 +640,7 @@
   box-shadow: inset 0 0 0 1px var(--ms-border);
 }
 
-.sidebar {
+.ms-sidebar {
   display: flex;
   flex-direction: column;
   flex: 1 1 0%;
@@ -479,7 +650,7 @@
   overflow-y: auto;
 }
 
-.toolRow {
+.ms-toolRow {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
@@ -487,7 +658,7 @@
   justify-content: center;
 }
 
-.toolButton {
+.ms-toolButton {
   min-width: 44px;
   min-height: 44px;
   border: 1px solid transparent;
@@ -502,35 +673,35 @@
   font-size: 13px;
 }
 
-.toolButtonActive {
+.ms-toolButtonActive {
   border-color: var(--ms-accent);
   background: #e8eef5;
   color: var(--ms-accent);
 }
 
-.toolButton:disabled {
+.ms-toolButton:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.sliderBlock {
+.ms-sliderBlock {
   padding: 4px 8px 8px;
 }
 
-.sliderLabel {
+.ms-sliderLabel {
   display: block;
   font-size: 11px;
   color: var(--ms-text-muted);
   margin-bottom: 4px;
 }
 
-.sliderInput {
+.ms-sliderInput {
   width: 100%;
   min-height: 44px;
   touch-action: manipulation;
 }
 
-.colorRow {
+.ms-colorRow {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -538,7 +709,7 @@
   padding: 4px 8px 8px;
 }
 
-.colorSwatch {
+.ms-colorSwatch {
   width: 44px;
   height: 44px;
   border-radius: 8px;
@@ -547,7 +718,7 @@
   cursor: pointer;
 }
 
-.palettePopover {
+.ms-palettePopover {
   display: flex;
   flex-wrap: wrap;
   gap: 6px;
@@ -556,7 +727,7 @@
   border-top: 1px solid var(--ms-border);
 }
 
-.paletteChip {
+.ms-paletteChip {
   width: 36px;
   height: 36px;
   border-radius: 6px;
@@ -565,7 +736,7 @@
   cursor: pointer;
 }
 
-.actionRow {
+.ms-actionRow {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
@@ -574,7 +745,7 @@
   border-top: 1px solid var(--ms-border);
 }
 
-.iconButton {
+.ms-iconButton {
   min-width: 44px;
   min-height: 44px;
   border: 1px solid var(--ms-border);
@@ -586,12 +757,12 @@
   font-size: 12px;
 }
 
-.iconButton:disabled {
+.ms-iconButton:disabled {
   opacity: 0.35;
   cursor: not-allowed;
 }
 
-.linkButton {
+.ms-linkButton {
   min-height: 44px;
   display: inline-flex;
   align-items: center;
@@ -601,15 +772,15 @@
   padding: 0 4px;
 }
 
-.loading,
-.error {
+.ms-loading,
+.ms-error {
   flex: 1;
   display: grid;
   place-items: center;
   color: var(--ms-text-muted);
 }
 
-.pageInkOverlay {
+.ms-pageInkOverlay {
   position: absolute;
   inset: 0;
   overflow: hidden;
@@ -617,12 +788,12 @@
   z-index: 2;
 }
 
-.pageInkCanvas {
+.ms-pageInkCanvas {
   display: block;
   pointer-events: none;
 }
 
-.pageTextOverlay {
+.ms-pageTextOverlay {
   position: absolute;
   inset: 0;
   overflow: visible;
@@ -630,28 +801,31 @@
   z-index: 3;
 }
 
-.pageTextOverlayHidden {
+.ms-pageTextOverlayHidden {
   visibility: hidden;
   pointer-events: none;
 }
 
-.pageTextTransform {
+.ms-pageTextTransform {
   transform-origin: 0 0;
   position: relative;
 }
 
-.pageTextWrap {
+.ms-pageTextWrap {
   position: absolute;
   box-sizing: border-box;
   pointer-events: none;
-  overflow: visible;
+  overflow: hidden;
+  z-index: 1;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
-.pageTextWrapSelected {
+.ms-pageTextWrapSelected {
   z-index: 4;
 }
 
-.pasteboardTextWrap {
+.ms-pasteboardTextWrap {
   position: absolute;
   box-sizing: border-box;
   pointer-events: none;
@@ -659,7 +833,7 @@
   z-index: 3;
 }
 
-.textResizeHandle {
+.ms-textResizeHandle {
   position: absolute;
   right: -7px;
   bottom: -7px;
@@ -673,50 +847,80 @@
   pointer-events: none;
 }
 
-.pageTextDeleteButton {
+.ms-pageTextChromeLayer {
   position: absolute;
-  left: 0;
-  top: 0;
-  transform: translate(-4px, calc(-100% - 6px));
-  z-index: 5;
-  width: 44px;
-  height: 44px;
+  inset: 0;
+  z-index: 8;
+  overflow: visible;
+  pointer-events: none;
+  writing-mode: horizontal-tb;
+  direction: ltr;
+}
+
+.ms-pageTextChrome {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: center;
+  justify-content: flex-start;
+  width: max-content;
+  max-width: none;
+  pointer-events: auto;
+  writing-mode: horizontal-tb;
+  direction: ltr;
+  unicode-bidi: isolate;
+  white-space: nowrap;
+  line-height: 0;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.ms-pageTextChromeButton {
+  box-sizing: border-box;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
   padding: 0;
   border: 1px solid var(--ms-accent);
-  border-radius: 4px;
+  border-radius: 2px;
   background: var(--ms-background);
   color: var(--ms-accent);
-  font-size: 16px;
-  line-height: 1;
+  line-height: 0;
+  overflow: hidden;
   cursor: pointer;
   pointer-events: auto;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
-.pageTextDeleteButton:active {
+.ms-pageTextChromeButton:active {
   opacity: 0.75;
 }
 
-.pageTextBox {
+.ms-pageTextBox {
   position: absolute;
   inset: 0;
   writing-mode: vertical-rl;
   text-orientation: mixed;
-  overflow: visible;
+  overflow: hidden;
   white-space: pre-wrap;
   word-break: break-all;
   box-sizing: border-box;
   border: 1px solid transparent;
   pointer-events: none;
-  -webkit-text-size-adjust: none;
-  text-size-adjust: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
-.pageTextBoxSelected {
+.ms-pageTextBoxSelected {
   border-color: var(--ms-accent);
 }
 
-.textEditBar {
+.ms-textEditBar {
   position: fixed;
   left: 0;
   right: 0;
@@ -730,7 +934,7 @@
   box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.08);
 }
 
-.textEditInput {
+.ms-textEditInput {
   flex: 1;
   min-height: 44px;
   padding: 8px 10px;
@@ -744,7 +948,7 @@
   background: #fff;
 }
 
-.textEditDone {
+.ms-textEditDone {
   min-width: 64px;
   min-height: 44px;
   border: 1px solid var(--ms-accent);
@@ -756,7 +960,7 @@
   font-weight: 600;
 }
 
-.saveStatusRow {
+.ms-saveStatusRow {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -765,18 +969,18 @@
   color: var(--ms-text-muted);
 }
 
-.saveStatusDot {
+.ms-saveStatusDot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
-.saveStatusUnsaved {
+.ms-saveStatusUnsaved {
   background: #c45c26;
 }
 
-.saveStatusEncoding {
+.ms-saveStatusEncoding {
   background: #3d5a80;
   animation: ms-pulse 1s ease-in-out infinite;
 }
@@ -791,7 +995,7 @@
   }
 }
 
-.marqueePreview {
+.ms-marqueePreview {
   position: absolute;
   box-sizing: border-box;
   border: 1px dashed var(--ms-accent);
@@ -799,13 +1003,13 @@
   pointer-events: none;
 }
 
-.clipFrame {
+.ms-clipFrame {
   pointer-events: none;
   z-index: 2;
 }
 
-.clipHandleRotate,
-.clipHandleCorner {
+.ms-clipHandleRotate,
+.ms-clipHandleCorner {
   position: absolute;
   width: 10px;
   height: 10px;
@@ -815,13 +1019,13 @@
   pointer-events: none;
 }
 
-.clipHandleRotate {
+.ms-clipHandleRotate {
   top: -18px;
   left: 50%;
   transform: translateX(-50%);
 }
 
-.clipHandleCorner {
+.ms-clipHandleCorner {
   right: -6px;
   bottom: -6px;
 }

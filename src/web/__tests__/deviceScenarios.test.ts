@@ -27,7 +27,7 @@ import { moveWorkspacePageToStock } from '../stock/stockActions';
 import { planTextCommit } from '../textEditCommit';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const editorCss = readFileSync(join(here, '../editor.module.css'), 'utf8');
+const editorCss = readFileSync(join(here, '../editor.css'), 'utf8');
 const pageTextOverlaySrc = readFileSync(join(here, '../PageTextOverlay.tsx'), 'utf8');
 const textEditBarSrc = readFileSync(join(here, '../TextEditBar.tsx'), 'utf8');
 const editorLayoutSrc = readFileSync(join(here, '../EditorLayout.tsx'), 'utf8');
@@ -163,7 +163,7 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
 
   test('4. ワークスペースは touch-action:none（ブラウザズームに渡さない）', () => {
     expect(WORKSPACE_TOUCH_ACTION).toBe('none');
-    expect(editorCss).toMatch(/\.workspaceSurface[^{]*\{[^}]*touch-action:\s*none/);
+    expect(editorCss).toMatch(/\.ms-workspaceSurface[^{]*\{[^}]*touch-action:\s*none/);
   });
 
   test('5. 縦横同じ 4 ペインツリー（狭い縦向きは仕様）', () => {
@@ -171,14 +171,14 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(editorLayoutSrc).toContain('PDF');
     expect(editorLayoutSrc).toContain('ツール');
     expect(editorLayoutSrc).toContain('ストック');
-    expect(editorCss).toMatch(/\.body\s*\{[^}]*display:\s*flex/);
-    expect(editorCss).not.toMatch(/@media[^{]+\{[^}]*\.pane[^}]*display:\s*none/);
+    expect(editorCss).toMatch(/\.ms-body\s*\{[^}]*display:\s*flex/);
+    expect(editorCss).not.toMatch(/@media[^{]+\{[^}]*\.ms-pane[^}]*display:\s*none/);
   });
 
   test('6. 確定は explicit のみ。ページ上は textarea ではなく表示専用', () => {
     expect(pageTextOverlaySrc).not.toMatch(/<textarea/i);
     expect(pageTextOverlaySrc).toContain('pageTextBox');
-    expect(editorCss).toMatch(/\.pageTextBox[^{]*\{[^}]*writing-mode:\s*vertical-rl/);
+    expect(editorCss).toMatch(/\.ms-pageTextBox[^{]*\{[^}]*writing-mode:\s*vertical-rl/);
     expect(textEditBarSrc).toMatch(/<textarea/);
     expect(
       planTextCommit({

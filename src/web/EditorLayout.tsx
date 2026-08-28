@@ -10,7 +10,7 @@ import type { WorkspaceEffect } from '@/src/web/gestures';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
 import type { MarqueePreview, ClipLiveTransform, TextLiveTransform } from '@/src/web/useEditorController';
 import { colors } from '@/src/theme/tokens';
-import styles from './editor.module.css';
+import { styles } from './editorStyles';
 import { CompactSidebar } from './CompactSidebar';
 import { PdfPanePlaceholder } from './PdfPanePlaceholder';
 import { SplitHandle } from './SplitHandle';
@@ -35,6 +35,7 @@ type EditorLayoutProps = {
   ) => string | null | undefined;
   commitTextEdit: (textId: string, content: string) => void;
   deleteText: (textId: string) => void;
+  duplicateText: (textId: string) => void;
   onTextEditingChange: (editing: boolean) => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -68,6 +69,7 @@ export function EditorLayout({
   applyWorkspaceEffects,
   commitTextEdit,
   deleteText,
+  duplicateText,
   onTextEditingChange,
   onUndo,
   onRedo,
@@ -120,15 +122,16 @@ export function EditorLayout({
   };
 
   return (
-    <div className={styles.body} style={{ ['--ms-background' as string]: colors.background }}>
+    <div className={styles.body} data-ms-shell="body" style={{ ['--ms-background' as string]: colors.background }}>
       <div id="editor-main-split" className={styles.mainColumn}>
-        <div className={styles.splitRow}>
+        <div className={styles.splitRow} data-ms-shell="split-row">
           <div
             id="editor-workspace-pane"
             className={styles.pane}
+            data-ms-shell="pane"
             style={{ flexGrow: mainFlex.workspace, flexShrink: 1, flexBasis: 0 }}
           >
-            <span className={styles.paneLabel}>ワークスペース</span>
+            <span className={styles.paneLabel} data-ms-shell="pane-label">ワークスペース</span>
             <WorkspaceStrip
               workspaceOrder={doc.workspaceOrder}
               pages={doc.pages}
@@ -166,9 +169,10 @@ export function EditorLayout({
               <SplitHandle orientation="horizontal" onDrag={handleWorkspacePdfDrag} />
               <div
                 className={styles.pane}
+                data-ms-shell="pane"
                 style={{ flexGrow: mainFlex.pdf, flexShrink: 1, flexBasis: 0 }}
               >
-                <span className={styles.paneLabel}>PDF</span>
+                <span className={styles.paneLabel} data-ms-shell="pane-label">PDF</span>
                 <PdfPanePlaceholder
                   visible
                   hasPdf={Boolean(doc.pdf)}
@@ -198,13 +202,18 @@ export function EditorLayout({
         </div>
       </div>
 
-      <div id="editor-sidebar-split" className={`${styles.sidebarColumn} ${sidebarClass}`}>
-        <div className={styles.splitCol}>
+      <div
+        id="editor-sidebar-split"
+        className={`${styles.sidebarColumn} ${sidebarClass}`}
+        data-ms-sidebar={doc.sidebarCompact ? 'compact' : 'normal'}
+      >
+        <div className={styles.splitCol} data-ms-shell="split-col">
           <div
             className={styles.pane}
+            data-ms-shell="pane"
             style={{ flexGrow: sideFlex.palette, flexShrink: 1, flexBasis: 0 }}
           >
-            <span className={styles.paneLabel}>ツール</span>
+            <span className={styles.paneLabel} data-ms-shell="pane-label">ツール</span>
             <CompactSidebar
               doc={doc}
               history={history}
@@ -218,9 +227,10 @@ export function EditorLayout({
           <SplitHandle orientation="vertical" onDrag={handlePaletteStockDrag} />
           <div
             className={styles.pane}
+            data-ms-shell="pane"
             style={{ flexGrow: sideFlex.stock, flexShrink: 1, flexBasis: 0 }}
           >
-            <span className={styles.paneLabel}>ストック</span>
+            <span className={styles.paneLabel} data-ms-shell="pane-label">ストック</span>
             <StockPane
               doc={doc}
               dispatch={dispatch}
@@ -236,6 +246,7 @@ export function EditorLayout({
         viewportBottom={viewportBottom}
         onCommit={commitTextEdit}
         onDeleteText={deleteText}
+        onDuplicateText={duplicateText}
         onEditingChange={onTextEditingChange}
       />
     </div>

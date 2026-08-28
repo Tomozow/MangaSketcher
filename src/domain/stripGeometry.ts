@@ -3,6 +3,19 @@ import type { PageId } from './types';
 
 export const PAGE_DISPLAY_W = 216;
 export const PAGE_DISPLAY_H = 306;
+/** Selected-text chrome button size as a fraction of page display width (follows workspace zoom). */
+export const TEXT_CHROME_BUTTON_PAGE_RATIO = 15 / PAGE_DISPLAY_W;
+export const TEXT_CHROME_GAP_PX = 6;
+export const TEXT_CHROME_STACK_PX =
+  PAGE_DISPLAY_W * TEXT_CHROME_BUTTON_PAGE_RATIO + TEXT_CHROME_GAP_PX;
+
+/** Screen-pixel chrome sizes from the on-screen page width (follows zoom, not devicePixelRatio). */
+export function textChromeScreenMetrics(pageWidthCss: number): { button: number; gap: number; stack: number } {
+  const width = Number.isFinite(pageWidthCss) && pageWidthCss > 0 ? pageWidthCss : PAGE_DISPLAY_W;
+  const button = width * TEXT_CHROME_BUTTON_PAGE_RATIO;
+  const gap = width * (TEXT_CHROME_GAP_PX / PAGE_DISPLAY_W);
+  return { button, gap, stack: button + gap };
+}
 export const APPEND_W = 56;
 export const STRIP_GAP = 8;
 export const SPREAD_GAP = 16;

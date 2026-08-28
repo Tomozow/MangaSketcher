@@ -1,4 +1,4 @@
-import styles from './editor.module.css';
+import { styles } from './editorStyles';
 
 type ValueSliderProps = {
   label: string;

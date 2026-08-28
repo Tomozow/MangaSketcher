@@ -18,7 +18,7 @@ import {
 import { reduceStockEffects } from '@/src/web/stock/stockEffects';
 import { createStockPointerPipeline, getStockDragPageId } from '@/src/web/stock/stockPointer';
 import type { StockHit } from '@/src/web/stock/types';
-import styles from './editor.module.css';
+import { styles } from './editorStyles';
 
 const TEMPLATE_URL = '/page_template.jpg';
 

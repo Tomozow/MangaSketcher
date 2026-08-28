@@ -8,8 +8,16 @@ export function ServiceWorkerRegistrar() {
       return;
     }
 
+    // Dev HMR (iPad Safari/LAN) is blocked by a cached SW. Unregister in development.
+    if (process.env.NODE_ENV !== 'production') {
+      void navigator.serviceWorker.getRegistrations().then((regs) =>
+        Promise.all(regs.map((reg) => reg.unregister())),
+      );
+      return;
+    }
+
     void navigator.serviceWorker.register('/sw.js').catch(() => {
-      // SW registration is best-effort in dev; shell still loads without it.
+      // SW registration is best-effort; shell still loads without it.
     });
   }, []);
 

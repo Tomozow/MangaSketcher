@@ -6,7 +6,7 @@ import { joinVerticalBody } from '@/src/domain/pdfText';
 import { selectPdfBodyRange, viewRectToPdf } from '@/src/domain/pdfLayout';
 import { pdfPageViewerKey } from '@/src/domain/pdfView';
 import type { PdfTextItem, Rect } from '@/src/domain/types';
-import styles from '@/src/web/editor.module.css';
+import { styles } from '@/src/web/editorStyles';
 import { LONG_PRESS_MS } from './constants';
 import {
   cancelPdfRangeForPinch,

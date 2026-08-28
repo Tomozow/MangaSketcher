@@ -40,6 +40,51 @@ export function worldBoxToPage(
   };
 }
 
+/** Keep the on-screen box size when a text moves between page raster space and pasteboard world space. */
+export function textBoxForOwnerMove(input: {
+  sourceWhere: 'page' | 'pasteboard';
+  sourcePageId?: PageId;
+  sourceBox: Rect;
+  x: number;
+  y: number;
+  targetPasteboard?: boolean;
+  targetPageId?: PageId;
+  frameForPageId: (pageId: PageId) => Pick<StripFrame, 'x' | 'y' | 'width' | 'height'> | null;
+  rasterWidth: number;
+  rasterHeight: number;
+}): Rect {
+  const safeBox = {
+    x: finiteOr(input.sourceBox.x),
+    y: finiteOr(input.sourceBox.y),
+    width: Math.max(4, finiteOr(input.sourceBox.width, 4)),
+    height: Math.max(4, finiteOr(input.sourceBox.height, 4)),
+  };
+  if (input.targetPasteboard) {
+    if (input.sourceWhere === 'page' && input.sourcePageId) {
+      const frame = input.frameForPageId(input.sourcePageId);
+      if (frame) {
+        const world = pageBoxToWorld(frame, safeBox, input.rasterWidth, input.rasterHeight);
+        return { x: input.x, y: input.y, width: world.width, height: world.height };
+      }
+    }
+    return { ...safeBox, x: input.x, y: input.y };
+  }
+  const targetPageId = input.targetPageId;
+  if (targetPageId && input.sourceWhere === 'pasteboard') {
+    const frame = input.frameForPageId(targetPageId);
+    if (frame) {
+      const converted = worldBoxToPage(
+        frame,
+        { x: frame.x, y: frame.y, width: safeBox.width, height: safeBox.height },
+        input.rasterWidth,
+        input.rasterHeight,
+      );
+      return { x: input.x, y: input.y, width: converted.width, height: converted.height };
+    }
+  }
+  return { ...safeBox, x: input.x, y: input.y };
+}
+
 export function buildTextInteractionElements(input: {
   workspaceOrder: PageId[];
   pages: Record<PageId, { texts: PageText[] }>;

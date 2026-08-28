@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { ServiceWorkerRegistrar } from '@/src/web/ServiceWorkerRegistrar';
 import './globals.css';
+import '@/src/web/editor.css';
 
 export const viewport: Viewport = {
   width: 'device-width',

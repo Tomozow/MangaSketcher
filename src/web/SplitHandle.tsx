@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useRef } from 'react';
-import styles from './editor.module.css';
+import { styles } from './editorStyles';
 
 type SplitHandleProps = {
   orientation: 'horizontal' | 'vertical';

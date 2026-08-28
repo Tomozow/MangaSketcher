@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { EditorLayout } from '@/src/web/EditorLayout';
 import { EditorLoadingSurface } from '@/src/web/EditorLoadingSurface';
-import styles from '@/src/web/editor.module.css';
+import { styles } from '@/src/web/editorStyles';
 import { colors, useEditorController } from '@/src/web/useEditorController';
 
 type EditorProps = {
@@ -25,6 +25,7 @@ export default function Editor({ projectId }: EditorProps) {
     applyWorkspaceEffects,
     commitTextEdit,
     deleteText,
+    duplicateText,
     setTextEditing,
     undo,
     redo,
@@ -40,6 +41,9 @@ export default function Editor({ projectId }: EditorProps) {
     getPageThumb,
     getClipRasterSize,
   } = useEditorController(projectId);
+  const [rootHeight, setRootHeight] = useState<number | null>(() =>
+    typeof window === 'undefined' ? null : window.innerHeight,
+  );
 
   useEffect(() => {
     const lockScroll = () => {
@@ -50,29 +54,25 @@ export default function Editor({ projectId }: EditorProps) {
     return () => window.removeEventListener('scroll', lockScroll);
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const viewport = window.visualViewport;
-    if (!viewport) {
-      return;
-    }
-
     const applyViewportHeight = () => {
-      const root = document.getElementById('editor-root');
-      if (!root) {
-        return;
-      }
-      const height = viewport.height + viewport.offsetTop;
-      root.style.height = `${height}px`;
+      const height = viewport
+        ? viewport.height + viewport.offsetTop
+        : window.innerHeight;
+      setRootHeight(height);
     };
 
     applyViewportHeight();
-    viewport.addEventListener('resize', applyViewportHeight);
-    viewport.addEventListener('scroll', applyViewportHeight);
+    viewport?.addEventListener('resize', applyViewportHeight);
+    viewport?.addEventListener('scroll', applyViewportHeight);
+    window.addEventListener('resize', applyViewportHeight);
     return () => {
-      viewport.removeEventListener('resize', applyViewportHeight);
-      viewport.removeEventListener('scroll', applyViewportHeight);
+      viewport?.removeEventListener('resize', applyViewportHeight);
+      viewport?.removeEventListener('scroll', applyViewportHeight);
+      window.removeEventListener('resize', applyViewportHeight);
     };
-  }, []);
+  }, [ready]);
 
   if (missing) {
     return null;
@@ -87,6 +87,7 @@ export default function Editor({ projectId }: EditorProps) {
       id="editor-root"
       className={styles.editorRoot}
       style={{
+        height: rootHeight != null ? `${rootHeight}px` : '100dvh',
         background: colors.background,
         ['--ms-background' as string]: colors.background,
         ['--ms-surface' as string]: colors.surface,
@@ -97,7 +98,7 @@ export default function Editor({ projectId }: EditorProps) {
         ['--ms-accent' as string]: colors.accent,
       }}
     >
-      <header className={styles.header}>
+      <header className={styles.header} data-ms-shell="header">
         <Link href="/" className={styles.linkButton}>
           一覧へ
         </Link>
@@ -115,6 +116,7 @@ export default function Editor({ projectId }: EditorProps) {
         applyWorkspaceEffects={applyWorkspaceEffects}
         commitTextEdit={commitTextEdit}
         deleteText={deleteText}
+        duplicateText={duplicateText}
         onTextEditingChange={setTextEditing}
         onUndo={undo}
         onRedo={redo}

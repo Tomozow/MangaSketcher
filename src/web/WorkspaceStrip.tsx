@@ -1,7 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { buildStripFrames, NUMBER_BAND, pageLocalFromWorld } from '@/src/domain/stripGeometry';
+import {
+  buildStripFrames,
+  NUMBER_BAND,
+  pageLocalFromWorld,
+} from '@/src/domain/stripGeometry';
 import { PAGE_INK_FRAME_ATTR, PAGE_INK_PLANE_ATTR, PAGE_NUMBER_BAND_ATTR, APPEND_SLOT_ATTR } from '@/src/web/gestures/pageInkDom';
 import {
   TEMPLATE_PAGE_NUMBER_COVER,
@@ -23,9 +27,9 @@ import {
 import { pageInkLocalFromClient } from '@/src/web/gestures/pageInkDom';
 import { PageDragThumbnail } from '@/src/web/PageDragThumbnail';
 import { effectiveClipPose, type ClipLiveTransform } from '@/src/web/clip/clipLiveTransform';
-import { PageTextsOnFrame, PasteboardTextsLayer, textsForFrame } from '@/src/web/PageTextOverlay';
+import { PageTextsOnFrame, PasteboardTextsLayer, TextChromeOverlay, textsForFrame } from '@/src/web/PageTextOverlay';
 import type { TextLiveTransform } from '@/src/web/text/textLiveTransform';
-import styles from './editor.module.css';
+import { styles } from './editorStyles';
 
 const TEMPLATE_URL = '/page_template.jpg';
 
@@ -288,7 +292,7 @@ export function WorkspaceStrip({
   }, [applyWorkspaceEffects, syncDragPointer]);
 
   return (
-    <div ref={surfaceRef} className={styles.workspaceSurface}>
+    <div ref={surfaceRef} className={styles.workspaceSurface} data-ms-shell="workspace">
       {grabbedPageId && dragPointer ? (
         <PageDragThumbnail
           pageId={grabbedPageId}
@@ -383,7 +387,6 @@ export function WorkspaceStrip({
                   rasterHeight={rasterHeight}
                   selectedTextId={selectedTextId}
                   textLiveTransforms={textLiveTransforms}
-                  onDeleteText={onDeleteText}
                 />
               </div>
               <div
@@ -404,9 +407,19 @@ export function WorkspaceStrip({
           rasterHeight={rasterHeight}
           selectedTextId={selectedTextId}
           textLiveTransforms={textLiveTransforms}
-          onDeleteText={onDeleteText}
         />
       </div>
+      {selectedTextId ? (
+        <TextChromeOverlay
+          surfaceRef={surfaceRef}
+          textId={selectedTextId}
+          zoom={zoom}
+          panX={panX}
+          panY={panY}
+          layoutKey={textLiveTransforms}
+          onDeleteText={onDeleteText}
+        />
+      ) : null}
     </div>
   );
 }

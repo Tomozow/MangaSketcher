@@ -14,7 +14,7 @@ import { screenToWorld } from '../../domain/stripGeometry';
 import { stepWorkspacePointer } from './workspaceFsm';
 import type { WorkspaceEffect, WorkspaceGestureStore, WorkspaceHit } from './types';
 import { createWorkspaceGestureStore } from './types';
-import { PAGE_TEXT_DELETE_ATTR } from './pageTextDom';
+import { PAGE_TEXT_CHROME_ATTR } from './pageTextDom';
 
 export type PointerTarget = 'workspace' | 'pdf' | 'stock' | 'splitter';
 
@@ -47,9 +47,9 @@ export type WorkspacePointerPipeline = {
   reset: () => void;
 };
 
-function isTextDeleteTarget(event: PointerEvent): boolean {
+function isTextChromeTarget(event: PointerEvent): boolean {
   const el = event.target;
-  return el instanceof Element && el.closest(`[${PAGE_TEXT_DELETE_ATTR}]`) !== null;
+  return el instanceof Element && el.closest(`[${PAGE_TEXT_CHROME_ATTR}]`) !== null;
 }
 
 function shouldPreventDefault(target: PointerTarget): boolean {
@@ -163,7 +163,7 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
     };
 
     const onPointerDown = (event: PointerEvent) => {
-      if (target === 'workspace' && isTextDeleteTarget(event)) {
+      if (target === 'workspace' && isTextChromeTarget(event)) {
         return;
       }
       if (event.pointerType === 'mouse') {

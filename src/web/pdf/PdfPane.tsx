@@ -2,7 +2,7 @@
 
 import { useEffect, useId, useState } from 'react';
 import type { PdfTextItem, Rect } from '@/src/domain/types';
-import styles from '@/src/web/editor.module.css';
+import { styles } from '@/src/web/editorStyles';
 import { PdfPageViewer } from './PdfPageViewer';
 import { getOrLoadPdfProxy } from './pdfSession';
 

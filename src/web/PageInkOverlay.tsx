@@ -8,7 +8,7 @@ import { effectiveClipPose, type ClipLiveTransform } from './clip/clipLiveTransf
 import type { MarqueePreview } from '@/src/web/useEditorController';
 import { PageInkCanvas } from '@/src/web/ink/PageInkCanvas';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
-import styles from '@/src/web/editor.module.css';
+import { styles } from '@/src/web/editorStyles';
 
 type PageInkOverlayProps = {
   doc: EditorDocument;

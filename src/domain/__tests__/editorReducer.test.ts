@@ -78,6 +78,35 @@ describe('deleteText', () => {
     expect(doc.pages[pageId]!.texts[0]!.content).toBe('残す');
     expect(doc.selectedTextId).toBeNull();
   });
+
+  test('duplicateText copies the box and selects the clone', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId },
+        box: { x: 10, y: 20, width: 8, height: 20 },
+        content: '本文',
+      },
+      ids,
+    );
+    const sourceId = doc.selectedTextId!;
+    doc = reduceEditorDocument(doc, { type: 'duplicateText', textId: sourceId }, ids);
+    expect(doc.pages[pageId]!.texts).toHaveLength(2);
+    expect(doc.pages[pageId]!.texts[1]).toMatchObject({
+      content: '本文',
+      box: { x: 42, y: 52, width: 8, height: 20 },
+    });
+    expect(doc.selectedTextId).not.toBe(sourceId);
+  });
 });
 
 describe('text attachment placement', () => {

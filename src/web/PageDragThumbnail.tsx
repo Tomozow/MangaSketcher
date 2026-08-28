@@ -4,7 +4,7 @@ import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import type { PageId } from '@/src/domain/types';
 import { THUMB_HEIGHT, THUMB_WIDTH } from '@/src/web/ink/InkEngine';
-import styles from './editor.module.css';
+import { styles } from './editorStyles';
 
 const TEMPLATE_URL = '/page_template.jpg';
 
