@@ -1,5 +1,5 @@
 import { canvasBakeClipOntoPage, canvasMarqueeCut } from '../clip/clipCanvas';
-import { decodeFakePng } from './fakeCanvas';
+import { isPngBuffer, tryDecodeInkSnapshot } from './fakeCanvas';
 
 /** §9.7 standard drag thumbnail size. */
 export const THUMB_WIDTH = 144;
@@ -70,6 +70,16 @@ export class InkEngine {
   private readonly pendingEncodes = new Set<string>();
   private readonly thumbGeneration = new Map<string, number>();
   private readonly blitEpoch = new Map<string, number>();
+  /** Bumped whenever encodedPng content changes; stale async blits must not apply. */
+  private readonly encodedGeneration = new Map<string, number>();
+  /** Hot was recreated while encode was in flight; refresh when encode completes. */
+  private readonly deferredHotRefresh = new Set<string>();
+  /** Bumped when hot canvas pixels are baked/erased/restored; stale async blits must not apply. */
+  private readonly hotRevision = new Map<string, number>();
+  /** Bumped on each startEncode; stale encode completions must not apply. */
+  private readonly encodeGeneration = new Map<string, number>();
+  /** Visible strip rasters kept decoded (§9.6); never LRU-evicted. */
+  private readonly pinnedHotRasterIds = new Set<string>();
   private readonly rasterDimensions = new Map<string, { width: number; height: number }>();
 
   constructor(options: {
@@ -98,9 +108,17 @@ export class InkEngine {
     this.callbacks = { ...this.callbacks, ...callbacks };
   }
 
+  /** Keep workspace-visible rasters decoded; they are excluded from LRU eviction. */
+  setPinnedHotRasterIds(rasterIds: readonly string[]): void {
+    this.pinnedHotRasterIds.clear();
+    for (const rasterId of rasterIds) {
+      this.pinnedHotRasterIds.add(rasterId);
+    }
+  }
+
   registerRaster(rasterId: string, png?: ArrayBuffer): void {
     if (!this.encodedPng.has(rasterId)) {
-      this.encodedPng.set(rasterId, (png ?? new ArrayBuffer(0)).slice(0));
+      this.noteEncodedPng(rasterId, png ?? new ArrayBuffer(0));
     }
     if (!this.rasterDimensions.has(rasterId)) {
       this.rasterDimensions.set(rasterId, { width: this.rasterWidth, height: this.rasterHeight });
@@ -112,7 +130,7 @@ export class InkEngine {
     const h = Math.max(1, Math.round(height));
     this.rasterDimensions.set(rasterId, { width: w, height: h });
     if (!this.encodedPng.has(rasterId)) {
-      this.encodedPng.set(rasterId, (png ?? new ArrayBuffer(0)).slice(0));
+      this.noteEncodedPng(rasterId, png ?? new ArrayBuffer(0));
     }
   }
 
@@ -130,6 +148,10 @@ export class InkEngine {
     this.encodedPng.delete(rasterId);
     this.rasterDimensions.delete(rasterId);
     this.blitEpoch.delete(rasterId);
+    this.encodedGeneration.delete(rasterId);
+    this.deferredHotRefresh.delete(rasterId);
+    this.hotRevision.delete(rasterId);
+    this.encodeGeneration.delete(rasterId);
     const thumb = this.thumbs.get(rasterId);
     if (thumb) {
       thumb.close();
@@ -152,10 +174,14 @@ export class InkEngine {
       canvas = this.canvasFactory(dims.width, dims.height);
       const png = this.encodedPng.get(rasterId);
       const epoch = this.bumpBlitEpoch(rasterId);
-      if (png && png.byteLength > 0) {
+      const ctx = canvas.getContext('2d');
+      if (this.pendingEncodes.has(rasterId)) {
+        // Encode in flight may carry fresher pixels than encodedPng; refresh on complete.
+        ctx?.clearRect(0, 0, dims.width, dims.height);
+        this.deferredHotRefresh.add(rasterId);
+      } else if (png && png.byteLength > 0) {
         this.blitEncodedPng(canvas, png, rasterId, epoch);
       } else {
-        const ctx = canvas.getContext('2d');
         ctx?.clearRect(0, 0, dims.width, dims.height);
       }
       this.hot.set(rasterId, canvas);
@@ -172,7 +198,11 @@ export class InkEngine {
     this.lru.push(rasterId);
     while (this.lru.length > HOT_CANVAS_LIMIT) {
       const evictIdx = this.lru.findIndex(
-        (id) => !this.overlays.has(id) && !this.strokeUndoCanvas.has(id),
+        (id) =>
+          !this.pinnedHotRasterIds.has(id) &&
+          !this.overlays.has(id) &&
+          !this.strokeUndoCanvas.has(id) &&
+          !this.pendingEncodes.has(id),
       );
       if (evictIdx < 0) {
         break;
@@ -190,22 +220,49 @@ export class InkEngine {
     return next;
   }
 
+  private noteEncodedPng(rasterId: string, png: ArrayBuffer): void {
+    this.encodedPng.set(rasterId, png.slice(0));
+    this.encodedGeneration.set(rasterId, (this.encodedGeneration.get(rasterId) ?? 0) + 1);
+  }
+
+  private bumpHotRevision(rasterId: string): void {
+    this.hotRevision.set(rasterId, (this.hotRevision.get(rasterId) ?? 0) + 1);
+  }
+
   private blitEncodedPng(canvas: InkCanvas, png: ArrayBuffer, rasterId: string, epoch: number): void {
     const ctx = canvas.getContext('2d');
     if (!ctx) {
       return;
     }
-    if (png.byteLength >= 8) {
+    const snapshot = tryDecodeInkSnapshot(png);
+    if (snapshot) {
       try {
-        const { width, height, data } = decodeFakePng(png);
-        this.ensureCanvasSize(rasterId, canvas, width, height);
-        ctx.putImageData({ data, width, height } as ImageData, 0, 0);
+        this.ensureCanvasSize(rasterId, canvas, snapshot.width, snapshot.height);
+        const imageData =
+          typeof ImageData !== 'undefined'
+            ? new ImageData(snapshot.data, snapshot.width, snapshot.height)
+            : ({ data: snapshot.data, width: snapshot.width, height: snapshot.height } as ImageData);
+        ctx.putImageData(imageData, 0, 0);
         return;
       } catch {
-        // fall through to browser decode
+        const dims = this.getRasterDimensions(rasterId);
+        ctx.clearRect(0, 0, dims.width, dims.height);
+        return;
       }
     }
-    void this.blitEncodedPngAsync(canvas, png, rasterId, epoch);
+    if (!isPngBuffer(png)) {
+      const dims = this.getRasterDimensions(rasterId);
+      ctx.clearRect(0, 0, dims.width, dims.height);
+      return;
+    }
+    void this.blitEncodedPngAsync(
+      canvas,
+      png,
+      rasterId,
+      epoch,
+      this.encodedGeneration.get(rasterId) ?? 0,
+      this.hotRevision.get(rasterId) ?? 0,
+    );
   }
 
   private ensureCanvasSize(rasterId: string, canvas: InkCanvas, width: number, height: number): void {
@@ -221,14 +278,31 @@ export class InkEngine {
     png: ArrayBuffer,
     rasterId: string,
     epoch: number,
+    encodedGeneration: number,
+    hotRevision: number,
   ): Promise<void> {
     const ctx = canvas.getContext('2d');
     if (!ctx || typeof createImageBitmap === 'undefined') {
       return;
     }
     const blob = new Blob([png.slice(0)], { type: 'image/png' });
-    const bitmap = await createImageBitmap(blob);
-    if (this.blitEpoch.get(rasterId) !== epoch) {
+    let bitmap: ImageBitmap;
+    try {
+      bitmap = await createImageBitmap(blob);
+    } catch {
+      return;
+    }
+    const epochNow = this.blitEpoch.get(rasterId);
+    const generationNow = this.encodedGeneration.get(rasterId) ?? 0;
+    const revisionNow = this.hotRevision.get(rasterId) ?? 0;
+    const hotCanvas = this.hot.get(rasterId);
+    if (
+      epochNow !== epoch ||
+      generationNow !== encodedGeneration ||
+      revisionNow !== hotRevision ||
+      hotCanvas !== canvas ||
+      this.overlays.has(rasterId)
+    ) {
       bitmap.close();
       return;
     }
@@ -287,6 +361,7 @@ export class InkEngine {
     }
     this.bumpBlitEpoch(rasterId);
     pageCtx.drawImage(overlay as unknown as CanvasImageSource, 0, 0);
+    this.bumpHotRevision(rasterId);
     const undoPng = this.takeStrokeUndoPng(rasterId);
     this.overlayCtx.get(rasterId)?.clearRect(0, 0, this.rasterWidth, this.rasterHeight);
     this.overlays.delete(rasterId);
@@ -318,6 +393,7 @@ export class InkEngine {
 
   finishEraseDirect(rasterId: string): ArrayBuffer {
     const undoPng = this.takeStrokeUndoPng(rasterId);
+    this.bumpHotRevision(rasterId);
     this.invalidateThumb(rasterId);
     void this.generateThumb(rasterId);
     this.startEncode(rasterId);
@@ -337,15 +413,30 @@ export class InkEngine {
   }
 
   restoreRasterFromPng(rasterId: string, png: ArrayBuffer): void {
-    this.encodedPng.set(rasterId, png.slice(0));
+    this.cancelPendingEncode(rasterId);
+    this.noteEncodedPng(rasterId, png);
+    this.bumpHotRevision(rasterId);
     const canvas = this.hot.get(rasterId);
     if (canvas) {
+      const dims = this.getRasterDimensions(rasterId);
       const ctx = canvas.getContext('2d');
-      ctx?.clearRect(0, 0, this.rasterWidth, this.rasterHeight);
+      ctx?.clearRect(0, 0, dims.width, dims.height);
       this.blitEncodedPng(canvas, png, rasterId, this.bumpBlitEpoch(rasterId));
     }
     this.invalidateThumb(rasterId);
     void this.generateThumb(rasterId);
+    if (this.hot.has(rasterId) && tryDecodeInkSnapshot(png)) {
+      this.startEncode(rasterId);
+    }
+  }
+
+  private cancelPendingEncode(rasterId: string): void {
+    if (!this.pendingEncodes.has(rasterId)) {
+      return;
+    }
+    this.encodeGeneration.set(rasterId, (this.encodeGeneration.get(rasterId) ?? 0) + 1);
+    this.pendingEncodes.delete(rasterId);
+    this.deferredHotRefresh.delete(rasterId);
   }
 
   captureRasterPng(rasterId: string): ArrayBuffer | undefined {
@@ -527,16 +618,37 @@ export class InkEngine {
     if (!canvas) {
       return;
     }
+    const gen = (this.encodeGeneration.get(rasterId) ?? 0) + 1;
+    this.encodeGeneration.set(rasterId, gen);
+    const hotRevisionAtStart = this.hotRevision.get(rasterId) ?? 0;
     this.pendingEncodes.add(rasterId);
     this.callbacks.onEncodingStarted?.(rasterId);
     void this.encodePng(canvas)
       .then((buffer) => {
-        this.encodedPng.set(rasterId, buffer);
+        if (this.encodeGeneration.get(rasterId) !== gen) {
+          return;
+        }
+        const revisionNow = this.hotRevision.get(rasterId) ?? 0;
+        if (revisionNow !== hotRevisionAtStart) {
+          this.pendingEncodes.delete(rasterId);
+          this.startEncode(rasterId);
+          return;
+        }
+        this.noteEncodedPng(rasterId, buffer);
         this.pendingEncodes.delete(rasterId);
+        if (this.deferredHotRefresh.delete(rasterId)) {
+          const hot = this.hot.get(rasterId);
+          if (hot) {
+            const epoch = this.bumpBlitEpoch(rasterId);
+            this.blitEncodedPng(hot, buffer, rasterId, epoch);
+          }
+        }
         this.callbacks.onEncodingComplete?.(rasterId, buffer);
       })
       .catch(() => {
-        this.pendingEncodes.delete(rasterId);
+        if (this.encodeGeneration.get(rasterId) === gen) {
+          this.pendingEncodes.delete(rasterId);
+        }
       });
   }
 }

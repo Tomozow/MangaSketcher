@@ -37,6 +37,10 @@ function isPageBodyHit(hit: WorkspaceHit): hit is Extract<WorkspaceHit, { kind: 
   return hit.kind === 'page';
 }
 
+function isChromeTapHit(hit: WorkspaceHit): boolean {
+  return hit.kind === 'pageNumber' || hit.kind === 'append' || hit.kind === 'slot';
+}
+
 function inkRasterPoint(
   hit: WorkspaceHit,
   fallbackX: number,
@@ -240,7 +244,7 @@ function stepLockedPencil(
     if (input.phase === 'up' || input.phase === 'cancel') {
       return {
         session: { mode: 'idle' },
-        effects: [{ type: 'commitEraseDirect', pageId: session.pageId, clipId: session.clipId }],
+        effects: [{ type: 'commitEraseDirect', pageId: session.pageId }],
       };
     }
     const point = inkRasterPoint(hit, input.x, input.y, session.pageId, input);
@@ -250,7 +254,6 @@ function stepLockedPencil(
         {
           type: 'eraseDirectMove',
           pageId: session.pageId,
-          clipId: session.clipId,
           x: point.x,
           y: point.y,
           pressure: input.pressure,
@@ -269,9 +272,8 @@ function stepLockedPencil(
       };
       return { session: { mode: 'idle' }, effects: [{ type: 'completeMarquee', pageId: session.pageId, rect }] };
     }
-    const lx = isPageBodyHit(hit) ? hit.localX : input.x;
-    const ly = isPageBodyHit(hit) ? hit.localY : input.y;
-    const next = { ...session, x1: lx, y1: ly };
+    const point = inkRasterPoint(hit, session.x1, session.y1, session.pageId, input);
+    const next = { ...session, x1: point.x, y1: point.y };
     const rect = {
       x: Math.min(next.x0, next.x1),
       y: Math.min(next.y0, next.y1),
@@ -331,54 +333,67 @@ function stepLockedPencil(
     };
   }
 
+  if (session.mode === 'pendingChromeTap') {
+    const dist = Math.hypot(input.x - session.startX, input.y - session.startY);
+    if (input.phase === 'up' || input.phase === 'cancel') {
+      if (dist < PAN_SLOP) {
+        return {
+          session: { mode: 'idle' },
+          effects: tapEffects(session.hit, input.selectedPageId),
+        };
+      }
+      return { session: { mode: 'idle' }, effects: [] };
+    }
+    return { session, effects: [] };
+  }
+
   if (session.mode === 'moveClip') {
     if (input.phase === 'up' || input.phase === 'cancel') {
-      const effects: WorkspaceEffect[] = [];
-      if (isPageBodyHit(hit)) {
-        effects.push({
-          type: 'dropClipOnPage',
-          clipId: session.clipId,
-          pageId: hit.pageId,
-          localX: hit.localX,
-          localY: hit.localY,
-        });
-      }
-      return { session: { mode: 'idle' }, effects };
+      return {
+        session: { mode: 'idle' },
+        effects: [{ type: 'commitClipTransform', clipId: session.clipId }],
+      };
     }
     return {
       session,
       effects: [
         {
-          type: 'moveClip',
+          type: 'clipTransformLive',
           clipId: session.clipId,
-          x: input.x - session.offsetX,
-          y: input.y - session.offsetY,
+          x: input.worldX - session.offsetX,
+          y: input.worldY - session.offsetY,
         },
       ],
     };
   }
 
   if (session.mode === 'scaleClip') {
-    const dist = Math.hypot(input.x - session.cx, input.y - session.cy);
+    const dist = Math.hypot(input.worldX - session.cx, input.worldY - session.cy);
     const scale = scaleFromCornerDrag(session.startScale, session.startDist, dist);
     if (input.phase === 'up' || input.phase === 'cancel') {
-      return { session: { mode: 'idle' }, effects: [] };
+      return {
+        session: { mode: 'idle' },
+        effects: [{ type: 'commitClipTransform', clipId: session.clipId }],
+      };
     }
     return {
       session,
-      effects: [{ type: 'scaleClip', clipId: session.clipId, scale }],
+      effects: [{ type: 'clipTransformLive', clipId: session.clipId, scale }],
     };
   }
 
   if (session.mode === 'rotateClip') {
-    const angle = angleFromCenter(session.cx, session.cy, input.x, input.y);
+    const angle = angleFromCenter(session.cx, session.cy, input.worldX, input.worldY);
     const rotation = rotationFromHandleDrag(session.startRotation, session.startAngle, angle);
     if (input.phase === 'up' || input.phase === 'cancel') {
-      return { session: { mode: 'idle' }, effects: [] };
+      return {
+        session: { mode: 'idle' },
+        effects: [{ type: 'commitClipTransform', clipId: session.clipId }],
+      };
     }
     return {
       session,
-      effects: [{ type: 'rotateClip', clipId: session.clipId, rotation }],
+      effects: [{ type: 'clipTransformLive', clipId: session.clipId, rotation }],
     };
   }
 
@@ -389,6 +404,19 @@ function stepPencilDown(
   input: WorkspacePointerInput,
   hit: WorkspaceHit,
 ): { session: WorkspaceSession; effects: WorkspaceEffect[] } {
+  if (isChromeTapHit(hit)) {
+    return {
+      session: {
+        mode: 'pendingChromeTap',
+        kind: 'pencil',
+        hit,
+        startX: input.x,
+        startY: input.y,
+      },
+      effects: [],
+    };
+  }
+
   const intent = resolvePointerIntent(input.tool, { kind: 'pencil', phase: 'down' });
 
   if (intent.type === 'drawInk') {
@@ -417,12 +445,6 @@ function stepPencilDown(
   }
 
   if (intent.type === 'eraseInk') {
-    if (input.selectedClipId && isClipHit(hit) && hit.clipId === input.selectedClipId) {
-      return {
-        session: { mode: 'eraseDirect', kind: 'pencil', clipId: hit.clipId },
-        effects: [{ type: 'beginEraseDirect', clipId: hit.clipId }],
-      };
-    }
     if (isPageBodyHit(hit)) {
       return {
         session: { mode: 'eraseDirect', kind: 'pencil', pageId: hit.pageId },
@@ -445,7 +467,7 @@ function stepPencilDown(
           input.rasterWidth,
           input.rasterHeight,
         );
-        const startDist = Math.hypot(input.x - bounds.cx, input.y - bounds.cy);
+        const startDist = Math.hypot(input.worldX - bounds.cx, input.worldY - bounds.cy);
         return {
           session: {
             mode: 'scaleClip',
@@ -472,7 +494,7 @@ function stepPencilDown(
             kind: 'pencil',
             clipId: hit.clipId,
             startRotation: clip.rotation,
-            startAngle: angleFromCenter(bounds.cx, bounds.cy, input.x, input.y),
+            startAngle: angleFromCenter(bounds.cx, bounds.cy, input.worldX, input.worldY),
             cx: bounds.cx,
             cy: bounds.cy,
           },
@@ -484,13 +506,10 @@ function stepPencilDown(
           mode: 'moveClip',
           kind: 'pencil',
           clipId: hit.clipId,
-          offsetX: input.x - clip.x,
-          offsetY: input.y - clip.y,
+          offsetX: input.worldX - clip.x,
+          offsetY: input.worldY - clip.y,
         },
-        effects: [
-          { type: 'selectClip', clipId: hit.clipId },
-          { type: 'moveClip', clipId: hit.clipId, x: clip.x, y: clip.y },
-        ],
+        effects: [{ type: 'selectClip', clipId: hit.clipId }],
       };
     }
     if (isPageBodyHit(hit)) {
@@ -511,6 +530,12 @@ function stepPencilDown(
             rect: { x: hit.localX, y: hit.localY, width: 0, height: 0 },
           },
         ],
+      };
+    }
+    if (hit.kind === 'empty' && input.selectedClipId) {
+      return {
+        session: { mode: 'idle' },
+        effects: [{ type: 'selectClip', clipId: null }],
       };
     }
     return { session: { mode: 'idle' }, effects: [] };

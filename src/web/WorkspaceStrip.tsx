@@ -15,6 +15,7 @@ import type { PageMeta } from '@/src/storage/types';
 import { createWorkspacePointerPipeline, type WorkspaceEffect } from '@/src/web/gestures';
 import { inkLocalOnPage, resolveWorkspaceHit } from '@/src/web/gestures/resolveHit';
 import { PageDragThumbnail } from '@/src/web/PageDragThumbnail';
+import { effectiveClipPose, type ClipLiveTransform } from '@/src/web/clip/clipLiveTransform';
 import styles from './editor.module.css';
 
 const TEMPLATE_URL = '/page_template.jpg';
@@ -23,6 +24,7 @@ type WorkspaceStripProps = {
   workspaceOrder: PageId[];
   pages: Record<PageId, PageMeta>;
   pasteboardClips: ClipMeta[];
+  clipLiveTransforms: Readonly<Record<string, ClipLiveTransform>>;
   pasteboardTexts: PasteboardText[];
   selectedPageId: PageId | null;
   selectedClipId: ClipId | null;
@@ -46,6 +48,7 @@ export function WorkspaceStrip({
   workspaceOrder,
   pages,
   pasteboardClips,
+  clipLiveTransforms,
   pasteboardTexts,
   selectedPageId,
   selectedClipId,
@@ -84,6 +87,7 @@ export function WorkspaceStrip({
     workspaceOrder,
     pages,
     pasteboardClips,
+    clipLiveTransforms,
     pasteboardTexts,
     selectedPageId,
     selectedClipId,
@@ -99,6 +103,7 @@ export function WorkspaceStrip({
     workspaceOrder,
     pages,
     pasteboardClips,
+    clipLiveTransforms,
     pasteboardTexts,
     selectedPageId,
     selectedClipId,
@@ -127,6 +132,15 @@ export function WorkspaceStrip({
       get selectedClipId() {
         return ctxRef.current.selectedClipId;
       },
+      get panX() {
+        return ctxRef.current.panX;
+      },
+      get panY() {
+        return ctxRef.current.panY;
+      },
+      get zoom() {
+        return ctxRef.current.zoom;
+      },
       get rasterWidth() {
         return ctxRef.current.rasterWidth;
       },
@@ -140,11 +154,21 @@ export function WorkspaceStrip({
         if (!el) {
           return { kind: 'empty' as const };
         }
+        const clips = ctxRef.current.pasteboardClips.map((clip) => {
+          const live = ctxRef.current.clipLiveTransforms[clip.id];
+          if (!live) {
+            return clip;
+          }
+          const pose = effectiveClipPose(clip, live);
+          return { ...clip, ...pose };
+        });
         return resolveWorkspaceHit({
           clientX,
           clientY,
           surfaceEl: el,
           ...ctxRef.current,
+          pasteboardClips: clips,
+          tool: ctxRef.current.tool,
         });
       },
       mapInkToPage: (pageId, clientX, clientY) => {

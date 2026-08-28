@@ -85,7 +85,11 @@ export function useInkEngine(options: UseInkEngineOptions): InkEngineApi {
         engine.decode(rasterId);
       }
     }
-  }, [engine, options.rasterIds, options.visibleRasterIds, options.encodedByRasterId]);
+  }, [engine, options.rasterIds, options.encodedByRasterId]);
+
+  useEffect(() => {
+    engine.setPinnedHotRasterIds(options.visibleRasterIds ?? []);
+  }, [engine, options.visibleRasterIds]);
 
   const takeStrokeUndoPng = useCallback(
     (rasterId: string) => engine.takeStrokeUndoPng(rasterId),

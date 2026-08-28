@@ -8,7 +8,7 @@ import type { EditorDocument, EditorHistory } from '@/src/storage/types';
 import type { AutosaveStatus } from '@/src/storage/autosave';
 import type { WorkspaceEffect } from '@/src/web/gestures';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
-import type { MarqueePreview } from '@/src/web/useEditorController';
+import type { MarqueePreview, ClipLiveTransform } from '@/src/web/useEditorController';
 import { colors } from '@/src/theme/tokens';
 import styles from './editor.module.css';
 import { CompactSidebar } from './CompactSidebar';
@@ -50,6 +50,7 @@ type EditorLayoutProps = {
   inkEngine: InkEngine | null;
   inkFrame: number;
   marqueePreview: MarqueePreview | null;
+  clipLiveTransforms: Readonly<Record<string, ClipLiveTransform>>;
   autosaveStatus: AutosaveStatus;
   getPageThumb: (pageId: PageId) => ImageBitmap | undefined;
   getClipRasterSize: (clipId: string) => { width: number; height: number };
@@ -75,6 +76,7 @@ export function EditorLayout({
   inkEngine,
   inkFrame,
   marqueePreview,
+  clipLiveTransforms,
   autosaveStatus,
   getPageThumb,
   getClipRasterSize,
@@ -128,6 +130,7 @@ export function EditorLayout({
               workspaceOrder={doc.workspaceOrder}
               pages={doc.pages}
               pasteboardClips={doc.pasteboardClips}
+              clipLiveTransforms={clipLiveTransforms}
               pasteboardTexts={doc.pasteboardTexts}
               selectedPageId={doc.selectedPageId}
               selectedClipId={doc.selectedClipId}
@@ -147,6 +150,7 @@ export function EditorLayout({
                 engine={inkEngine}
                 inkFrame={inkFrame}
                 marqueePreview={marqueePreview}
+                clipLiveTransforms={clipLiveTransforms}
               />
             ) : null}
             <PageTextOverlay doc={doc} hidden={textEditing} />

@@ -33,6 +33,7 @@ export default function Editor({ projectId }: EditorProps) {
     ink,
     inkFrame,
     marqueePreview,
+    clipLiveTransforms,
     autosaveStatus,
     getPageThumb,
     getClipRasterSize,
@@ -120,6 +121,7 @@ export default function Editor({ projectId }: EditorProps) {
         inkEngine={ink?.engine ?? null}
         inkFrame={inkFrame}
         marqueePreview={marqueePreview}
+        clipLiveTransforms={clipLiveTransforms}
         autosaveStatus={autosaveStatus}
         getPageThumb={getPageThumb}
         getClipRasterSize={getClipRasterSize}

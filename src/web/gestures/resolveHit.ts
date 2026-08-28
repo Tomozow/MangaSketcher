@@ -9,7 +9,7 @@ import {
   screenToWorld,
 } from '../../domain/stripGeometry';
 import { pointInRect } from '../../domain/drop';
-import type { ClipId, ClipMeta, PageId, PageText, PasteboardText } from '../../domain/types';
+import type { ClipId, ClipMeta, PageId, PageText, PasteboardText, ToolId } from '../../domain/types';
 import { hitClipAt } from '../clip/clipGeometry';
 import { pageInkLocalFromClient, resolvePageDomHit } from './pageInkDom';
 import type { WorkspaceHit } from './types';
@@ -29,6 +29,8 @@ export type ResolveWorkspaceHitInput = {
   rasterWidth: number;
   rasterHeight: number;
   getClipRasterSize: (clipId: ClipId) => { width: number; height: number };
+  /** When set, pen/eraser resolve the page under the pointer (not pasteboard clips). */
+  tool?: ToolId;
 };
 
 function hitPageTexts(
@@ -103,30 +105,11 @@ function hitPasteboardClips(
   return null;
 }
 
-export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceHit {
-  const rect = input.surfaceEl.getBoundingClientRect();
-  const localX = input.clientX - rect.left;
-  const localY = input.clientY - rect.top;
-  const { x: worldX, y: worldY } = screenToWorld(localX, localY, input.panX, input.panY, input.zoom);
-
-  const clipHit = hitPasteboardClips(
-    input.pasteboardClips,
-    input.selectedClipId,
-    worldX,
-    worldY,
-    input.rasterWidth,
-    input.rasterHeight,
-    input.getClipRasterSize,
-  );
-  if (clipHit) {
-    return clipHit;
-  }
-
-  const textHit = hitPasteboardTexts(input.pasteboardTexts, worldX, worldY);
-  if (textHit) {
-    return textHit;
-  }
-
+function resolvePageWorkspaceHit(
+  input: ResolveWorkspaceHitInput,
+  worldX: number,
+  worldY: number,
+): WorkspaceHit | null {
   const pageDomHit = resolvePageDomHit(input);
   if (pageDomHit) {
     return pageDomHit;
@@ -135,7 +118,7 @@ export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceH
   const { frames } = buildStripFrames(input.workspaceOrder);
   const frame = hitStripFrame(frames, worldX, worldY);
   if (!frame) {
-    return { kind: 'empty' };
+    return null;
   }
 
   if (frame.slot.kind === 'append') {
@@ -147,7 +130,7 @@ export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceH
   }
 
   if (frame.slot.kind !== 'page') {
-    return { kind: 'empty' };
+    return null;
   }
 
   const { pageId } = frame.slot;
@@ -160,7 +143,7 @@ export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceH
   }
 
   if (worldY >= frame.y + frame.height + PAGE_NUMBER_BAND) {
-    return { kind: 'empty' };
+    return null;
   }
 
   const page = input.pages[pageId];
@@ -197,6 +180,38 @@ export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceH
     readingIndex,
     insertIndex: frame.insertIndex,
   };
+}
+
+export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceHit {
+  const rect = input.surfaceEl.getBoundingClientRect();
+  const localX = input.clientX - rect.left;
+  const localY = input.clientY - rect.top;
+  const { x: worldX, y: worldY } = screenToWorld(localX, localY, input.panX, input.panY, input.zoom);
+
+  // Ink is stored on the page raster under the pointer; floating clips do not capture pen/eraser.
+  if (input.tool === 'pen' || input.tool === 'eraser') {
+    return resolvePageWorkspaceHit(input, worldX, worldY) ?? { kind: 'empty' };
+  }
+
+  const clipHit = hitPasteboardClips(
+    input.pasteboardClips,
+    input.selectedClipId,
+    worldX,
+    worldY,
+    input.rasterWidth,
+    input.rasterHeight,
+    input.getClipRasterSize,
+  );
+  if (clipHit) {
+    return clipHit;
+  }
+
+  const textHit = hitPasteboardTexts(input.pasteboardTexts, worldX, worldY);
+  if (textHit) {
+    return textHit;
+  }
+
+  return resolvePageWorkspaceHit(input, worldX, worldY) ?? { kind: 'empty' };
 }
 
 export function frameForPage(workspaceOrder: PageId[], pageId: PageId) {

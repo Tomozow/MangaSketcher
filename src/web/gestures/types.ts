@@ -37,7 +37,8 @@ export type WorkspaceSessionMode =
   | 'rotateClip'
   | 'pendingTextMove'
   | 'moveText'
-  | 'resizeText';
+  | 'resizeText'
+  | 'pendingChromeTap';
 
 export type WorkspaceSession =
   | { mode: 'idle' }
@@ -68,7 +69,7 @@ export type WorkspaceSession =
       lastY: number;
       lastPressure: number;
     }
-  | { mode: 'eraseDirect'; kind: 'pencil'; pageId?: PageId; clipId?: ClipId }
+  | { mode: 'eraseDirect'; kind: 'pencil'; pageId: PageId }
   | {
       mode: 'marquee';
       kind: 'pencil';
@@ -99,7 +100,14 @@ export type WorkspaceSession =
     }
   | { mode: 'pendingTextMove'; kind: 'pencil'; textId: TextId; startX: number; startY: number }
   | { mode: 'moveText'; kind: 'pencil'; textId: TextId }
-  | { mode: 'resizeText'; kind: 'pencil'; textId: TextId };
+  | { mode: 'resizeText'; kind: 'pencil'; textId: TextId }
+  | {
+      mode: 'pendingChromeTap';
+      kind: 'pencil';
+      hit: WorkspaceHit;
+      startX: number;
+      startY: number;
+    };
 
 export type WorkspaceEffect =
   | { type: 'panBy'; dx: number; dy: number }
@@ -112,9 +120,9 @@ export type WorkspaceEffect =
   | { type: 'beginPenOverlay'; pageId: PageId; x: number; y: number; pressure: number }
   | { type: 'penOverlayMove'; pageId: PageId; points: Array<{ x: number; y: number; pressure: number }> }
   | { type: 'commitPenOverlay'; pageId: PageId }
-  | { type: 'beginEraseDirect'; pageId?: PageId; clipId?: ClipId }
-  | { type: 'eraseDirectMove'; pageId?: PageId; clipId?: ClipId; x: number; y: number; pressure: number }
-  | { type: 'commitEraseDirect'; pageId?: PageId; clipId?: ClipId }
+  | { type: 'beginEraseDirect'; pageId: PageId }
+  | { type: 'eraseDirectMove'; pageId: PageId; x: number; y: number; pressure: number }
+  | { type: 'commitEraseDirect'; pageId: PageId }
   | { type: 'marqueePreview'; pageId: PageId; rect: { x: number; y: number; width: number; height: number } }
   | { type: 'completeMarquee'; pageId: PageId; rect: { x: number; y: number; width: number; height: number } }
   | { type: 'createText'; pageId: PageId; x: number; y: number }
@@ -124,6 +132,15 @@ export type WorkspaceEffect =
   | { type: 'moveClip'; clipId: ClipId; x: number; y: number }
   | { type: 'scaleClip'; clipId: ClipId; scale: number }
   | { type: 'rotateClip'; clipId: ClipId; rotation: number }
+  | {
+      type: 'clipTransformLive';
+      clipId: ClipId;
+      x?: number;
+      y?: number;
+      scale?: number;
+      rotation?: number;
+    }
+  | { type: 'commitClipTransform'; clipId: ClipId }
   | { type: 'selectClip'; clipId: ClipId | null }
   | {
       type: 'dropClipOnPage';
@@ -138,8 +155,14 @@ export type WorkspacePointerInput = {
   kind: PointerKind;
   phase: 'down' | 'move' | 'up' | 'cancel';
   tool: ToolId;
+  /** Screen clientX */
   x: number;
+  /** Screen clientY */
   y: number;
+  /** Workspace world X (pan/zoom adjusted, surface-relative). */
+  worldX: number;
+  /** Workspace world Y (pan/zoom adjusted, surface-relative). */
+  worldY: number;
   pressure: number;
   hit: WorkspaceHit;
   now: number;

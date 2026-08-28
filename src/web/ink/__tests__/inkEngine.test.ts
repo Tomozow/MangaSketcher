@@ -229,4 +229,95 @@ describe('InkEngine production pixel truth', () => {
     const undo = engine.bakePenOverlay('live');
     expect(undo.byteLength).toBeGreaterThanOrEqual(0);
   });
+
+  test('LRU does not evict pinned visible rasters', () => {
+    const engine = createTestEngine();
+    for (let i = 0; i < 10; i += 1) {
+      engine.registerRaster(`r${i}`);
+    }
+    engine.setPinnedHotRasterIds(['r0', 'r1']);
+    for (let i = 0; i < 10; i += 1) {
+      engine.decode(`r${i}`);
+    }
+    expect(engine.hot.has('r0')).toBe(true);
+    expect(engine.hot.has('r1')).toBe(true);
+  });
+
+  test('restoreRasterFromPng applies undo snapshot without browser PNG decode', () => {
+    const rasterId = 'p1:page:undo-snapshot';
+    const engine = createTestEngine();
+    engine.registerRaster(rasterId);
+
+    const overlayCtx = engine.beginPenOverlay(rasterId);
+    overlayCtx.fillStyle = '#000000';
+    overlayCtx.fillRect(4, 4, 10, 10);
+    engine.bakePenOverlay(rasterId);
+    const afterFirstBake = countAlphaPixels(engine.getHotContext(rasterId)!, TEST_W, TEST_H);
+    expect(afterFirstBake).toBeGreaterThan(0);
+
+    const overlayCtx2 = engine.beginPenOverlay(rasterId);
+    overlayCtx2.fillStyle = '#000000';
+    overlayCtx2.fillRect(20, 20, 10, 10);
+    const undoPng = engine.bakePenOverlay(rasterId);
+    expect(undoPng.byteLength).toBe(8 + TEST_W * TEST_H * 4);
+    const afterSecondBake = countAlphaPixels(engine.getHotContext(rasterId)!, TEST_W, TEST_H);
+    expect(afterSecondBake).toBeGreaterThan(afterFirstBake);
+
+    const overlayCtx3 = engine.beginPenOverlay(rasterId);
+    overlayCtx3.fillStyle = '#000000';
+    overlayCtx3.fillRect(30, 30, 10, 10);
+    engine.bakePenOverlay(rasterId);
+
+    engine.restoreRasterFromPng(rasterId, undoPng);
+    expect(countAlphaPixels(engine.getHotContext(rasterId)!, TEST_W, TEST_H)).toBe(afterFirstBake);
+  });
+
+  test('stale encode completions do not overwrite encodedPng after rapid bakes', async () => {
+    let resolveFirst: ((buffer: ArrayBuffer) => void) | undefined;
+    let encodeCall = 0;
+    const factory = (width: number, height: number) =>
+      new FakeOffscreenCanvas(width, height) as unknown as OffscreenCanvas;
+    const encodePng = async (canvas: OffscreenCanvas) => {
+      encodeCall += 1;
+      const fake = canvas as unknown as FakeOffscreenCanvas;
+      if (encodeCall === 1) {
+        return new Promise<ArrayBuffer>((resolve) => {
+          resolveFirst = resolve;
+        });
+      }
+      const blob = await fake.convertToBlob();
+      return blob.arrayBuffer();
+    };
+    const engine = new InkEngine({
+      rasterWidth: TEST_W,
+      rasterHeight: TEST_H,
+      emptyPng: new ArrayBuffer(0),
+      canvasFactory: factory,
+      encodePng,
+    });
+    const rasterId = 'p1:page:race';
+    engine.registerRaster(rasterId);
+
+    const stroke = (x: number) => {
+      const overlayCtx = engine.beginPenOverlay(rasterId);
+      overlayCtx.fillStyle = '#000000';
+      overlayCtx.fillRect(x, x, 12, 12);
+      engine.bakePenOverlay(rasterId);
+    };
+
+    stroke(4);
+    stroke(20);
+
+    await vi.waitFor(() => {
+      expect(engine.encodedPng.get(rasterId)?.byteLength).toBeGreaterThan(0);
+    });
+    const freshBytes = engine.encodedPng.get(rasterId)!.slice(0);
+    const freshAlpha = countAlphaPixels(engine.getHotContext(rasterId)!, TEST_W, TEST_H);
+
+    resolveFirst!(new ArrayBuffer(8));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(engine.encodedPng.get(rasterId)?.byteLength).toBe(freshBytes.byteLength);
+    expect(countAlphaPixels(engine.getHotContext(rasterId)!, TEST_W, TEST_H)).toBe(freshAlpha);
+  });
 });

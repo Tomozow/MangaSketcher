@@ -6,7 +6,7 @@ import { dropActions } from '@/src/domain/drop';
 import { reduceEditorDocument, type EditorDocumentAction } from '@/src/domain/editorReducer';
 import { extractPdfSourceText } from '@/src/domain/pdfExtract';
 import { brushRadius } from '@/src/domain/pointers';
-import { screenToWorld } from '@/src/domain/stripGeometry';
+import { clampRasterPoint, pageLocalFromWorld, screenToWorld } from '@/src/domain/stripGeometry';
 import { TEXT_MOVE_SLOP } from '@/src/domain/workspaceGestures';
 import { defaultTextBox } from '@/src/domain/text';
 import type { StrokePoint } from '@/src/domain/stroke';
@@ -30,6 +30,11 @@ import {
 import { colors } from '@/src/theme/tokens';
 import type { WorkspaceEffect } from '@/src/web/gestures';
 import { frameForPage, reduceWorkspaceEffects } from '@/src/web/gestures';
+import {
+  type ClipLiveTransform,
+  effectiveClipPose,
+  mergeClipLive,
+} from '@/src/web/clip/clipLiveTransform';
 import { pageLocalRectToWorld } from './clip/clipGeometry';
 import { MIN_MARQUEE_RASTER_PX } from './clip/constants';
 import {
@@ -60,6 +65,8 @@ export type MarqueePreview = {
   rect: { x: number; y: number; width: number; height: number };
 };
 
+export type { ClipLiveTransform };
+
 type EditorController = {
   ready: boolean;
   missing: boolean;
@@ -72,6 +79,7 @@ type EditorController = {
   ink: InkEngineApi | null;
   inkFrame: number;
   marqueePreview: MarqueePreview | null;
+  clipLiveTransforms: Readonly<Record<string, ClipLiveTransform>>;
   autosaveStatus: AutosaveStatus;
   getPageThumb: (pageId: PageId) => ImageBitmap | undefined;
   getClipRasterSize: (clipId: string) => { width: number; height: number };
@@ -141,6 +149,26 @@ function visiblePageRasterIds(doc: EditorDocument): string[] {
   return ids;
 }
 
+function documentRasterIdsKey(doc: EditorDocument): string {
+  const pageRasterIds = Object.values(doc.pages)
+    .map((page) => page.rasterId)
+    .sort()
+    .join('\0');
+  const clipRasterIds = doc.pasteboardClips
+    .map((clip) => clip.rasterId)
+    .sort()
+    .join('\0');
+  return `${pageRasterIds}|${clipRasterIds}`;
+}
+
+function workspaceVisibleRasterIdsKey(doc: EditorDocument): string {
+  return doc.workspaceOrder.map((pageId) => doc.pages[pageId]?.rasterId ?? '').join('\0');
+}
+
+function isClipLiveEffect(effect: WorkspaceEffect): boolean {
+  return effect.type === 'clipTransformLive' || effect.type === 'commitClipTransform';
+}
+
 function isClipCanvasEffect(effect: WorkspaceEffect): boolean {
   return (
     effect.type === 'marqueePreview' ||
@@ -163,9 +191,6 @@ function isInkWorkspaceEffect(effect: WorkspaceEffect): boolean {
 function rasterIdForInkEffect(doc: EditorDocument, effect: WorkspaceEffect): string | null {
   if ('pageId' in effect && effect.pageId) {
     return doc.pages[effect.pageId]?.rasterId ?? null;
-  }
-  if ('clipId' in effect && effect.clipId) {
-    return rasterIdForClip(doc, effect.clipId);
   }
   return null;
 }
@@ -228,6 +253,11 @@ export function useEditorController(projectId: string): EditorController {
   const [inkFrame, setInkFrame] = useState(0);
   const inkFrameRafRef = useRef(0);
   const [marqueePreview, setMarqueePreview] = useState<MarqueePreview | null>(null);
+  const marqueeRafRef = useRef(0);
+  const pendingMarqueeRef = useRef<MarqueePreview | null>(null);
+  const clipLiveRef = useRef<Map<string, ClipLiveTransform>>(new Map());
+  const [clipLiveTransforms, setClipLiveTransforms] = useState<Record<string, ClipLiveTransform>>({});
+  const clipDragRafRef = useRef(0);
   const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>({
     unsaved: false,
     encodingCount: 0,
@@ -253,10 +283,37 @@ export function useEditorController(projectId: string): EditorController {
     });
   }, []);
 
+  const scheduleMarqueePreview = useCallback((preview: MarqueePreview | null) => {
+    pendingMarqueeRef.current = preview;
+    if (marqueeRafRef.current) {
+      return;
+    }
+    marqueeRafRef.current = requestAnimationFrame(() => {
+      marqueeRafRef.current = 0;
+      setMarqueePreview(pendingMarqueeRef.current);
+    });
+  }, []);
+
+  const bumpClipDragFrame = useCallback(() => {
+    if (clipDragRafRef.current) {
+      return;
+    }
+    clipDragRafRef.current = requestAnimationFrame(() => {
+      clipDragRafRef.current = 0;
+      setClipLiveTransforms(Object.fromEntries(clipLiveRef.current));
+    });
+  }, []);
+
   useEffect(() => {
     return () => {
       if (inkFrameRafRef.current) {
         cancelAnimationFrame(inkFrameRafRef.current);
+      }
+      if (marqueeRafRef.current) {
+        cancelAnimationFrame(marqueeRafRef.current);
+      }
+      if (clipDragRafRef.current) {
+        cancelAnimationFrame(clipDragRafRef.current);
       }
     };
   }, []);
@@ -270,14 +327,17 @@ export function useEditorController(projectId: string): EditorController {
     }
   }, []);
 
+  const rasterIdsKey = history ? documentRasterIdsKey(history.present) : '';
+  const visibleRasterIdsKey = history ? workspaceVisibleRasterIdsKey(history.present) : '';
+
   const rasterIds = useMemo(
     () => (history ? collectRasterIds(history.present) : []),
-    [history?.present],
+    [history, rasterIdsKey],
   );
 
   const visibleRasterIds = useMemo(
     () => (history ? visiblePageRasterIds(history.present) : []),
-    [history?.present],
+    [history, visibleRasterIdsKey],
   );
 
   const inkAutosaveSink = useMemo((): InkAutosaveSink => {
@@ -509,10 +569,15 @@ export function useEditorController(projectId: string): EditorController {
 
       for (const effect of effects) {
         if (effect.type === 'marqueePreview') {
-          setMarqueePreview({ pageId: effect.pageId, rect: effect.rect });
+          scheduleMarqueePreview({ pageId: effect.pageId, rect: effect.rect });
           continue;
         }
         if (effect.type === 'completeMarquee') {
+          pendingMarqueeRef.current = null;
+          if (marqueeRafRef.current) {
+            cancelAnimationFrame(marqueeRafRef.current);
+            marqueeRafRef.current = 0;
+          }
           setMarqueePreview(null);
           if (
             effect.rect.width < MIN_MARQUEE_RASTER_PX ||
@@ -557,16 +622,31 @@ export function useEditorController(projectId: string): EditorController {
         if (effect.type === 'dropClipOnPage') {
           const clip = present.pasteboardClips.find((c) => c.id === effect.clipId);
           const page = present.pages[effect.pageId];
-          if (!clip || !page) {
+          const frame = frameForPage(present.workspaceOrder, effect.pageId);
+          if (!clip || !page || !frame) {
             continue;
           }
+          const pose = effectiveClipPose(clip, clipLiveRef.current.get(effect.clipId));
+          const local = pageLocalFromWorld(
+            frame,
+            pose.x,
+            pose.y,
+            present.rasterWidth,
+            present.rasterHeight,
+          );
+          const bakeAt = clampRasterPoint(
+            local.x,
+            local.y,
+            present.rasterWidth,
+            present.rasterHeight,
+          );
           const pageUndo = api.engine.bakeClipOntoPage(
             page.rasterId,
             clip.rasterId,
-            effect.localX,
-            effect.localY,
-            clip.scale,
-            clip.rotation,
+            bakeAt.x,
+            bakeAt.y,
+            pose.scale,
+            pose.rotation,
           );
           if (pageUndo.byteLength > 0) {
             inkUndoRef.current.set(page.rasterId, pageUndo.slice(0));
@@ -576,7 +656,45 @@ export function useEditorController(projectId: string): EditorController {
         }
       }
     },
-    [bumpInkFrame, dispatch],
+    [bumpInkFrame, dispatch, scheduleMarqueePreview],
+  );
+
+  const applyClipLiveEffects = useCallback(
+    (effects: WorkspaceEffect[], present: EditorDocument) => {
+      let changed = false;
+      for (const effect of effects) {
+        if (effect.type === 'clipTransformLive') {
+          const clip = present.pasteboardClips.find((c) => c.id === effect.clipId);
+          if (!clip) {
+            continue;
+          }
+          const next = mergeClipLive(clip, clipLiveRef.current.get(effect.clipId), effect);
+          clipLiveRef.current.set(effect.clipId, next);
+          changed = true;
+          continue;
+        }
+        if (effect.type === 'commitClipTransform') {
+          const clip = present.pasteboardClips.find((c) => c.id === effect.clipId);
+          const live = clipLiveRef.current.get(effect.clipId);
+          clipLiveRef.current.delete(effect.clipId);
+          if (clip && live) {
+            dispatch({
+              type: 'transformClip',
+              clipId: effect.clipId,
+              x: live.x,
+              y: live.y,
+              scale: live.scale,
+              rotation: live.rotation,
+            });
+          }
+          changed = true;
+        }
+      }
+      if (changed) {
+        bumpClipDragFrame();
+      }
+    },
+    [bumpClipDragFrame, dispatch],
   );
 
   const commitInkBake = useCallback(
@@ -873,6 +991,8 @@ export function useEditorController(projectId: string): EditorController {
   }, [dispatch, pendingPdfTextDrop]);
 
   const undo = useCallback(() => {
+    clipLiveRef.current.clear();
+    setClipLiveTransforms({});
     setHistory((prev) => {
       if (!prev) {
         return prev;
@@ -888,6 +1008,8 @@ export function useEditorController(projectId: string): EditorController {
   }, [inkRestoreSink]);
 
   const redo = useCallback(() => {
+    clipLiveRef.current.clear();
+    setClipLiveTransforms({});
     setHistory((prev) => {
       if (!prev) {
         return prev;
@@ -915,6 +1037,7 @@ export function useEditorController(projectId: string): EditorController {
 
       const inkEffects: WorkspaceEffect[] = [];
       const clipEffects: WorkspaceEffect[] = [];
+      const clipLiveEffects: WorkspaceEffect[] = [];
       const deferred: WorkspaceEffect[] = [];
       for (const effect of effects) {
         if (effect.type === 'createText') {
@@ -936,6 +1059,10 @@ export function useEditorController(projectId: string): EditorController {
           clipEffects.push(effect);
           continue;
         }
+        if (isClipLiveEffect(effect)) {
+          clipLiveEffects.push(effect);
+          continue;
+        }
         deferred.push(effect);
       }
 
@@ -945,6 +1072,10 @@ export function useEditorController(projectId: string): EditorController {
 
       if (clipEffects.length > 0) {
         applyClipEffects(clipEffects, present);
+      }
+
+      if (clipLiveEffects.length > 0) {
+        applyClipLiveEffects(clipLiveEffects, present);
       }
 
       if (deferred.length === 0) {
@@ -965,7 +1096,7 @@ export function useEditorController(projectId: string): EditorController {
       }
       return batch.grabbedPageId;
     },
-    [applyClipEffects, applyInkEffects, dispatch],
+    [applyClipEffects, applyClipLiveEffects, applyInkEffects, dispatch],
   );
 
   return {
@@ -980,6 +1111,7 @@ export function useEditorController(projectId: string): EditorController {
     ink: history ? ink : null,
     inkFrame,
     marqueePreview,
+    clipLiveTransforms,
     autosaveStatus,
     getPageThumb,
     getClipRasterSize,

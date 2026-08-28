@@ -40,13 +40,17 @@ function finger(
   phase: 'down' | 'move' | 'up',
   overrides: Partial<Parameters<typeof stepWorkspacePointer>[1]> = {},
 ) {
+  const x = overrides.x ?? 0;
+  const y = overrides.y ?? 0;
   return stepWorkspacePointer(store, {
     pointerId: 1,
     kind: 'finger',
     phase,
     tool: 'pen',
-    x: 0,
-    y: 0,
+    x,
+    y,
+    worldX: overrides.worldX ?? x,
+    worldY: overrides.worldY ?? y,
     pressure: 1,
     hit: pageHit,
     now: 1,
@@ -63,13 +67,17 @@ function pencil(
   phase: 'down' | 'move' | 'up',
   overrides: Partial<Parameters<typeof stepWorkspacePointer>[1]> = {},
 ) {
+  const x = overrides.x ?? 4;
+  const y = overrides.y ?? 5;
   return stepWorkspacePointer(store, {
     pointerId: 10,
     kind: 'pencil',
     phase,
     tool: 'pen',
-    x: 4,
-    y: 5,
+    x,
+    y,
+    worldX: overrides.worldX ?? x,
+    worldY: overrides.worldY ?? y,
     pressure: 0.6,
     hit: pageHit,
     now: 1,
@@ -86,13 +94,17 @@ function pencilText(
   phase: 'down' | 'move' | 'up',
   overrides: Partial<Parameters<typeof stepWorkspacePointer>[1]> = {},
 ) {
+  const x = overrides.x ?? 4;
+  const y = overrides.y ?? 5;
   return stepWorkspacePointer(store, {
     pointerId: 10,
     kind: 'pencil',
     phase,
     tool: 'text',
-    x: 4,
-    y: 5,
+    x,
+    y,
+    worldX: overrides.worldX ?? x,
+    worldY: overrides.worldY ?? y,
     pressure: 0.6,
     hit: pageText,
     now: 1,
@@ -204,6 +216,43 @@ describe('Web workspace FSM', () => {
     });
   });
 
+  test('eraser targets page raster, not clip (selectedClipId ignored)', () => {
+    const store = createWorkspaceGestureStore();
+    const down = pencil(store, 'down', {
+      tool: 'eraser',
+      selectedClipId: 'c1',
+      hit: pageHit,
+    });
+    expect(getWorkspaceSession(store, 10)?.mode).toBe('eraseDirect');
+    expect(down.effects[0]).toMatchObject({ type: 'beginEraseDirect', pageId: 'p1' });
+
+    const move = pencil(store, 'move', {
+      tool: 'eraser',
+      x: 20,
+      y: 25,
+      hit: { ...pageHit, localX: 20, localY: 25 },
+    });
+    expect(move.effects[0]).toMatchObject({
+      type: 'eraseDirectMove',
+      pageId: 'p1',
+      x: 20,
+      y: 25,
+    });
+
+    const up = pencil(store, 'up', { tool: 'eraser', hit: pageHit });
+    expect(up.effects[0]).toMatchObject({ type: 'commitEraseDirect', pageId: 'p1' });
+  });
+
+  test('eraser on pageText prefers page body', () => {
+    const store = createWorkspaceGestureStore();
+    const down = pencil(store, 'down', {
+      tool: 'eraser',
+      hit: pageText,
+    });
+    expect(getWorkspaceSession(store, 10)?.mode).toBe('eraseDirect');
+    expect(down.effects[0]).toMatchObject({ type: 'beginEraseDirect', pageId: 'p1' });
+  });
+
   test('pencil penOverlay 中に finger pan が並立する', () => {
     const store = createWorkspaceGestureStore();
 
@@ -247,6 +296,8 @@ describe('Web workspace FSM', () => {
       tool: 'pen',
       x: 0,
       y: 0,
+      worldX: 0,
+      worldY: 0,
       pressure: 1,
       hit: pageHit,
       now: 3,
@@ -424,6 +475,63 @@ describe('Web workspace FSM', () => {
         pageId: 'p1',
         rect: { x: 10, y: 10, width: 20, height: 30 },
       });
+    });
+
+    test('pencil tap on page number selects page (mouse/pen)', () => {
+      const store = createWorkspaceGestureStore();
+      pencil(store, 'down', {
+        tool: 'select',
+        hit: { kind: 'pageNumber', pageId: 'p2', readingIndex: 1 },
+        x: 100,
+        y: 200,
+      });
+      const up = pencil(store, 'up', {
+        tool: 'select',
+        hit: { kind: 'pageNumber', pageId: 'p2', readingIndex: 1 },
+        x: 100,
+        y: 200,
+      });
+      expect(up.effects).toEqual([{ type: 'selectPage', pageId: 'p2' }]);
+    });
+
+    test('moveClip uses world coordinates under zoom', () => {
+      const store = createWorkspaceGestureStore();
+      const clip = { id: 'c1', x: 100, y: 80, scale: 1, rotation: 0 };
+      const clipHit = { kind: 'clip' as const, clipId: 'c1', handle: 'body' as const };
+      pencil(store, 'down', {
+        tool: 'select',
+        hit: clipHit,
+        x: 300,
+        y: 240,
+        worldX: 150,
+        worldY: 120,
+        getClipMeta: () => clip,
+        getClipRasterSize: () => ({ width: 40, height: 40 }),
+      });
+      const move = pencil(store, 'move', {
+        tool: 'select',
+        hit: clipHit,
+        x: 320,
+        y: 260,
+        worldX: 160,
+        worldY: 130,
+        getClipMeta: () => clip,
+        getClipRasterSize: () => ({ width: 40, height: 40 }),
+      });
+      expect(move.effects).toContainEqual({
+        type: 'clipTransformLive',
+        clipId: 'c1',
+        x: 110,
+        y: 90,
+      });
+
+      const up = pencil(store, 'up', {
+        tool: 'select',
+        hit: clipHit,
+        getClipMeta: () => clip,
+        getClipRasterSize: () => ({ width: 40, height: 40 }),
+      });
+      expect(up.effects).toEqual([{ type: 'commitClipTransform', clipId: 'c1' }]);
     });
   });
 

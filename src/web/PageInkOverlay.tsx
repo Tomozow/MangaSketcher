@@ -4,6 +4,7 @@ import { buildStripFrames } from '@/src/domain/stripGeometry';
 import type { ClipId } from '@/src/domain/types';
 import type { EditorDocument } from '@/src/storage/types';
 import { clipWorldBounds, rasterToDisplayScale } from './clip/clipGeometry';
+import { effectiveClipPose, type ClipLiveTransform } from './clip/clipLiveTransform';
 import type { MarqueePreview } from '@/src/web/useEditorController';
 import { PageInkCanvas } from '@/src/web/ink/PageInkCanvas';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
@@ -14,9 +15,16 @@ type PageInkOverlayProps = {
   engine: InkEngine;
   inkFrame: number;
   marqueePreview: MarqueePreview | null;
+  clipLiveTransforms: Readonly<Record<string, ClipLiveTransform>>;
 };
 
-export function PageInkOverlay({ doc, engine, inkFrame, marqueePreview }: PageInkOverlayProps) {
+export function PageInkOverlay({
+  doc,
+  engine,
+  inkFrame,
+  marqueePreview,
+  clipLiveTransforms,
+}: PageInkOverlayProps) {
   const { frames } = buildStripFrames(doc.workspaceOrder);
 
   return (
@@ -29,47 +37,6 @@ export function PageInkOverlay({ doc, engine, inkFrame, marqueePreview }: PageIn
           height: 'max-content',
         }}
       >
-        {doc.pasteboardClips.map((clip) => {
-          const size = engine.getRasterDimensions(clip.rasterId);
-          const bounds = clipWorldBounds(
-            clip,
-            size,
-            doc.rasterWidth,
-            doc.rasterHeight,
-          );
-          const { sx, sy } = rasterToDisplayScale(doc.rasterWidth, doc.rasterHeight);
-          const displayW = size.width * sx * clip.scale;
-          const displayH = size.height * sy * clip.scale;
-
-          return (
-            <div
-              key={clip.id}
-              className={styles.clipFrame}
-              style={{
-                position: 'absolute',
-                left: bounds.cx,
-                top: bounds.cy,
-                width: displayW,
-                height: displayH,
-                transform: `translate(-50%, -50%) rotate(${clip.rotation}rad)`,
-              }}
-            >
-              <PageInkCanvas
-                engine={engine}
-                rasterId={clip.rasterId}
-                displayWidth={displayW}
-                inkFrame={inkFrame}
-              />
-              {doc.selectedClipId === clip.id ? (
-                <>
-                  <div className={styles.clipHandleRotate} aria-hidden />
-                  <div className={styles.clipHandleCorner} aria-hidden />
-                </>
-              ) : null}
-            </div>
-          );
-        })}
-
         {frames.map((frame) => {
           if (frame.slot.kind !== 'page') {
             return null;
@@ -113,6 +80,49 @@ export function PageInkOverlay({ doc, engine, inkFrame, marqueePreview }: PageIn
                     height: `${(marqueePreview.rect.height / doc.rasterHeight) * 100}%`,
                   }}
                 />
+              ) : null}
+            </div>
+          );
+        })}
+
+        {doc.pasteboardClips.map((clip) => {
+          const pose = effectiveClipPose(clip, clipLiveTransforms[clip.id]);
+          const clipForLayout = { ...clip, ...pose };
+          const size = engine.getRasterDimensions(clip.rasterId);
+          const bounds = clipWorldBounds(
+            clipForLayout,
+            size,
+            doc.rasterWidth,
+            doc.rasterHeight,
+          );
+          const { sx, sy } = rasterToDisplayScale(doc.rasterWidth, doc.rasterHeight);
+          const displayW = size.width * sx * pose.scale;
+          const displayH = size.height * sy * pose.scale;
+
+          return (
+            <div
+              key={clip.id}
+              className={styles.clipFrame}
+              style={{
+                position: 'absolute',
+                left: bounds.cx,
+                top: bounds.cy,
+                width: displayW,
+                height: displayH,
+                transform: `translate(-50%, -50%) rotate(${pose.rotation}rad)`,
+              }}
+            >
+              <PageInkCanvas
+                engine={engine}
+                rasterId={clip.rasterId}
+                displayWidth={displayW}
+                inkFrame={inkFrame}
+              />
+              {doc.selectedClipId === clip.id ? (
+                <>
+                  <div className={styles.clipHandleRotate} aria-hidden />
+                  <div className={styles.clipHandleCorner} aria-hidden />
+                </>
               ) : null}
             </div>
           );

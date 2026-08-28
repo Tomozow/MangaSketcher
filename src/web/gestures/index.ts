@@ -10,6 +10,7 @@ import {
 } from '../../input/pointerEvents';
 import { bindDesktopNavKeys, desktopNavMode } from '../../input/desktopNavKeys';
 import type { ClipId, PageId, ToolId } from '../../domain/types';
+import { screenToWorld } from '../../domain/stripGeometry';
 import { stepWorkspacePointer } from './workspaceFsm';
 import type { WorkspaceEffect, WorkspaceGestureStore, WorkspaceHit } from './types';
 import { createWorkspaceGestureStore } from './types';
@@ -20,6 +21,9 @@ export type WorkspacePointerContext = {
   tool: ToolId;
   selectedPageId: PageId | null;
   selectedClipId: ClipId | null;
+  panX: number;
+  panY: number;
+  zoom: number;
   rasterWidth: number;
   rasterHeight: number;
   getClipMeta: (clipId: ClipId) => import('../../domain/types').ClipMeta | undefined;
@@ -75,67 +79,73 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
   const pressureById = new Map<number, ReturnType<typeof createPressureState>>();
   const now = ctx.now ?? (() => Date.now());
 
-  const dispatch = (event: PointerEvent, phase: 'down' | 'move' | 'up' | 'cancel') => {
-    const pointerId = pointerIdFromWeb(event);
-    const nav = event.pointerType === 'mouse' ? desktopNavMode() : 'none';
-    const kind =
-      event.pointerType === 'mouse'
-        ? pointerKindForWorkspace(event, phase, nav)
-        : kindTracker.classify(event);
-    if (kind === 'pencil' && phase === 'move' && isPencilHover(event, kind)) {
-      return;
-    }
-
-    let pressureState = pressureById.get(pointerId);
-    if (!pressureState) {
-      pressureState = createPressureState();
-      pressureById.set(pointerId, pressureState);
-    }
-    if (phase === 'down') {
-      markPointerDown(pressureState);
-    }
-
-    const events = phase === 'move' ? collectCoalesced(event) : [event];
-    const batch: WorkspaceEffect[] = [];
-    for (const pe of events) {
-      const hit = ctx.resolveHit(pe.clientX, pe.clientY);
-      const { effects } = stepWorkspacePointer(store, {
-        pointerId,
-        kind,
-        phase,
-        tool: ctx.tool,
-        x: pe.clientX,
-        y: pe.clientY,
-        pressure: pressureFromWeb(pe, pressureState),
-        hit,
-        now: now(),
-        isPrimary: pe.isPrimary,
-        selectedPageId: ctx.selectedPageId,
-        selectedClipId: ctx.selectedClipId,
-        rasterWidth: ctx.rasterWidth,
-        rasterHeight: ctx.rasterHeight,
-        getClipMeta: ctx.getClipMeta,
-        getClipRasterSize: ctx.getClipRasterSize,
-        mapInkToPage: ctx.mapInkToPage,
-        pointerType: pe.pointerType,
-        desktopNav: pe.pointerType === 'mouse' ? nav : 'none',
-      });
-      batch.push(...effects);
-    }
-    if (batch.length > 0) {
-      ctx.onEffects(mergeLiveInkEffects(batch));
-    }
-
-    if (phase === 'up' || phase === 'cancel') {
-      markPointerUp(pressureState);
-      pressureById.delete(pointerId);
-      kindTracker.release(event);
-    }
-  };
-
   const bind = (element: HTMLElement, target: PointerTarget) => {
     element.style.touchAction = 'none';
     const unbindDesktopNav = target === 'workspace' ? bindDesktopNavKeys() : () => {};
+
+    const dispatch = (event: PointerEvent, phase: 'down' | 'move' | 'up' | 'cancel') => {
+      const pointerId = pointerIdFromWeb(event);
+      const nav = event.pointerType === 'mouse' ? desktopNavMode() : 'none';
+      const kind =
+        event.pointerType === 'mouse'
+          ? pointerKindForWorkspace(event, phase, nav)
+          : kindTracker.classify(event);
+      if (kind === 'pencil' && phase === 'move' && isPencilHover(event, kind)) {
+        return;
+      }
+
+      let pressureState = pressureById.get(pointerId);
+      if (!pressureState) {
+        pressureState = createPressureState();
+        pressureById.set(pointerId, pressureState);
+      }
+      if (phase === 'down') {
+        markPointerDown(pressureState);
+      }
+
+      const events = phase === 'move' ? collectCoalesced(event) : [event];
+      const batch: WorkspaceEffect[] = [];
+      const surfaceRect = element.getBoundingClientRect();
+      for (const pe of events) {
+        const hit = ctx.resolveHit(pe.clientX, pe.clientY);
+        const localX = pe.clientX - surfaceRect.left;
+        const localY = pe.clientY - surfaceRect.top;
+        const { x: worldX, y: worldY } = screenToWorld(localX, localY, ctx.panX, ctx.panY, ctx.zoom);
+        const { effects } = stepWorkspacePointer(store, {
+          pointerId,
+          kind,
+          phase,
+          tool: ctx.tool,
+          x: pe.clientX,
+          y: pe.clientY,
+          worldX,
+          worldY,
+          pressure: pressureFromWeb(pe, pressureState),
+          hit,
+          now: now(),
+          isPrimary: pe.isPrimary,
+          selectedPageId: ctx.selectedPageId,
+          selectedClipId: ctx.selectedClipId,
+          rasterWidth: ctx.rasterWidth,
+          rasterHeight: ctx.rasterHeight,
+          getClipMeta: ctx.getClipMeta,
+          getClipRasterSize: ctx.getClipRasterSize,
+          mapInkToPage: ctx.mapInkToPage,
+          pointerType: pe.pointerType,
+          desktopNav: pe.pointerType === 'mouse' ? nav : 'none',
+        });
+        batch.push(...effects);
+      }
+      if (batch.length > 0) {
+        ctx.onEffects(mergeLiveInkEffects(batch));
+      }
+
+      if (phase === 'up' || phase === 'cancel') {
+        markPointerUp(pressureState);
+        pressureById.delete(pointerId);
+        kindTracker.release(event);
+      }
+    };
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.pointerType === 'mouse') {

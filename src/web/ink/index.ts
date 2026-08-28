@@ -24,6 +24,8 @@ export {
   countAlphaPixels,
   decodeFakePng,
   fakeCreateImageBitmap,
+  isPngBuffer,
+  tryDecodeInkSnapshot,
 } from './fakeCanvas';
 export { useInkEngine } from './useInkEngine';
 export type { InkEngineApi, UseInkEngineOptions } from './useInkEngine';

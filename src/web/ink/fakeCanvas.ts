@@ -377,12 +377,50 @@ export class FakeOffscreenCanvas {
   }
 }
 
-export function decodeFakePng(buffer: ArrayBuffer): { width: number; height: number; data: Uint8ClampedArray } {
+const PNG_SIGNATURE = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+/** True when buffer starts with the standard PNG file signature. */
+export function isPngBuffer(buffer: ArrayBuffer): boolean {
+  if (buffer.byteLength < 8) {
+    return false;
+  }
+  const bytes = new Uint8Array(buffer, 0, 8);
+  return PNG_SIGNATURE.every((byte, index) => bytes[index] === byte);
+}
+
+/**
+ * Undo snapshots and Vitest fake canvases use raw RGBA + 8-byte width/height header.
+ * Returns null for real PNGs and malformed buffers.
+ */
+export function tryDecodeInkSnapshot(
+  buffer: ArrayBuffer,
+): { width: number; height: number; data: Uint8ClampedArray } | null {
+  if (buffer.byteLength < 8 || isPngBuffer(buffer)) {
+    return null;
+  }
   const view = new DataView(buffer);
   const width = view.getUint32(0);
   const height = view.getUint32(4);
-  const data = new Uint8ClampedArray(buffer, 8);
-  return { width, height, data };
+  if (width <= 0 || height <= 0 || width > 32767 || height > 32767) {
+    return null;
+  }
+  const pixelBytes = width * height * 4;
+  if (!Number.isSafeInteger(pixelBytes) || buffer.byteLength !== 8 + pixelBytes) {
+    return null;
+  }
+  return {
+    width,
+    height,
+    data: new Uint8ClampedArray(buffer, 8, pixelBytes),
+  };
+}
+
+export function decodeFakePng(buffer: ArrayBuffer): { width: number; height: number; data: Uint8ClampedArray } {
+  const decoded = tryDecodeInkSnapshot(buffer);
+  if (!decoded) {
+    throw new Error('invalid ink snapshot buffer');
+  }
+  return decoded;
 }
 
 export function countAlphaPixels(

@@ -438,7 +438,7 @@ function reduceEditorDocumentViewOnly(
   switch (action.type) {
     case 'selectPage':
       if (state.pages[action.pageId] && state.workspaceOrder.includes(action.pageId)) {
-        return { ...state, selectedPageId: action.pageId };
+        return { ...state, selectedPageId: action.pageId, selectedClipId: null };
       }
       return state;
     case 'setTool':
