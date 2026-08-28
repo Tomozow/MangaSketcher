@@ -5,8 +5,10 @@ import {
   markPointerDown,
   markPointerUp,
   pointerIdFromWeb,
+  pointerKindForWorkspace,
   pressureFromWeb,
 } from '../../input/pointerEvents';
+import { bindDesktopNavKeys, desktopNavMode } from '../../input/desktopNavKeys';
 import type { ClipId, PageId, ToolId } from '../../domain/types';
 import { stepWorkspacePointer } from './workspaceFsm';
 import type { WorkspaceEffect, WorkspaceGestureStore, WorkspaceHit } from './types';
@@ -23,6 +25,7 @@ export type WorkspacePointerContext = {
   getClipMeta: (clipId: ClipId) => import('../../domain/types').ClipMeta | undefined;
   getClipRasterSize: (clipId: ClipId) => { width: number; height: number };
   resolveHit: (clientX: number, clientY: number) => WorkspaceHit;
+  mapInkToPage?: (pageId: PageId, clientX: number, clientY: number) => { x: number; y: number } | null;
   onEffects: (effects: WorkspaceEffect[]) => void;
   now?: () => number;
 };
@@ -49,6 +52,23 @@ function collectCoalesced(event: PointerEvent): PointerEvent[] {
   return [event];
 }
 
+function mergeLiveInkEffects(effects: WorkspaceEffect[]): WorkspaceEffect[] {
+  const merged: WorkspaceEffect[] = [];
+  for (const effect of effects) {
+    const last = merged[merged.length - 1];
+    if (
+      effect.type === 'penOverlayMove' &&
+      last?.type === 'penOverlayMove' &&
+      last.pageId === effect.pageId
+    ) {
+      last.points.push(...effect.points);
+      continue;
+    }
+    merged.push(effect);
+  }
+  return merged;
+}
+
 export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): WorkspacePointerPipeline {
   const store = createWorkspaceGestureStore();
   const kindTracker = createPointerKindTracker();
@@ -57,7 +77,11 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
 
   const dispatch = (event: PointerEvent, phase: 'down' | 'move' | 'up' | 'cancel') => {
     const pointerId = pointerIdFromWeb(event);
-    const kind = kindTracker.classify(event);
+    const nav = event.pointerType === 'mouse' ? desktopNavMode() : 'none';
+    const kind =
+      event.pointerType === 'mouse'
+        ? pointerKindForWorkspace(event, phase, nav)
+        : kindTracker.classify(event);
     if (kind === 'pencil' && phase === 'move' && isPencilHover(event, kind)) {
       return;
     }
@@ -72,6 +96,7 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
     }
 
     const events = phase === 'move' ? collectCoalesced(event) : [event];
+    const batch: WorkspaceEffect[] = [];
     for (const pe of events) {
       const hit = ctx.resolveHit(pe.clientX, pe.clientY);
       const { effects } = stepWorkspacePointer(store, {
@@ -91,10 +116,14 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
         rasterHeight: ctx.rasterHeight,
         getClipMeta: ctx.getClipMeta,
         getClipRasterSize: ctx.getClipRasterSize,
+        mapInkToPage: ctx.mapInkToPage,
+        pointerType: pe.pointerType,
+        desktopNav: pe.pointerType === 'mouse' ? nav : 'none',
       });
-      if (effects.length > 0) {
-        ctx.onEffects(effects);
-      }
+      batch.push(...effects);
+    }
+    if (batch.length > 0) {
+      ctx.onEffects(mergeLiveInkEffects(batch));
     }
 
     if (phase === 'up' || phase === 'cancel') {
@@ -106,10 +135,14 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
 
   const bind = (element: HTMLElement, target: PointerTarget) => {
     element.style.touchAction = 'none';
+    const unbindDesktopNav = target === 'workspace' ? bindDesktopNavKeys() : () => {};
 
     const onPointerDown = (event: PointerEvent) => {
-      if (event.pointerType === 'mouse' && kindTracker.classify(event) === 'finger') {
-        // mouse is finger but must not ink; workspace pan could be added later
+      if (event.pointerType === 'mouse') {
+        const nav = desktopNavMode();
+        if (nav === 'pan' || nav === 'zoom' || (nav === 'none' && event.button === 0)) {
+          event.preventDefault();
+        }
       }
       if (shouldPreventDefault(target) && (event.pointerType === 'pen' || event.pointerType === 'touch')) {
         event.preventDefault();
@@ -156,6 +189,7 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
     element.addEventListener('pointercancel', onPointerCancel, { passive: false });
 
     return () => {
+      unbindDesktopNav();
       element.removeEventListener('pointerdown', onPointerDown);
       element.removeEventListener('pointermove', onPointerMove);
       element.removeEventListener('pointerup', onPointerUp);
@@ -175,7 +209,7 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
 
 export { WORKSPACE_TOUCH_ACTION, createWorkspaceGestureStore } from './types';
 export { stepWorkspacePointer, countActiveTouches, getWorkspaceSession, reorderTargetIndex } from './workspaceFsm';
-export { resolveWorkspaceHit, frameForPage } from './resolveHit';
+export { resolveWorkspaceHit, frameForPage, inkLocalOnPage } from './resolveHit';
 export type { ResolveWorkspaceHitInput } from './resolveHit';
 export { reduceWorkspaceEffects } from './workspaceEffects';
 export type { WorkspaceEffectBatch } from './workspaceEffects';

@@ -5,7 +5,11 @@ export type WebPointerLike = Pick<
   'pointerId' | 'pointerType' | 'pressure' | 'buttons'
 >;
 
-/** W3C Pointer Events → app PointerKind. Mouse is finger (no ink). */
+export type PointerPhase = 'down' | 'move' | 'up' | 'cancel';
+
+export type WorkspaceNavMode = 'none' | 'pan' | 'zoom';
+
+/** W3C Pointer Events → app PointerKind. Mouse defaults to finger (pan/scroll). */
 export function pointerKindFromWeb(event: Pick<PointerEvent, 'pointerType'>): PointerKind {
   switch (event.pointerType) {
     case 'pen':
@@ -16,6 +20,30 @@ export function pointerKindFromWeb(event: Pick<PointerEvent, 'pointerType'>): Po
     default:
       return 'finger';
   }
+}
+
+/**
+ * Workspace pointer kind: mouse left button uses the active tool (pencil);
+ * Space / Ctrl+Space keeps finger (pan / zoom).
+ */
+export function pointerKindForWorkspace(
+  event: Pick<PointerEvent, 'pointerType' | 'buttons' | 'button'>,
+  phase: PointerPhase,
+  nav: WorkspaceNavMode,
+): PointerKind {
+  if (event.pointerType === 'mouse') {
+    if (nav === 'pan' || nav === 'zoom') {
+      return 'finger';
+    }
+    if (phase === 'up' || phase === 'cancel') {
+      return 'pencil';
+    }
+    if (phase === 'down') {
+      return event.button === 0 ? 'pencil' : 'finger';
+    }
+    return (event.buttons & 1) !== 0 ? 'pencil' : 'finger';
+  }
+  return pointerKindFromWeb(event);
 }
 
 export function pointerIdFromWeb(event: Pick<PointerEvent, 'pointerId'>): number {

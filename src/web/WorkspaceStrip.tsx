@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { NUMBER_BAND, buildStripFrames } from '@/src/domain/stripGeometry';
+import { buildStripFrames, NUMBER_BAND } from '@/src/domain/stripGeometry';
+import { PAGE_INK_FRAME_ATTR, PAGE_NUMBER_BAND_ATTR } from '@/src/web/gestures/pageInkDom';
 import {
   TEMPLATE_PAGE_NUMBER_COVER,
   type ClipId,
@@ -12,7 +13,7 @@ import {
 } from '@/src/domain/types';
 import type { PageMeta } from '@/src/storage/types';
 import { createWorkspacePointerPipeline, type WorkspaceEffect } from '@/src/web/gestures';
-import { resolveWorkspaceHit } from '@/src/web/gestures/resolveHit';
+import { inkLocalOnPage, resolveWorkspaceHit } from '@/src/web/gestures/resolveHit';
 import { PageDragThumbnail } from '@/src/web/PageDragThumbnail';
 import styles from './editor.module.css';
 
@@ -146,6 +147,21 @@ export function WorkspaceStrip({
           ...ctxRef.current,
         });
       },
+      mapInkToPage: (pageId, clientX, clientY) => {
+        const el = surfaceRef.current;
+        if (!el) {
+          return null;
+        }
+        return inkLocalOnPage(
+          {
+            clientX,
+            clientY,
+            surfaceEl: el,
+            ...ctxRef.current,
+          },
+          pageId,
+        );
+      },
       onEffects: (effects) => {
         const grabbed = applyWorkspaceEffects(
           effects,
@@ -242,6 +258,7 @@ export function WorkspaceStrip({
               <div
                 className={`${styles.pageFrame} ${selectedPageId === pageId ? styles.pageFrameSelected : ''} ${isGrabbed ? styles.pageFrameGrabbed : ''}`}
                 style={{ backgroundImage: `url(${TEMPLATE_URL})` }}
+                {...{ [PAGE_INK_FRAME_ATTR]: pageId }}
               >
                 <div
                   className={styles.templateCover}
@@ -256,6 +273,7 @@ export function WorkspaceStrip({
               <div
                 className={`${styles.pageNumberBand} ${selectedPageId === pageId ? styles.pageNumberBandSelected : ''}`}
                 style={{ width: frame.width, marginTop: 0 }}
+                {...{ [PAGE_NUMBER_BAND_ATTR]: pageId }}
               >
                 {number}
               </div>

@@ -6,7 +6,9 @@ export const PAGE_DISPLAY_H = 306;
 export const APPEND_W = 56;
 export const STRIP_GAP = 8;
 export const SPREAD_GAP = 16;
-export const NUMBER_BAND = 32;
+export const PAGE_NUMBER_BAND = 44;
+/** @deprecated Use PAGE_NUMBER_BAND — kept for imports that expect NUMBER_BAND. */
+export const NUMBER_BAND = PAGE_NUMBER_BAND;
 
 export type StripFrame = {
   key: string;
@@ -68,11 +70,34 @@ export function buildStripFrames(workspaceOrder: PageId[]): {
   return {
     frames,
     contentWidth: x + 24,
-    contentHeight: PAGE_DISPLAY_H + NUMBER_BAND,
+    contentHeight: PAGE_DISPLAY_H + PAGE_NUMBER_BAND,
   };
 }
 
 export function hitStripFrame(frames: StripFrame[], worldX: number, worldY: number): StripFrame | null {
+  for (const frame of frames) {
+    if (
+      worldX >= frame.x &&
+      worldX <= frame.x + frame.width &&
+      worldY >= frame.y &&
+      worldY < frame.y + frame.height
+    ) {
+      return frame;
+    }
+  }
+  for (const frame of frames) {
+    if (frame.slot.kind !== 'page') {
+      continue;
+    }
+    if (
+      worldX >= frame.x &&
+      worldX <= frame.x + frame.width &&
+      worldY >= frame.y + frame.height &&
+      worldY < frame.y + frame.height + PAGE_NUMBER_BAND
+    ) {
+      return frame;
+    }
+  }
   let nearest: StripFrame | null = null;
   let best = Number.POSITIVE_INFINITY;
   for (const frame of frames) {
@@ -80,15 +105,7 @@ export function hitStripFrame(frames: StripFrame[], worldX: number, worldY: numb
     const cy = frame.y + frame.height / 2;
     const dx = worldX - cx;
     const dy = worldY - cy;
-    const inside =
-      worldX >= frame.x &&
-      worldX <= frame.x + frame.width &&
-      worldY >= frame.y &&
-      worldY <= frame.y + frame.height + NUMBER_BAND;
     const d = dx * dx + dy * dy;
-    if (inside) {
-      return frame;
-    }
     if (d < best) {
       best = d;
       nearest = frame;
@@ -107,6 +124,18 @@ export function pageLocalFromWorld(
   return {
     x: ((worldX - frame.x) / frame.width) * rasterWidth,
     y: ((worldY - frame.y) / frame.height) * rasterHeight,
+  };
+}
+
+export function clampRasterPoint(
+  x: number,
+  y: number,
+  rasterWidth: number,
+  rasterHeight: number,
+): { x: number; y: number } {
+  return {
+    x: Math.min(rasterWidth, Math.max(0, x)),
+    y: Math.min(rasterHeight, Math.max(0, y)),
   };
 }
 

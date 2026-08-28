@@ -39,20 +39,35 @@ export function drawBrushStroke(ctx: StrokeContext, points: StrokePoint[], style
   ctx.lineCap = 'round';
   ctx.lineJoin = 'round';
 
-  for (const p of points) {
+  if (points.length === 1) {
     ctx.beginPath();
-    ctx.arc(p.x, p.y, style.lineWidth / 2, 0, Math.PI * 2);
+    ctx.arc(points[0]!.x, points[0]!.y, style.lineWidth / 2, 0, Math.PI * 2);
     ctx.fill();
+    ctx.restore();
+    return;
   }
 
-  if (points.length >= 2) {
-    ctx.beginPath();
-    ctx.moveTo(points[0]!.x, points[0]!.y);
-    for (let i = 1; i < points.length; i += 1) {
-      ctx.lineTo(points[i]!.x, points[i]!.y);
-    }
-    ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(points[0]!.x, points[0]!.y);
+  for (let i = 1; i < points.length; i += 1) {
+    ctx.lineTo(points[i]!.x, points[i]!.y);
   }
-
+  ctx.stroke();
   ctx.restore();
+}
+
+/** Continues a live stroke so fast pointer gaps are filled instead of dotted stamps. */
+export function appendLiveBrushStroke(
+  ctx: StrokeContext,
+  previous: StrokePoint | null,
+  next: StrokePoint[],
+  styleFor: (point: StrokePoint) => BrushStrokeStyle,
+): StrokePoint | null {
+  if (next.length === 0) {
+    return previous;
+  }
+  const chain = previous ? [previous, ...next] : next;
+  const last = chain[chain.length - 1]!;
+  drawBrushStroke(ctx, chain, styleFor(last));
+  return last;
 }

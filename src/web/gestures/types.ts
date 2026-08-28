@@ -1,3 +1,4 @@
+import type { DesktopNavMode } from '../../input/desktopNavKeys';
 import type { ClipId, ClipMeta, PageId, PointerKind, TextId, ToolId } from '../../domain/types';
 import type { GestureHit } from '../../domain/workspaceGestures';
 
@@ -26,6 +27,7 @@ export type WorkspaceSessionMode =
   | 'fingerPending'
   | 'pan'
   | 'pinch'
+  | 'zoomDrag'
   | 'grabPage'
   | 'penOverlay'
   | 'eraseDirect'
@@ -48,6 +50,14 @@ export type WorkspaceSession =
       startedAt: number;
     }
   | { mode: 'pan'; kind: 'finger'; lastX: number; lastY: number }
+  | {
+      mode: 'zoomDrag';
+      kind: 'finger';
+      pointerId: number;
+      lastY: number;
+      anchorX: number;
+      anchorY: number;
+    }
   | { mode: 'pinch'; kind: 'finger'; pointerId: number; partnerId: number; lastDist: number }
   | { mode: 'grabPage'; kind: 'finger'; pageId: PageId; fromIndex: number; lastToIndex?: number }
   | {
@@ -140,6 +150,9 @@ export type WorkspacePointerInput = {
   rasterHeight: number;
   getClipMeta: (clipId: ClipId) => ClipMeta | undefined;
   getClipRasterSize: (clipId: ClipId) => { width: number; height: number };
+  mapInkToPage?: (pageId: PageId, clientX: number, clientY: number) => { x: number; y: number } | null;
+  pointerType?: PointerEvent['pointerType'];
+  desktopNav?: DesktopNavMode;
 };
 
 export type WorkspaceGestureStore = {

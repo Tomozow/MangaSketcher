@@ -13,6 +13,14 @@ export function pdfOpfsPath(projectId: ProjectId): string {
   return `${OPFS_PDF_DIR}/${projectId}.pdf`;
 }
 
+export function pdfBlobRasterId(projectId: ProjectId): string {
+  return `${projectId}:pdf`;
+}
+
+export function isPdfBlobRasterId(rasterId: string): boolean {
+  return rasterId.endsWith(':pdf');
+}
+
 export function collectRasterIds(doc: EditorDocument): string[] {
   const ids: string[] = [];
   for (const page of Object.values(doc.pages)) {

@@ -13,6 +13,7 @@ import type { StrokePoint } from '@/src/domain/stroke';
 import { AutosaveManager, type AutosaveStatus } from '@/src/storage/autosave';
 import { editorHistoryFromBoot, loadEditorBoot } from '@/src/storage/editorBoot';
 import { writeProjectPdf } from '@/src/storage/projectStore';
+import { randomId } from '@/src/storage/randomId';
 import {
   isViewOnlyHistoryAction,
   pushEditorHistory,
@@ -33,11 +34,12 @@ import { pageLocalRectToWorld } from './clip/clipGeometry';
 import { MIN_MARQUEE_RASTER_PX } from './clip/constants';
 import {
   createInkRestoreSink,
-  drawBrushStroke,
+  appendLiveBrushStroke,
   type DrawTemplate,
   type InkAutosaveSink,
   useInkEngine,
   type InkEngineApi,
+  repaintInkDisplay,
 } from '@/src/web/ink';
 import { rasterIdForClip } from '@/src/web/PageInkOverlay';
 import type { PageId, Rect } from '@/src/domain/types';
@@ -224,6 +226,7 @@ export function useEditorController(projectId: string): EditorController {
   const [viewportBottom, setViewportBottom] = useState(0);
   const [bootEncodedPng, setBootEncodedPng] = useState<ReadonlyMap<string, ArrayBuffer>>(new Map());
   const [inkFrame, setInkFrame] = useState(0);
+  const inkFrameRafRef = useRef(0);
   const [marqueePreview, setMarqueePreview] = useState<MarqueePreview | null>(null);
   const [autosaveStatus, setAutosaveStatus] = useState<AutosaveStatus>({
     unsaved: false,
@@ -236,8 +239,27 @@ export function useEditorController(projectId: string): EditorController {
   const pencilTapRef = useRef<PencilTapTrack | null>(null);
   const templateImageRef = useRef<HTMLImageElement | null>(null);
   const inkApiRef = useRef<InkEngineApi | null>(null);
+  const lastLiveInkRef = useRef(new Map<string, StrokePoint>());
   const pendingPdfTextRef = useRef<PendingPdfTextDrag | null>(null);
   historyRef.current = history;
+
+  const bumpInkFrame = useCallback(() => {
+    if (inkFrameRafRef.current) {
+      return;
+    }
+    inkFrameRafRef.current = requestAnimationFrame(() => {
+      inkFrameRafRef.current = 0;
+      setInkFrame((frame) => frame + 1);
+    });
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (inkFrameRafRef.current) {
+        cancelAnimationFrame(inkFrameRafRef.current);
+      }
+    };
+  }, []);
 
   const emptyPng = useMemo(() => copySharedTransparentPng(), []);
 
@@ -384,7 +406,9 @@ export function useEditorController(projectId: string): EditorController {
 
   useEffect(() => {
     const onPointerDown = (event: PointerEvent) => {
-      if (event.pointerType !== 'pen') {
+      const isPen = event.pointerType === 'pen';
+      const isMouseTool = event.pointerType === 'mouse' && event.button === 0;
+      if (!isPen && !isMouseTool) {
         return;
       }
       pencilTapRef.current = {
@@ -423,7 +447,7 @@ export function useEditorController(projectId: string): EditorController {
           attachment: { kind: 'page', pageId: pending.pageId },
           box: { x: pending.x, y: pending.y, width, height },
         };
-        const nextPresent = reduceEditorDocument(prev.present, action, () => crypto.randomUUID());
+        const nextPresent = reduceEditorDocument(prev.present, action, randomId);
         const nextHistory = pushEditorHistory(prev, nextPresent, inkUndoRef.current, false);
         autosaveRef.current?.scheduleSave(nextHistory.present, [], false);
         return nextHistory;
@@ -451,7 +475,7 @@ export function useEditorController(projectId: string): EditorController {
           return prev;
         }
         const viewOnly = isViewOnlyHistoryAction(action.type);
-        const nextPresent = reduceEditorDocument(prev.present, action, () => crypto.randomUUID());
+        const nextPresent = reduceEditorDocument(prev.present, action, randomId);
         const nextHistory = pushEditorHistory(prev, nextPresent, inkUndoRef.current, viewOnly);
         persist(nextHistory, viewOnly);
         return nextHistory;
@@ -504,7 +528,7 @@ export function useEditorController(projectId: string): EditorController {
           if (!frame) {
             continue;
           }
-          const clipId = crypto.randomUUID();
+          const clipId = randomId();
           const rasterId = `${present.projectId}:clip:${clipId}`;
           const world = pageLocalRectToWorld(
             frame.x,
@@ -527,7 +551,7 @@ export function useEditorController(projectId: string): EditorController {
             workspaceX: world.x,
             workspaceY: world.y,
           });
-          setInkFrame((frame) => frame + 1);
+          bumpInkFrame();
           continue;
         }
         if (effect.type === 'dropClipOnPage') {
@@ -548,11 +572,11 @@ export function useEditorController(projectId: string): EditorController {
             inkUndoRef.current.set(page.rasterId, pageUndo.slice(0));
           }
           dispatch({ type: 'commitClipBake', clipId: effect.clipId, pageId: effect.pageId });
-          setInkFrame((frame) => frame + 1);
+          bumpInkFrame();
         }
       }
     },
-    [dispatch],
+    [bumpInkFrame, dispatch],
   );
 
   const commitInkBake = useCallback(
@@ -561,9 +585,9 @@ export function useEditorController(projectId: string): EditorController {
         inkUndoRef.current.set(rasterId, undoPng.slice(0));
       }
       dispatch({ type: 'commitInkBake', rasterId });
-      setInkFrame((frame) => frame + 1);
+      bumpInkFrame();
     },
-    [dispatch],
+    [bumpInkFrame, dispatch],
   );
 
   const applyInkEffects = useCallback(
@@ -584,13 +608,14 @@ export function useEditorController(projectId: string): EditorController {
         switch (effect.type) {
           case 'beginPenOverlay': {
             const ctx = api.beginPenOverlay(rasterId);
-            const points: StrokePoint[] = [
-              { x: effect.x, y: effect.y, pressure: effect.pressure },
-            ];
-            drawBrushStroke(ctx, points, {
+            const point: StrokePoint = { x: effect.x, y: effect.y, pressure: effect.pressure };
+            const last = appendLiveBrushStroke(ctx, null, [point], (p) => ({
               ...penStrokeStyle(present),
-              lineWidth: brushRadius(present.tools.penSize, effect.pressure, 'pencil') * 2,
-            });
+              lineWidth: brushRadius(present.tools.penSize, p.pressure, 'pencil') * 2,
+            }));
+            if (last) {
+              lastLiveInkRef.current.set(rasterId, last);
+            }
             visualBump = true;
             break;
           }
@@ -599,23 +624,30 @@ export function useEditorController(projectId: string): EditorController {
             if (!overlayCtx) {
               break;
             }
-            const style = penStrokeStyle(present);
-            for (const point of effect.points) {
-              drawBrushStroke(overlayCtx, [{ x: point.x, y: point.y, pressure: point.pressure }], {
-                ...style,
-                lineWidth: brushRadius(present.tools.penSize, point.pressure, 'pencil') * 2,
-              });
+            const last = appendLiveBrushStroke(
+              overlayCtx,
+              lastLiveInkRef.current.get(rasterId) ?? null,
+              effect.points,
+              (p) => ({
+                ...penStrokeStyle(present),
+                lineWidth: brushRadius(present.tools.penSize, p.pressure, 'pencil') * 2,
+              }),
+            );
+            if (last) {
+              lastLiveInkRef.current.set(rasterId, last);
             }
             visualBump = true;
             break;
           }
           case 'commitPenOverlay': {
+            lastLiveInkRef.current.delete(rasterId);
             const undoPng = api.bakePenOverlay(rasterId);
             commitInkBake(rasterId, undoPng);
             visualBump = true;
             break;
           }
           case 'beginEraseDirect': {
+            lastLiveInkRef.current.delete(rasterId);
             api.beginEraseDirect(rasterId);
             visualBump = true;
             break;
@@ -625,15 +657,21 @@ export function useEditorController(projectId: string): EditorController {
             if (!eraseCtx) {
               break;
             }
-            drawBrushStroke(
+            const point: StrokePoint = { x: effect.x, y: effect.y, pressure: effect.pressure };
+            const last = appendLiveBrushStroke(
               eraseCtx,
-              [{ x: effect.x, y: effect.y, pressure: effect.pressure }],
-              eraseStrokeStyle(present, effect.pressure),
+              lastLiveInkRef.current.get(rasterId) ?? null,
+              [point],
+              (p) => eraseStrokeStyle(present, p.pressure),
             );
+            if (last) {
+              lastLiveInkRef.current.set(rasterId, last);
+            }
             visualBump = true;
             break;
           }
           case 'commitEraseDirect': {
+            lastLiveInkRef.current.delete(rasterId);
             const undoPng = api.finishEraseDirect(rasterId);
             commitInkBake(rasterId, undoPng);
             visualBump = true;
@@ -645,10 +683,31 @@ export function useEditorController(projectId: string): EditorController {
       }
 
       if (visualBump) {
-        setInkFrame((frame) => frame + 1);
+        const painted = new Set<string>();
+        for (const effect of effects) {
+          const rasterId = rasterIdForInkEffect(present, effect);
+          if (!rasterId || painted.has(rasterId)) {
+            continue;
+          }
+          painted.add(rasterId);
+          repaintInkDisplay(rasterId);
+        }
+        const liveInk = effects.some(
+          (effect) =>
+            effect.type === 'penOverlayMove' ||
+            effect.type === 'eraseDirectMove' ||
+            effect.type === 'beginPenOverlay' ||
+            effect.type === 'beginEraseDirect',
+        );
+        const finishedInk = effects.some(
+          (effect) => effect.type === 'commitPenOverlay' || effect.type === 'commitEraseDirect',
+        );
+        if (!liveInk || finishedInk) {
+          bumpInkFrame();
+        }
       }
     },
-    [commitInkBake],
+    [bumpInkFrame, commitInkBake],
   );
 
   const commitTextEdit = useCallback(
@@ -673,12 +732,14 @@ export function useEditorController(projectId: string): EditorController {
       }
 
       const buffer = await file.arrayBuffer();
-      const opfsPath = await writeProjectPdf(projectId, buffer);
-      const bytes = new Uint8Array(buffer);
-      const { pageCount, sourceTextByPage } = await extractPdfSourceText(bytes, async (data) => {
+      // pdf.js / OPFS may detach the buffer they receive; keep an owned copy for React state.
+      const owned = buffer.slice(0);
+      const opfsPath = await writeProjectPdf(projectId, owned.slice(0));
+      const extractBytes = new Uint8Array(owned.slice(0));
+      const { pageCount, sourceTextByPage } = await extractPdfSourceText(extractBytes, async (data) => {
         const pdfjs = await import('pdfjs-dist');
         pdfjs.GlobalWorkerOptions.workerSrc = PDF_WORKER_SRC;
-        return pdfjs.getDocument({ data }).promise;
+        return pdfjs.getDocument({ data: data.slice() }).promise;
       });
 
       const nextGeneration = (present.pdf?.generation ?? 0) + 1;
@@ -686,7 +747,7 @@ export function useEditorController(projectId: string): EditorController {
         dropPdfSession(present.pdf.opfsPath, present.pdf.generation);
       }
 
-      setPdfBytes(buffer.slice(0));
+      setPdfBytes(owned);
       setPdfMissing(false);
 
       dispatch({
@@ -821,7 +882,7 @@ export function useEditorController(projectId: string): EditorController {
         return prev;
       }
       autosaveRef.current?.scheduleSave(next.present, [], false);
-      setInkFrame((frame) => frame + 1);
+      bumpInkFrame();
       return next;
     });
   }, [inkRestoreSink]);
@@ -836,7 +897,7 @@ export function useEditorController(projectId: string): EditorController {
         return prev;
       }
       autosaveRef.current?.scheduleSave(next.present, [], false);
-      setInkFrame((frame) => frame + 1);
+      bumpInkFrame();
       return next;
     });
   }, [inkRestoreSink]);

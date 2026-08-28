@@ -16,7 +16,7 @@ export type {
   InkCanvas,
   InkEngineCallbacks,
 } from './InkEngine';
-export { drawBrushStroke } from './strokeDraw';
+export { appendLiveBrushStroke, drawBrushStroke } from './strokeDraw';
 export type { BrushStrokeStyle } from './strokeDraw';
 export {
   FakeOffscreenCanvas,
@@ -27,3 +27,4 @@ export {
 } from './fakeCanvas';
 export { useInkEngine } from './useInkEngine';
 export type { InkEngineApi, UseInkEngineOptions } from './useInkEngine';
+export { PageInkCanvas, repaintInkDisplay } from './PageInkCanvas';

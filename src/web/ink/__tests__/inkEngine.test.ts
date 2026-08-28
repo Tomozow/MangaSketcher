@@ -206,4 +206,27 @@ describe('InkEngine production pixel truth', () => {
       expect(engine.encodedPng.has(`r${i}`)).toBe(true);
     }
   });
+
+  test('bakePenOverlay without overlay returns empty and does not throw', () => {
+    const engine = createTestEngine();
+    engine.registerRaster('r-missing');
+    expect(engine.bakePenOverlay('r-missing').byteLength).toBe(0);
+    engine.beginPenOverlay('r-missing');
+    engine.bakePenOverlay('r-missing');
+    expect(engine.bakePenOverlay('r-missing').byteLength).toBe(0);
+  });
+
+  test('LRU does not drop a raster that has a live pen overlay', () => {
+    const engine = createTestEngine();
+    engine.registerRaster('live');
+    engine.beginPenOverlay('live');
+    for (let i = 0; i < 10; i += 1) {
+      const id = `other${i}`;
+      engine.registerRaster(id);
+      engine.decode(id);
+    }
+    expect(engine.getPenOverlayContext('live')).not.toBeNull();
+    const undo = engine.bakePenOverlay('live');
+    expect(undo.byteLength).toBeGreaterThanOrEqual(0);
+  });
 });

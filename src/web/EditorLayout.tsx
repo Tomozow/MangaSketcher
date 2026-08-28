@@ -118,7 +118,11 @@ export function EditorLayout({
     <div className={styles.body} style={{ ['--ms-background' as string]: colors.background }}>
       <div id="editor-main-split" className={styles.mainColumn}>
         <div className={styles.splitRow}>
-          <div id="editor-workspace-pane" className={styles.pane} style={{ flex: mainFlex.workspace }}>
+          <div
+            id="editor-workspace-pane"
+            className={styles.pane}
+            style={{ flexGrow: mainFlex.workspace, flexShrink: 1, flexBasis: 0 }}
+          >
             <span className={styles.paneLabel}>ワークスペース</span>
             <WorkspaceStrip
               workspaceOrder={doc.workspaceOrder}
@@ -151,7 +155,10 @@ export function EditorLayout({
           {doc.pdfViewerVisible ? (
             <>
               <SplitHandle orientation="horizontal" onDrag={handleWorkspacePdfDrag} />
-              <div className={styles.pane} style={{ flex: mainFlex.pdf }}>
+              <div
+                className={styles.pane}
+                style={{ flexGrow: mainFlex.pdf, flexShrink: 1, flexBasis: 0 }}
+              >
                 <span className={styles.paneLabel}>PDF</span>
                 <PdfPanePlaceholder
                   visible
@@ -184,7 +191,10 @@ export function EditorLayout({
 
       <div id="editor-sidebar-split" className={`${styles.sidebarColumn} ${sidebarClass}`}>
         <div className={styles.splitCol}>
-          <div className={styles.pane} style={{ flex: sideFlex.palette }}>
+          <div
+            className={styles.pane}
+            style={{ flexGrow: sideFlex.palette, flexShrink: 1, flexBasis: 0 }}
+          >
             <span className={styles.paneLabel}>ツール</span>
             <CompactSidebar
               doc={doc}
@@ -197,7 +207,10 @@ export function EditorLayout({
             />
           </div>
           <SplitHandle orientation="vertical" onDrag={handlePaletteStockDrag} />
-          <div className={styles.pane} style={{ flex: sideFlex.stock }}>
+          <div
+            className={styles.pane}
+            style={{ flexGrow: sideFlex.stock, flexShrink: 1, flexBasis: 0 }}
+          >
             <span className={styles.paneLabel}>ストック</span>
             <StockPane
               doc={doc}

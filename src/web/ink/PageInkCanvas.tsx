@@ -14,6 +14,13 @@ type PageInkCanvasProps = {
   inkFrame?: number;
 };
 
+const painters = new Map<string, () => void>();
+
+/** Paint the on-screen copy immediately (do not wait for React). */
+export function repaintInkDisplay(rasterId: string): void {
+  painters.get(rasterId)?.();
+}
+
 /**
  * Display copy (§9.5): scales 1200×1700 hot canvas to CSS size. Not pixel truth.
  */
@@ -27,27 +34,40 @@ export function PageInkCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const el = canvasRef.current;
-    if (!el) {
-      return;
-    }
-    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-    const displayHeight = Math.round((displayWidth * 1700) / 1200);
-    el.width = Math.round(displayWidth * dpr);
-    el.height = Math.round(displayHeight * dpr);
-    el.style.width = `${displayWidth}px`;
-    el.style.height = `${displayHeight}px`;
+    const paint = () => {
+      const el = canvasRef.current;
+      if (!el) {
+        return;
+      }
+      const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+      const displayHeight = Math.round((displayWidth * 1700) / 1200);
+      const pixelW = Math.round(displayWidth * dpr);
+      const pixelH = Math.round(displayHeight * dpr);
+      if (el.width !== pixelW || el.height !== pixelH) {
+        el.width = pixelW;
+        el.height = pixelH;
+        el.style.width = `${displayWidth}px`;
+        el.style.height = `${displayHeight}px`;
+      }
 
-    const ctx = el.getContext('2d');
-    if (!ctx) {
-      return;
-    }
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.imageSmoothingEnabled = true;
-    ctx.imageSmoothingQuality = 'medium';
+      const ctx = el.getContext('2d');
+      if (!ctx) {
+        return;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'medium';
+      engine.paintDisplay(ctx, rasterId, displayWidth, displayHeight);
+    };
 
-    engine.paintDisplay(ctx, rasterId, displayWidth, displayHeight);
+    painters.set(rasterId, paint);
+    paint();
+    return () => {
+      if (painters.get(rasterId) === paint) {
+        painters.delete(rasterId);
+      }
+    };
   }, [engine, rasterId, displayWidth, inkFrame]);
 
-  return <canvas ref={canvasRef} className={className} aria-hidden />;
+  return <canvas ref={canvasRef} className={className} style={{ display: 'block' }} aria-hidden />;
 }

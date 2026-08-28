@@ -1,9 +1,14 @@
 {
   "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "plugins": [{ "name": "next" }]
+  },
   "exclude": [
     "node_modules",
-    "src/storage/**",
     "src/state/**",
-    "src/input/**"
+    "**/*.test.ts",
+    "**/*.test.tsx",
+    "**/__tests__/**",
+    "**/testUtils/**"
   ]
 }

@@ -7,8 +7,9 @@ import type { ToolId } from '@/src/domain/types';
 import { inkPalette } from '@/src/theme/tokens';
 import type { AutosaveStatus } from '@/src/storage/autosave';
 import type { EditorDocument, EditorHistory } from '@/src/storage/types';
-import styles from './editor.module.css';
+import { historyControlsDisabled } from './historyControls';
 import { ValueSlider } from './ValueSlider';
+import styles from './editor.module.css';
 
 const TOOLS: { id: ToolId; label: string }[] = [
   { id: 'pen', label: 'ペン' },
@@ -149,10 +150,10 @@ export function CompactSidebar({
       ) : null}
 
       <div className={styles.actionRow}>
-        <button type="button" className={styles.iconButton} disabled={textEditing || history.past.length === 0} onClick={onUndo}>
+        <button type="button" className={styles.iconButton} disabled={historyControlsDisabled(textEditing, history.past.length)} onClick={onUndo}>
           ↶
         </button>
-        <button type="button" className={styles.iconButton} disabled={textEditing || history.future.length === 0} onClick={onRedo}>
+        <button type="button" className={styles.iconButton} disabled={historyControlsDisabled(textEditing, history.future.length)} onClick={onRedo}>
           ↷
         </button>
         <button

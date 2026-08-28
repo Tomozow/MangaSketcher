@@ -8,11 +8,12 @@ import {
   type ProjectId,
 } from './types';
 import { pageRasterId } from './rasterIds';
+import { randomId } from './randomId';
 
 export type IdFactory = () => string;
 
 export function createIdFactory(): IdFactory {
-  return () => crypto.randomUUID();
+  return () => randomId();
 }
 
 export function createEditorDocument(options: {

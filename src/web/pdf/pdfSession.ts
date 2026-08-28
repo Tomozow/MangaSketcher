@@ -38,7 +38,7 @@ export async function getOrLoadPdfProxy(
     return existing.proxy;
   }
   const pdfjs = await loadPdfJs();
-  const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+  const bytes = data instanceof Uint8Array ? data.slice() : new Uint8Array(data.slice(0));
   const loadingTask = pdfjs.getDocument({ data: bytes });
   const proxy = await loadingTask.promise;
   sessions.set(key, { opfsPath, generation, proxy });

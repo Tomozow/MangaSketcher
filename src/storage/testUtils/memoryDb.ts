@@ -1,4 +1,4 @@
-import type { ProjectMeta, EditorDocument } from './types';
+import type { ProjectMeta, EditorDocument } from '../types';
 import type { StorageDatabase } from './idb';
 
 export class MemoryStorageDatabase implements StorageDatabase {

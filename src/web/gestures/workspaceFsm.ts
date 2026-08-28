@@ -8,6 +8,7 @@ import {
   type GestureHit,
 } from '../../domain/workspaceGestures';
 import type { PageId, PointerKind, ToolId } from '../../domain/types';
+import { clampRasterPoint } from '../../domain/stripGeometry';
 import {
   angleFromCenter,
   clipWorldBounds,
@@ -34,6 +35,25 @@ function isTextHandleHit(hit: WorkspaceHit): hit is Extract<WorkspaceHit, { kind
 
 function isPageBodyHit(hit: WorkspaceHit): hit is Extract<WorkspaceHit, { kind: 'page' }> {
   return hit.kind === 'page';
+}
+
+function inkRasterPoint(
+  hit: WorkspaceHit,
+  fallbackX: number,
+  fallbackY: number,
+  lockedPageId: PageId | undefined,
+  input: WorkspacePointerInput,
+): { x: number; y: number } {
+  if (lockedPageId && input.mapInkToPage) {
+    const mapped = input.mapInkToPage(lockedPageId, input.x, input.y);
+    if (mapped) {
+      return mapped;
+    }
+  }
+  if ((hit.kind === 'page' || hit.kind === 'pageText') && hit.pageId === lockedPageId) {
+    return clampRasterPoint(hit.localX, hit.localY, input.rasterWidth, input.rasterHeight);
+  }
+  return { x: fallbackX, y: fallbackY };
 }
 
 /** Reading-order insert index for workspace page reorder (append → -1 = end). */
@@ -144,13 +164,30 @@ function pinchMidDelta(
   prevA: { x: number; y: number },
   prevB: { x: number; y: number },
 ): { midDx: number; midDy: number } {
-  const a = store.fingerPositions.get(idA)!;
-  const b = store.fingerPositions.get(idB)!;
+  const a = store.fingerPositions.get(idA);
+  const b = store.fingerPositions.get(idB);
+  if (!a || !b) {
+    return { midDx: 0, midDy: 0 };
+  }
   const midX = (a.x + b.x) / 2;
   const midY = (a.y + b.y) / 2;
   const prevMidX = (prevA.x + prevB.x) / 2;
   const prevMidY = (prevA.y + prevB.y) / 2;
   return { midDx: midX - prevMidX, midDy: midY - prevMidY };
+}
+
+function demotePinchPartner(store: WorkspaceGestureStore, partnerId: number): void {
+  const partner = store.sessions.get(partnerId);
+  if (partner?.mode !== 'pinch') {
+    return;
+  }
+  const pos = store.fingerPositions.get(partnerId);
+  store.sessions.set(partnerId, {
+    mode: 'pan',
+    kind: 'finger',
+    lastX: pos?.x ?? 0,
+    lastY: pos?.y ?? 0,
+  });
 }
 
 function beginPinch(
@@ -181,18 +218,19 @@ function stepLockedPencil(
         effects: [{ type: 'commitPenOverlay', pageId: session.pageId }],
       };
     }
+    const point = inkRasterPoint(hit, session.lastX, session.lastY, session.pageId, input);
     return {
       session: {
         ...session,
-        lastX: input.x,
-        lastY: input.y,
+        lastX: point.x,
+        lastY: point.y,
         lastPressure: input.pressure,
       },
       effects: [
         {
           type: 'penOverlayMove',
           pageId: session.pageId,
-          points: [{ x: input.x, y: input.y, pressure: input.pressure }],
+          points: [{ x: point.x, y: point.y, pressure: input.pressure }],
         },
       ],
     };
@@ -205,6 +243,7 @@ function stepLockedPencil(
         effects: [{ type: 'commitEraseDirect', pageId: session.pageId, clipId: session.clipId }],
       };
     }
+    const point = inkRasterPoint(hit, input.x, input.y, session.pageId, input);
     return {
       session,
       effects: [
@@ -212,8 +251,8 @@ function stepLockedPencil(
           type: 'eraseDirectMove',
           pageId: session.pageId,
           clipId: session.clipId,
-          x: input.x,
-          y: input.y,
+          x: point.x,
+          y: point.y,
           pressure: input.pressure,
         },
       ],
@@ -525,6 +564,22 @@ function stepFinger(
     };
   }
 
+  if (session.mode === 'zoomDrag') {
+    if (input.phase === 'up' || input.phase === 'cancel') {
+      return { session: { mode: 'idle' }, effects: [] };
+    }
+    const dy = input.y - session.lastY;
+    if (dy === 0) {
+      return { session, effects: [] };
+    }
+    const scaleBy = 2 ** (-dy / 160);
+    store.fingerPositions.set(session.pointerId, { x: session.anchorX, y: session.anchorY });
+    return {
+      session: { ...session, lastY: input.y },
+      effects: [{ type: 'pinchBy', scaleBy, midDx: 0, midDy: 0 }],
+    };
+  }
+
   if (session.mode === 'grabPage') {
     if (input.phase === 'up' || input.phase === 'cancel') {
       return { session: { mode: 'idle' }, effects: [] };
@@ -544,6 +599,13 @@ function stepFinger(
       return { session: { mode: 'idle' }, effects: [] };
     }
     const partnerId = session.partnerId;
+    const partner = store.sessions.get(partnerId);
+    if (partner?.mode !== 'pinch' || !store.fingerPositions.get(partnerId)) {
+      return {
+        session: { mode: 'pan', kind: 'finger', lastX: input.x, lastY: input.y },
+        effects: [],
+      };
+    }
     const prevA = store.fingerPositions.get(session.pointerId) ?? { x: input.x, y: input.y };
     const prevB = store.fingerPositions.get(partnerId) ?? { x: input.x, y: input.y };
     store.fingerPositions.set(input.pointerId, { x: input.x, y: input.y });
@@ -612,6 +674,29 @@ function stepFingerDown(
 
   store.fingerPositions.set(input.pointerId, { x: input.x, y: input.y });
 
+  if (input.pointerType === 'mouse' && input.desktopNav === 'pan') {
+    return {
+      session: { mode: 'pan', kind: 'finger', lastX: input.x, lastY: input.y },
+      effects: [],
+      ignored: false,
+    };
+  }
+
+  if (input.pointerType === 'mouse' && input.desktopNav === 'zoom') {
+    return {
+      session: {
+        mode: 'zoomDrag',
+        kind: 'finger',
+        pointerId: input.pointerId,
+        lastY: input.y,
+        anchorX: input.x,
+        anchorY: input.y,
+      },
+      effects: [],
+      ignored: false,
+    };
+  }
+
   const existingFingers = activeFingerIds(store).filter((id) => id !== input.pointerId);
   if (existingFingers.length >= 1) {
     const partnerId = existingFingers[0]!;
@@ -664,8 +749,12 @@ export function stepWorkspacePointer(
 
     const stepped = stepFinger(store, session, normalized);
     if (input.phase === 'up' || input.phase === 'cancel') {
+      const partnerId = session.mode === 'pinch' ? session.partnerId : null;
       store.sessions.delete(input.pointerId);
       store.fingerPositions.delete(input.pointerId);
+      if (partnerId !== null) {
+        demotePinchPartner(store, partnerId);
+      }
     } else {
       store.sessions.set(input.pointerId, stepped.session);
     }

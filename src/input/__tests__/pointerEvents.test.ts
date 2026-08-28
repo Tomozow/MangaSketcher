@@ -5,6 +5,7 @@ import {
   isPencilHover,
   markPointerDown,
   markPointerUp,
+  pointerKindForWorkspace,
   pointerKindFromWeb,
   pressureFromWeb,
 } from '../pointerEvents';
@@ -15,6 +16,20 @@ describe('pointerEvents (Web)', () => {
     expect(pointerKindFromWeb({ pointerType: 'pen' } as PointerEvent)).toBe('pencil');
     expect(pointerKindFromWeb({ pointerType: 'touch' } as PointerEvent)).toBe('finger');
     expect(pointerKindFromWeb({ pointerType: 'mouse' } as PointerEvent)).toBe('finger');
+  });
+
+  test('workspace mouse: left button is pencil; Space pan stays finger', () => {
+    const mouse = { pointerType: 'mouse', button: 0, buttons: 1 } as PointerEvent;
+    expect(pointerKindForWorkspace(mouse, 'down', 'none')).toBe('pencil');
+    expect(pointerKindForWorkspace(mouse, 'move', 'none')).toBe('pencil');
+    expect(pointerKindForWorkspace({ ...mouse, buttons: 0 } as PointerEvent, 'up', 'none')).toBe('pencil');
+    expect(pointerKindForWorkspace({ pointerType: 'mouse', button: 0, buttons: 0 } as PointerEvent, 'move', 'none')).toBe(
+      'finger',
+    );
+    expect(pointerKindForWorkspace(mouse, 'down', 'pan')).toBe('finger');
+    expect(pointerKindForWorkspace({ pointerType: 'mouse', button: 2, buttons: 0 } as PointerEvent, 'down', 'none')).toBe(
+      'finger',
+    );
   });
 
   test('sticky は最初の判定を維持し Pencil に昇格しない', () => {

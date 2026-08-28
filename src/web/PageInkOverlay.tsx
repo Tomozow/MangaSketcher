@@ -101,6 +101,7 @@ export function PageInkOverlay({ doc, engine, inkFrame, marqueePreview }: PageIn
                 rasterId={rasterId}
                 displayWidth={frame.width}
                 inkFrame={inkFrame}
+                className={styles.pageInkCanvas}
               />
               {showMarquee ? (
                 <div

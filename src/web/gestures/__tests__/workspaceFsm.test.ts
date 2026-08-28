@@ -215,7 +215,10 @@ describe('Web workspace FSM', () => {
 
     const penMove = pencil(store, 'move', { x: 12, y: 14, now: 2 });
     expect(getWorkspaceSession(store, 10)?.mode).toBe('penOverlay');
-    expect(penMove.effects[0]?.type).toBe('penOverlayMove');
+    expect(penMove.effects[0]).toMatchObject({
+      type: 'penOverlayMove',
+      points: [{ x: pageHit.localX, y: pageHit.localY, pressure: 0.6 }],
+    });
   });
 
   test('pencil penOverlay と 2本指 pinch 中、3本目の touch は無視', () => {
@@ -256,6 +259,44 @@ describe('Web workspace FSM', () => {
     expect(getWorkspaceSession(store, 99)).toBeUndefined();
     expect(countActiveTouches(store, 'finger')).toBe(2);
     expect(countActiveTouches(store, 'pencil')).toBe(1);
+  });
+
+  test('描画中に隣ページへ出ても反対端の座標を使わない', () => {
+    const store = createWorkspaceGestureStore();
+    pencil(store, 'down', { hit: { ...pageHit, localX: 1190, localY: 40 } });
+    const jumped = pencil(store, 'move', {
+      hit: { ...pageHit, pageId: 'p2', localX: 8, localY: 42, readingIndex: 1 },
+    });
+    expect(jumped.effects[0]).toMatchObject({
+      type: 'penOverlayMove',
+      pageId: 'p1',
+      points: [{ x: 1190, y: 40, pressure: 0.6 }],
+    });
+
+    const mapped = pencil(store, 'move', {
+      hit: { ...pageHit, pageId: 'p2', localX: 8, localY: 80, readingIndex: 1 },
+      mapInkToPage: (pageId) => (pageId === 'p1' ? { x: 1200, y: 80 } : null),
+    });
+    expect(mapped.effects[0]).toMatchObject({
+      type: 'penOverlayMove',
+      pageId: 'p1',
+      points: [{ x: 1200, y: 80, pressure: 0.6 }],
+    });
+  });
+
+  test('pinch の一方が離れたあとの move で b.x を読まない', () => {
+    const store = createWorkspaceGestureStore();
+    finger(store, 'down', { pointerId: 2, x: 10, y: 10, now: 1 });
+    finger(store, 'down', { pointerId: 3, x: 50, y: 10, now: 1, isPrimary: false });
+    expect(getWorkspaceSession(store, 2)?.mode).toBe('pinch');
+    expect(getWorkspaceSession(store, 3)?.mode).toBe('pinch');
+
+    finger(store, 'up', { pointerId: 3, x: 50, y: 10, now: 2, isPrimary: false });
+    expect(getWorkspaceSession(store, 2)?.mode).toBe('pan');
+    expect(getWorkspaceSession(store, 3)).toBeUndefined();
+
+    const move = finger(store, 'move', { pointerId: 2, x: 18, y: 12, now: 3 });
+    expect(move.effects[0]?.type).toBe('panBy');
   });
 
   test('Pencil 長押しでも grabPage しない', () => {
@@ -383,6 +424,80 @@ describe('Web workspace FSM', () => {
         pageId: 'p1',
         rect: { x: 10, y: 10, width: 20, height: 30 },
       });
+    });
+  });
+
+  describe('PC desktop navigation', () => {
+    test('Space+drag pans immediately without slop', () => {
+      const store = createWorkspaceGestureStore();
+      finger(store, 'down', {
+        pointerId: 3,
+        pointerType: 'mouse',
+        desktopNav: 'pan',
+        x: 100,
+        y: 200,
+        now: 1,
+      });
+      expect(getWorkspaceSession(store, 3)?.mode).toBe('pan');
+
+      const move = finger(store, 'move', {
+        pointerId: 3,
+        pointerType: 'mouse',
+        desktopNav: 'pan',
+        x: 140,
+        y: 220,
+        now: 2,
+      });
+      expect(move.effects[0]).toMatchObject({ type: 'panBy', dx: 40, dy: 20 });
+    });
+
+    test('Ctrl+Space+drag zooms in when dragging up and out when dragging down', () => {
+      const store = createWorkspaceGestureStore();
+      const doc = {
+        workspaceZoom: 1,
+        workspacePanX: 0,
+        workspacePanY: 0,
+        workspaceOrder: ['p1'],
+        pages: { p1: { id: 'p1', texts: [], rasterId: 'r1' } },
+      } as const;
+      const surfaceRect = { left: 0, top: 0, width: 800, height: 600 } as DOMRect;
+
+      finger(store, 'down', {
+        pointerId: 4,
+        pointerType: 'mouse',
+        desktopNav: 'zoom',
+        x: 200,
+        y: 300,
+        now: 1,
+      });
+      expect(getWorkspaceSession(store, 4)?.mode).toBe('zoomDrag');
+
+      const zoomIn = finger(store, 'move', {
+        pointerId: 4,
+        pointerType: 'mouse',
+        desktopNav: 'zoom',
+        x: 200,
+        y: 220,
+        now: 2,
+      });
+      const zoomInBatch = reduceWorkspaceEffects(doc as never, zoomIn.effects, store.fingerPositions, surfaceRect);
+      expect(zoomInBatch.view?.zoom).toBeGreaterThan(1);
+
+      const zoomOut = finger(store, 'move', {
+        pointerId: 4,
+        pointerType: 'mouse',
+        desktopNav: 'zoom',
+        x: 200,
+        y: 360,
+        now: 3,
+      });
+      const zoomOutBatch = reduceWorkspaceEffects(
+        { ...doc, workspaceZoom: zoomInBatch.view?.zoom ?? 1 } as never,
+        zoomOut.effects,
+        store.fingerPositions,
+        surfaceRect,
+      );
+      expect(zoomOutBatch.view?.zoom).toBeLessThan(zoomInBatch.view?.zoom ?? 1);
     });
   });
 });

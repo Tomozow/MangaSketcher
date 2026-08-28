@@ -94,6 +94,13 @@ function stepFinger(
       return { session: { mode: 'idle' }, effects: [] };
     }
     const partnerId = session.partnerId;
+    const partner = store.sessions.get(partnerId);
+    if (partner?.mode !== 'pinch' || !store.fingerPositions.get(partnerId)) {
+      return {
+        session: { mode: 'pan', kind: 'finger', lastX: input.x, lastY: input.y },
+        effects: [],
+      };
+    }
     const prevA = store.fingerPositions.get(session.pointerId) ?? { x: input.x, y: input.y };
     const prevB = store.fingerPositions.get(partnerId) ?? { x: input.x, y: input.y };
     store.fingerPositions.set(input.pointerId, { x: input.x, y: input.y });
@@ -199,6 +206,7 @@ export function stepStockPointer(
     return { effects: [] };
   }
 
+  const partnerId = session.mode === 'pinch' ? session.partnerId : null;
   const { session: next, effects } = stepFinger(store, session, input);
   if (next.mode === 'idle') {
     store.sessions.delete(input.pointerId);
@@ -209,6 +217,18 @@ export function stepStockPointer(
 
   if (input.phase === 'up' || input.phase === 'cancel') {
     store.fingerPositions.delete(input.pointerId);
+    if (partnerId !== null) {
+      const partner = store.sessions.get(partnerId);
+      if (partner?.mode === 'pinch') {
+        const pos = store.fingerPositions.get(partnerId);
+        store.sessions.set(partnerId, {
+          mode: 'pan',
+          kind: 'finger',
+          lastX: pos?.x ?? 0,
+          lastY: pos?.y ?? 0,
+        });
+      }
+    }
   } else {
     store.fingerPositions.set(input.pointerId, { x: input.x, y: input.y });
   }

@@ -32,23 +32,48 @@ const META = 'meta';
 const DOCUMENTS = 'documents';
 const RASTERS = 'rasters';
 
-function openBrowserDatabase(): Promise<IDBDatabase> {
+const REQUIRED_STORES: StoreName[] = [META, DOCUMENTS, RASTERS];
+
+function ensureObjectStores(db: IDBDatabase): void {
+  if (!db.objectStoreNames.contains(META)) {
+    db.createObjectStore(META, { keyPath: 'id' });
+  }
+  if (!db.objectStoreNames.contains(DOCUMENTS)) {
+    db.createObjectStore(DOCUMENTS, { keyPath: 'id' });
+  }
+  if (!db.objectStoreNames.contains(RASTERS)) {
+    db.createObjectStore(RASTERS, { keyPath: 'rasterId' });
+  }
+}
+
+function hasRequiredStores(db: IDBDatabase): boolean {
+  return REQUIRED_STORES.every((name) => db.objectStoreNames.contains(name));
+}
+
+function openBrowserDatabase(allowReset = true): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onerror = () => reject(request.error ?? new Error('indexedDB.open failed'));
     request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(META)) {
-        db.createObjectStore(META, { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains(DOCUMENTS)) {
-        db.createObjectStore(DOCUMENTS, { keyPath: 'id' });
-      }
-      if (!db.objectStoreNames.contains(RASTERS)) {
-        db.createObjectStore(RASTERS, { keyPath: 'rasterId' });
-      }
+      ensureObjectStores(request.result);
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const db = request.result;
+      if (hasRequiredStores(db)) {
+        resolve(db);
+        return;
+      }
+      db.close();
+      if (!allowReset) {
+        reject(new Error('IndexedDB is missing required object stores'));
+        return;
+      }
+      const del = indexedDB.deleteDatabase(DB_NAME);
+      del.onerror = () => reject(del.error ?? new Error('indexedDB.deleteDatabase failed'));
+      del.onsuccess = () => {
+        openBrowserDatabase(false).then(resolve, reject);
+      };
+    };
   });
 }
 
@@ -60,11 +85,10 @@ function tx<T>(
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(storeNames, mode);
-    const stores = {
-      meta: transaction.objectStore(META),
-      documents: transaction.objectStore(DOCUMENTS),
-      rasters: transaction.objectStore(RASTERS),
-    };
+    const stores = {} as Record<StoreName, IDBObjectStore>;
+    for (const name of storeNames) {
+      stores[name] = transaction.objectStore(name);
+    }
     Promise.resolve(run(stores))
       .then(resolve)
       .catch(reject);

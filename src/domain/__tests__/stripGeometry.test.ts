@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   APPEND_W,
   buildStripFrames,
+  clampRasterPoint,
   hitStripFrame,
   pageLocalFromWorld,
   PAGE_DISPLAY_H,
@@ -52,6 +53,29 @@ describe('stripGeometry 216×306 hit tests', () => {
     const mapped = pageLocalFromWorld(pageFrame!, localX, localY, 1200, 1700);
     expect(mapped.x).toBeCloseTo(600, 0);
     expect(mapped.y).toBeCloseTo(850, 0);
+  });
+
+  test('隣ページ上の world を元ページへ写すと端にクランプされ反対側には飛ばない', () => {
+    const doc = createDocument({
+      projectId: 'p',
+      name: 't',
+      pageCount: 2,
+      rasterWidth: 1200,
+      rasterHeight: 1700,
+      ids: sequentialIds('pg'),
+    });
+    const { frames } = buildStripFrames(doc.workspaceOrder);
+    const pageFrames = frames.filter((f) => f.slot.kind === 'page');
+    expect(pageFrames.length).toBe(2);
+    const left = pageFrames[0]!;
+    const right = pageFrames[1]!;
+    const neighborWorldX = right.x + 4;
+    const neighborWorldY = right.y + PAGE_DISPLAY_H / 2;
+    const raw = pageLocalFromWorld(left, neighborWorldX, neighborWorldY, 1200, 1700);
+    expect(raw.x).toBeGreaterThan(1200);
+    const clamped = clampRasterPoint(raw.x, raw.y, 1200, 1700);
+    expect(clamped.x).toBe(1200);
+    expect(clamped.x).not.toBeCloseTo(0, 0);
   });
 
   test('フレーム幅は 216 で append 後に gap', () => {

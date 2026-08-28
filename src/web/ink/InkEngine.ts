@@ -65,9 +65,11 @@ export class InkEngine {
 
   private readonly lru: string[] = [];
   private readonly overlays = new Map<string, InkCanvas>();
+  private readonly overlayCtx = new Map<string, Ink2DContext>();
   private readonly strokeUndoCanvas = new Map<string, InkCanvas>();
   private readonly pendingEncodes = new Set<string>();
   private readonly thumbGeneration = new Map<string, number>();
+  private readonly blitEpoch = new Map<string, number>();
   private readonly rasterDimensions = new Map<string, { width: number; height: number }>();
 
   constructor(options: {
@@ -123,9 +125,11 @@ export class InkEngine {
   disposeRaster(rasterId: string): void {
     this.hot.delete(rasterId);
     this.overlays.delete(rasterId);
+    this.overlayCtx.delete(rasterId);
     this.strokeUndoCanvas.delete(rasterId);
     this.encodedPng.delete(rasterId);
     this.rasterDimensions.delete(rasterId);
+    this.blitEpoch.delete(rasterId);
     const thumb = this.thumbs.get(rasterId);
     if (thumb) {
       thumb.close();
@@ -147,8 +151,9 @@ export class InkEngine {
     if (!canvas) {
       canvas = this.canvasFactory(dims.width, dims.height);
       const png = this.encodedPng.get(rasterId);
+      const epoch = this.bumpBlitEpoch(rasterId);
       if (png && png.byteLength > 0) {
-        this.blitEncodedPng(canvas, png, rasterId);
+        this.blitEncodedPng(canvas, png, rasterId, epoch);
       } else {
         const ctx = canvas.getContext('2d');
         ctx?.clearRect(0, 0, dims.width, dims.height);
@@ -166,15 +171,26 @@ export class InkEngine {
     }
     this.lru.push(rasterId);
     while (this.lru.length > HOT_CANVAS_LIMIT) {
-      const evictId = this.lru.shift();
+      const evictIdx = this.lru.findIndex(
+        (id) => !this.overlays.has(id) && !this.strokeUndoCanvas.has(id),
+      );
+      if (evictIdx < 0) {
+        break;
+      }
+      const evictId = this.lru.splice(evictIdx, 1)[0];
       if (evictId) {
         this.hot.delete(evictId);
-        this.overlays.delete(evictId);
       }
     }
   }
 
-  private blitEncodedPng(canvas: InkCanvas, png: ArrayBuffer, rasterId: string): void {
+  private bumpBlitEpoch(rasterId: string): number {
+    const next = (this.blitEpoch.get(rasterId) ?? 0) + 1;
+    this.blitEpoch.set(rasterId, next);
+    return next;
+  }
+
+  private blitEncodedPng(canvas: InkCanvas, png: ArrayBuffer, rasterId: string, epoch: number): void {
     const ctx = canvas.getContext('2d');
     if (!ctx) {
       return;
@@ -189,7 +205,7 @@ export class InkEngine {
         // fall through to browser decode
       }
     }
-    void this.blitEncodedPngAsync(canvas, png, rasterId);
+    void this.blitEncodedPngAsync(canvas, png, rasterId, epoch);
   }
 
   private ensureCanvasSize(rasterId: string, canvas: InkCanvas, width: number, height: number): void {
@@ -200,13 +216,22 @@ export class InkEngine {
     }
   }
 
-  private async blitEncodedPngAsync(canvas: InkCanvas, png: ArrayBuffer, rasterId: string): Promise<void> {
+  private async blitEncodedPngAsync(
+    canvas: InkCanvas,
+    png: ArrayBuffer,
+    rasterId: string,
+    epoch: number,
+  ): Promise<void> {
     const ctx = canvas.getContext('2d');
     if (!ctx || typeof createImageBitmap === 'undefined') {
       return;
     }
     const blob = new Blob([png.slice(0)], { type: 'image/png' });
     const bitmap = await createImageBitmap(blob);
+    if (this.blitEpoch.get(rasterId) !== epoch) {
+      bitmap.close();
+      return;
+    }
     this.ensureCanvasSize(rasterId, canvas, bitmap.width, bitmap.height);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(bitmap, 0, 0);
@@ -216,21 +241,27 @@ export class InkEngine {
   beginPenOverlay(rasterId: string): Ink2DContext {
     this.decode(rasterId);
     this.captureStrokeUndo(rasterId);
+    const dims = this.getRasterDimensions(rasterId);
     let overlay = this.overlays.get(rasterId);
     if (!overlay) {
-      overlay = this.canvasFactory(this.rasterWidth, this.rasterHeight);
+      overlay = this.canvasFactory(dims.width, dims.height);
       this.overlays.set(rasterId, overlay);
     }
-    const ctx = overlay.getContext('2d');
+    let ctx = this.overlayCtx.get(rasterId);
     if (!ctx) {
-      throw new Error('pen overlay 2d context unavailable');
+      const created = overlay.getContext('2d');
+      if (!created) {
+        throw new Error('pen overlay 2d context unavailable');
+      }
+      ctx = created;
+      this.overlayCtx.set(rasterId, ctx);
     }
-    ctx.clearRect(0, 0, this.rasterWidth, this.rasterHeight);
+    ctx.clearRect(0, 0, dims.width, dims.height);
     return ctx;
   }
 
   getPenOverlayContext(rasterId: string): Ink2DContext | null {
-    return this.overlays.get(rasterId)?.getContext('2d') ?? null;
+    return this.overlayCtx.get(rasterId) ?? this.overlays.get(rasterId)?.getContext('2d') ?? null;
   }
 
   /** §9.5 display copy: hot page + live pen overlay at CSS size. */
@@ -252,12 +283,14 @@ export class InkEngine {
     const page = this.decode(rasterId);
     const pageCtx = page.getContext('2d');
     if (!overlay || !pageCtx) {
-      throw new Error(`bakePenOverlay: missing overlay or page for ${rasterId}`);
+      return new ArrayBuffer(0);
     }
+    this.bumpBlitEpoch(rasterId);
     pageCtx.drawImage(overlay as unknown as CanvasImageSource, 0, 0);
     const undoPng = this.takeStrokeUndoPng(rasterId);
-    overlay.getContext('2d')?.clearRect(0, 0, this.rasterWidth, this.rasterHeight);
+    this.overlayCtx.get(rasterId)?.clearRect(0, 0, this.rasterWidth, this.rasterHeight);
     this.overlays.delete(rasterId);
+    this.overlayCtx.delete(rasterId);
     this.invalidateThumb(rasterId);
     void this.generateThumb(rasterId);
     this.startEncode(rasterId);
@@ -267,6 +300,7 @@ export class InkEngine {
 
   cancelPenOverlay(rasterId: string): void {
     this.overlays.delete(rasterId);
+    this.overlayCtx.delete(rasterId);
     this.strokeUndoCanvas.delete(rasterId);
   }
 
@@ -308,7 +342,7 @@ export class InkEngine {
     if (canvas) {
       const ctx = canvas.getContext('2d');
       ctx?.clearRect(0, 0, this.rasterWidth, this.rasterHeight);
-      this.blitEncodedPng(canvas, png, rasterId);
+      this.blitEncodedPng(canvas, png, rasterId, this.bumpBlitEpoch(rasterId));
     }
     this.invalidateThumb(rasterId);
     void this.generateThumb(rasterId);

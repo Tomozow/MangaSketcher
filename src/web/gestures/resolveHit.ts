@@ -1,7 +1,9 @@
 import {
   NUMBER_BAND,
   PAGE_DISPLAY_H,
+  PAGE_NUMBER_BAND,
   buildStripFrames,
+  clampRasterPoint,
   hitStripFrame,
   pageLocalFromWorld,
   screenToWorld,
@@ -9,6 +11,7 @@ import {
 import { pointInRect } from '../../domain/drop';
 import type { ClipId, ClipMeta, PageId, PageText, PasteboardText } from '../../domain/types';
 import { hitClipAt } from '../clip/clipGeometry';
+import { pageInkLocalFromClient, resolvePageDomHit } from './pageInkDom';
 import type { WorkspaceHit } from './types';
 
 export type ResolveWorkspaceHitInput = {
@@ -124,6 +127,11 @@ export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceH
     return textHit;
   }
 
+  const pageDomHit = resolvePageDomHit(input);
+  if (pageDomHit) {
+    return pageDomHit;
+  }
+
   const { frames } = buildStripFrames(input.workspaceOrder);
   const frame = hitStripFrame(frames, worldX, worldY);
   if (!frame) {
@@ -145,22 +153,37 @@ export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceH
   const { pageId } = frame.slot;
   const readingIndex = input.workspaceOrder.indexOf(pageId);
   const inNumberBand =
-    worldY >= frame.y + PAGE_DISPLAY_H && worldY <= frame.y + PAGE_DISPLAY_H + NUMBER_BAND;
+    worldY >= frame.y + PAGE_DISPLAY_H && worldY < frame.y + PAGE_DISPLAY_H + PAGE_NUMBER_BAND;
 
   if (inNumberBand) {
     return { kind: 'pageNumber', pageId, readingIndex };
   }
 
+  if (worldY >= frame.y + frame.height + PAGE_NUMBER_BAND) {
+    return { kind: 'empty' };
+  }
+
   const page = input.pages[pageId];
-  const { x: rasterX, y: rasterY } = pageLocalFromWorld(
+  const domLocal = pageInkLocalFromClient(
+    input.surfaceEl,
+    input.clientX,
+    input.clientY,
+    pageId,
+    input.rasterWidth,
+    input.rasterHeight,
+  );
+  const fallback = pageLocalFromWorld(
     frame,
     worldX,
     worldY,
     input.rasterWidth,
     input.rasterHeight,
   );
+  const rasterX = domLocal?.x ?? fallback.x;
+  const rasterY = domLocal?.y ?? fallback.y;
+  const clamped = clampRasterPoint(rasterX, rasterY, input.rasterWidth, input.rasterHeight);
   const pageTextHit = page
-    ? hitPageTexts(pageId, page.texts, rasterX, rasterY, readingIndex, frame.insertIndex)
+    ? hitPageTexts(pageId, page.texts, clamped.x, clamped.y, readingIndex, frame.insertIndex)
     : null;
   if (pageTextHit) {
     return pageTextHit;
@@ -169,8 +192,8 @@ export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceH
   return {
     kind: 'page',
     pageId,
-    localX: rasterX,
-    localY: rasterY,
+    localX: clamped.x,
+    localY: clamped.y,
     readingIndex,
     insertIndex: frame.insertIndex,
   };
@@ -180,3 +203,49 @@ export function frameForPage(workspaceOrder: PageId[], pageId: PageId) {
   const { frames } = buildStripFrames(workspaceOrder);
   return frames.find((f) => f.slot.kind === 'page' && f.slot.pageId === pageId) ?? null;
 }
+
+/** Raster coords on a locked page, even if the pointer is over a neighbor or off-canvas. */
+export function inkLocalOnPage(
+  input: Pick<
+    ResolveWorkspaceHitInput,
+    | 'clientX'
+    | 'clientY'
+    | 'surfaceEl'
+    | 'workspaceOrder'
+    | 'panX'
+    | 'panY'
+    | 'zoom'
+    | 'rasterWidth'
+    | 'rasterHeight'
+  >,
+  pageId: PageId,
+): { x: number; y: number } | null {
+  const domLocal = pageInkLocalFromClient(
+    input.surfaceEl,
+    input.clientX,
+    input.clientY,
+    pageId,
+    input.rasterWidth,
+    input.rasterHeight,
+  );
+  if (domLocal) {
+    return domLocal;
+  }
+
+  const frame = frameForPage(input.workspaceOrder, pageId);
+  if (!frame) {
+    return null;
+  }
+  const rect = input.surfaceEl.getBoundingClientRect();
+  const { x: worldX, y: worldY } = screenToWorld(
+    input.clientX - rect.left,
+    input.clientY - rect.top,
+    input.panX,
+    input.panY,
+    input.zoom,
+  );
+  const local = pageLocalFromWorld(frame, worldX, worldY, input.rasterWidth, input.rasterHeight);
+  return clampRasterPoint(local.x, local.y, input.rasterWidth, input.rasterHeight);
+}
+
+export { PAGE_NUMBER_BAND, NUMBER_BAND };
