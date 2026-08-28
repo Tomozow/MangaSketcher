@@ -13,6 +13,7 @@ import type { ClipId, ClipMeta, PageId, PageText, PasteboardText, ToolId } from 
 import { hitClipAt } from '../clip/clipGeometry';
 import { pageInkLocalFromClient, resolveAppendDomHit, resolvePageDomHit } from './pageInkDom';
 import { hitPageTextFromDom } from './pageTextDom';
+import { expandTextHitBox } from './textHit';
 import type { WorkspaceHit } from './types';
 
 export type ResolveWorkspaceHitInput = {
@@ -41,10 +42,11 @@ function hitPageTexts(
   localY: number,
   readingIndex: number,
   insertIndex: number,
+  rasterWidth: number,
 ): WorkspaceHit | null {
   for (let i = texts.length - 1; i >= 0; i -= 1) {
     const text = texts[i]!;
-    if (pointInRect(localX, localY, text.box)) {
+    if (pointInRect(localX, localY, expandTextHitBox(text.box, rasterWidth))) {
       return {
         kind: 'pageText',
         textId: text.id,
@@ -138,8 +140,9 @@ function resolvePageWorkspaceHit(
     return pageDomHit;
   }
 
-  if (input.tool === 'text') {
-    return resolveAppendDomHit(input) ?? { kind: 'empty' };
+  const appendHit = resolveAppendDomHit(input);
+  if (appendHit) {
+    return appendHit;
   }
 
   const { frames } = buildStripFrames(input.workspaceOrder);
@@ -174,14 +177,6 @@ function resolvePageWorkspaceHit(
   }
 
   const page = input.pages[pageId];
-  const domLocal = pageInkLocalFromClient(
-    input.surfaceEl,
-    input.clientX,
-    input.clientY,
-    pageId,
-    input.rasterWidth,
-    input.rasterHeight,
-  );
   const fallback = pageLocalFromWorld(
     frame,
     worldX,
@@ -189,11 +184,9 @@ function resolvePageWorkspaceHit(
     input.rasterWidth,
     input.rasterHeight,
   );
-  const rasterX = domLocal?.x ?? fallback.x;
-  const rasterY = domLocal?.y ?? fallback.y;
-  const clamped = clampRasterPoint(rasterX, rasterY, input.rasterWidth, input.rasterHeight);
+  const clamped = clampRasterPoint(fallback.x, fallback.y, input.rasterWidth, input.rasterHeight);
   const pageTextHit = page
-    ? hitPageTexts(pageId, page.texts, clamped.x, clamped.y, readingIndex, frame.insertIndex)
+    ? hitPageTexts(pageId, page.texts, clamped.x, clamped.y, readingIndex, frame.insertIndex, input.rasterWidth)
     : null;
   if (pageTextHit) {
     return pageTextHit;

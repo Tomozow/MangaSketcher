@@ -1,10 +1,18 @@
 import { buildStripFrames, clampRasterPoint } from '../../domain/stripGeometry';
 import type { PageId, PageText } from '../../domain/types';
+import { expandTextHitBox } from './textHit';
 import type { WorkspaceHit } from './types';
 
 export const PAGE_INK_FRAME_ATTR = 'data-page-ink-frame';
+export const PAGE_INK_PLANE_ATTR = 'data-page-ink-plane';
 export const PAGE_NUMBER_BAND_ATTR = 'data-page-number-band';
 export const APPEND_SLOT_ATTR = 'data-append-slot';
+
+/** Border-box of the 216×306 page, excluding overflowing text/delete chrome. */
+export function pageFrameMapRect(pageFrame: HTMLElement): DOMRectReadOnly {
+  const plane = pageFrame.querySelector<HTMLElement>(`[${PAGE_INK_PLANE_ATTR}]`);
+  return (plane ?? pageFrame).getBoundingClientRect();
+}
 
 export function pageInkLocalFromFrameRect(
   frameRect: DOMRectReadOnly,
@@ -33,7 +41,7 @@ export function pageInkLocalFromClient(
   if (!frameEl) {
     return null;
   }
-  const rect = frameEl.getBoundingClientRect();
+  const rect = pageFrameMapRect(frameEl);
   if (rect.width <= 0 || rect.height <= 0) {
     return null;
   }
@@ -60,14 +68,16 @@ function hitPageTexts(
   localY: number,
   readingIndex: number,
   insertIndex: number,
+  rasterWidth: number,
 ): WorkspaceHit | null {
   for (let i = texts.length - 1; i >= 0; i -= 1) {
     const text = texts[i]!;
+    const box = expandTextHitBox(text.box, rasterWidth);
     if (
-      localX >= text.box.x &&
-      localX <= text.box.x + text.box.width &&
-      localY >= text.box.y &&
-      localY <= text.box.y + text.box.height
+      localX >= box.x &&
+      localX <= box.x + box.width &&
+      localY >= box.y &&
+      localY <= box.y + box.height
     ) {
       return {
         kind: 'pageText',
@@ -106,7 +116,7 @@ function pageHitFromFrameEl(
     (item) => item.slot.kind === 'page' && item.slot.pageId === pageId,
   );
   const insertIndex = frame?.insertIndex ?? Math.max(0, readingIndex);
-  const rect = pageFrame.getBoundingClientRect();
+  const rect = pageFrameMapRect(pageFrame);
   const { x: localX, y: localY } = pageInkLocalFromFrameRect(
     rect,
     input.clientX,
@@ -117,7 +127,7 @@ function pageHitFromFrameEl(
 
   const page = input.pages[pageId];
   const pageTextHit = page
-    ? hitPageTexts(pageId, page.texts, localX, localY, readingIndex, insertIndex)
+    ? hitPageTexts(pageId, page.texts, localX, localY, readingIndex, insertIndex, input.rasterWidth)
     : null;
   if (pageTextHit) {
     return pageTextHit;
@@ -180,7 +190,7 @@ function resolvePageDomHitFromRects(input: {
   );
   for (let i = pageFrames.length - 1; i >= 0; i -= 1) {
     const pageFrame = pageFrames[i]!;
-    const rect = pageFrame.getBoundingClientRect();
+    const rect = pageFrameMapRect(pageFrame);
     if (!pointInClientRect(input.clientX, input.clientY, rect)) {
       continue;
     }

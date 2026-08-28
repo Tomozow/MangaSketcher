@@ -255,6 +255,22 @@ describe('Web workspace FSM', () => {
       expect(up.effects).toEqual([{ type: 'selectText', textId: 'tx' }]);
     });
 
+    test('move を挟まず up で 8px 以上ずれても selectText する', () => {
+      const store = createWorkspaceGestureStore();
+      pencilText(store, 'down', { x: 10, y: 10, now: 100 });
+      const up = pencilText(store, 'up', { x: 20, y: 18, now: 150 });
+      expect(up.effects).toEqual([{ type: 'selectText', textId: 'tx' }]);
+    });
+
+    test('page 上の down では createText せず、up で pageText なら selectText', () => {
+      const store = createWorkspaceGestureStore();
+      const down = pencilText(store, 'down', { hit: pageHit, x: 10, y: 10, now: 100 });
+      expect(down.effects.some((e) => e.type === 'createText')).toBe(false);
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('pendingTextCreate');
+      const up = pencilText(store, 'up', { x: 12, y: 11, now: 150 });
+      expect(up.effects).toEqual([{ type: 'selectText', textId: 'tx' }]);
+    });
+
     test('移動 ≥ 8px なら textTransformLive（tap ではない）', () => {
       const store = createWorkspaceGestureStore();
       pencilText(store, 'down', { x: 10, y: 10, now: 100 });

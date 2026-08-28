@@ -1,5 +1,6 @@
 import type { PageId, PageText } from '../../domain/types';
-import { PAGE_INK_FRAME_ATTR, pageInkLocalFromFrameRect } from './pageInkDom';
+import { PAGE_INK_FRAME_ATTR, pageFrameMapRect, pageInkLocalFromFrameRect } from './pageInkDom';
+import { MIN_TEXT_HIT_CSS } from './textHit';
 import type { WorkspaceHit } from './types';
 
 export const PAGE_TEXT_WRAP_ATTR = 'data-page-text-wrap';
@@ -18,6 +19,20 @@ function pointInClientRect(
 ): boolean {
   return (
     clientX >= rect.left &&
+    clientX <= rect.right &&
+    clientY >= rect.top &&
+    clientY <= rect.bottom
+  );
+}
+
+function pointInExpandedClientRect(
+  clientX: number,
+  clientY: number,
+  rect: DOMRectReadOnly,
+): boolean {
+  const extra = Math.max(0, MIN_TEXT_HIT_CSS - rect.width);
+  return (
+    clientX >= rect.left - extra &&
     clientX <= rect.right &&
     clientY >= rect.top &&
     clientY <= rect.bottom
@@ -49,7 +64,7 @@ export function hitPageTextFromDom(input: {
       if (rect.width <= 0 || rect.height <= 0) {
         return null;
       }
-      if (!pointInClientRect(input.clientX, input.clientY, rect)) {
+      if (!pointInExpandedClientRect(input.clientX, input.clientY, rect)) {
         return null;
       }
       const deleteBtn = wrap.querySelector<HTMLElement>(`[${PAGE_TEXT_DELETE_ATTR}]`);
@@ -87,7 +102,7 @@ export function hitPageTextFromDom(input: {
     return null;
   }
 
-  const frameRect = pageFrame.getBoundingClientRect();
+  const frameRect = pageFrameMapRect(pageFrame);
   if (frameRect.width <= 0 || frameRect.height <= 0) {
     return null;
   }

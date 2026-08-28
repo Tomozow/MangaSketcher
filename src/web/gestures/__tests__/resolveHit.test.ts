@@ -68,4 +68,71 @@ describe('resolveWorkspaceHit ink tool priority', () => {
 
     vi.unstubAllGlobals();
   });
+
+  test('text tool falls back to world geometry when DOM page rects miss', () => {
+    vi.stubGlobal('document', {
+      elementFromPoint: () => null,
+    });
+
+    const workspaceOrder = ['p1'];
+    const { frames } = buildStripFrames(workspaceOrder);
+    const pageFrame = frames.find((f) => f.slot.kind === 'page')!;
+    const worldX = pageFrame.x + 40;
+    const worldY = pageFrame.y + 80;
+
+    const surfaceEl = {
+      getBoundingClientRect: () =>
+        ({
+          left: 0,
+          top: 0,
+          width: 2000,
+          height: 3000,
+          right: 2000,
+          bottom: 3000,
+          x: 0,
+          y: 0,
+          toJSON: () => ({}),
+        }) as DOMRect,
+      contains: () => true,
+      querySelector: () => null,
+      querySelectorAll: () => [],
+    } as unknown as HTMLElement;
+
+    const hit = resolveWorkspaceHit({
+      clientX: worldX,
+      clientY: worldY,
+      surfaceEl,
+      workspaceOrder,
+      pages: {
+        p1: {
+          texts: [
+            {
+              id: 'tx1',
+              content: 'あ',
+              color: '#000',
+              fontSize: 18,
+              box: { x: 0, y: 0, width: 400, height: 600 },
+            },
+          ],
+        },
+      },
+      pasteboardClips: [],
+      pasteboardTexts: [],
+      selectedClipId: null,
+      panX: 0,
+      panY: 0,
+      zoom: 1,
+      rasterWidth: 1200,
+      rasterHeight: 1700,
+      getClipRasterSize: () => ({ width: 400, height: 300 }),
+      tool: 'text',
+    });
+
+    expect(hit.kind).toBe('pageText');
+    if (hit.kind === 'pageText') {
+      expect(hit.textId).toBe('tx1');
+    }
+
+    vi.unstubAllGlobals();
+  });
 });

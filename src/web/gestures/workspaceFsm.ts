@@ -377,13 +377,10 @@ function stepTextDrag(
   if (session.mode === 'pendingTextMove') {
     const dist = Math.hypot(input.x - session.startX, input.y - session.startY);
     if (input.phase === 'up' || input.phase === 'cancel') {
-      if (dist < TEXT_MOVE_SLOP) {
-        return {
-          session: { mode: 'idle' },
-          effects: [{ type: 'selectText', textId: session.textId }],
-        };
-      }
-      return { session: { mode: 'idle' }, effects: [] };
+      return {
+        session: { mode: 'idle' },
+        effects: [{ type: 'selectText', textId: session.textId }],
+      };
     }
     if (dist < TEXT_MOVE_SLOP) {
       return { session, effects: [] };
@@ -399,6 +396,33 @@ function stepTextDrag(
       session: { mode: 'moveText', kind: session.kind, ...moveSession },
       effects: textMoveEffects(moveSession, hit, input, input.phase),
     };
+  }
+
+  if (session.mode === 'pendingTextCreate') {
+    const dist = Math.hypot(input.x - session.startX, input.y - session.startY);
+    if (input.phase === 'up' || input.phase === 'cancel') {
+      if (dist >= TEXT_MOVE_SLOP) {
+        return { session: { mode: 'idle' }, effects: [] };
+      }
+      if (isTextBodyHit(hit)) {
+        return {
+          session: { mode: 'idle' },
+          effects: [{ type: 'selectText', textId: hit.textId }],
+        };
+      }
+      if (isPageBodyHit(hit)) {
+        const coords = createTextCoords(hit, input);
+        if (!coords) {
+          return { session: { mode: 'idle' }, effects: [] };
+        }
+        return {
+          session: { mode: 'idle' },
+          effects: [{ type: 'createText', pageId: hit.pageId, x: coords.x, y: coords.y }],
+        };
+      }
+      return { session: { mode: 'idle' }, effects: [] };
+    }
+    return { session, effects: [] };
   }
 
   return null;
@@ -731,13 +755,15 @@ function stepPencilDown(
       };
     }
     if (isPageBodyHit(hit)) {
-      const coords = createTextCoords(hit, input);
-      if (!coords) {
-        return { session: { mode: 'idle' }, effects: [] };
-      }
       return {
-        session: { mode: 'idle' },
-        effects: [{ type: 'createText', pageId: hit.pageId, x: coords.x, y: coords.y }],
+        session: {
+          mode: 'pendingTextCreate',
+          kind: 'pencil',
+          pageId: hit.pageId,
+          startX: input.x,
+          startY: input.y,
+        },
+        effects: [],
       };
     }
   }

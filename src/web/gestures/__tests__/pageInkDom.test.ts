@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { PAGE_INK_FRAME_ATTR, pageInkLocalFromFrameRect, resolvePageDomHit } from '../pageInkDom';
+import { PAGE_INK_FRAME_ATTR, pageFrameMapRect, pageInkLocalFromFrameRect, resolvePageDomHit } from '../pageInkDom';
 
 describe('pageInkLocalFromFrameRect', () => {
   test('maps client coords across the full page frame height', () => {
@@ -28,10 +28,49 @@ describe('pageInkLocalFromFrameRect', () => {
   });
 });
 
+describe('pageFrameMapRect', () => {
+  test('uses the 216×306 plane when the frame overflow rect is taller', () => {
+    const plane = {
+      getBoundingClientRect: () =>
+        ({
+          left: 100,
+          top: 200,
+          width: 216,
+          height: 306,
+          right: 316,
+          bottom: 506,
+          x: 100,
+          y: 200,
+          toJSON: () => ({}),
+        }) as DOMRect,
+    };
+    const pageFrame = {
+      querySelector: () => plane,
+      getBoundingClientRect: () =>
+        ({
+          left: 100,
+          top: 150,
+          width: 216,
+          height: 400,
+          right: 316,
+          bottom: 550,
+          x: 100,
+          y: 150,
+          toJSON: () => ({}),
+        }) as DOMRect,
+    } as unknown as HTMLElement;
+
+    const mapped = pageFrameMapRect(pageFrame);
+    expect(mapped.top).toBe(200);
+    expect(mapped.height).toBe(306);
+  });
+});
+
 describe('resolvePageDomHit rect iteration', () => {
   test('finds page when pointer is over frame rect but elementFromPoint misses', () => {
     const pageFrameEl = {
       getAttribute: (name: string) => (name === PAGE_INK_FRAME_ATTR ? 'p1' : null),
+      querySelector: () => null,
       getBoundingClientRect: () =>
         ({
           left: 100,

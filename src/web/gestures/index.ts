@@ -14,6 +14,7 @@ import { screenToWorld } from '../../domain/stripGeometry';
 import { stepWorkspacePointer } from './workspaceFsm';
 import type { WorkspaceEffect, WorkspaceGestureStore, WorkspaceHit } from './types';
 import { createWorkspaceGestureStore } from './types';
+import { PAGE_TEXT_DELETE_ATTR, PAGE_TEXT_ID_ATTR, PAGE_TEXT_WRAP_ATTR } from './pageTextDom';
 
 export type PointerTarget = 'workspace' | 'pdf' | 'stock' | 'splitter';
 
@@ -42,6 +43,11 @@ export type WorkspacePointerPipeline = {
   bind: (element: HTMLElement, target: PointerTarget) => () => void;
   reset: () => void;
 };
+
+function isTextDeleteTarget(event: PointerEvent): boolean {
+  const el = event.target;
+  return el instanceof Element && el.closest(`[${PAGE_TEXT_DELETE_ATTR}]`) !== null;
+}
 
 function shouldPreventDefault(target: PointerTarget): boolean {
   return target === 'workspace' || target === 'pdf' || target === 'stock' || target === 'splitter';
@@ -137,6 +143,28 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
           desktopNav: pe.pointerType === 'mouse' ? nav : 'none',
         });
         batch.push(...effects);
+        if ((phase === 'down' || phase === 'up') && target === 'workspace') {
+          const wraps = Array.from(element.querySelectorAll<HTMLElement>(`[${PAGE_TEXT_WRAP_ATTR}]`));
+          const nearest = wraps.slice(0, 6).map((wrap) => {
+            const r = wrap.getBoundingClientRect();
+            const cx = pe.clientX;
+            const cy = pe.clientY;
+            const inside = cx >= r.left && cx <= r.right && cy >= r.top && cy <= r.bottom;
+            return {
+              id: wrap.getAttribute(PAGE_TEXT_ID_ATTR),
+              w: Math.round(r.width),
+              h: Math.round(r.height),
+              l: Math.round(r.left),
+              t: Math.round(r.top),
+              r: Math.round(r.right),
+              b: Math.round(r.bottom),
+              inside,
+            };
+          });
+          // #region agent log
+          fetch('/api/debug-log',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({sessionId:'516081',runId:'post-fix',hypothesisId:'A,B,C,D',location:'gestures/index.ts:dispatch',message:'workspace pointer',data:{phase,pointerType:pe.pointerType,kind,tool:ctx.tool,hitKind:hit.kind,textId:'textId' in hit?hit.textId:undefined,localX:'localX' in hit?hit.localX:undefined,localY:'localY' in hit?hit.localY:undefined,effectTypes:effects.map((e)=>e.type),isPrimary:pe.isPrimary,clientX:pe.clientX,clientY:pe.clientY,wrapCount:wraps.length,nearest},timestamp:Date.now()})}).catch(()=>{});
+          // #endregion
+        }
       }
       if (batch.length > 0) {
         ctx.onEffects(mergeLiveInkEffects(batch));
@@ -150,6 +178,9 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
     };
 
     const onPointerDown = (event: PointerEvent) => {
+      if (target === 'workspace' && isTextDeleteTarget(event)) {
+        return;
+      }
       if (event.pointerType === 'mouse') {
         const nav = desktopNavMode();
         if (nav === 'pan' || nav === 'zoom' || (nav === 'none' && event.button === 0)) {

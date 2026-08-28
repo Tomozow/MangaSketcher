@@ -46,7 +46,8 @@ export type WorkspaceSessionMode =
   | 'pendingTextMove'
   | 'moveText'
   | 'resizeText'
-  | 'pendingChromeTap';
+  | 'pendingChromeTap'
+  | 'pendingTextCreate';
 
 export type WorkspaceSession =
   | { mode: 'idle' }
@@ -131,6 +132,13 @@ export type WorkspaceSession =
       mode: 'pendingChromeTap';
       kind: 'pencil';
       hit: WorkspaceHit;
+      startX: number;
+      startY: number;
+    }
+  | {
+      mode: 'pendingTextCreate';
+      kind: 'pencil';
+      pageId: PageId;
       startX: number;
       startY: number;
     };

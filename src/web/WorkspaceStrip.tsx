@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { buildStripFrames, NUMBER_BAND } from '@/src/domain/stripGeometry';
-import { PAGE_INK_FRAME_ATTR, PAGE_NUMBER_BAND_ATTR, APPEND_SLOT_ATTR } from '@/src/web/gestures/pageInkDom';
+import { PAGE_INK_FRAME_ATTR, PAGE_INK_PLANE_ATTR, PAGE_NUMBER_BAND_ATTR, APPEND_SLOT_ATTR } from '@/src/web/gestures/pageInkDom';
 import {
   TEMPLATE_PAGE_NUMBER_COVER,
   type ClipId,
@@ -310,6 +310,7 @@ export function WorkspaceStrip({
                 style={{ backgroundImage: `url(${TEMPLATE_URL})` }}
                 {...{ [PAGE_INK_FRAME_ATTR]: pageId }}
               >
+                <div className={styles.pageInkPlane} {...{ [PAGE_INK_PLANE_ATTR]: '' }} />
                 <div
                   className={styles.templateCover}
                   style={{

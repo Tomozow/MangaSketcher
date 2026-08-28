@@ -1,4 +1,4 @@
-const SHELL_CACHE = 'mangasketcher-shell-v1';
+const SHELL_CACHE = 'mangasketcher-shell-v7';
 const SHELL_ASSETS = ['/page_template.jpg', '/pdf.worker.min.mjs'];
 
 self.addEventListener('install', (event) => {
