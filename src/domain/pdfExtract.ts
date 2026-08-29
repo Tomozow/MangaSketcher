@@ -16,19 +16,41 @@ function fontSizeFromTransform(transform: number[]): number {
 
 function glyphFontSize(item: PdfJsItem): number {
   const fromTransform = fontSizeFromTransform(item.transform);
-  const candidates = [item.width, item.height, fromTransform].filter(
-    (n) => Number.isFinite(n) && n > 0 && n < 40,
-  );
-  if (candidates.length === 0) {
-    return fromTransform || 12;
+  const w = item.width;
+  const h = item.height;
+  const vertical = Number.isFinite(h) && Number.isFinite(w) && h > w * 1.25;
+  if (vertical && w > 0) {
+    return w;
   }
-  return Math.min(...candidates);
+  if (fromTransform > 0 && fromTransform < 80) {
+    return fromTransform;
+  }
+  return (w > 0 && w < 80 ? w : 12) || 12;
+}
+
+function explodeVerticalRun(item: PdfTextItem): PdfTextItem[] {
+  const chars = [...item.str];
+  const em = Math.max(1, item.fontSize || item.width || 1);
+  const run = item.height || em;
+  if (chars.length <= 1 || run <= em * 1.35) {
+    return [item];
+  }
+  const step = run / chars.length;
+  const originY = item.y;
+  return chars.map((str, index) => ({
+    ...item,
+    str,
+    y: originY - (index + 1) * step,
+    width: item.width || em,
+    height: step,
+    fontSize: em,
+  }));
 }
 
 export function pdfJsItemsToDomain(items: PdfJsItem[]): PdfTextItem[] {
-  return items.map((item) => {
+  return items.flatMap((item) => {
     const fontSize = glyphFontSize(item);
-    return {
+    const domain: PdfTextItem = {
       str: item.str,
       x: item.transform[4] ?? 0,
       y: item.transform[5] ?? 0,
@@ -36,6 +58,7 @@ export function pdfJsItemsToDomain(items: PdfJsItem[]): PdfTextItem[] {
       height: item.height || fontSize,
       fontSize,
     };
+    return explodeVerticalRun(domain);
   });
 }
 

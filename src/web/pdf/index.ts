@@ -4,8 +4,8 @@ export { pdfPageViewerKey } from '@/src/domain/pdfView';
 export {
   createPdfGestureStore,
   stepPdfPointer,
-  stepPdfLongPressTimer,
+  cancelPdfSelectionForPinch,
   cancelPdfRangeForPinch,
 } from './pdfGestureFsm';
 export { getOrLoadPdfProxy, dropPdfSession, clearPdfSessions } from './pdfSession';
-export { PDF_WORKER_SRC, PDF_MAX_EDGE, MIN_RANGE_CSS } from './constants';
+export { PDF_WORKER_SRC, PDF_MAX_EDGE, PDF_SHARP_MAX_EDGE, MIN_RANGE_CSS } from './constants';

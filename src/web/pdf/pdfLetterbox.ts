@@ -31,7 +31,13 @@ export function computeLetterbox(
   };
 }
 
-/** Render scale so the long edge of the bitmap is at most maxEdge CSS px × dpr. */
+/** iOS Safari canvas pixel budget (width * height). */
+export const IOS_MAX_CANVAS_AREA = 16_777_216;
+
+/**
+ * pdf.js viewport scale: match on-screen CSS (letterbox × zoom × dpr),
+ * then cap bitmap long edge and total pixels so iPad does not blank the canvas.
+ */
 export function renderScaleForPage(
   pageWidth: number,
   pageHeight: number,
@@ -41,9 +47,17 @@ export function renderScaleForPage(
   dpr: number,
   maxEdge: number,
 ): number {
-  const longCss = Math.max(cssWidth, cssHeight) * Math.max(1, zoom);
-  const longPx = longCss * dpr;
-  const base = Math.max(cssWidth, cssHeight) > 0 ? longPx / Math.max(cssWidth, cssHeight) : 1;
-  const cap = maxEdge / Math.max(pageWidth, pageHeight);
-  return Math.min(base, cap);
+  const pw = Math.max(1, pageWidth);
+  const ph = Math.max(1, pageHeight);
+  const cssW = Math.max(1, cssWidth);
+  const cssH = Math.max(1, cssHeight);
+  const contain = Math.min(cssW / pw, cssH / ph);
+  const desired = contain * Math.max(0.01, zoom) * Math.max(1, dpr);
+  const edgeCap = maxEdge / Math.max(pw, ph);
+  let scale = Math.min(desired, edgeCap);
+  const area = pw * scale * (ph * scale);
+  if (area > IOS_MAX_CANVAS_AREA) {
+    scale *= Math.sqrt(IOS_MAX_CANVAS_AREA / area);
+  }
+  return scale;
 }

@@ -35,17 +35,36 @@ export function stripRuby(items: readonly PdfTextItem[]): PdfTextItem[] {
   });
 }
 
-/** Vertical Japanese: columns right-to-left, characters top-to-bottom. */
-export function joinVerticalBody(items: readonly PdfTextItem[]): string {
+export function sortBodyReadingOrder(items: readonly PdfTextItem[]): PdfTextItem[] {
   const body = stripRuby(items);
-  const sorted = [...body].sort((a, b) => {
+  return [...body].sort((a, b) => {
     const col = b.x - a.x;
     if (Math.abs(col) > Math.max(a.fontSize, b.fontSize) * 0.8) {
       return col;
     }
     return a.y - b.y;
   });
-  return sorted.map((item) => item.str).join('').replace(/\s+/g, '');
+}
+
+/** Vertical Japanese: columns right-to-left, characters top-to-bottom. */
+export function joinVerticalBody(items: readonly PdfTextItem[]): string {
+  return sortBodyReadingOrder(items)
+    .map((item) => item.str)
+    .join('')
+    .replace(/\s+/g, '');
+}
+
+export function sliceReadingRange(
+  sorted: readonly PdfTextItem[],
+  startIndex: number,
+  endIndex: number,
+): PdfTextItem[] {
+  if (sorted.length === 0) {
+    return [];
+  }
+  const lo = Math.max(0, Math.min(startIndex, endIndex));
+  const hi = Math.min(sorted.length - 1, Math.max(startIndex, endIndex));
+  return sorted.slice(lo, hi + 1);
 }
 
 export function rangeSelectBody(

@@ -7,6 +7,7 @@ import {
   type Page,
   type PageId,
   type PageMeta,
+  type PdfDocument,
 } from './types';
 import { cloneRaster, createRaster } from './raster';
 import { DEFAULT_UI_LAYOUT, normalizeUiLayout } from './uiLayout';
@@ -76,6 +77,17 @@ export function createDocument(options: {
   };
 }
 
+export function clonePdfDocument(pdf: PdfDocument): PdfDocument {
+  return {
+    ...pdf,
+    sourceTextByPage: Object.fromEntries(
+      Object.entries(pdf.sourceTextByPage).map(([k, v]) => [k, v.map((i) => ({ ...i }))]),
+    ),
+    extractedGlyphs: (pdf.extractedGlyphs ?? []).map((glyph) => ({ ...glyph })),
+    extractMarkersVisible: pdf.extractMarkersVisible !== false,
+  };
+}
+
 export function cloneDocument(doc: DocumentState): DocumentState {
   const pages: DocumentState['pages'] = {};
   for (const [id, page] of Object.entries(doc.pages)) {
@@ -97,14 +109,7 @@ export function cloneDocument(doc: DocumentState): DocumentState {
     pasteboardTexts: doc.pasteboardTexts.map((t) => ({ ...t, box: { ...t.box } })),
     tools: { ...doc.tools },
     ...normalizeUiLayout(doc),
-    pdf: doc.pdf
-      ? {
-          ...doc.pdf,
-          sourceTextByPage: Object.fromEntries(
-            Object.entries(doc.pdf.sourceTextByPage).map(([k, v]) => [k, v.map((i) => ({ ...i }))]),
-          ),
-        }
-      : null,
+    pdf: doc.pdf ? clonePdfDocument(doc.pdf) : null,
   };
 }
 
@@ -186,14 +191,7 @@ export function cloneEditorDocument(doc: EditorDocument): EditorDocument {
     pasteboardTexts: doc.pasteboardTexts.map((t) => ({ ...t, box: { ...t.box } })),
     tools: { ...doc.tools },
     ...normalizeUiLayout(doc),
-    pdf: doc.pdf
-      ? {
-          ...doc.pdf,
-          sourceTextByPage: Object.fromEntries(
-            Object.entries(doc.pdf.sourceTextByPage).map(([k, v]) => [k, v.map((i) => ({ ...i }))]),
-          ),
-        }
-      : null,
+    pdf: doc.pdf ? clonePdfDocument(doc.pdf) : null,
   };
 }
 

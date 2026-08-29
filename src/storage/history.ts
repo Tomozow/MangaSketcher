@@ -17,6 +17,7 @@ export function isViewOnlyHistoryAction(actionType: string): boolean {
     actionType === 'setWorkspaceView' ||
     actionType === 'setStockView' ||
     actionType === 'setPdfView' ||
+    actionType === 'setPdfExtractMarkersVisible' ||
     actionType === 'selectClip' ||
     actionType === 'selectText' ||
     actionType === 'setUiLayout'

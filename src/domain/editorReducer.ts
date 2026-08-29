@@ -24,6 +24,7 @@ const VIEW_ONLY = new Set<string>([
   'setWorkspaceView',
   'setStockView',
   'setPdfView',
+  'setPdfExtractMarkersVisible',
   'selectClip',
   'selectText',
   'setUiLayout',
@@ -36,6 +37,7 @@ type ViewOnlyEditorAction =
   | { type: 'setWorkspaceView'; zoom: number; panX: number; panY: number }
   | { type: 'setStockView'; zoom: number; panX: number; panY: number }
   | { type: 'setPdfView'; currentPage?: number; zoom?: number; panX?: number; panY?: number }
+  | { type: 'setPdfExtractMarkersVisible'; visible: boolean }
   | { type: 'selectClip'; clipId: ClipId | null }
   | { type: 'selectText'; textId: TextId | null }
   | {
@@ -105,12 +107,16 @@ export type EditorDocumentAction =
       generation?: number;
     }
   | { type: 'setPdfView'; currentPage?: number; zoom?: number; panX?: number; panY?: number }
+  | { type: 'setPdfExtractMarkersVisible'; visible: boolean }
   | {
       type: 'dropPdfTextRange';
       pdfPage: number;
       range: Rect;
       attachment: { kind: 'page'; pageId: PageId } | { kind: 'pasteboard' };
       box: Rect;
+      content?: string;
+      glyphs?: Array<{ x: number; y: number; width: number; height: number }>;
+      fontSize?: number;
     }
   | {
       type: 'setUiLayout';
@@ -471,6 +477,8 @@ export function reduceEditorDocument(
         panY: sameSource ? doc.pdf!.panY : 0,
         sourceTextByPage: a.sourceTextByPage,
         generation: a.generation ?? (sameSource ? doc.pdf!.generation : 1),
+        extractedGlyphs: [],
+        extractMarkersVisible: sameSource ? doc.pdf!.extractMarkersVisible !== false : true,
       };
       return doc;
     }
@@ -481,13 +489,19 @@ export function reduceEditorDocument(
       const source = doc.pdf.sourceTextByPage[a.pdfPage] ?? [];
       const snapshot = source.map((item) => ({ ...item }));
       const selected = rangeSelectBody(source, a.range);
-      const content = joinVerticalBody(selected);
+      const content = a.content ?? joinVerticalBody(selected);
+      const glyphs = a.glyphs ?? selected.map((item) => ({
+        x: item.x,
+        y: item.y,
+        width: item.width,
+        height: item.height,
+      }));
       const id = ids();
       const text = {
         id,
         content,
         box: { ...a.box },
-        fontSize: doc.tools.textFontSize,
+        fontSize: a.fontSize ?? doc.tools.textFontSize,
         color: doc.tools.textColor,
       };
       if (a.attachment.kind === 'page') {
@@ -497,6 +511,10 @@ export function reduceEditorDocument(
       }
       doc.selectedTextId = id;
       doc.pdf.sourceTextByPage[a.pdfPage] = snapshot;
+      doc.pdf.extractedGlyphs = [
+        ...(doc.pdf.extractedGlyphs ?? []),
+        ...glyphs.map((glyph) => ({ page: a.pdfPage, ...glyph })),
+      ];
       return doc;
     }
     default: {
@@ -556,6 +574,14 @@ function reduceEditorDocumentViewOnly(
         pdf.panY = action.panY;
       }
       return { ...state, pdf };
+    case 'setPdfExtractMarkersVisible':
+      if (!state.pdf) {
+        return state;
+      }
+      return {
+        ...state,
+        pdf: { ...state.pdf, extractMarkersVisible: action.visible },
+      };
     case 'selectClip':
       return {
         ...state,

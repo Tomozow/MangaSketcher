@@ -9,6 +9,7 @@ import {
 } from './types';
 import { pageRasterId } from './rasterIds';
 import { randomId } from './randomId';
+import { clonePdfDocument } from '../domain/document';
 
 export type IdFactory = () => string;
 
@@ -86,17 +87,7 @@ export function cloneEditorDocument(doc: EditorDocument): EditorDocument {
     pasteboardClips: doc.pasteboardClips.map((clip) => ({ ...clip })),
     pasteboardTexts: doc.pasteboardTexts.map((text) => ({ ...text, box: { ...text.box } })),
     tools: { ...doc.tools },
-    pdf: doc.pdf
-      ? {
-          ...doc.pdf,
-          sourceTextByPage: Object.fromEntries(
-            Object.entries(doc.pdf.sourceTextByPage).map(([key, items]) => [
-              key,
-              items.map((item) => ({ ...item })),
-            ]),
-          ),
-        }
-      : null,
+    pdf: doc.pdf ? clonePdfDocument(doc.pdf) : null,
   };
 }
 

@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useId, useState } from 'react';
-import type { PdfTextItem, Rect } from '@/src/domain/types';
+import type { PdfExtractedGlyph, PdfTextItem } from '@/src/domain/types';
 import { styles } from '@/src/web/editorStyles';
-import { PdfPageViewer } from './PdfPageViewer';
+import { PdfPageViewer, type PdfExtractPayload } from './PdfPageViewer';
 import { getOrLoadPdfProxy } from './pdfSession';
 
 export type PdfPanePdfState = {
@@ -15,6 +15,8 @@ export type PdfPanePdfState = {
   panX: number;
   panY: number;
   sourceTextByPage: Record<number, PdfTextItem[]>;
+  extractedGlyphs?: PdfExtractedGlyph[];
+  extractMarkersVisible?: boolean;
 };
 
 export type PdfPaneProps = {
@@ -30,7 +32,8 @@ export type PdfPaneProps = {
     panY?: number;
   }) => void;
   onPickPdf?: (file: File) => void | Promise<void>;
-  onDropTextRange?: (payload: { pdfPage: number; range: Rect; preview: string }) => void;
+  onExtractText?: (payload: PdfExtractPayload) => void;
+  onToggleExtractMarkers?: (visible: boolean) => void;
 };
 
 export function PdfPane({
@@ -41,7 +44,8 @@ export function PdfPane({
   pdf,
   onViewChange,
   onPickPdf,
-  onDropTextRange,
+  onExtractText,
+  onToggleExtractMarkers,
 }: PdfPaneProps) {
   const inputId = useId();
   const [mediaSize, setMediaSize] = useState({ width: 1032, height: 729 });
@@ -123,10 +127,13 @@ export function PdfPane({
       panY={pdf.panY}
       pdfBytes={pdfBytes}
       sourceTextByPage={pdf.sourceTextByPage}
+      extractedGlyphs={pdf.extractedGlyphs}
+      extractMarkersVisible={pdf.extractMarkersVisible !== false}
       mediaWidth={mediaSize.width}
       mediaHeight={mediaSize.height}
       onViewChange={onViewChange}
-      onDropTextRange={onDropTextRange}
+      onExtractText={onExtractText}
+      onToggleExtractMarkers={onToggleExtractMarkers}
     />
   );
 }

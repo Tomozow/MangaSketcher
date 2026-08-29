@@ -201,6 +201,7 @@ describe('シナリオ: PDF 本文抽出とドロップ', () => {
     });
     expect(doc.pasteboardTexts[0].content).toBe('本文です');
     expect(JSON.stringify(doc.pdf?.sourceTextByPage[1])).toBe(before);
+    expect(doc.pdf?.extractedGlyphs?.length).toBeGreaterThan(0);
 
     const textId = doc.pasteboardTexts[0].id;
     doc = apply(doc, { type: 'selectText', textId });
@@ -466,7 +467,7 @@ describe('シナリオ: ポインタ分担（指はパン、ペンはインク�
     expect(workspacePointerPolicy('finger')).toMatchObject({ pan: true, grabPage: true, ink: false });
     expect(workspacePointerPolicy('pencil')).toMatchObject({ ink: true, pan: false });
     expect(pdfPointerPolicy('finger').rangeSelect).toBe(true);
-    expect(pdfPointerPolicy('pencil').rangeSelect).toBe(false);
+    expect(pdfPointerPolicy('pencil').rangeSelect).toBe(true);
     expect(stockPointerPolicy('finger')).toEqual({ pan: true, dragPage: true });
     expect(stockPointerPolicy('pencil')).toEqual({ pan: false, dragPage: false });
   });

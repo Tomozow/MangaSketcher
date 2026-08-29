@@ -79,12 +79,16 @@ export type DocumentAction =
       generation?: number;
     }
   | { type: 'setPdfView'; currentPage?: number; zoom?: number; panX?: number; panY?: number }
+  | { type: 'setPdfExtractMarkersVisible'; visible: boolean }
   | {
       type: 'dropPdfTextRange';
       pdfPage: number;
       range: Rect;
       attachment: { kind: 'page'; pageId: PageId } | { kind: 'pasteboard' };
       box: Rect;
+      content?: string;
+      glyphs?: Array<{ x: number; y: number; width: number; height: number }>;
+      fontSize?: number;
     }
   | {
       type: 'setUiLayout';
@@ -473,6 +477,8 @@ export function reduceTestDocument(
         panY: sameSource ? doc.pdf!.panY : 0,
         sourceTextByPage: action.sourceTextByPage,
         generation: action.generation ?? (sameSource ? doc.pdf!.generation : 1),
+        extractedGlyphs: [],
+        extractMarkersVisible: sameSource ? doc.pdf!.extractMarkersVisible !== false : true,
       };
       return doc;
     }
@@ -493,6 +499,12 @@ export function reduceTestDocument(
         doc.pdf.panY = action.panY;
       }
       return doc;
+    case 'setPdfExtractMarkersVisible':
+      if (!doc.pdf) {
+        return doc;
+      }
+      doc.pdf.extractMarkersVisible = action.visible;
+      return doc;
     case 'dropPdfTextRange': {
       if (!doc.pdf) {
         return doc;
@@ -500,13 +512,19 @@ export function reduceTestDocument(
       const source = doc.pdf.sourceTextByPage[action.pdfPage] ?? [];
       const snapshot = source.map((item) => ({ ...item }));
       const selected = rangeSelectBody(source, action.range);
-      const content = joinVerticalBody(selected);
+      const content = action.content ?? joinVerticalBody(selected);
+      const glyphs = action.glyphs ?? selected.map((item) => ({
+        x: item.x,
+        y: item.y,
+        width: item.width,
+        height: item.height,
+      }));
       const id = ids();
       const text = {
         id,
         content,
         box: { ...action.box },
-        fontSize: doc.tools.textFontSize,
+        fontSize: action.fontSize ?? doc.tools.textFontSize,
         color: doc.tools.textColor,
       };
       if (action.attachment.kind === 'page') {
@@ -516,6 +534,10 @@ export function reduceTestDocument(
       }
       doc.selectedTextId = id;
       doc.pdf.sourceTextByPage[action.pdfPage] = snapshot;
+      doc.pdf.extractedGlyphs = [
+        ...(doc.pdf.extractedGlyphs ?? []),
+        ...glyphs.map((glyph) => ({ page: action.pdfPage, ...glyph })),
+      ];
       return doc;
     }
     case 'setUiLayout':

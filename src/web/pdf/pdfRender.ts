@@ -12,6 +12,7 @@ export type PdfRenderLayout = {
   containerHeight: number;
   zoom: number;
   dpr: number;
+  maxEdge?: number;
 };
 
 export async function renderPdfPageToCanvas(
@@ -37,13 +38,13 @@ export async function renderPdfPageToCanvas(
     cssH,
     layout.zoom,
     layout.dpr,
-    PDF_MAX_EDGE,
+    layout.maxEdge ?? PDF_MAX_EDGE,
   );
-  const viewport = page.getViewport({ scale: scale * layout.zoom });
+  const viewport = page.getViewport({ scale });
   canvas.width = Math.floor(viewport.width);
   canvas.height = Math.floor(viewport.height);
-  canvas.style.width = `${cssW}px`;
-  canvas.style.height = `${cssH}px`;
+  canvas.style.width = `${cssW * Math.max(0.01, layout.zoom)}px`;
+  canvas.style.height = `${cssH * Math.max(0.01, layout.zoom)}px`;
 
   const ctx = canvas.getContext('2d');
   if (!ctx) {

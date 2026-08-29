@@ -1,4 +1,4 @@
-import { rangeSelectBody, stripRuby } from './pdfText';
+import { rangeSelectBody, stripRuby, sortBodyReadingOrder } from './pdfText';
 import type { PdfTextItem, Rect } from './types';
 
 /** InDesign landscape novel spread MediaBox (sample.pdf). */
@@ -31,19 +31,31 @@ export function viewRectToPdf(
   return { x: pdfX, y: pdfY, width: pdfW, height: pdfH };
 }
 
+function isVerticalPdfRun(item: PdfTextItem): boolean {
+  const em = Math.max(1, item.fontSize || item.width || 1);
+  const h = item.height || em;
+  const w = item.width || em;
+  return h > em * 1.35 && h >= w;
+}
+
 export function pdfItemToView(
   item: PdfTextItem,
   viewW: number,
   viewH: number,
   media = DEFAULT_PDF_MEDIA,
 ): Rect {
-  const glyphH = Math.min(item.height || item.fontSize, item.fontSize * 4);
-  const glyphW = Math.min(item.width || item.fontSize, viewW);
+  const em = Math.max(1, item.fontSize || 1);
+  const glyphW = Math.max(1, item.width || em);
+  const glyphH = Math.max(1, item.height || em);
+  const pdfX = item.x;
+  const pdfH = glyphH;
+  const pdfW = isVerticalPdfRun(item) ? Math.max(glyphW, em) : glyphW;
+  const pdfY = isVerticalPdfRun(item) ? item.y - pdfH : item.y;
   return {
-    x: (item.x / media.width) * viewW,
-    y: (1 - (item.y + glyphH) / media.height) * viewH,
-    width: Math.max(4, (glyphW / media.width) * viewW),
-    height: Math.max(4, (glyphH / media.height) * viewH),
+    x: (pdfX / media.width) * viewW,
+    y: (1 - (pdfY + pdfH) / media.height) * viewH,
+    width: Math.max(1, (pdfW / media.width) * viewW),
+    height: Math.max(1, (pdfH / media.height) * viewH),
   };
 }
 
@@ -63,4 +75,89 @@ export function selectPdfBodyRange(
 
 export function bodyItemsForOverlay(source: readonly PdfTextItem[]): PdfTextItem[] {
   return stripRuby(source);
+}
+
+export function unionPdfItems(items: readonly PdfTextItem[]): Rect | null {
+  if (items.length === 0) {
+    return null;
+  }
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const item of items) {
+    minX = Math.min(minX, item.x);
+    minY = Math.min(minY, item.y);
+    maxX = Math.max(maxX, item.x + item.width);
+    maxY = Math.max(maxY, item.y + item.height);
+  }
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+function distToRect(x: number, y: number, rect: Rect): number {
+  const dx = Math.max(rect.x - x, 0, x - (rect.x + rect.width));
+  const dy = Math.max(rect.y - y, 0, y - (rect.y + rect.height));
+  return Math.hypot(dx, dy);
+}
+
+export function hitBodyReadingIndex(
+  source: readonly PdfTextItem[],
+  viewX: number,
+  viewY: number,
+  viewW: number,
+  viewH: number,
+  media = DEFAULT_PDF_MEDIA,
+  slop = 0,
+): number | null {
+  const sorted = sortBodyReadingOrder(source);
+  let bestExact: number | null = null;
+  let bestExactArea = Infinity;
+  let nearest: number | null = null;
+  let nearestDist = Infinity;
+  for (let i = 0; i < sorted.length; i += 1) {
+    const rect = pdfItemToView(sorted[i], viewW, viewH, media);
+    if (
+      viewX >= rect.x &&
+      viewX <= rect.x + rect.width &&
+      viewY >= rect.y &&
+      viewY <= rect.y + rect.height
+    ) {
+      const area = rect.width * rect.height;
+      if (area < bestExactArea) {
+        bestExactArea = area;
+        bestExact = i;
+      }
+    }
+    const dist = distToRect(viewX, viewY, rect);
+    if (dist < nearestDist) {
+      nearestDist = dist;
+      nearest = i;
+    }
+  }
+  if (bestExact != null) {
+    return bestExact;
+  }
+  if (slop > 0 && nearest != null && nearestDist <= slop) {
+    const nearestRect = pdfItemToView(sorted[nearest], viewW, viewH, media);
+    const dx = Math.max(nearestRect.x - viewX, 0, viewX - (nearestRect.x + nearestRect.width));
+    if (dx <= slop) {
+      return nearest;
+    }
+  }
+  return null;
+}
+
+export function isExtractedGlyph(
+  item: PdfTextItem,
+  page: number,
+  glyphs: readonly { page: number; x: number; y: number; width: number; height: number }[],
+): boolean {
+  return glyphs.some(
+    (glyph) =>
+      glyph.page === page &&
+      Math.abs(glyph.x - item.x) < 0.5 &&
+      Math.abs(glyph.y - item.y) < 0.5 &&
+      Math.abs(glyph.width - item.width) < 0.5 &&
+      Math.abs(glyph.height - item.height) < 0.5,
+  );
 }

@@ -620,6 +620,43 @@ body {
   box-sizing: border-box;
 }
 
+.ms-pdfGlyphMarker {
+  position: absolute;
+  background: rgba(255, 214, 64, 0.38);
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.ms-pdfGlyphSelect {
+  position: absolute;
+  background: rgba(64, 128, 255, 0.35);
+  pointer-events: none;
+  box-sizing: border-box;
+}
+
+.ms-pdfSelectHandle {
+  position: absolute;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid var(--ms-accent);
+  box-sizing: border-box;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.ms-pdfExtractButton {
+  position: absolute;
+  z-index: 4;
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--ms-border);
+  border-radius: 8px;
+  background: var(--ms-surface);
+  color: var(--ms-text);
+  font-size: 14px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
 .ms-pdfRenderError {
   position: absolute;
   inset: 0;

@@ -64,8 +64,8 @@ export function workspacePointerPolicy(kind: PointerKind): {
   return { pan: false, grabPage: false, ink: true, marquee: true, text: true };
 }
 
-export function pdfPointerPolicy(kind: PointerKind): { rangeSelect: boolean } {
-  return { rangeSelect: kind === 'finger' };
+export function pdfPointerPolicy(_kind: PointerKind): { rangeSelect: boolean } {
+  return { rangeSelect: true };
 }
 
 export function stockPointerPolicy(kind: PointerKind): { pan: boolean; dragPage: boolean } {

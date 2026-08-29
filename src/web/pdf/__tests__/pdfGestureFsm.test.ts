@@ -1,11 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { pdfPageViewerKey } from '../../../domain/pdfView';
-import { LONG_PRESS_MS, PAN_SLOP } from '../../../domain/workspaceGestures';
-import {
-  createPdfGestureStore,
-  stepPdfLongPressTimer,
-  stepPdfPointer,
-} from '../pdfGestureFsm';
+import { PAN_SLOP } from '../../../domain/workspaceGestures';
+import { createPdfGestureStore, stepPdfPointer } from '../pdfGestureFsm';
 
 function finger(
   store: ReturnType<typeof createPdfGestureStore>,
@@ -21,6 +17,8 @@ function finger(
     now: 0,
     panX: 0,
     panY: 0,
+    hitIndex: null,
+    handle: null,
     ...overrides,
   });
 }
@@ -34,53 +32,58 @@ describe('pdfPageViewerKey', () => {
   });
 });
 
-describe('PDF パン vs 範囲 (§8.6 / §13.1)', () => {
-  test('12px 未満 420ms → range', () => {
+describe('PDF 選択 vs パン', () => {
+  test('グリフ上ドラッグは選択', () => {
     const store = createPdfGestureStore();
-    finger(store, 'down', { now: 0 });
-    const effects = finger(store, 'move', { now: LONG_PRESS_MS + 1, x: 2, y: 1 });
-    expect(effects.some((effect) => effect.type === 'pdfRangePreview')).toBe(true);
-    expect(store.session?.mode).toBe('range');
+    finger(store, 'down', { hitIndex: 2, x: 10, y: 10 });
+    const effects = finger(store, 'move', { hitIndex: 5, x: 10 + PAN_SLOP + 4, y: 10 });
+    expect(effects.some((effect) => effect.type === 'pdfSelectionChange')).toBe(true);
+    expect(store.session?.mode).toBe('select');
+    expect(store.selection).toEqual({ startIndex: 2, endIndex: 5 });
   });
 
-  test('12px 未満 100ms で up → キャンセル', () => {
+  test('空きの短いタップは選択解除', () => {
     const store = createPdfGestureStore();
-    finger(store, 'down', { now: 0 });
-    const effects = finger(store, 'up', { now: 100, x: 1, y: 0 });
-    expect(effects).toEqual([{ type: 'pdfRangeCancel' }]);
+    store.selection = { startIndex: 0, endIndex: 2 };
+    finger(store, 'down', { now: 0, hitIndex: null });
+    const cleared = finger(store, 'up', { now: 80, x: 1, y: 0, hitIndex: null });
+    expect(cleared).toEqual([{ type: 'pdfSelectionClear' }]);
+    expect(store.selection).toBeNull();
   });
 
-  test('12px 超 100ms → pan', () => {
+  test('12px 超の空きドラッグはパン', () => {
     const store = createPdfGestureStore();
-    finger(store, 'down', { now: 0, panX: 5, panY: 7 });
-    const effects = finger(store, 'move', { now: 100, x: PAN_SLOP + 3, y: 0 });
+    finger(store, 'down', { now: 0, panX: 5, panY: 7, hitIndex: null });
+    const effects = finger(store, 'move', { now: 100, x: PAN_SLOP + 3, y: 0, hitIndex: null });
     expect(effects).toEqual([{ type: 'pdfPan', panX: 5 + PAN_SLOP + 3, panY: 7 }]);
     expect(store.session?.mode).toBe('pan');
   });
 
-  test('長押しタイマーで静止 finger が range に入る', () => {
+  test('Pencil でもグリフ上ドラッグは選択', () => {
     const store = createPdfGestureStore();
-    finger(store, 'down', { now: 0, x: 10, y: 10 });
-    finger(store, 'move', { now: 50, x: 10, y: 10 });
-    const effects = stepPdfLongPressTimer(store, LONG_PRESS_MS);
-    expect(effects).toEqual([
-      { type: 'pdfRangePreview', rect: { x: 10, y: 10, width: 0, height: 0 } },
-    ]);
-  });
-
-  test('Pencil は no-op', () => {
-    const store = createPdfGestureStore();
-    const effects = stepPdfPointer(store, {
+    stepPdfPointer(store, {
       pointerId: 2,
       kind: 'pencil',
       phase: 'down',
-      x: 0,
-      y: 0,
+      x: 10,
+      y: 10,
       now: 0,
       panX: 0,
       panY: 0,
+      hitIndex: 2,
     });
-    expect(effects).toEqual([]);
-    expect(store.session).toBeNull();
+    const effects = stepPdfPointer(store, {
+      pointerId: 2,
+      kind: 'pencil',
+      phase: 'move',
+      x: 10 + PAN_SLOP + 4,
+      y: 10,
+      now: 1,
+      panX: 0,
+      panY: 0,
+      hitIndex: 5,
+    });
+    expect(effects.some((effect) => effect.type === 'pdfSelectionChange')).toBe(true);
+    expect(store.selection).toEqual({ startIndex: 2, endIndex: 5 });
   });
 });

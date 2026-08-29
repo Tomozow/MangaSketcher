@@ -10,6 +10,7 @@ const VIEW_ONLY = new Set([
   'setWorkspaceView',
   'setStockView',
   'setPdfView',
+  'setPdfExtractMarkersVisible',
   'selectClip',
   'selectText',
   'setUiLayout',

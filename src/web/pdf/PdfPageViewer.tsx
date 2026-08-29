@@ -1,24 +1,38 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { pointerKindFromWeb } from '@/src/input/pointerEvents';
-import { joinVerticalBody } from '@/src/domain/pdfText';
-import { selectPdfBodyRange, viewRectToPdf } from '@/src/domain/pdfLayout';
-import { pdfPageViewerKey } from '@/src/domain/pdfView';
-import type { PdfTextItem, Rect } from '@/src/domain/types';
-import { styles } from '@/src/web/editorStyles';
-import { LONG_PRESS_MS } from './constants';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { pointerKindFromWeb, isPencilHover } from '@/src/input/pointerEvents';
+import { joinVerticalBody, sliceReadingRange, sortBodyReadingOrder } from '@/src/domain/pdfText';
 import {
-  cancelPdfRangeForPinch,
-  clearPdfPendingRange,
+  hitBodyReadingIndex,
+  isExtractedGlyph,
+  pdfItemToView,
+  unionPdfItems,
+} from '@/src/domain/pdfLayout';
+import { pdfPageViewerKey } from '@/src/domain/pdfView';
+import type { PdfExtractedGlyph, PdfTextItem, Rect } from '@/src/domain/types';
+import { styles } from '@/src/web/editorStyles';
+import { PDF_MAX_EDGE, PDF_SHARP_MAX_EDGE } from './constants';
+import {
+  cancelPdfSelectionForPinch,
+  clearPdfSelection,
   createPdfGestureStore,
-  stepPdfLongPressTimer,
   stepPdfPointer,
   type PdfGestureStore,
+  type PdfSelection,
 } from './pdfGestureFsm';
 import { computeLetterbox } from './pdfLetterbox';
 import { renderPdfPageToCanvas } from './pdfRender';
 import { getOrLoadPdfProxy } from './pdfSession';
+
+const TOUCH_HIT_SLOP_PX = 24;
+
+export type PdfExtractPayload = {
+  pdfPage: number;
+  range: Rect;
+  preview: string;
+  glyphs: Array<{ x: number; y: number; width: number; height: number }>;
+};
 
 export type PdfPageViewerProps = {
   opfsPath: string;
@@ -30,6 +44,8 @@ export type PdfPageViewerProps = {
   panY: number;
   pdfBytes: ArrayBuffer;
   sourceTextByPage: Record<number, PdfTextItem[]>;
+  extractedGlyphs?: PdfExtractedGlyph[];
+  extractMarkersVisible?: boolean;
   mediaWidth: number;
   mediaHeight: number;
   onViewChange?: (patch: {
@@ -38,19 +54,43 @@ export type PdfPageViewerProps = {
     panX?: number;
     panY?: number;
   }) => void;
-  onDropTextRange?: (payload: {
-    pdfPage: number;
-    range: Rect;
-    preview: string;
-  }) => void;
+  onExtractText?: (payload: PdfExtractPayload) => void;
+  onToggleExtractMarkers?: (visible: boolean) => void;
 };
 
-function localPoint(canvas: HTMLCanvasElement, clientX: number, clientY: number): { x: number; y: number } {
+function canvasScreenPoint(
+  canvas: HTMLCanvasElement,
+  clientX: number,
+  clientY: number,
+): { x: number; y: number } {
   const rect = canvas.getBoundingClientRect();
-  return {
-    x: clientX - rect.left,
-    y: clientY - rect.top,
-  };
+  return { x: clientX - rect.left, y: clientY - rect.top };
+}
+
+function canvasLocalFromScreen(
+  screen: { x: number; y: number },
+  scale: number,
+): { x: number; y: number } {
+  const s = Math.max(0.01, scale);
+  return { x: screen.x / s, y: screen.y / s };
+}
+
+function handleAtPoint(
+  x: number,
+  y: number,
+  startRect: Rect,
+  endRect: Rect,
+  radius: number,
+): 'start' | 'end' | null {
+  const start = { x: startRect.x + startRect.width / 2, y: startRect.y };
+  const end = { x: endRect.x + endRect.width / 2, y: endRect.y + endRect.height };
+  if (Math.hypot(x - start.x, y - start.y) <= radius) {
+    return 'start';
+  }
+  if (Math.hypot(x - end.x, y - end.y) <= radius) {
+    return 'end';
+  }
+  return null;
 }
 
 export function PdfPageViewer({
@@ -63,15 +103,17 @@ export function PdfPageViewer({
   panY,
   pdfBytes,
   sourceTextByPage,
+  extractedGlyphs = [],
+  extractMarkersVisible = true,
   mediaWidth,
   mediaHeight,
   onViewChange,
-  onDropTextRange,
+  onExtractText,
+  onToggleExtractMarkers,
 }: PdfPageViewerProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const gestureRef = useRef<PdfGestureStore>(createPdfGestureStore());
-  const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
   const pinchRef = useRef<{
     startDistance: number;
@@ -79,18 +121,38 @@ export function PdfPageViewer({
     startPanX: number;
     startPanY: number;
   } | null>(null);
-  const [rangePreview, setRangePreview] = useState<Rect | null>(null);
+  const [selection, setSelection] = useState<PdfSelection | null>(null);
   const [livePinchScale, setLivePinchScale] = useState(1);
   const livePinchScaleRef = useRef(1);
+  const [livePanX, setLivePanX] = useState(panX);
+  const [livePanY, setLivePanY] = useState(panY);
+  const livePanXRef = useRef(panX);
+  const livePanYRef = useRef(panY);
   const [renderError, setRenderError] = useState<string | null>(null);
+  const [buttonPos, setButtonPos] = useState<{ left: number; top: number } | null>(null);
   const viewerKey = pdfPageViewerKey(opfsPath, currentPage, generation);
+  const media = useMemo(
+    () => ({ width: mediaWidth, height: mediaHeight }),
+    [mediaWidth, mediaHeight],
+  );
+  const pinchScale = livePinchScale;
 
-  const clearLongPressTimer = useCallback(() => {
-    if (longPressTimerRef.current) {
-      clearTimeout(longPressTimerRef.current);
-      longPressTimerRef.current = null;
-    }
+  useEffect(() => {
+    livePanXRef.current = panX;
+    livePanYRef.current = panY;
+    setLivePanX(panX);
+    setLivePanY(panY);
+  }, [viewerKey]);
+
+  const clearSelection = useCallback(() => {
+    clearPdfSelection(gestureRef.current);
+    setSelection(null);
+    setButtonPos(null);
   }, []);
+
+  useEffect(() => {
+    clearSelection();
+  }, [clearSelection, currentPage]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -102,26 +164,35 @@ export function PdfPageViewer({
     let cancelled = false;
     let renderTask: { cancel: () => void } | null = null;
 
+    const paint = async (maxEdge: number) => {
+      const proxy = await getOrLoadPdfProxy(opfsPath, generation, pdfBytes);
+      if (cancelled) {
+        return;
+      }
+      const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+      const task = await renderPdfPageToCanvas(proxy, currentPage, canvas, {
+        containerWidth: viewport.clientWidth,
+        containerHeight: viewport.clientHeight,
+        zoom,
+        dpr,
+        maxEdge,
+      });
+      if (cancelled) {
+        task?.cancel();
+        return;
+      }
+      renderTask = task;
+      await task?.promise;
+    };
+
     void (async () => {
       try {
-        setRenderError(null);
-        const proxy = await getOrLoadPdfProxy(opfsPath, generation, pdfBytes);
+        setRenderError((prev) => (prev == null ? prev : null));
+        await paint(PDF_MAX_EDGE);
         if (cancelled) {
           return;
         }
-        const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-        const task = await renderPdfPageToCanvas(proxy, currentPage, canvas, {
-          containerWidth: viewport.clientWidth,
-          containerHeight: viewport.clientHeight,
-          zoom,
-          dpr,
-        });
-        if (cancelled) {
-          task?.cancel();
-          return;
-        }
-        renderTask = task;
-        await task?.promise;
+        await paint(PDF_SHARP_MAX_EDGE);
       } catch (err) {
         if (!cancelled) {
           setRenderError(err instanceof Error ? err.message : 'PDF render failed');
@@ -135,47 +206,63 @@ export function PdfPageViewer({
     };
   }, [viewerKey, opfsPath, generation, currentPage, pdfBytes, zoom]);
 
+  const sortedBody = sortBodyReadingOrder(sourceTextByPage[currentPage] ?? []);
+  const selectedItems =
+    selection != null ? sliceReadingRange(sortedBody, selection.startIndex, selection.endIndex) : [];
+
   const applyGestureEffects = useCallback(
     (effects: ReturnType<typeof stepPdfPointer>) => {
       for (const effect of effects) {
         if (effect.type === 'pdfPan') {
-          onViewChange?.({ panX: effect.panX, panY: effect.panY });
-        } else if (effect.type === 'pdfRangePreview') {
-          setRangePreview(effect.rect);
-        } else if (effect.type === 'pdfRangeCommit') {
-          setRangePreview(null);
-          const source = sourceTextByPage[currentPage] ?? [];
-          const canvas = canvasRef.current;
-          const viewW = Math.max(1, canvas?.clientWidth ?? mediaWidth);
-          const viewH = Math.max(1, canvas?.clientHeight ?? mediaHeight);
-          const media = { width: mediaWidth, height: mediaHeight };
-          const selected = selectPdfBodyRange(
-            source,
-            effect.rect,
-            viewW,
-            viewH,
-            media,
-            zoom,
-            panX,
-            panY,
-          );
-          const preview = joinVerticalBody(selected);
-          if (preview.length > 0) {
-            const pdfRange = viewRectToPdf(effect.rect, viewW, viewH, media, zoom, panX, panY);
-            onDropTextRange?.({
-              pdfPage: currentPage,
-              range: pdfRange,
-              preview,
-            });
-          }
-          clearPdfPendingRange(gestureRef.current);
-        } else if (effect.type === 'pdfRangeCancel' || effect.type === 'cancelRangeForPinch') {
-          setRangePreview(null);
-          clearPdfPendingRange(gestureRef.current);
+          livePanXRef.current = effect.panX;
+          livePanYRef.current = effect.panY;
+          setLivePanX(effect.panX);
+          setLivePanY(effect.panY);
+        } else if (effect.type === 'pdfSelectionChange' || effect.type === 'pdfSelectionCommit') {
+          setSelection({ startIndex: effect.startIndex, endIndex: effect.endIndex });
+        } else if (effect.type === 'pdfSelectionClear') {
+          setSelection(null);
+          setButtonPos(null);
+        } else if (effect.type === 'cancelSelectionForPinch') {
+          // keep committed selection
         }
       }
     },
-    [currentPage, mediaHeight, mediaWidth, onDropTextRange, onViewChange, panX, panY, sourceTextByPage, zoom],
+    [],
+  );
+
+  const resolveHit = useCallback(
+    (event: { clientX: number; clientY: number }) => {
+      const canvas = canvasRef.current;
+      if (!canvas) {
+        return {
+          screen: { x: 0, y: 0 },
+          local: { x: 0, y: 0 },
+          hitIndex: null as number | null,
+          handle: null as 'start' | 'end' | null,
+        };
+      }
+      const screen = canvasScreenPoint(canvas, event.clientX, event.clientY);
+      const local = canvasLocalFromScreen(screen, pinchScale);
+      const viewW = Math.max(1, canvas.clientWidth);
+      const viewH = Math.max(1, canvas.clientHeight);
+      const handleRadius = 7;
+      const slop = TOUCH_HIT_SLOP_PX / Math.max(0.01, pinchScale);
+      const source = sourceTextByPage[currentPage] ?? [];
+      const exactHit = hitBodyReadingIndex(source, local.x, local.y, viewW, viewH, media, 0);
+      let handle: 'start' | 'end' | null = null;
+      if (exactHit == null && selection && selectedItems.length > 0) {
+        const first = pdfItemToView(selectedItems[0], viewW, viewH, media);
+        const last = pdfItemToView(selectedItems[selectedItems.length - 1], viewW, viewH, media);
+        handle = handleAtPoint(local.x, local.y, first, last, handleRadius);
+      }
+      const hitIndex =
+        handle != null
+          ? null
+          : (exactHit ?? hitBodyReadingIndex(source, local.x, local.y, viewW, viewH, media, slop));
+      return { screen, local, hitIndex, handle };
+    },
+    [currentPage, media, pinchScale, selectedItems, selection, sourceTextByPage],
   );
 
   const commitPinch = useCallback(() => {
@@ -184,11 +271,27 @@ export function PdfPageViewer({
       return;
     }
     const nextZoom = Math.max(0.25, Math.min(8, pinch.startZoom * livePinchScaleRef.current));
-    onViewChange?.({ zoom: nextZoom, panX, panY });
+    const canvas = canvasRef.current;
+    const viewport = viewportRef.current;
+    if (canvas && viewport) {
+      const box = computeLetterbox(
+        viewport.clientWidth,
+        viewport.clientHeight,
+        mediaWidth,
+        mediaHeight,
+      );
+      canvas.style.width = `${box.width * nextZoom}px`;
+      canvas.style.height = `${box.height * nextZoom}px`;
+    }
     pinchRef.current = null;
     livePinchScaleRef.current = 1;
     setLivePinchScale(1);
-  }, [onViewChange, panX, panY]);
+    onViewChange?.({
+      zoom: nextZoom,
+      panX: livePanXRef.current,
+      panY: livePanYRef.current,
+    });
+  }, [mediaHeight, mediaWidth, onViewChange]);
 
   const updatePinch = useCallback(() => {
     const points = [...pointersRef.current.values()];
@@ -206,7 +309,7 @@ export function PdfPageViewer({
 
   const handlePointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      if (event.pointerType === 'pen') {
+      if (isPencilHover(event, pointerKindFromWeb(event))) {
         return;
       }
       const canvas = canvasRef.current;
@@ -214,59 +317,56 @@ export function PdfPageViewer({
         return;
       }
       event.currentTarget.setPointerCapture(event.pointerId);
-      const point = localPoint(canvas, event.clientX, event.clientY);
-      pointersRef.current.set(event.pointerId, point);
+      const hit = resolveHit(event);
+      const client = { x: event.clientX, y: event.clientY };
+      pointersRef.current.set(event.pointerId, client);
 
       if (pointersRef.current.size >= 2) {
-        clearLongPressTimer();
         gestureRef.current.session = null;
-        applyGestureEffects(cancelPdfRangeForPinch(gestureRef.current));
+        applyGestureEffects(cancelPdfSelectionForPinch(gestureRef.current));
         const points = [...pointersRef.current.values()];
         const [a, b] = points;
         pinchRef.current = {
           startDistance: Math.max(1, Math.hypot(b.x - a.x, b.y - a.y)),
           startZoom: zoom,
-          startPanX: panX,
-          startPanY: panY,
+          startPanX: livePanXRef.current,
+          startPanY: livePanYRef.current,
         };
         return;
       }
 
       if (event.isPrimary) {
-        const now = performance.now();
         const effects = stepPdfPointer(gestureRef.current, {
           pointerId: event.pointerId,
           kind: pointerKindFromWeb({ pointerType: event.pointerType }),
           phase: 'down',
-          x: point.x,
-          y: point.y,
-          now,
-          panX,
-          panY,
+          x: client.x,
+          y: client.y,
+          now: performance.now(),
+          panX: livePanXRef.current,
+          panY: livePanYRef.current,
+          hitIndex: hit.hitIndex,
+          handle: hit.handle,
         });
         applyGestureEffects(effects);
-        clearLongPressTimer();
-        longPressTimerRef.current = setTimeout(() => {
-          const tickEffects = stepPdfLongPressTimer(gestureRef.current, performance.now());
-          applyGestureEffects(tickEffects);
-        }, LONG_PRESS_MS);
       }
     },
-    [applyGestureEffects, clearLongPressTimer, panX, panY, zoom],
+    [zoom, applyGestureEffects, resolveHit],
   );
 
   const handlePointerMove = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      if (event.pointerType === 'pen') {
+      if (isPencilHover(event, pointerKindFromWeb(event))) {
         return;
       }
       const canvas = canvasRef.current;
       if (!canvas) {
         return;
       }
-      const point = localPoint(canvas, event.clientX, event.clientY);
+      const hit = resolveHit(event);
+      const client = { x: event.clientX, y: event.clientY };
       if (pointersRef.current.has(event.pointerId)) {
-        pointersRef.current.set(event.pointerId, point);
+        pointersRef.current.set(event.pointerId, client);
       }
 
       if (pointersRef.current.size >= 2) {
@@ -278,26 +378,21 @@ export function PdfPageViewer({
         pointerId: event.pointerId,
         kind: pointerKindFromWeb({ pointerType: event.pointerType }),
         phase: 'move',
-        x: point.x,
-        y: point.y,
+        x: client.x,
+        y: client.y,
         now: performance.now(),
-        panX,
-        panY,
+        panX: livePanXRef.current,
+        panY: livePanYRef.current,
+        hitIndex: hit.hitIndex,
+        handle: hit.handle,
       });
-      if (effects.some((effect) => effect.type === 'pdfPan' || effect.type === 'pdfRangePreview')) {
-        clearLongPressTimer();
-      }
       applyGestureEffects(effects);
     },
-    [applyGestureEffects, clearLongPressTimer, panX, panY, updatePinch],
+    [applyGestureEffects, resolveHit, updatePinch],
   );
 
   const handlePointerUp = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      clearLongPressTimer();
-      if (event.pointerType === 'pen') {
-        return;
-      }
       const canvas = canvasRef.current;
       if (!canvas) {
         return;
@@ -310,25 +405,27 @@ export function PdfPageViewer({
         return;
       }
 
-      const point = localPoint(canvas, event.clientX, event.clientY);
+      const hit = resolveHit(event);
       const effects = stepPdfPointer(gestureRef.current, {
         pointerId: event.pointerId,
         kind: pointerKindFromWeb({ pointerType: event.pointerType }),
         phase: 'up',
-        x: point.x,
-        y: point.y,
+        x: event.clientX,
+        y: event.clientY,
         now: performance.now(),
-        panX,
-        panY,
+        panX: livePanXRef.current,
+        panY: livePanYRef.current,
+        hitIndex: hit.hitIndex,
+        handle: hit.handle,
       });
       applyGestureEffects(effects);
+      onViewChange?.({ panX: livePanXRef.current, panY: livePanYRef.current });
     },
-    [applyGestureEffects, clearLongPressTimer, commitPinch, panX, panY],
+    [applyGestureEffects, commitPinch, onViewChange, resolveHit],
   );
 
   const handlePointerCancel = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
-      clearLongPressTimer();
       pointersRef.current.delete(event.pointerId);
       if (pinchRef.current && pointersRef.current.size < 2) {
         commitPinch();
@@ -337,28 +434,60 @@ export function PdfPageViewer({
       if (!canvas) {
         return;
       }
-      const point = localPoint(canvas, event.clientX, event.clientY);
+      const hit = resolveHit(event);
       applyGestureEffects(
         stepPdfPointer(gestureRef.current, {
           pointerId: event.pointerId,
           kind: pointerKindFromWeb({ pointerType: event.pointerType }),
           phase: 'cancel',
-          x: point.x,
-          y: point.y,
+          x: event.clientX,
+          y: event.clientY,
           now: performance.now(),
-          panX,
-          panY,
+          panX: livePanXRef.current,
+          panY: livePanYRef.current,
+          hitIndex: hit.hitIndex,
+          handle: hit.handle,
         }),
       );
+      onViewChange?.({ panX: livePanXRef.current, panY: livePanYRef.current });
     },
-    [applyGestureEffects, clearLongPressTimer, commitPinch, panX, panY],
+    [applyGestureEffects, commitPinch, onViewChange, resolveHit],
   );
 
   useEffect(() => {
-    return () => {
-      clearLongPressTimer();
-    };
-  }, [clearLongPressTimer]);
+    const canvas = canvasRef.current;
+    const viewport = viewportRef.current;
+    if (!canvas || !viewport || selectedItems.length === 0) {
+      setButtonPos((prev) => (prev === null ? prev : null));
+      return;
+    }
+    const viewW = Math.max(1, canvas.clientWidth);
+    const viewH = Math.max(1, canvas.clientHeight);
+    const canvasRect = canvas.getBoundingClientRect();
+    const viewportRect = viewport.getBoundingClientRect();
+    let left = Infinity;
+    let top = Infinity;
+    let right = -Infinity;
+    let bottom = -Infinity;
+    for (const item of selectedItems) {
+      const rect = pdfItemToView(item, viewW, viewH, media);
+      const sl = canvasRect.left + rect.x * pinchScale;
+      const st = canvasRect.top + rect.y * pinchScale;
+      left = Math.min(left, sl);
+      top = Math.min(top, st);
+      right = Math.max(right, sl + rect.width * pinchScale);
+      bottom = Math.max(bottom, st + rect.height * pinchScale);
+    }
+    const localLeft = (left + right) / 2 - viewportRect.left - 40;
+    let localTop = top - viewportRect.top - 48;
+    if (localTop < 8) {
+      localTop = bottom - viewportRect.top + 8;
+    }
+    const next = { left: Math.max(8, localLeft), top: Math.max(8, localTop) };
+    setButtonPos((prev) =>
+      prev && prev.left === next.left && prev.top === next.top ? prev : next,
+    );
+  }, [pinchScale, livePanX, livePanY, selection?.startIndex, selection?.endIndex, currentPage, mediaWidth, mediaHeight, sourceTextByPage]);
 
   const letterbox = computeLetterbox(
     viewportRef.current?.clientWidth ?? 400,
@@ -372,6 +501,40 @@ export function PdfPageViewer({
     if (next !== currentPage) {
       onViewChange?.({ currentPage: next });
     }
+  };
+
+  const canvas = canvasRef.current;
+  const viewW = Math.max(1, canvas?.clientWidth ?? letterbox.width);
+  const viewH = Math.max(1, canvas?.clientHeight ?? letterbox.height);
+  const handleRadius = 7;
+  const firstSelectedRect =
+    selectedItems.length > 0 ? pdfItemToView(selectedItems[0], viewW, viewH, media) : null;
+  const lastSelectedRect =
+    selectedItems.length > 0
+      ? pdfItemToView(selectedItems[selectedItems.length - 1], viewW, viewH, media)
+      : null;
+
+  const extract = () => {
+    if (selectedItems.length === 0) {
+      return;
+    }
+    const preview = joinVerticalBody(selectedItems);
+    const range = unionPdfItems(selectedItems);
+    if (!preview || !range) {
+      return;
+    }
+    onExtractText?.({
+      pdfPage: currentPage,
+      range,
+      preview,
+      glyphs: selectedItems.map((item) => ({
+        x: item.x,
+        y: item.y,
+        width: item.width,
+        height: item.height,
+      })),
+    });
+    clearSelection();
   };
 
   return (
@@ -391,6 +554,14 @@ export function PdfPageViewer({
         >
           次
         </button>
+        <button
+          type="button"
+          className={styles.pdfNavButton}
+          aria-pressed={extractMarkersVisible}
+          onClick={() => onToggleExtractMarkers?.(!extractMarkersVisible)}
+        >
+          マーカー
+        </button>
       </div>
       <div
         ref={viewportRef}
@@ -403,24 +574,83 @@ export function PdfPageViewer({
         <div
           className={styles.pdfTransform}
           style={{
-            transform: `translate(${panX}px, ${panY}px) scale(${zoom * livePinchScale})`,
+            transform: `translate(${livePanX}px, ${livePanY}px) scale(${pinchScale})`,
             left: letterbox.offsetX,
             top: letterbox.offsetY,
           }}
         >
           <canvas ref={canvasRef} className={styles.pdfCanvas} key={viewerKey} />
-          {rangePreview ? (
-            <div
-              className={styles.pdfRangeOverlay}
-              style={{
-                left: rangePreview.x,
-                top: rangePreview.y,
-                width: rangePreview.width,
-                height: rangePreview.height,
-              }}
-            />
+          {extractMarkersVisible
+            ? sortedBody
+                .filter((item) => isExtractedGlyph(item, currentPage, extractedGlyphs))
+                .map((item, index) => {
+                  const rect = pdfItemToView(item, viewW, viewH, media);
+                  return (
+                    <div
+                      key={`m-${index}-${item.x}-${item.y}`}
+                      className={styles.pdfGlyphMarker}
+                      style={{
+                        left: rect.x,
+                        top: rect.y,
+                        width: rect.width,
+                        height: rect.height,
+                      }}
+                    />
+                  );
+                })
+            : null}
+          {selectedItems.map((item, index) => {
+            const rect = pdfItemToView(item, viewW, viewH, media);
+            return (
+              <div
+                key={`s-${index}-${item.x}-${item.y}`}
+                className={styles.pdfGlyphSelect}
+                style={{
+                  left: rect.x,
+                  top: rect.y,
+                  width: rect.width,
+                  height: rect.height,
+                }}
+              />
+            );
+          })}
+          {firstSelectedRect && lastSelectedRect ? (
+            <>
+              <div
+                className={styles.pdfSelectHandle}
+                style={{
+                  left: firstSelectedRect.x + firstSelectedRect.width / 2 - handleRadius,
+                  top: firstSelectedRect.y - handleRadius,
+                  width: handleRadius * 2,
+                  height: handleRadius * 2,
+                }}
+              />
+              <div
+                className={styles.pdfSelectHandle}
+                style={{
+                  left: lastSelectedRect.x + lastSelectedRect.width / 2 - handleRadius,
+                  top: lastSelectedRect.y + lastSelectedRect.height - handleRadius,
+                  width: handleRadius * 2,
+                  height: handleRadius * 2,
+                }}
+              />
+            </>
           ) : null}
         </div>
+        {buttonPos && selectedItems.length > 0 ? (
+          <button
+            type="button"
+            className={styles.pdfExtractButton}
+            style={{ left: buttonPos.left, top: buttonPos.top }}
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              extract();
+            }}
+          >
+            切り出し
+          </button>
+        ) : null}
         {renderError ? <div className={styles.pdfRenderError}>{renderError}</div> : null}
       </div>
     </div>

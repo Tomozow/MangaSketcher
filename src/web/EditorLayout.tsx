@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useCallback, useState } from 'react';
 import { mainPaneFlex, nextSplitFromDrag, sidebarPaneFlex } from '@/src/domain/uiLayout';
-import type { PageId, Rect } from '@/src/domain/types';
+import type { PageId } from '@/src/domain/types';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
 import type { EditorDocument, EditorHistory } from '@/src/storage/types';
 import type { AutosaveStatus } from '@/src/storage/autosave';
@@ -19,6 +19,7 @@ import { StockPane, type WorkspaceGrab } from './StockPane';
 import { PageInkOverlay } from './PageInkOverlay';
 import { TextEditBar } from './TextEditBar';
 import type { TextEditSelection } from '@/src/web/TextEditBar';
+import type { PdfExtractPayload } from '@/src/web/pdf/PdfPageViewer';
 import { WorkspaceStrip } from './WorkspaceStrip';
 
 type EditorLayoutProps = {
@@ -47,7 +48,7 @@ type EditorLayoutProps = {
     panY?: number;
   }) => void;
   onPickPdf: (file: File) => Promise<void>;
-  onDropTextRange: (payload: { pdfPage: number; range: Rect; preview: string }) => void;
+  onExtractPdfText: (payload: PdfExtractPayload) => void;
   inkEngine: InkEngine | null;
   inkFrame: number;
   marqueePreview: MarqueePreview | null;
@@ -75,7 +76,7 @@ export function EditorLayout({
   pdfBytes,
   onPdfViewChange,
   onPickPdf,
-  onDropTextRange,
+  onExtractPdfText,
   inkEngine,
   inkFrame,
   marqueePreview,
@@ -271,12 +272,17 @@ export function EditorLayout({
                           panX: doc.pdf.panX,
                           panY: doc.pdf.panY,
                           sourceTextByPage: doc.pdf.sourceTextByPage,
+                          extractedGlyphs: doc.pdf.extractedGlyphs,
+                          extractMarkersVisible: doc.pdf.extractMarkersVisible,
                         }
                       : null
                   }
                   onViewChange={onPdfViewChange}
                   onPickPdf={onPickPdf}
-                  onDropTextRange={onDropTextRange}
+                  onExtractText={onExtractPdfText}
+                  onToggleExtractMarkers={(visible) =>
+                    dispatch({ type: 'setPdfExtractMarkersVisible', visible })
+                  }
                 />
               </div>
             </>

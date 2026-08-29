@@ -2,9 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { dropActions } from '@/src/domain/drop';
 import { reduceEditorDocument, type EditorDocumentAction } from '@/src/domain/editorReducer';
 import { extractPdfSourceText } from '@/src/domain/pdfExtract';
+import {
+  nextExtractPack,
+  startExtractPack,
+  extractedTextBoxSize,
+  workspaceFontSizeFromTool,
+  type ExtractPackCursor,
+} from '@/src/domain/pdfExtractPack';
 import { brushRadius } from '@/src/domain/pointers';
 import { clampRasterPoint, pageLocalFromWorld, screenToWorld } from '@/src/domain/stripGeometry';
 import { defaultTextBox, findText, isTextContentEmpty, clampTextBoxOrigin } from '@/src/domain/text';
@@ -50,19 +56,12 @@ import {
   type InkEngineApi,
   repaintInkDisplay,
 } from '@/src/web/ink';
-import type { PageId, Rect } from '@/src/domain/types';
-import { resolveWorkspaceHit } from '@/src/web/gestures/resolveHit';
+import type { PageId } from '@/src/domain/types';
 import { textBoxForOwnerMove } from '@/src/web/gestures/elementInteraction';
-import { PDF_WORKER_SRC } from '@/src/web/pdf/constants';
-import { dropPdfSession } from '@/src/web/pdf/pdfSession';
+import type { PdfExtractPayload } from '@/src/web/pdf/PdfPageViewer';
+import { dropPdfSession, getOrLoadPdfProxy } from '@/src/web/pdf/pdfSession';
 
 import type { TextEditSelection } from '@/src/web/TextEditBar';
-
-type PendingPdfTextDrag = {
-  pdfPage: number;
-  range: Rect;
-  preview: string;
-};
 
 export type MarqueePreview = {
   pageId: PageId;
@@ -106,7 +105,7 @@ type EditorController = {
     panY?: number;
   }) => void;
   onPickPdf: (file: File) => Promise<void>;
-  onDropTextRange: (payload: PendingPdfTextDrag) => void;
+  onExtractPdfText: (payload: PdfExtractPayload) => void;
 };
 
 function selectedTextFromDocument(doc: EditorDocument): TextEditSelection | null {
@@ -260,7 +259,6 @@ export function useEditorController(projectId: string): EditorController {
   const [history, setHistory] = useState<EditorHistory | null>(null);
   const [pdfMissing, setPdfMissing] = useState(false);
   const [pdfBytes, setPdfBytes] = useState<ArrayBuffer | null>(null);
-  const [pendingPdfTextDrop, setPendingPdfTextDrop] = useState(false);
   const [textEditing, setTextEditing] = useState(false);
   const [bootEncodedPng, setBootEncodedPng] = useState<ReadonlyMap<string, ArrayBuffer>>(new Map());
   const [inkFrame, setInkFrame] = useState(0);
@@ -317,7 +315,7 @@ export function useEditorController(projectId: string): EditorController {
   const templateImageRef = useRef<HTMLImageElement | null>(null);
   const inkApiRef = useRef<InkEngineApi | null>(null);
   const lastLiveInkRef = useRef(new Map<string, StrokePoint>());
-  const pendingPdfTextRef = useRef<PendingPdfTextDrag | null>(null);
+  const extractPackRef = useRef<ExtractPackCursor | null>(null);
   historyRef.current = history;
 
   const bumpInkFrame = useCallback(() => {
@@ -512,6 +510,16 @@ export function useEditorController(projectId: string): EditorController {
           return prev;
         }
         const viewOnly = isViewOnlyHistoryAction(action.type);
+        if (action.type === 'setWorkspaceView') {
+          const prevView = prev.present;
+          if (
+            prevView.workspaceZoom !== action.zoom ||
+            prevView.workspacePanX !== action.panX ||
+            prevView.workspacePanY !== action.panY
+          ) {
+            extractPackRef.current = null;
+          }
+        }
         const nextPresent = reduceEditorDocument(prev.present, action, randomId);
         const nextHistory = pushEditorHistory(prev, nextPresent, inkUndoRef.current, viewOnly);
         persist(nextHistory, viewOnly);
@@ -1006,17 +1014,15 @@ export function useEditorController(projectId: string): EditorController {
       // pdf.js / OPFS may detach the buffer they receive; keep an owned copy for React state.
       const owned = buffer.slice(0);
       const opfsPath = await writeProjectPdf(projectId, owned.slice(0));
-      const extractBytes = new Uint8Array(owned.slice(0));
-      const { pageCount, sourceTextByPage } = await extractPdfSourceText(extractBytes, async (data) => {
-        const pdfjs = await import('pdfjs-dist');
-        pdfjs.GlobalWorkerOptions.workerSrc = PDF_WORKER_SRC;
-        return pdfjs.getDocument({ data: data.slice() }).promise;
-      });
-
       const nextGeneration = (present.pdf?.generation ?? 0) + 1;
       if (present.pdf) {
         dropPdfSession(present.pdf.opfsPath, present.pdf.generation);
       }
+
+      const extractBytes = new Uint8Array(owned.slice(0));
+      const { pageCount, sourceTextByPage } = await extractPdfSourceText(extractBytes, (data) =>
+        getOrLoadPdfProxy(opfsPath, nextGeneration, data),
+      );
 
       setPdfBytes(owned);
       setPdfMissing(false);
@@ -1036,112 +1042,51 @@ export function useEditorController(projectId: string): EditorController {
     [dispatch, projectId],
   );
 
-  const onDropTextRange = useCallback((payload: PendingPdfTextDrag) => {
-    pendingPdfTextRef.current = payload;
-    setPendingPdfTextDrop(true);
-  }, []);
-
-  useEffect(() => {
-    if (!pendingPdfTextDrop) {
-      return;
-    }
-
-    const onPointerUp = (event: PointerEvent) => {
-      if (event.pointerType !== 'finger') {
-        return;
-      }
-      const pending = pendingPdfTextRef.current;
+  const onExtractPdfText = useCallback(
+    (payload: PdfExtractPayload) => {
       const present = historyRef.current?.present;
-      if (!pending || !present) {
+      if (!present || payload.preview.length === 0) {
         return;
       }
-
       const pane = document.getElementById('editor-workspace-pane');
-      const surfaceEl = pane?.firstElementChild;
-      if (!(surfaceEl instanceof HTMLElement)) {
+      if (!pane) {
         return;
       }
-
-      const rect = surfaceEl.getBoundingClientRect();
-      if (
-        event.clientX < rect.left ||
-        event.clientX > rect.right ||
-        event.clientY < rect.top ||
-        event.clientY > rect.bottom
-      ) {
-        return;
-      }
-
-      const hit = resolveWorkspaceHit({
-        clientX: event.clientX,
-        clientY: event.clientY,
-        surfaceEl,
-        workspaceOrder: present.workspaceOrder,
-        pages: present.pages,
-        pasteboardClips: present.pasteboardClips,
-        pasteboardTexts: present.pasteboardTexts,
-        selectedClipId: present.selectedClipId,
-        panX: present.workspacePanX,
-        panY: present.workspacePanY,
-        zoom: present.workspaceZoom,
-        rasterWidth: present.rasterWidth,
-        rasterHeight: present.rasterHeight,
-        getClipRasterSize: (clipId) => {
-          const clip = present.pasteboardClips.find((c) => c.id === clipId);
-          if (!clip) {
-            return { width: 1, height: 1 };
-          }
-          return (
-            inkApiRef.current?.engine.getRasterDimensions(clip.rasterId) ?? { width: 1, height: 1 }
-          );
-        },
-      });
-
-      let target: Parameters<typeof dropActions>[1] | null = null;
-      if (hit.kind === 'page') {
-        target = {
-          zone: 'page',
-          pageId: hit.pageId,
-          localX: hit.localX,
-          localY: hit.localY,
-        };
-      } else if (hit.kind === 'empty' || hit.kind === 'pasteboardText' || hit.kind === 'clip') {
-        const localX = event.clientX - rect.left;
-        const localY = event.clientY - rect.top;
-        const { x, y } = screenToWorld(
-          localX,
-          localY,
-          present.workspacePanX,
-          present.workspacePanY,
-          present.workspaceZoom,
-        );
-        target = { zone: 'pasteboard', x, y };
-      }
-
-      if (!target) {
-        return;
-      }
-
-      const actions = dropActions(
-        { type: 'pdfText', pdfPage: pending.pdfPage, range: pending.range, preview: pending.preview },
-        target,
-        present.rasterWidth,
-        present.rasterHeight,
+      const zoom = Math.max(0.01, present.workspaceZoom);
+      const topLeft = screenToWorld(0, 0, present.workspacePanX, present.workspacePanY, zoom);
+      const bottomRight = screenToWorld(
+        pane.clientWidth,
+        pane.clientHeight,
+        present.workspacePanX,
+        present.workspacePanY,
+        zoom,
       );
-      if (actions.length === 0) {
-        return;
-      }
-
-      pendingPdfTextRef.current = null;
-      setPendingPdfTextDrop(false);
-      for (const action of actions) {
-        dispatch(action as EditorDocumentAction);
-      }
-    };
-
-    document.addEventListener('pointerup', onPointerUp, true);
-    return () => document.removeEventListener('pointerup', onPointerUp, true);
-  }, [dispatch, pendingPdfTextDrop]);
+      const viewport = {
+        left: topLeft.x,
+        top: topLeft.y,
+        right: bottomRight.x,
+        bottom: bottomRight.y,
+        zoom,
+      };
+      const fontSize = workspaceFontSizeFromTool(present.tools.textFontSize, present.rasterWidth);
+      const size = extractedTextBoxSize(payload.preview, fontSize);
+      const packed = extractPackRef.current
+        ? nextExtractPack(extractPackRef.current, size)
+        : startExtractPack(viewport, size);
+      extractPackRef.current = packed.cursor;
+      dispatch({
+        type: 'dropPdfTextRange',
+        pdfPage: payload.pdfPage,
+        range: payload.range,
+        attachment: { kind: 'pasteboard' },
+        box: packed.box,
+        content: payload.preview,
+        glyphs: payload.glyphs,
+        fontSize,
+      });
+    },
+    [dispatch],
+  );
 
   const undo = useCallback(() => {
     clipLiveRef.current.clear();
@@ -1289,7 +1234,7 @@ export function useEditorController(projectId: string): EditorController {
     redo,
     onPdfViewChange,
     onPickPdf,
-    onDropTextRange,
+    onExtractPdfText,
   };
 }
 

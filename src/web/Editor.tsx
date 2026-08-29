@@ -29,7 +29,7 @@ export default function Editor({ projectId }: EditorProps) {
     redo,
     onPdfViewChange,
     onPickPdf,
-    onDropTextRange,
+    onExtractPdfText,
     ink,
     inkFrame,
     marqueePreview,
@@ -113,7 +113,7 @@ export default function Editor({ projectId }: EditorProps) {
         onRedo={redo}
         onPdfViewChange={onPdfViewChange}
         onPickPdf={onPickPdf}
-        onDropTextRange={onDropTextRange}
+        onExtractPdfText={onExtractPdfText}
         inkEngine={ink?.engine ?? null}
         inkFrame={inkFrame}
         marqueePreview={marqueePreview}

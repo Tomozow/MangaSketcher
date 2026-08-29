@@ -96,6 +96,14 @@ export type ToolProperties = {
   textFontSize: number;
 };
 
+export type PdfExtractedGlyph = {
+  page: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+};
+
 export type PdfDocument = {
   pageCount: number;
   currentPage: number;
@@ -106,6 +114,10 @@ export type PdfDocument = {
   sourceTextByPage: Record<number, PdfTextItem[]>;
   opfsPath: string;
   generation: number;
+  /** Glyph boxes already copied to the workspace (non-destructive). */
+  extractedGlyphs?: PdfExtractedGlyph[];
+  /** PDF-pane toggle; default on. */
+  extractMarkersVisible?: boolean;
 };
 
 export type PdfTextItem = {
