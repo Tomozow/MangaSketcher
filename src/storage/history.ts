@@ -56,7 +56,7 @@ export function pushEditorHistory(
     return {
       present: cloneEditorDocument(nextPresent),
       past: history.past,
-      future: [],
+      future: history.future,
     };
   }
   const pastEntry: EditorHistoryEntry = {

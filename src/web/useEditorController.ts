@@ -75,15 +75,22 @@ type PendingInkHistoryItem = { rasterId: string; canvas: OffscreenCanvas };
 function consumePendingInkHistory(
   history: EditorHistory,
   pending: PendingInkHistoryItem[],
-  inkUndo: Map<string, InkUndoPixels>,
 ): EditorHistory {
   let next = history;
   for (const item of pending) {
-    inkUndo.set(item.rasterId, item.canvas);
+    const inkUndo = new Map<string, InkUndoPixels>([[item.rasterId, item.canvas]]);
     const nextPresent = reduceEditorDocument(next.present, { type: 'commitInkBake', rasterId: item.rasterId }, randomId);
     next = pushEditorHistory(next, nextPresent, inkUndo, false);
   }
   return next;
+}
+
+function takePendingInkUndo(
+  inkUndo: Map<string, InkUndoPixels>,
+): Map<string, InkUndoPixels> {
+  const pending = new Map(inkUndo);
+  inkUndo.clear();
+  return pending;
 }
 
 export type MarqueePreview = {
@@ -330,6 +337,7 @@ export function useEditorController(projectId: string): EditorController {
       present.rasterWidth,
       present.rasterHeight,
     );
+    const pendingInkUndo = takePendingInkUndo(inkUndoRef.current);
     setHistory((prev) => {
       if (!prev) {
         return prev;
@@ -340,7 +348,7 @@ export function useEditorController(projectId: string): EditorController {
         box: { x: centered.x, y: centered.y, width, height },
       };
       const nextPresent = reduceEditorDocument(prev.present, action, randomId);
-      const nextHistory = pushEditorHistory(prev, nextPresent, inkUndoRef.current, false);
+      const nextHistory = pushEditorHistory(prev, nextPresent, pendingInkUndo, false);
       autosaveRef.current?.scheduleSave(nextHistory.present, [], false);
       return nextHistory;
     });
@@ -546,7 +554,7 @@ export function useEditorController(projectId: string): EditorController {
             pendingInkHistoryRef.current = pending.concat(pendingInkHistoryRef.current);
             return prev;
           }
-          const history = consumePendingInkHistory(prev, pending, inkUndoRef.current);
+          const history = consumePendingInkHistory(prev, pending);
           autosaveRef.current?.scheduleSave(history.present, collectRasterIds(history.present), false);
           return history;
         });
@@ -608,11 +616,14 @@ export function useEditorController(projectId: string): EditorController {
 
   const dispatch = useCallback(
     (action: EditorDocumentAction) => {
+      const viewOnly = isViewOnlyHistoryAction(action.type);
+      const pendingInkUndo = viewOnly
+        ? new Map<string, InkUndoPixels>()
+        : takePendingInkUndo(inkUndoRef.current);
       setHistory((prev) => {
         if (!prev) {
           return prev;
         }
-        const viewOnly = isViewOnlyHistoryAction(action.type);
         if (action.type === 'setWorkspaceView') {
           const prevView = prev.present;
           if (
@@ -624,7 +635,7 @@ export function useEditorController(projectId: string): EditorController {
           }
         }
         const nextPresent = reduceEditorDocument(prev.present, action, randomId);
-        const nextHistory = pushEditorHistory(prev, nextPresent, inkUndoRef.current, viewOnly);
+        const nextHistory = pushEditorHistory(prev, nextPresent, pendingInkUndo, viewOnly);
         const flushNow =
           action.type === 'commitMarqueeCut' ||
           action.type === 'transformClip' ||
@@ -1361,21 +1372,22 @@ export function useEditorController(projectId: string): EditorController {
     setClipLiveTransforms({});
     textLiveRef.current.clear();
     setTextLiveTransforms({});
-    setHistory((prev) => {
-      if (!prev) {
-        return prev;
-      }
-      const pending = pendingInkHistoryRef.current;
-      pendingInkHistoryRef.current = [];
-      const withInk = consumePendingInkHistory(prev, pending, inkUndoRef.current);
-      const next = undoEditorHistory(withInk, inkRestoreSink);
-      if (!next) {
-        return prev;
-      }
-      autosaveRef.current?.scheduleSave(next.present, [], false);
-      bumpInkFrame();
-      return next;
-    });
+    const prev = historyRef.current;
+    if (!prev) {
+      return;
+    }
+    const pending = pendingInkHistoryRef.current;
+    pendingInkHistoryRef.current = [];
+    takePendingInkUndo(inkUndoRef.current);
+    const withInk = consumePendingInkHistory(prev, pending);
+    const next = undoEditorHistory(withInk, inkRestoreSink);
+    if (!next) {
+      return;
+    }
+    historyRef.current = next;
+    setHistory(next);
+    autosaveRef.current?.scheduleSave(next.present, [], false);
+    bumpInkFrame();
   }, [inkRestoreSink]);
 
   const redo = useCallback(() => {
@@ -1383,21 +1395,22 @@ export function useEditorController(projectId: string): EditorController {
     setClipLiveTransforms({});
     textLiveRef.current.clear();
     setTextLiveTransforms({});
-    setHistory((prev) => {
-      if (!prev) {
-        return prev;
-      }
-      const pending = pendingInkHistoryRef.current;
-      pendingInkHistoryRef.current = [];
-      const withInk = consumePendingInkHistory(prev, pending, inkUndoRef.current);
-      const next = redoEditorHistory(withInk, inkRestoreSink);
-      if (!next) {
-        return prev;
-      }
-      autosaveRef.current?.scheduleSave(next.present, [], false);
-      bumpInkFrame();
-      return next;
-    });
+    const prev = historyRef.current;
+    if (!prev) {
+      return;
+    }
+    const pending = pendingInkHistoryRef.current;
+    pendingInkHistoryRef.current = [];
+    takePendingInkUndo(inkUndoRef.current);
+    const withInk = consumePendingInkHistory(prev, pending);
+    const next = redoEditorHistory(withInk, inkRestoreSink);
+    if (!next) {
+      return;
+    }
+    historyRef.current = next;
+    setHistory(next);
+    autosaveRef.current?.scheduleSave(next.present, [], false);
+    bumpInkFrame();
   }, [inkRestoreSink]);
 
   const applyWorkspaceEffects = useCallback(
