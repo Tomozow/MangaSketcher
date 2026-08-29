@@ -556,7 +556,7 @@ describe('Web workspace FSM', () => {
       expect(sameSlot.effects).toEqual([]);
 
       const up = finger(store, 'up', { x: 90, y: 0, now: LONG_PRESS_MS + 100, hit: targetHit });
-      expect(up.effects).toEqual([]);
+      expect(up.effects).toEqual([{ type: 'endGrabPage' }]);
       expect(getWorkspaceSession(store, 1)).toBeUndefined();
     });
 
@@ -616,6 +616,17 @@ describe('Web workspace FSM', () => {
         null,
       );
       expect(batch.actions).toEqual([{ type: 'reorderWorkspace', fromIndex: 0, toIndex: 2 }]);
+    });
+
+    test('reduceWorkspaceEffects が endGrabPage で grabbedPageId を解放する', () => {
+      const doc = {
+        workspaceOrder: ['p1', 'p2', 'p3'],
+        workspaceZoom: 1,
+        workspacePanX: 0,
+        workspacePanY: 0,
+      } as Parameters<typeof reduceWorkspaceEffects>[0];
+      const batch = reduceWorkspaceEffects(doc, [{ type: 'endGrabPage' }], new Map(), null);
+      expect(batch.grabbedPageId).toBeNull();
     });
   });
 

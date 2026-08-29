@@ -2,9 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
-import type { PageId } from '@/src/domain/types';
+import type { PageId, PageText } from '@/src/domain/types';
 import type { EditorDocument } from '@/src/storage/types';
+import type { InkEngine } from '@/src/web/ink/InkEngine';
 import { PageDragThumbnail } from '@/src/web/PageDragThumbnail';
+import { PageThumbLayers } from '@/src/web/PageThumbLayers';
 import {
   moveWorkspacePageToStock,
   placeStockPage,
@@ -20,8 +22,6 @@ import { createStockPointerPipeline, getStockDragPageId } from '@/src/web/stock/
 import type { StockHit } from '@/src/web/stock/types';
 import { styles } from './editorStyles';
 
-const TEMPLATE_URL = '/page_template.jpg';
-
 export type WorkspaceGrab = {
   pageId: PageId;
   fromIndex: number;
@@ -33,7 +33,62 @@ export type StockPaneProps = {
   workspaceGrab: WorkspaceGrab | null;
   onWorkspaceGrabEnd: () => void;
   getPageThumb?: (pageId: PageId) => ImageBitmap | undefined;
+  inkEngine?: InkEngine | null;
+  inkFrame?: number;
 };
+
+function StockPageThumb({
+  pageId,
+  rasterId,
+  texts,
+  rasterWidth,
+  rasterHeight,
+  inkEngine,
+  getPageThumb,
+  inkFrame,
+}: {
+  pageId: PageId;
+  rasterId?: string;
+  texts: readonly PageText[];
+  rasterWidth: number;
+  rasterHeight: number;
+  inkEngine?: InkEngine | null;
+  getPageThumb?: (pageId: PageId) => ImageBitmap | undefined;
+  inkFrame: number;
+}) {
+  const [thumb, setThumb] = useState<ImageBitmap | undefined>(() => getPageThumb?.(pageId));
+
+  useEffect(() => {
+    const existing = getPageThumb?.(pageId);
+    if (existing) {
+      setThumb(existing);
+      return;
+    }
+    if (!rasterId || !inkEngine) {
+      setThumb(undefined);
+      return;
+    }
+    let cancelled = false;
+    void inkEngine.generateThumb(rasterId).then((bitmap) => {
+      if (!cancelled) {
+        setThumb(bitmap ?? getPageThumb?.(pageId));
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [pageId, rasterId, inkEngine, getPageThumb, inkFrame]);
+
+  return (
+    <PageThumbLayers
+      pageId={pageId}
+      thumb={thumb}
+      texts={texts}
+      rasterWidth={rasterWidth}
+      rasterHeight={rasterHeight}
+    />
+  );
+}
 
 export function StockPane({
   doc,
@@ -41,6 +96,8 @@ export function StockPane({
   workspaceGrab,
   onWorkspaceGrabEnd,
   getPageThumb,
+  inkEngine,
+  inkFrame = 0,
 }: StockPaneProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const pipelineRef = useRef<ReturnType<typeof createStockPointerPipeline> | null>(null);
@@ -289,9 +346,19 @@ export function StockPane({
             key={item.pageId}
             data-stock-page-id={item.pageId}
             className={`${styles.stockThumb} ${draggedStockPageId === item.pageId ? styles.stockThumbDragging : ''}`}
-            style={{ backgroundImage: `url(${TEMPLATE_URL})` }}
             title={`ストック ${item.pageId.slice(0, 8)}`}
-          />
+          >
+            <StockPageThumb
+              pageId={item.pageId}
+              rasterId={doc.pages[item.pageId]?.rasterId}
+              texts={doc.pages[item.pageId]?.texts ?? []}
+              rasterWidth={doc.rasterWidth}
+              rasterHeight={doc.rasterHeight}
+              inkEngine={inkEngine}
+              getPageThumb={getPageThumb}
+              inkFrame={inkFrame}
+            />
+          </div>
         ))}
         {dragPageId && dragPointer ? (
           <PageDragThumbnail
@@ -299,6 +366,9 @@ export function StockPane({
             clientX={dragPointer.x}
             clientY={dragPointer.y}
             thumb={getPageThumb?.(dragPageId)}
+            texts={doc.pages[dragPageId]?.texts ?? []}
+            rasterWidth={doc.rasterWidth}
+            rasterHeight={doc.rasterHeight}
           />
         ) : null}
       </div>
@@ -325,10 +395,20 @@ export function StockPane({
             style={{
               left: item.x,
               top: item.y,
-              backgroundImage: `url(${TEMPLATE_URL})`,
             }}
             title={`ストック ${item.pageId.slice(0, 8)}`}
-          />
+          >
+            <StockPageThumb
+              pageId={item.pageId}
+              rasterId={doc.pages[item.pageId]?.rasterId}
+              texts={doc.pages[item.pageId]?.texts ?? []}
+              rasterWidth={doc.rasterWidth}
+              rasterHeight={doc.rasterHeight}
+              inkEngine={inkEngine}
+              getPageThumb={getPageThumb}
+              inkFrame={inkFrame}
+            />
+          </div>
         ))}
       </div>
       {dragPageId && dragPointer ? (
@@ -337,6 +417,9 @@ export function StockPane({
           clientX={dragPointer.x}
           clientY={dragPointer.y}
           thumb={getPageThumb?.(dragPageId)}
+          texts={doc.pages[dragPageId]?.texts ?? []}
+          rasterWidth={doc.rasterWidth}
+          rasterHeight={doc.rasterHeight}
         />
       ) : null}
     </div>

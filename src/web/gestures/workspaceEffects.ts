@@ -86,6 +86,9 @@ export function reduceWorkspaceEffects(
       case 'grabPage':
         grabbedPageId = effect.pageId;
         break;
+      case 'endGrabPage':
+        grabbedPageId = null;
+        break;
       case 'reorderWorkspace': {
         const fromIndex = doc.workspaceOrder.indexOf(effect.pageId);
         if (fromIndex === -1) {

@@ -161,6 +161,7 @@ export type WorkspaceEffect =
   | { type: 'panBy'; dx: number; dy: number }
   | { type: 'pinchBy'; scaleBy: number; midDx: number; midDy: number }
   | { type: 'grabPage'; pageId: PageId; fromIndex: number }
+  | { type: 'endGrabPage' }
   | { type: 'reorderWorkspace'; pageId: PageId; toIndex: number }
   | { type: 'selectPage'; pageId: PageId }
   | { type: 'insertAfterSelected' }

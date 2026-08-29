@@ -1,12 +1,10 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import type { PageId } from '@/src/domain/types';
+import type { PageId, PageText } from '@/src/domain/types';
 import { THUMB_HEIGHT, THUMB_WIDTH } from '@/src/web/ink/InkEngine';
+import { PageThumbLayers } from '@/src/web/PageThumbLayers';
 import { styles } from './editorStyles';
-
-const TEMPLATE_URL = '/page_template.jpg';
 
 type PageDragThumbnailProps = {
   pageId: PageId;
@@ -14,24 +12,20 @@ type PageDragThumbnailProps = {
   clientY: number;
   /** §9.7 template+ink thumb when InkEngine is wired; template-only fallback otherwise. */
   thumb?: ImageBitmap;
+  texts?: readonly PageText[];
+  rasterWidth?: number;
+  rasterHeight?: number;
 };
 
-export function PageDragThumbnail({ pageId, clientX, clientY, thumb }: PageDragThumbnailProps) {
-  const inkRef = useRef<HTMLCanvasElement>(null);
-
-  useEffect(() => {
-    const canvas = inkRef.current;
-    if (!canvas || !thumb) {
-      return;
-    }
-    const ctx = canvas.getContext('2d');
-    if (!ctx) {
-      return;
-    }
-    ctx.clearRect(0, 0, THUMB_WIDTH, THUMB_HEIGHT);
-    ctx.drawImage(thumb, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
-  }, [thumb, pageId]);
-
+export function PageDragThumbnail({
+  pageId,
+  clientX,
+  clientY,
+  thumb,
+  texts,
+  rasterWidth,
+  rasterHeight,
+}: PageDragThumbnailProps) {
   if (typeof document === 'undefined') {
     return null;
   }
@@ -47,12 +41,12 @@ export function PageDragThumbnail({ pageId, clientX, clientY, thumb }: PageDragT
       }}
       aria-hidden
     >
-      <div className={styles.pageDragThumbTemplate} style={{ backgroundImage: `url(${TEMPLATE_URL})` }} />
-      <canvas
-        ref={inkRef}
-        className={styles.pageDragThumbInk}
-        width={THUMB_WIDTH}
-        height={THUMB_HEIGHT}
+      <PageThumbLayers
+        pageId={pageId}
+        thumb={thumb}
+        texts={texts}
+        rasterWidth={rasterWidth}
+        rasterHeight={rasterHeight}
       />
     </div>,
     document.body,

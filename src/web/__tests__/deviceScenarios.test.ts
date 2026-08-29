@@ -182,6 +182,7 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(textEditBarSrc).toMatch(/<textarea/);
     expect(textEditBarSrc).not.toContain('完了');
     expect(textEditBarSrc).toContain('PAGE_TEXT_WRAP_ATTR');
+    expect(editorLayoutSrc).toContain("doc.tool === 'text' ? textSelection : null");
     expect(
       planTextCommit({
         draft: '確定文',

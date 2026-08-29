@@ -101,6 +101,9 @@ export function EditorLayout({
         if (effect.type === 'grabPage') {
           setWorkspaceGrab({ pageId: effect.pageId, fromIndex: effect.fromIndex });
         }
+        if (effect.type === 'endGrabPage') {
+          setWorkspaceGrab(null);
+        }
       }
       return applyWorkspaceEffects(effects, fingerPositions, surfaceRect);
     },
@@ -190,6 +193,8 @@ export function EditorLayout({
               workspaceGrab={workspaceGrab}
               onWorkspaceGrabEnd={() => setWorkspaceGrab(null)}
               getPageThumb={getPageThumb}
+              inkEngine={inkEngine}
+              inkFrame={inkFrame}
             />
           </div>
         </div>
@@ -224,7 +229,7 @@ export function EditorLayout({
               selectedTextId={doc.selectedTextId}
               textLiveTransforms={textLiveTransforms}
               liveTextContent={
-                textSelection && liveTextDraft !== null
+                doc.tool === 'text' && textSelection && liveTextDraft !== null
                   ? { id: textSelection.id, content: liveTextDraft }
                   : null
               }
@@ -279,7 +284,7 @@ export function EditorLayout({
         </div>
       </div>
       <TextEditBar
-        selection={textSelection}
+        selection={doc.tool === 'text' ? textSelection : null}
         layoutKey={`${doc.workspaceZoom}:${doc.workspacePanX}:${doc.workspacePanY}:${
           textSelection ? JSON.stringify(textLiveTransforms[textSelection.id] ?? null) : ''
         }`}

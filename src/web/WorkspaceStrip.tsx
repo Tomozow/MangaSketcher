@@ -274,7 +274,11 @@ export function WorkspaceStrip({
         );
         if (grabbed !== undefined) {
           setGrabbedPageId(grabbed);
-          syncDragPointer();
+          if (grabbed === null) {
+            setDragPointer(null);
+          } else {
+            syncDragPointer();
+          }
         }
         const stillGrabbing = [...pipeline.store.sessions.values()].some((s) => s.mode === 'grabPage');
         if (!stillGrabbing && grabbed === undefined) {
@@ -307,6 +311,9 @@ export function WorkspaceStrip({
           clientX={dragPointer.x}
           clientY={dragPointer.y}
           thumb={getPageThumb?.(grabbedPageId)}
+          texts={pages[grabbedPageId]?.texts ?? []}
+          rasterWidth={rasterWidth}
+          rasterHeight={rasterHeight}
         />
       ) : null}
       <div

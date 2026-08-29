@@ -855,7 +855,7 @@ function stepFinger(
 
   if (session.mode === 'grabPage') {
     if (input.phase === 'up' || input.phase === 'cancel') {
-      return { session: { mode: 'idle' }, effects: [] };
+      return { session: { mode: 'idle' }, effects: [{ type: 'endGrabPage' }] };
     }
     const toIndex = reorderTargetIndex(input.hit);
     if (toIndex === null || toIndex === session.lastToIndex) {
