@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef } from 'react';
 
+import { scheduleInkDisplay } from './PageInkCanvas';
 import {
   InkEngine,
   THUMB_HEIGHT,
@@ -71,9 +72,19 @@ export function useInkEngine(options: UseInkEngineOptions): InkEngineApi {
   }, [engine]);
 
   useEffect(() => {
+    engine.setCallbacks({
+      onHotPixelsReady: (rasterId) => {
+        scheduleInkDisplay(rasterId);
+      },
+    });
+  }, [engine]);
+
+  useEffect(() => {
     const visible = options.visibleRasterIds ?? [];
     const visibleSet = new Set(visible);
     const bootOrder = [...visible, ...options.rasterIds.filter((id) => !visibleSet.has(id))];
+
+    engine.setPinnedHotRasterIds(visible);
 
     for (const rasterId of bootOrder) {
       const encoded = options.encodedByRasterId?.get(rasterId);

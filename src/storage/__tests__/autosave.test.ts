@@ -28,6 +28,7 @@ function sampleDoc(): EditorDocument {
       eraserOpacity: 1,
       textColor: '#1A1A1A',
       textFontSize: 36,
+      pressureEnabled: true,
     },
     pdf: null,
     workspaceZoom: 1,

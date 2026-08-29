@@ -96,6 +96,8 @@ export type ToolProperties = {
   eraserOpacity: number;
   textColor: string;
   textFontSize: number;
+  /** When false, pen/eraser ignore stylus pressure (undefined treated as true). */
+  pressureEnabled?: boolean;
 };
 
 export type PdfExtractedGlyph = {
@@ -263,6 +265,7 @@ export const DEFAULT_TOOL_PROPERTIES: ToolProperties = {
   eraserOpacity: 1,
   textColor: '#1A1A1A',
   textFontSize: 36,
+  pressureEnabled: true,
 };
 
 /** In-memory test document with embedded raster bytes (Vitest only). */

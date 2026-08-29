@@ -521,7 +521,10 @@ body {
   left: 50%;
   z-index: 8;
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 4px;
+  max-width: calc(100% - 12px);
   transform: translateX(-50%);
 }
 

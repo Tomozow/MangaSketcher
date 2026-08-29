@@ -184,6 +184,13 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(editorCss).toMatch(/\.ms-pageTextWrap[^{]*\{[^}]*z-index:\s*2/);
   });
 
+  test('ページ番号タップの選択肢に線画削除がある', () => {
+    const pageChromeSrc = readFileSync(join(here, '../PageDeleteButton.tsx'), 'utf8');
+    expect(pageChromeSrc).toContain('線画を削除');
+    expect(workspaceStripSrc).toContain('onClearPageInk');
+    expect(editorLayoutSrc).toContain('このページの線画を削除しますか？');
+  });
+
   test('6. 確定は explicit のみ。ページ上は textarea ではなく表示専用', () => {
     expect(pageTextOverlaySrc).not.toMatch(/<textarea/i);
     expect(pageTextOverlaySrc).toContain('pageTextBox');

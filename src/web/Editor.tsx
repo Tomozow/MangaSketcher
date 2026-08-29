@@ -38,6 +38,7 @@ export default function Editor({ projectId }: EditorProps) {
     autosaveStatus,
     getPageThumb,
     getClipRasterSize,
+    clearPageInk,
   } = useEditorController(projectId);
   const [rootHeight, setRootHeight] = useState<number | null>(() =>
     typeof window === 'undefined' ? null : window.innerHeight,
@@ -122,6 +123,7 @@ export default function Editor({ projectId }: EditorProps) {
         autosaveStatus={autosaveStatus}
         getPageThumb={getPageThumb}
         getClipRasterSize={getClipRasterSize}
+        clearPageInk={clearPageInk}
       />
     </div>
   );

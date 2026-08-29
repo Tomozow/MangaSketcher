@@ -7,14 +7,15 @@ import { styles } from './editorStyles';
 type PageChromeButtonsProps = {
   onInsert?: () => void;
   onDelete?: () => void;
+  onClearInk?: () => void;
 };
 
 function stopPointer(event: ReactPointerEvent) {
   event.stopPropagation();
 }
 
-export function PageChromeButtons({ onInsert, onDelete }: PageChromeButtonsProps) {
-  if (!onInsert && !onDelete) {
+export function PageChromeButtons({ onInsert, onDelete, onClearInk }: PageChromeButtonsProps) {
+  if (!onInsert && !onDelete && !onClearInk) {
     return null;
   }
   return (
@@ -47,6 +48,19 @@ export function PageChromeButtons({ onInsert, onDelete }: PageChromeButtonsProps
           }}
         >
           削除
+        </button>
+      ) : null}
+      {onClearInk ? (
+        <button
+          type="button"
+          className={styles.pageDeleteButton}
+          aria-label="線画を削除"
+          onClick={(event) => {
+            event.stopPropagation();
+            onClearInk();
+          }}
+        >
+          線画を削除
         </button>
       ) : null}
     </div>

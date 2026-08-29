@@ -470,6 +470,8 @@ describe('シナリオ: ポインタ分担（指はパン、ペンはインク�
     });
     expect(brushRadius(4, 0.5, 'pencil')).toBe(2);
     expect(brushRadius(4, 0.5, 'finger')).toBe(4);
+    expect(brushRadius(4, 0.5, 'pencil', false)).toBe(4);
+    expect(brushRadius(0.2, 0.5, 'pencil', false)).toBe(0.5);
     expect(resolvePointerIntent('pen', { kind: 'pencil', phase: 'longpress' })).toEqual({ type: 'drawInk' });
     expect(resolvePointerIntent('select', { kind: 'finger', phase: 'longpress' })).toEqual({
       type: 'longPressReorder',

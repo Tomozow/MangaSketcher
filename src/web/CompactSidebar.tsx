@@ -109,6 +109,23 @@ export function CompactSidebar({
         <ValueSlider label="不透明度" min={0.05} max={1} step={0.05} value={opacityValue} onChange={handleOpacityChange} />
       ) : null}
 
+      {showOpacity ? (
+        <button
+          type="button"
+          className={`${styles.iconButton} ${doc.tools.pressureEnabled !== false ? styles.iconButtonActive : ''}`}
+          aria-pressed={doc.tools.pressureEnabled !== false}
+          aria-label="筆圧"
+          onClick={() =>
+            dispatch({
+              type: 'setToolProperties',
+              patch: { pressureEnabled: doc.tools.pressureEnabled === false },
+            })
+          }
+        >
+          圧
+        </button>
+      ) : null}
+
       <div className={styles.colorRow}>
         <button
           type="button"

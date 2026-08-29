@@ -74,6 +74,7 @@ type WorkspaceStripProps = {
   deletePageId?: PageId | null;
   onDeletePage?: (pageId: PageId) => void;
   onInsertPage?: (pageId: PageId) => void;
+  onClearPageInk?: (pageId: PageId) => void;
 };
 
 export function WorkspaceStrip({
@@ -103,6 +104,7 @@ export function WorkspaceStrip({
   deletePageId = null,
   onDeletePage,
   onInsertPage,
+  onClearPageInk,
 }: WorkspaceStripProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const pipelineRef = useRef<ReturnType<typeof createWorkspacePointerPipeline> | null>(null);
@@ -488,6 +490,7 @@ export function WorkspaceStrip({
                   <PageChromeButtons
                     onInsert={onInsertPage ? () => onInsertPage(pageId) : undefined}
                     onDelete={onDeletePage ? () => onDeletePage(pageId) : undefined}
+                    onClearInk={onClearPageInk ? () => onClearPageInk(pageId) : undefined}
                   />
                 ) : null}
               </div>

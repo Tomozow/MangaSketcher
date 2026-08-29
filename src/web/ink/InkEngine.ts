@@ -24,6 +24,8 @@ export type InkEngineCallbacks = {
   onEncodingStarted?: (rasterId: string) => void;
   onEncodingComplete?: (rasterId: string, buffer: ArrayBuffer) => void;
   onBake?: (rasterId: string) => void;
+  /** Encoded pixels landed on the hot canvas (sync snapshot or async PNG). */
+  onHotPixelsReady?: (rasterId: string) => void;
 };
 
 export type InkAutosaveSink = {
@@ -119,11 +121,22 @@ export class InkEngine {
   }
 
   registerRaster(rasterId: string, png?: ArrayBuffer): void {
-    if (!this.encodedPng.has(rasterId)) {
+    const hadEncoded = this.encodedPng.has(rasterId);
+    const prevLen = this.encodedPng.get(rasterId)?.byteLength ?? 0;
+    const pngLen = png?.byteLength ?? 0;
+    if (!hadEncoded) {
       this.noteEncodedPng(rasterId, png ?? new ArrayBuffer(0));
+    } else if (pngLen > 0 && prevLen === 0) {
+      this.noteEncodedPng(rasterId, png);
     }
     if (!this.rasterDimensions.has(rasterId)) {
       this.rasterDimensions.set(rasterId, { width: this.rasterWidth, height: this.rasterHeight });
+    }
+    const stored = this.encodedPng.get(rasterId);
+    const storedLen = stored?.byteLength ?? 0;
+    const canvas = this.hot.get(rasterId);
+    if (canvas && stored && storedLen > 0 && storedLen !== prevLen) {
+      this.blitEncodedPng(canvas, stored, rasterId, this.bumpBlitEpoch(rasterId));
     }
   }
 
@@ -245,6 +258,7 @@ export class InkEngine {
             ? new ImageData(snapshot.data, snapshot.width, snapshot.height)
             : ({ data: snapshot.data, width: snapshot.width, height: snapshot.height } as ImageData);
         ctx.putImageData(imageData, 0, 0);
+        this.callbacks.onHotPixelsReady?.(rasterId);
         return;
       } catch {
         const dims = this.getRasterDimensions(rasterId);
@@ -312,6 +326,7 @@ export class InkEngine {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.drawImage(bitmap, 0, 0);
     bitmap.close();
+    this.callbacks.onHotPixelsReady?.(rasterId);
   }
 
   beginPenOverlay(rasterId: string): Ink2DContext {
@@ -445,6 +460,15 @@ export class InkEngine {
     this.startEncode(rasterId);
     this.callbacks.onBake?.(rasterId);
     return undoPng;
+  }
+
+  /** Clear all ink on a page/clip raster and return the pre-clear undo snapshot. */
+  clearRaster(rasterId: string): ArrayBuffer {
+    this.cancelPenOverlay(rasterId);
+    const ctx = this.beginEraseDirect(rasterId);
+    const dims = this.getRasterDimensions(rasterId);
+    ctx.clearRect(0, 0, dims.width, dims.height);
+    return this.finishEraseDirect(rasterId);
   }
 
   cancelEraseDirect(rasterId: string): void {

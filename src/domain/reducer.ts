@@ -267,6 +267,7 @@ export function reduceTestDocument(
         action.erase ? doc.tools.eraserSize : doc.tools.penSize,
         action.pressure,
         action.pointerKind,
+        doc.tools.pressureEnabled !== false,
       );
       if (action.target.kind === 'page') {
         const page = doc.pages[action.target.pageId];
@@ -294,6 +295,7 @@ export function reduceTestDocument(
           action.erase ? doc.tools.eraserSize : doc.tools.penSize,
           pressure,
           action.pointerKind,
+          doc.tools.pressureEnabled !== false,
         );
       if (action.target.kind === 'page') {
         const page = doc.pages[action.target.pageId];

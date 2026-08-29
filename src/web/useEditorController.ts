@@ -126,6 +126,7 @@ type EditorController = {
   }) => void;
   onPickPdf: (file: File) => Promise<void>;
   onExtractPdfText: (payload: PdfExtractPayload) => void;
+  clearPageInk: (pageId: PageId) => void;
 };
 
 function selectedTextFromDocument(doc: EditorDocument): TextEditSelection | null {
@@ -260,7 +261,7 @@ function eraseStrokeStyle(
 } {
   return {
     color: '#000000',
-    lineWidth: brushRadius(doc.tools.eraserSize, pressure, 'pencil') * 2,
+    lineWidth: brushRadius(doc.tools.eraserSize, pressure, 'pencil', doc.tools.pressureEnabled !== false) * 2,
     globalAlpha: doc.tools.eraserOpacity,
     composite: 'destination-out',
   };
@@ -890,6 +891,27 @@ export function useEditorController(projectId: string): EditorController {
     [bumpInkFrame, dispatch],
   );
 
+  const clearPageInk = useCallback(
+    (pageId: PageId) => {
+      const present = historyRef.current?.present;
+      const api = inkApiRef.current;
+      if (!present || !api) {
+        return;
+      }
+      const page = present.pages[pageId];
+      if (!page) {
+        return;
+      }
+      const undo = api.engine.clearRaster(page.rasterId);
+      if (undo.byteLength > 0) {
+        inkUndoRef.current.set(page.rasterId, undo.slice(0));
+      }
+      dispatch({ type: 'commitInkBake', rasterId: page.rasterId });
+      bumpInkFrame();
+    },
+    [bumpInkFrame, dispatch],
+  );
+
   const applyInkEffects = useCallback(
     (effects: WorkspaceEffect[], present: EditorDocument) => {
       const api = inkApiRef.current;
@@ -911,7 +933,7 @@ export function useEditorController(projectId: string): EditorController {
             const point: StrokePoint = { x: effect.x, y: effect.y, pressure: effect.pressure };
             const last = appendLiveBrushStroke(ctx, null, [point], (p) => ({
               ...penStrokeStyle(present),
-              lineWidth: brushRadius(present.tools.penSize, p.pressure, 'pencil') * 2,
+              lineWidth: brushRadius(present.tools.penSize, p.pressure, 'pencil', present.tools.pressureEnabled !== false) * 2,
             }));
             if (last) {
               lastLiveInkRef.current.set(rasterId, last);
@@ -930,7 +952,7 @@ export function useEditorController(projectId: string): EditorController {
               effect.points,
               (p) => ({
                 ...penStrokeStyle(present),
-                lineWidth: brushRadius(present.tools.penSize, p.pressure, 'pencil') * 2,
+                lineWidth: brushRadius(present.tools.penSize, p.pressure, 'pencil', present.tools.pressureEnabled !== false) * 2,
               }),
             );
             if (last) {
@@ -1292,6 +1314,7 @@ export function useEditorController(projectId: string): EditorController {
     onPdfViewChange,
     onPickPdf,
     onExtractPdfText,
+    clearPageInk,
   };
 }
 

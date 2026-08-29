@@ -61,6 +61,7 @@ export const DEFAULT_TOOL_PROPERTIES: ToolProperties = {
   eraserOpacity: 1,
   textColor: '#1A1A1A',
   textFontSize: 36,
+  pressureEnabled: true,
 };
 
 export const DEFAULT_UI_LAYOUT = {

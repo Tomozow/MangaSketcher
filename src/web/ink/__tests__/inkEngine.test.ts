@@ -120,6 +120,23 @@ describe('InkEngine production pixel truth', () => {
     expect(pageAfterOverlayErase).toBe(pageBeforeOverlayErase);
   });
 
+  test('clearRaster removes all page ink and returns undo snapshot', () => {
+    const rasterId = 'p1:page:clear';
+    const engine = createTestEngine();
+    engine.registerRaster(rasterId);
+    const pageCtx = engine.decode(rasterId).getContext('2d')!;
+    pageCtx.fillStyle = '#000000';
+    pageCtx.fillRect(8, 8, 20, 20);
+    expect(countAlphaPixels(engine.getHotContext(rasterId)!, TEST_W, TEST_H)).toBeGreaterThan(0);
+
+    const undo = engine.clearRaster(rasterId);
+    expect(undo.byteLength).toBe(8 + TEST_W * TEST_H * 4);
+    expect(countAlphaPixels(engine.getHotContext(rasterId)!, TEST_W, TEST_H)).toBe(0);
+
+    engine.restoreRasterFromPng(rasterId, undo);
+    expect(countAlphaPixels(engine.getHotContext(rasterId)!, TEST_W, TEST_H)).toBeGreaterThan(0);
+  });
+
   test('100× setWorkspaceView does not clone pages or allocate Uint8ClampedArray', () => {
     const doc = createEditorDocument({
       projectId: 'p1',
@@ -241,6 +258,30 @@ describe('InkEngine production pixel truth', () => {
     }
     expect(engine.hot.has('r0')).toBe(true);
     expect(engine.hot.has('r1')).toBe(true);
+  });
+
+  test('registerRaster blits png onto an already-created empty hot canvas', async () => {
+    const src = createTestEngine();
+    const rasterId = 'late-png';
+    src.registerRaster(rasterId);
+    const overlayCtx = src.beginPenOverlay(rasterId);
+    overlayCtx.fillStyle = '#000000';
+    overlayCtx.fillRect(4, 4, 10, 10);
+    src.bakePenOverlay(rasterId);
+    await vi.waitFor(() => {
+      expect(src.encodedPng.get(rasterId)?.byteLength).toBeGreaterThan(0);
+    });
+    const png = src.encodedPng.get(rasterId)!;
+    const expected = countAlphaPixels(src.getHotContext(rasterId)!, TEST_W, TEST_H);
+    expect(expected).toBeGreaterThan(0);
+
+    const dest = createTestEngine();
+    dest.decode(rasterId);
+    expect(countAlphaPixels(dest.getHotContext(rasterId)!, TEST_W, TEST_H)).toBe(0);
+    dest.registerRaster(rasterId, png);
+    await vi.waitFor(() => {
+      expect(countAlphaPixels(dest.getHotContext(rasterId)!, TEST_W, TEST_H)).toBeGreaterThan(0);
+    });
   });
 
   test('restoreRasterFromPng applies undo snapshot without browser PNG decode', () => {

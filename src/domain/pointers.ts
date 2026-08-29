@@ -44,11 +44,16 @@ export function resolvePointerIntent(
   }
 }
 
-export function brushRadius(baseSize: number, pressure: number, kind: PointerEvent['kind']): number {
-  if (kind === 'pencil') {
+export function brushRadius(
+  baseSize: number,
+  pressure: number,
+  kind: PointerEvent['kind'],
+  pressureEnabled = true,
+): number {
+  if (kind === 'pencil' && pressureEnabled) {
     return Math.max(0.5, baseSize * Math.max(0.05, pressure));
   }
-  return baseSize;
+  return Math.max(0.5, baseSize);
 }
 
 export function workspacePointerPolicy(kind: PointerKind): {

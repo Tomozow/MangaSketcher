@@ -58,6 +58,7 @@ type EditorLayoutProps = {
   autosaveStatus: AutosaveStatus;
   getPageThumb: (pageId: PageId) => ImageBitmap | undefined;
   getClipRasterSize: (clipId: string) => { width: number; height: number };
+  clearPageInk: (pageId: PageId) => void;
 };
 
 export function EditorLayout({
@@ -86,6 +87,7 @@ export function EditorLayout({
   autosaveStatus,
   getPageThumb,
   getClipRasterSize,
+  clearPageInk,
 }: EditorLayoutProps) {
   const mainFlex = mainPaneFlex(doc);
   const sideFlex = sidebarPaneFlex(doc);
@@ -119,6 +121,17 @@ export function EditorLayout({
       setPageDelete(null);
     },
     [dispatch],
+  );
+
+  const confirmClearPageInk = useCallback(
+    (pageId: PageId) => {
+      if (!window.confirm('このページの線画を削除しますか？')) {
+        return;
+      }
+      clearPageInk(pageId);
+      setPageDelete(null);
+    },
+    [clearPageInk],
   );
 
   useEffect(() => {
@@ -305,6 +318,7 @@ export function EditorLayout({
               deletePageId={pageDelete?.source === 'workspace' ? pageDelete.pageId : null}
               onDeletePage={(pageId) => confirmPageDelete(pageId, 'workspace')}
               onInsertPage={insertPageAfter}
+              onClearPageInk={confirmClearPageInk}
             />
             {inkEngine ? (
               <PageInkOverlay
