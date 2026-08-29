@@ -143,11 +143,24 @@ export function CompactSidebar({
         </button>
         <button
           type="button"
-          className={styles.iconButton}
+          className={`${styles.iconButton} ${doc.pdfViewerVisible ? styles.iconButtonActive : ''}`}
           onClick={() => dispatch({ type: 'setUiLayout', pdfViewerVisible: !doc.pdfViewerVisible })}
           aria-label="PDF 表示切替"
         >
           PDF
+        </button>
+        <button
+          type="button"
+          className={`${styles.iconButton} ${doc.stockPane === 'trash' ? styles.iconButtonActive : ''}`}
+          onClick={() =>
+            dispatch({
+              type: 'setUiLayout',
+              stockPane: doc.stockPane === 'trash' ? 'stock' : 'trash',
+            })
+          }
+          aria-label="ゴミ箱"
+        >
+          ゴミ箱
         </button>
         <button
           type="button"
@@ -157,19 +170,21 @@ export function CompactSidebar({
         >
           {doc.sidebarCompact ? '広' : '狭'}
         </button>
-        <button
-          type="button"
-          className={styles.iconButton}
-          onClick={() =>
-            dispatch({
-              type: 'setUiLayout',
-              stockLayout: doc.stockLayout === 'grid' ? 'free' : 'grid',
-            })
-          }
-          aria-label="ストック表示切替"
-        >
-          {doc.stockLayout === 'grid' ? '自由' : '整列'}
-        </button>
+        {doc.stockPane !== 'trash' ? (
+          <button
+            type="button"
+            className={styles.iconButton}
+            onClick={() =>
+              dispatch({
+                type: 'setUiLayout',
+                stockLayout: doc.stockLayout === 'grid' ? 'free' : 'grid',
+              })
+            }
+            aria-label="ストック表示切替"
+          >
+            {doc.stockLayout === 'grid' ? '自由' : '整列'}
+          </button>
+        ) : null}
       </div>
     </div>
   );

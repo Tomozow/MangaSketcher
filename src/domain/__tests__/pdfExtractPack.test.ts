@@ -1,21 +1,44 @@
 import { describe, expect, test } from 'vitest';
 import {
+  EXTRACT_CHARS_PER_COL,
   EXTRACT_GAP,
+  EXTRACT_LINE_HEIGHT,
   EXTRACT_TEXT_HEIGHT,
+  extractedColumnCount,
   extractedTextBoxSize,
   nextExtractPack,
   startExtractPack,
+  wrapExtractedText,
   workspaceFontSizeFromTool,
 } from '../pdfExtractPack';
 
+describe('wrapExtractedText', () => {
+  test('10文字ごとに改行し、ちょうど10文字なら改行しない', () => {
+    expect(wrapExtractedText('あ'.repeat(10))).toBe('あ'.repeat(10));
+    expect(wrapExtractedText('あ'.repeat(11))).toBe(`${'あ'.repeat(10)}\nあ`);
+    expect(wrapExtractedText('あ'.repeat(21))).toBe(`${'あ'.repeat(10)}\n${'あ'.repeat(10)}\nあ`);
+  });
+
+  test('3列以上でも改行を続ける', () => {
+    expect(extractedColumnCount('あ'.repeat(21))).toBe(3);
+    expect(extractedColumnCount('あ'.repeat(40))).toBe(4);
+    expect(wrapExtractedText('あ'.repeat(40)).split('\n')).toHaveLength(4);
+  });
+});
+
 describe('extractedTextBoxSize', () => {
-  test('高さは固定、幅は列数で伸びる', () => {
+  test('横幅は折り返し後の列数、高さは10文字分', () => {
     const font = 36;
-    const perCol = Math.floor(EXTRACT_TEXT_HEIGHT / font);
-    const one = extractedTextBoxSize('あ'.repeat(perCol), font);
-    expect(one).toEqual({ width: font, height: EXTRACT_TEXT_HEIGHT });
-    const two = extractedTextBoxSize('あ'.repeat(perCol + 1), font);
-    expect(two).toEqual({ width: font * 2, height: EXTRACT_TEXT_HEIGHT });
+    const pitch = font * EXTRACT_LINE_HEIGHT;
+    const height = EXTRACT_CHARS_PER_COL * pitch;
+    const one = extractedTextBoxSize('あ'.repeat(EXTRACT_CHARS_PER_COL), font);
+    expect(one).toEqual({ width: pitch, height });
+    const two = extractedTextBoxSize('あ'.repeat(EXTRACT_CHARS_PER_COL + 1), font);
+    expect(two).toEqual({ width: pitch * 2, height });
+    const three = extractedTextBoxSize('あ'.repeat(21), font);
+    expect(three).toEqual({ width: pitch * 3, height });
+    const four = extractedTextBoxSize('あ'.repeat(40), font);
+    expect(four).toEqual({ width: pitch * 4, height });
   });
 
   test('テキストツールのサイズはページ表示スケールに写す', () => {

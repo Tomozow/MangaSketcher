@@ -1,8 +1,14 @@
 import { cloneEditorDocument, newPageMeta, type IdFactory } from './document';
 import { layoutWorkspace } from './layout';
+import { wrapExtractedText } from './pdfExtractPack';
 import { joinVerticalBody, rangeSelectBody } from './pdfText';
 import { applyFontSizeToText, resizeTextBox } from './text';
 import { clampSplit } from './uiLayout';
+import {
+  clampColumnGap,
+  clampPairGap,
+  clampStoredPagesPerColumn,
+} from './stripGeometry';
 import { clampPdfPage } from './pdfView';
 import type {
   ClipId,
@@ -47,6 +53,11 @@ type ViewOnlyEditorAction =
       pdfViewerVisible?: boolean;
       sidebarCompact?: boolean;
       stockLayout?: 'free' | 'grid';
+      stockPane?: 'stock' | 'trash';
+      pagesPerColumn?: number;
+      pairGap?: number;
+      showPairDivider?: boolean;
+      columnGap?: number;
     };
 
 type StatefulEditorAction = Exclude<EditorDocumentAction, ViewOnlyEditorAction>;
@@ -61,6 +72,7 @@ export type EditorDocumentAction =
   | { type: 'insertAfterSelected' }
   | { type: 'deleteWorkspacePage'; pageId: PageId }
   | { type: 'deleteStockPage'; pageId: PageId }
+  | { type: 'returnTrashToWorkspace'; pageId: PageId; readingIndex: number }
   | { type: 'reorderWorkspace'; fromIndex: number; toIndex: number }
   | { type: 'movePageToStock'; pageId: PageId; x: number; y: number }
   | { type: 'returnStockToWorkspace'; pageId: PageId; readingIndex: number }
@@ -125,6 +137,11 @@ export type EditorDocumentAction =
       pdfViewerVisible?: boolean;
       sidebarCompact?: boolean;
       stockLayout?: 'free' | 'grid';
+      stockPane?: 'stock' | 'trash';
+      pagesPerColumn?: number;
+      pairGap?: number;
+      showPairDivider?: boolean;
+      columnGap?: number;
     };
 
 function findEditorText(
@@ -139,6 +156,12 @@ function findEditorText(
   }
   const pb = doc.pasteboardTexts.find((x) => x.id === textId);
   return pb ? { node: pb, where: 'pasteboard' } : null;
+}
+
+function addPageToTrash(doc: EditorDocument, pageId: PageId): void {
+  if (!doc.trash.includes(pageId)) {
+    doc.trash.push(pageId);
+  }
 }
 
 function removePageFromWorkspace(doc: EditorDocument, pageId: PageId): void {
@@ -187,7 +210,7 @@ export function reduceEditorDocument(
         return doc;
       }
       removePageFromWorkspace(doc, a.pageId);
-      delete doc.pages[a.pageId];
+      addPageToTrash(doc, a.pageId);
       return doc;
     }
     case 'deleteStockPage': {
@@ -196,7 +219,18 @@ export function reduceEditorDocument(
         return doc;
       }
       doc.stock = doc.stock.filter((s) => s.pageId !== a.pageId);
-      delete doc.pages[a.pageId];
+      addPageToTrash(doc, a.pageId);
+      return doc;
+    }
+    case 'returnTrashToWorkspace': {
+      const idx = doc.trash.indexOf(a.pageId);
+      if (idx === -1) {
+        return doc;
+      }
+      doc.trash.splice(idx, 1);
+      const insertAt = Math.max(0, Math.min(doc.workspaceOrder.length, a.readingIndex));
+      doc.workspaceOrder.splice(insertAt, 0, a.pageId);
+      doc.selectedPageId = a.pageId;
       return doc;
     }
     case 'reorderWorkspace': {
@@ -489,7 +523,7 @@ export function reduceEditorDocument(
       const source = doc.pdf.sourceTextByPage[a.pdfPage] ?? [];
       const snapshot = source.map((item) => ({ ...item }));
       const selected = rangeSelectBody(source, a.range);
-      const content = a.content ?? joinVerticalBody(selected);
+      const content = wrapExtractedText(a.content ?? joinVerticalBody(selected));
       const glyphs = a.glyphs ?? selected.map((item) => ({
         x: item.x,
         y: item.y,
@@ -610,6 +644,21 @@ function reduceEditorDocumentViewOnly(
       }
       if (action.stockLayout !== undefined) {
         patch.stockLayout = action.stockLayout === 'grid' ? 'grid' : 'free';
+      }
+      if (action.stockPane !== undefined) {
+        patch.stockPane = action.stockPane === 'trash' ? 'trash' : 'stock';
+      }
+      if (action.pagesPerColumn !== undefined) {
+        patch.pagesPerColumn = clampStoredPagesPerColumn(action.pagesPerColumn);
+      }
+      if (action.pairGap !== undefined) {
+        patch.pairGap = clampPairGap(action.pairGap);
+      }
+      if (action.showPairDivider !== undefined) {
+        patch.showPairDivider = action.showPairDivider;
+      }
+      if (action.columnGap !== undefined) {
+        patch.columnGap = clampColumnGap(action.columnGap);
       }
       return { ...state, ...patch };
     }

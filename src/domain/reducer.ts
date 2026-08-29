@@ -2,10 +2,16 @@ import { cloneDocument, newPage, type IdFactory } from './document';
 import { layoutWorkspace } from './layout';
 import { brushRadius, resolvePointerIntent } from './pointers';
 import { compositeRaster, cutRect, parseHexColor, stampBrush } from './raster';
+import { wrapExtractedText } from './pdfExtractPack';
 import { joinVerticalBody, rangeSelectBody } from './pdfText';
 import { stampStroke, type StrokePoint } from './stroke';
 import { applyFontSizeToText, findText, resizeTextBox } from './text';
 import { clampSplit } from './uiLayout';
+import {
+  clampColumnGap,
+  clampPairGap,
+  clampStoredPagesPerColumn,
+} from './stripGeometry';
 import { clampPdfPage } from './pdfView';
 import type {
   ClipId,
@@ -27,6 +33,7 @@ export type DocumentAction =
   | { type: 'insertAfterSelected' }
   | { type: 'deleteWorkspacePage'; pageId: PageId }
   | { type: 'deleteStockPage'; pageId: PageId }
+  | { type: 'returnTrashToWorkspace'; pageId: PageId; readingIndex: number }
   | { type: 'reorderWorkspace'; fromIndex: number; toIndex: number }
   | { type: 'movePageToStock'; pageId: PageId; x: number; y: number }
   | { type: 'returnStockToWorkspace'; pageId: PageId; readingIndex: number }
@@ -97,11 +104,22 @@ export type DocumentAction =
       pdfViewerVisible?: boolean;
       sidebarCompact?: boolean;
       stockLayout?: 'free' | 'grid';
+      stockPane?: 'stock' | 'trash';
+      pagesPerColumn?: number;
+      pairGap?: number;
+      showPairDivider?: boolean;
+      columnGap?: number;
     };
 
 export function pageNumber(doc: DocumentState, pageId: PageId): number | null {
   const i = doc.workspaceOrder.indexOf(pageId);
   return i === -1 ? null : i + 1;
+}
+
+function addPageToTrash(doc: DocumentState, pageId: PageId): void {
+  if (!doc.trash.includes(pageId)) {
+    doc.trash.push(pageId);
+  }
 }
 
 function removePageFromWorkspace(doc: DocumentState, pageId: PageId): void {
@@ -150,7 +168,7 @@ export function reduceTestDocument(
         return doc;
       }
       removePageFromWorkspace(doc, action.pageId);
-      delete doc.pages[action.pageId];
+      addPageToTrash(doc, action.pageId);
       return doc;
     }
     case 'deleteStockPage': {
@@ -159,7 +177,18 @@ export function reduceTestDocument(
         return doc;
       }
       doc.stock = doc.stock.filter((s) => s.pageId !== action.pageId);
-      delete doc.pages[action.pageId];
+      addPageToTrash(doc, action.pageId);
+      return doc;
+    }
+    case 'returnTrashToWorkspace': {
+      const idx = doc.trash.indexOf(action.pageId);
+      if (idx === -1) {
+        return doc;
+      }
+      doc.trash.splice(idx, 1);
+      const insertAt = Math.max(0, Math.min(doc.workspaceOrder.length, action.readingIndex));
+      doc.workspaceOrder.splice(insertAt, 0, action.pageId);
+      doc.selectedPageId = action.pageId;
       return doc;
     }
     case 'reorderWorkspace': {
@@ -512,7 +541,7 @@ export function reduceTestDocument(
       const source = doc.pdf.sourceTextByPage[action.pdfPage] ?? [];
       const snapshot = source.map((item) => ({ ...item }));
       const selected = rangeSelectBody(source, action.range);
-      const content = action.content ?? joinVerticalBody(selected);
+      const content = wrapExtractedText(action.content ?? joinVerticalBody(selected));
       const glyphs = action.glyphs ?? selected.map((item) => ({
         x: item.x,
         y: item.y,
@@ -555,6 +584,21 @@ export function reduceTestDocument(
       }
       if (action.stockLayout !== undefined) {
         doc.stockLayout = action.stockLayout === 'grid' ? 'grid' : 'free';
+      }
+      if (action.stockPane !== undefined) {
+        doc.stockPane = action.stockPane === 'trash' ? 'trash' : 'stock';
+      }
+      if (action.pagesPerColumn !== undefined) {
+        doc.pagesPerColumn = clampStoredPagesPerColumn(action.pagesPerColumn);
+      }
+      if (action.pairGap !== undefined) {
+        doc.pairGap = clampPairGap(action.pairGap);
+      }
+      if (action.showPairDivider !== undefined) {
+        doc.showPairDivider = action.showPairDivider;
+      }
+      if (action.columnGap !== undefined) {
+        doc.columnGap = clampColumnGap(action.columnGap);
       }
       return doc;
     default: {

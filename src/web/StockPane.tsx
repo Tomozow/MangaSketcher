@@ -2,15 +2,17 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
-import type { PageId, PageText } from '@/src/domain/types';
+import { PAGE_DISPLAY_H, PAGE_DISPLAY_W } from '@/src/domain/stripGeometry';
 import type { EditorDocument } from '@/src/storage/types';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
 import { PageDragThumbnail } from '@/src/web/PageDragThumbnail';
+import { PageChromeButtons } from '@/src/web/PageDeleteButton';
 import { PageThumbLayers } from '@/src/web/PageThumbLayers';
 import {
   moveWorkspacePageToStock,
   placeStockPage,
   returnStockPageToWorkspace,
+  returnTrashPageToWorkspace,
 } from '@/src/web/stock/stockActions';
 import {
   clientToStockWorld,
@@ -21,6 +23,9 @@ import { reduceStockEffects } from '@/src/web/stock/stockEffects';
 import { createStockPointerPipeline, getStockDragPageId } from '@/src/web/stock/stockPointer';
 import type { StockHit } from '@/src/web/stock/types';
 import { styles } from './editorStyles';
+
+const GRID_THUMB_BASE_PX = 112;
+const GRID_THUMB_MIN_PX = 36;
 
 export type WorkspaceGrab = {
   pageId: PageId;
@@ -35,6 +40,9 @@ export type StockPaneProps = {
   getPageThumb?: (pageId: PageId) => ImageBitmap | undefined;
   inkEngine?: InkEngine | null;
   inkFrame?: number;
+  deletePageId?: PageId | null;
+  onShowPageDelete?: (pageId: PageId | null) => void;
+  onDeletePage?: (pageId: PageId) => void;
 };
 
 function StockPageThumb({
@@ -98,6 +106,9 @@ export function StockPane({
   getPageThumb,
   inkEngine,
   inkFrame = 0,
+  deletePageId = null,
+  onShowPageDelete,
+  onDeletePage,
 }: StockPaneProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const pipelineRef = useRef<ReturnType<typeof createStockPointerPipeline> | null>(null);
@@ -115,6 +126,13 @@ export function StockPane({
 
   const onWorkspaceGrabEndRef = useRef(onWorkspaceGrabEnd);
   onWorkspaceGrabEndRef.current = onWorkspaceGrabEnd;
+  const onShowPageDeleteRef = useRef(onShowPageDelete);
+  onShowPageDeleteRef.current = onShowPageDelete;
+  const trashPane = doc.stockPane === 'trash';
+  const paneLayout = trashPane ? 'grid' : doc.stockLayout;
+  const paneItems = trashPane
+    ? doc.trash.map((pageId) => ({ pageId, x: 0, y: 0 }))
+    : doc.stock;
 
   const syncDragPointer = useCallback(() => {
     const pipeline = pipelineRef.current;
@@ -164,16 +182,40 @@ export function StockPane({
         pipeline.store.fingerPositions,
         surfaceRef.current?.getBoundingClientRect() ?? null,
       );
-      if (batch.view && present.stockLayout === 'free') {
-        dispatchRef.current({
-          type: 'setStockView',
-          zoom: batch.view.zoom,
-          panX: batch.view.panX,
-          panY: batch.view.panY,
-        });
+      if (batch.view) {
+        if (present.stockLayout === 'grid' || present.stockPane === 'trash') {
+          if (batch.view.zoom !== present.stockZoom) {
+            dispatchRef.current({
+              type: 'setStockView',
+              zoom: batch.view.zoom,
+              panX: present.stockPanX,
+              panY: present.stockPanY,
+            });
+          }
+          const surface = surfaceRef.current;
+          if (surface) {
+            surface.scrollLeft -= batch.view.panX - present.stockPanX;
+            surface.scrollTop -= batch.view.panY - present.stockPanY;
+          }
+        } else {
+          dispatchRef.current({
+            type: 'setStockView',
+            zoom: batch.view.zoom,
+            panX: batch.view.panX,
+            panY: batch.view.panY,
+          });
+        }
       }
       for (const action of batch.actions) {
         dispatchRef.current(action);
+      }
+      for (const effect of effects) {
+        if (effect.type === 'showPageDelete' && present.stockPane !== 'trash') {
+          onShowPageDeleteRef.current?.(effect.pageId);
+        }
+        if (effect.type === 'dragPage') {
+          onShowPageDeleteRef.current?.(null);
+        }
       }
       if (batch.draggedPageId !== undefined) {
         setDraggedStockPageId(batch.draggedPageId);
@@ -195,7 +237,7 @@ export function StockPane({
     }
 
     const pipeline = createStockPointerPipeline({
-      layout: docRef.current.stockLayout,
+      layout: paneLayout,
       resolveHit,
       onEffects: applyStockEffects,
     });
@@ -213,7 +255,7 @@ export function StockPane({
       pipeline.reset();
       pipelineRef.current = null;
     };
-  }, [applyStockEffects, resolveHit, syncDragPointer, doc.stockLayout]);
+  }, [applyStockEffects, resolveHit, syncDragPointer, paneLayout, trashPane]);
 
   const finishCrossPaneDrop = useCallback((clientX: number, clientY: number) => {
     const present = docRef.current;
@@ -223,7 +265,7 @@ export function StockPane({
     const stockDragId = pipelineRef.current ? getStockDragPageId(pipelineRef.current.store) : null;
     const grab = workspaceGrabRef.current;
 
-    if (grab && stockSurface) {
+    if (grab && stockSurface && present.stockPane !== 'trash') {
       const stockRect = stockSurface.getBoundingClientRect();
       if (pointInRect(clientX, clientY, stockRect)) {
         const { x, y } = clientToStockWorld(
@@ -260,9 +302,14 @@ export function StockPane({
         present.workspacePanX,
         present.workspacePanY,
         present.workspaceZoom,
+        present,
       );
       if (readingIndex !== null) {
-        for (const action of returnStockPageToWorkspace(
+        const restore =
+          present.stockPane === 'trash'
+            ? returnTrashPageToWorkspace
+            : returnStockPageToWorkspace;
+        for (const action of restore(
           stockDragId,
           readingIndex,
           present.rasterWidth,
@@ -277,7 +324,11 @@ export function StockPane({
 
       if (stockSurface) {
         const stockRect = stockSurface.getBoundingClientRect();
-        if (pointInRect(clientX, clientY, stockRect) && present.stockLayout === 'free') {
+        if (
+          pointInRect(clientX, clientY, stockRect) &&
+          present.stockLayout === 'free' &&
+          present.stockPane !== 'trash'
+        ) {
           const { x, y } = clientToStockWorld(
             clientX,
             clientY,
@@ -338,15 +389,26 @@ export function StockPane({
 
   const dragPageId = workspaceGrab?.pageId ?? draggedStockPageId;
 
-  if (doc.stockLayout === 'grid') {
+  const gridThumbMin = Math.max(GRID_THUMB_MIN_PX, GRID_THUMB_BASE_PX * doc.stockZoom);
+  const pageAspect =
+    doc.rasterWidth > 0 ? doc.rasterHeight / doc.rasterWidth : PAGE_DISPLAY_H / PAGE_DISPLAY_W;
+
+  if (paneLayout === 'grid') {
     return (
-      <div ref={surfaceRef} className={styles.stockGrid}>
-        {doc.stock.map((item) => (
+      <div
+        ref={surfaceRef}
+        className={styles.stockGrid}
+        style={{
+          ['--ms-stock-thumb-min' as string]: `${gridThumbMin}px`,
+          ['--ms-page-aspect' as string]: String(pageAspect),
+        }}
+      >
+        {paneItems.map((item) => (
           <div
             key={item.pageId}
             data-stock-page-id={item.pageId}
             className={`${styles.stockThumb} ${draggedStockPageId === item.pageId ? styles.stockThumbDragging : ''}`}
-            title={`ストック ${item.pageId.slice(0, 8)}`}
+            title={`${trashPane ? 'ゴミ箱' : 'ストック'} ${item.pageId.slice(0, 8)}`}
           >
             <StockPageThumb
               pageId={item.pageId}
@@ -358,6 +420,9 @@ export function StockPane({
               getPageThumb={getPageThumb}
               inkFrame={inkFrame}
             />
+            {deletePageId === item.pageId && onDeletePage ? (
+              <PageChromeButtons onDelete={() => onDeletePage(item.pageId)} />
+            ) : null}
           </div>
         ))}
         {dragPageId && dragPointer ? (
@@ -387,7 +452,7 @@ export function StockPane({
           height: '100%',
         }}
       >
-        {doc.stock.map((item) => (
+        {paneItems.map((item) => (
           <div
             key={item.pageId}
             data-stock-page-id={item.pageId}
@@ -408,6 +473,9 @@ export function StockPane({
               getPageThumb={getPageThumb}
               inkFrame={inkFrame}
             />
+            {deletePageId === item.pageId && onDeletePage ? (
+              <PageChromeButtons onDelete={() => onDeletePage(item.pageId)} />
+            ) : null}
           </div>
         ))}
       </div>

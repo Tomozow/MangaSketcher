@@ -2,7 +2,7 @@ import type { PageId } from './types';
 
 export type VisualSlot =
   | { kind: 'append' }
-  | { kind: 'blank' }
+  | { kind: 'blank'; at?: 'start' | 'end' }
   | { kind: 'page'; pageId: PageId; number: number };
 
 export type SpreadPair = VisualSlot[];
@@ -10,39 +10,49 @@ export type SpreadPair = VisualSlot[];
 export type WorkspaceLayout = {
   /** Left-to-right including + at the reading-order end (visual left). */
   ltrSlots: VisualSlot[];
-  /** Spread groups looking LTR, paired from the right: [5][4] | [3][2] | [1][余白] */
+  /** Spread groups looking LTR: [5][4] | [3][2] | [1][余白] */
   spreadsLtr: SpreadPair[];
   pageNumbers: number[];
   pageCount: number;
 };
 
 /**
- * RTL manga strip. Odd-page start places a blank at the visual right.
- * Looking LTR for 5 pages: [+] [5][4] | [3][2] | [1][余白]
- * Spreads: page 1 solo (with blank), then (2,3), (4,5)…
+ * Manga spreads from slot 0 (start blank), then real pages 1, 2, 3…
+ *
+ * Slot index:  0     1    2    3    4    5
+ * Content:     余白  p1   p2   p3   p4   p5
+ * Spread:      [--0--] [--1--] [--2--]
+ *
+ * Each spread is already LTR: [left page, right page].
+ * Spread 0 is [1][余白]. Spread 1 is [3][2]. Never split a spread.
  */
-export function layoutWorkspace(workspaceOrder: PageId[]): WorkspaceLayout {
-  const pageNumbers = workspaceOrder.map((_, i) => i + 1);
-  const pageSlots: VisualSlot[] = workspaceOrder.map((pageId, i) => ({
+export function readingSpreads(workspaceOrder: PageId[]): SpreadPair[] {
+  const pages: VisualSlot[] = workspaceOrder.map((pageId, i) => ({
     kind: 'page',
     pageId,
     number: i + 1,
   }));
-  const ltrBody: VisualSlot[] = [...pageSlots].reverse();
-  ltrBody.push({ kind: 'blank' });
-
-  const spreadsLtr: SpreadPair[] = [];
-  let i = ltrBody.length;
-  while (i > 0) {
-    if (i >= 2) {
-      spreadsLtr.unshift([ltrBody[i - 2], ltrBody[i - 1]]);
-      i -= 2;
-    } else {
-      spreadsLtr.unshift([ltrBody[0]]);
-      i = 0;
-    }
+  const blank: VisualSlot = { kind: 'blank', at: 'start' };
+  if (pages.length === 0) {
+    return [[blank]];
   }
+  const spreads: SpreadPair[] = [[pages[0]!, blank]];
+  for (let i = 1; i < pages.length; i += 2) {
+    const right = pages[i]!;
+    const left = pages[i + 1];
+    spreads.push(left ? [left, right] : [right]);
+  }
+  return spreads;
+}
 
+/**
+ * RTL manga strip. Looking LTR for 5 pages: [+] [5][4] | [3][2] | [1][余白]
+ */
+export function layoutWorkspace(workspaceOrder: PageId[]): WorkspaceLayout {
+  const pageNumbers = workspaceOrder.map((_, i) => i + 1);
+  const reading = readingSpreads(workspaceOrder);
+  const spreadsLtr = [...reading].reverse();
+  const ltrBody = spreadsLtr.flat();
   return {
     ltrSlots: [{ kind: 'append' }, ...ltrBody],
     spreadsLtr,

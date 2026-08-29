@@ -327,6 +327,44 @@ body {
   pointer-events: none;
 }
 
+.ms-workspaceLayoutMenu {
+  position: absolute;
+  top: 4px;
+  right: 8px;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: auto;
+}
+
+.ms-workspaceLayoutPanel {
+  margin-top: 4px;
+  width: min(280px, calc(100vw - 48px));
+  padding: 8px 10px 10px;
+  border: 1px solid var(--ms-border);
+  border-radius: 8px;
+  background: var(--ms-surface);
+  box-shadow: 0 8px 24px rgba(43, 38, 32, 0.16);
+}
+
+.ms-workspaceLayoutCheck {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 12px;
+  color: var(--ms-text);
+  padding: 0 8px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ms-workspaceLayoutCheck input {
+  width: 18px;
+  height: 18px;
+}
+
 .ms-splitRow {
   display: flex;
   flex-direction: row;
@@ -407,9 +445,8 @@ body {
 }
 
 .ms-stripFrame {
-  position: relative;
-  display: inline-block;
-  vertical-align: top;
+  position: absolute;
+  display: block;
 }
 
 .ms-pageFrame {
@@ -437,6 +474,30 @@ body {
 
 .ms-pageFrameGrabbed {
   opacity: 0.35;
+}
+
+.ms-pageChromeRow {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  z-index: 8;
+  display: flex;
+  gap: 4px;
+  transform: translateX(-50%);
+}
+
+.ms-pageDeleteButton {
+  min-height: 32px;
+  padding: 4px 12px;
+  border: 1px solid var(--ms-border);
+  border-radius: 8px;
+  background: var(--ms-surface);
+  color: var(--ms-text);
+  font-size: 12px;
+  touch-action: manipulation;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+  white-space: nowrap;
 }
 
 .ms-pageDragThumb {
@@ -533,6 +594,15 @@ body {
 .ms-pairGap {
   display: inline-block;
   width: 4px;
+}
+
+.ms-pairDivider {
+  position: absolute;
+  width: 2px;
+  background: var(--ms-text);
+  opacity: 0.35;
+  pointer-events: none;
+  transform: translateX(-50%);
 }
 
 .ms-pdfPlaceholder {
@@ -705,18 +775,23 @@ body {
 
 .ms-stockGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(var(--ms-stock-thumb-min, 112px), 1fr));
+  grid-auto-rows: max-content;
+  align-items: start;
+  justify-items: stretch;
+  align-content: start;
   gap: 8px;
   padding: 8px;
   overflow: auto;
   height: 100%;
-  touch-action: pan-y;
+  touch-action: none;
 }
 
 .ms-stockThumb {
   position: relative;
-  width: 112px;
-  height: 158px;
+  width: 100%;
+  height: 0;
+  padding-bottom: calc(100% * var(--ms-page-aspect, 1.41667));
   overflow: hidden;
   background-color: #fff;
   box-shadow: inset 0 0 0 1px var(--ms-border);
@@ -861,6 +936,12 @@ body {
 .ms-iconButton:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.ms-iconButtonActive {
+  border-color: var(--ms-accent);
+  background: #e8eef5;
+  color: var(--ms-accent);
 }
 
 .ms-linkButton {
@@ -1044,6 +1125,7 @@ body {
   border: 1px solid var(--ms-border);
   border-radius: 8px;
   resize: none;
+  overflow-y: auto;
   touch-action: manipulation;
   -webkit-user-select: text;
   user-select: text;

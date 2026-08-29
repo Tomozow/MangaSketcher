@@ -1,5 +1,11 @@
 import { describe, expect, test } from 'vitest';
-import { planTextCommit, TEXT_EDIT_GAP_PX, textEditBarPose } from '../textEditCommit';
+import {
+  fitTextEditInputHeight,
+  planTextCommit,
+  TEXT_EDIT_GAP_PX,
+  TEXT_EDIT_MIN_HEIGHT_PX,
+  textEditBarPose,
+} from '../textEditCommit';
 
 describe('planTextCommit (§3.4)', () => {
   test('commits only on explicit request after composition with changes', () => {
@@ -78,5 +84,16 @@ describe('textEditBarPose', () => {
     );
     expect(pose.top + 52).toBeLessThanOrEqual(600 - 8);
     expect(pose.left).toBeGreaterThanOrEqual(8);
+  });
+});
+
+describe('fitTextEditInputHeight', () => {
+  test('grows with the draft and does not shrink below the tap target', () => {
+    expect(fitTextEditInputHeight(20)).toBe(TEXT_EDIT_MIN_HEIGHT_PX);
+    expect(fitTextEditInputHeight(120)).toBe(120);
+  });
+
+  test('clamps to the viewport budget so long extracts stay visible but on screen', () => {
+    expect(fitTextEditInputHeight(800, TEXT_EDIT_MIN_HEIGHT_PX, 200)).toBe(200);
   });
 });

@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react';
 import type { TextId } from '@/src/domain/types';
-import { planTextCommit, TEXT_EDIT_MIN_WIDTH_PX, textEditBarPose } from '@/src/web/textEditCommit';
+import {
+  fitTextEditInputHeight,
+  planTextCommit,
+  TEXT_EDIT_MIN_HEIGHT_PX,
+  TEXT_EDIT_MIN_WIDTH_PX,
+  textEditBarPose,
+} from '@/src/web/textEditCommit';
 import {
   PAGE_TEXT_CHROME_ATTR,
   PAGE_TEXT_COPY_ATTR,
@@ -26,6 +32,12 @@ type TextEditBarProps = {
   onEditingChange: (editing: boolean) => void;
   onLiveContent: (content: string | null) => void;
 };
+
+function fitBarInput(input: HTMLTextAreaElement, viewHeight: number): void {
+  input.style.height = 'auto';
+  const maxHeight = Math.max(TEXT_EDIT_MIN_HEIGHT_PX, Math.floor(viewHeight * 0.5));
+  input.style.height = `${fitTextEditInputHeight(input.scrollHeight, TEXT_EDIT_MIN_HEIGHT_PX, maxHeight)}px`;
+}
 
 function visualViewRect(): { left: number; top: number; width: number; height: number } {
   const viewport = window.visualViewport;
@@ -126,8 +138,13 @@ export function TextEditBar({
         setPose(null);
         return;
       }
-      const barHeight = barRef.current?.getBoundingClientRect().height || 52;
-      setPose(textEditBarPose(wrap.getBoundingClientRect(), visualViewRect(), barHeight));
+      const view = visualViewRect();
+      const input = textareaRef.current;
+      if (input) {
+        fitBarInput(input, view.height);
+      }
+      const barHeight = barRef.current?.getBoundingClientRect().height || TEXT_EDIT_MIN_HEIGHT_PX;
+      setPose(textEditBarPose(wrap.getBoundingClientRect(), view, barHeight));
     };
 
     update();
@@ -151,6 +168,26 @@ export function TextEditBar({
       observer?.disconnect();
     };
   }, [layoutKey, selection?.id]);
+
+  useLayoutEffect(() => {
+    if (!selection) {
+      return;
+    }
+    const input = textareaRef.current;
+    if (!input) {
+      return;
+    }
+    const view = visualViewRect();
+    fitBarInput(input, view.height);
+    const wrap = document.querySelector<HTMLElement>(
+      `[${PAGE_TEXT_WRAP_ATTR}][${PAGE_TEXT_ID_ATTR}="${selection.id}"]`,
+    );
+    if (!wrap) {
+      return;
+    }
+    const barHeight = barRef.current?.getBoundingClientRect().height || TEXT_EDIT_MIN_HEIGHT_PX;
+    setPose(textEditBarPose(wrap.getBoundingClientRect(), view, barHeight));
+  }, [draft, pose?.width, selection?.id]);
 
   useEffect(() => {
     if (!selection) return;
@@ -259,7 +296,7 @@ export function TextEditBar({
         ref={textareaRef}
         className={styles.textEditInput}
         value={draft}
-        rows={2}
+        rows={1}
         aria-label="テキスト編集"
         onChange={handleChange}
         onFocus={handleFocus}

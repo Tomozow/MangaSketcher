@@ -85,6 +85,8 @@ export type StockItem = {
 
 export type StockLayout = 'free' | 'grid';
 
+export type StockPaneMode = 'stock' | 'trash';
+
 export type ToolProperties = {
   penColor: string;
   /** Base size; actual stamp radius = size * pressure for pencil. */
@@ -141,6 +143,8 @@ export type DocumentState = {
   /** Reading order (page 1 first). */
   workspaceOrder: PageId[];
   stock: StockItem[];
+  /** Soft-deleted pages; still present in `pages`. */
+  trash: PageId[];
   pasteboardClips: InkClip[];
   pasteboardTexts: PasteboardText[];
   selectedPageId: PageId | null;
@@ -160,6 +164,14 @@ export type DocumentState = {
   pdfViewerVisible: boolean;
   sidebarCompact: boolean;
   stockLayout: StockLayout;
+  stockPane: StockPaneMode;
+  /** Real pages per column (odd); 0 = all pages in one row. Slot 0 blank is not counted. */
+  pagesPerColumn: number;
+  /** World-space gap between adjacent spreads. */
+  pairGap: number;
+  showPairDivider: boolean;
+  /** World-space vertical gap between columns/rows; max two page heights. */
+  columnGap: number;
 };
 
 /** Production React state / IDB JSON — no Uint8ClampedArray. */
@@ -171,6 +183,7 @@ export type EditorDocument = {
   pages: Record<PageId, PageMeta>;
   workspaceOrder: PageId[];
   stock: StockItem[];
+  trash: PageId[];
   pasteboardClips: ClipMeta[];
   pasteboardTexts: PasteboardText[];
   selectedPageId: PageId | null;
@@ -190,6 +203,11 @@ export type EditorDocument = {
   pdfViewerVisible: boolean;
   sidebarCompact: boolean;
   stockLayout: StockLayout;
+  stockPane: StockPaneMode;
+  pagesPerColumn: number;
+  pairGap: number;
+  showPairDivider: boolean;
+  columnGap: number;
   inkGeneration: number;
 };
 

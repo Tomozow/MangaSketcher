@@ -163,3 +163,37 @@ describe('text attachment placement', () => {
     });
   });
 });
+
+describe('trash', () => {
+  test('ワークスペース削除はページをゴミ箱へ移し、復元できる', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 2,
+      ids: sequentialIds('page'),
+    });
+    const [a, b] = doc.workspaceOrder;
+    doc = reduceEditorDocument(doc, { type: 'deleteWorkspacePage', pageId: b }, ids);
+    expect(doc.workspaceOrder).toEqual([a]);
+    expect(doc.trash).toEqual([b]);
+    expect(doc.pages[b]).toBeDefined();
+    doc = reduceEditorDocument(doc, { type: 'returnTrashToWorkspace', pageId: b, readingIndex: 0 }, ids);
+    expect(doc.workspaceOrder).toEqual([b, a]);
+    expect(doc.trash).toEqual([]);
+  });
+
+  test('ストックペイン切替は VIEW_ONLY', () => {
+    const doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const ids = sequentialIds('a');
+    let history = createEditorHistory(doc);
+    history = reduceEditorHistory(history, { type: 'setUiLayout', stockPane: 'trash' }, ids);
+    expect(history.past).toHaveLength(0);
+    expect(history.present.stockPane).toBe('trash');
+  });
+});

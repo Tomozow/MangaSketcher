@@ -6,6 +6,7 @@ export type DragPayload =
   | { type: 'pdfText'; pdfPage: number; range: Rect; preview: string }
   | { type: 'workspacePage'; pageId: PageId; fromIndex: number }
   | { type: 'stockPage'; pageId: PageId }
+  | { type: 'trashPage'; pageId: PageId }
   | { type: 'clip'; clipId: ClipId }
   | { type: 'pasteboardText'; textId: TextId };
 
@@ -81,6 +82,15 @@ export function dropActions(
     return [];
   }
 
+  if (payload.type === 'trashPage') {
+    if (target.zone === 'workspaceInsert') {
+      return [
+        { type: 'returnTrashToWorkspace', pageId: payload.pageId, readingIndex: target.readingIndex },
+      ];
+    }
+    return [];
+  }
+
   if (payload.type === 'clip') {
     if (target.zone === 'page') {
       return [
@@ -128,7 +138,7 @@ export function dropActions(
 }
 
 export function pageIdFromDrag(payload: DragPayload): PageId | null {
-  if (payload.type === 'workspacePage' || payload.type === 'stockPage') {
+  if (payload.type === 'workspacePage' || payload.type === 'stockPage' || payload.type === 'trashPage') {
     return payload.pageId;
   }
   return null;

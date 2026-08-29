@@ -214,21 +214,24 @@ function createTextCoords(
 
 function tapEffects(
   hit: WorkspaceHit,
-  selectedPageId: PageId | null,
+  _selectedPageId: PageId | null,
   tool: ToolId,
   input?: WorkspacePointerInput,
 ): WorkspaceEffect[] {
   if (hit.kind === 'pageNumber') {
-    if (selectedPageId !== hit.pageId) {
-      return [{ type: 'selectPage', pageId: hit.pageId }];
-    }
-    return [{ type: 'insertAfterSelected' }];
+    return [
+      { type: 'selectPage', pageId: hit.pageId },
+      { type: 'showPageDelete', pageId: hit.pageId },
+    ];
   }
-  if (hit.kind === 'append' || hit.kind === 'slot') {
+  if (hit.kind === 'append') {
     if (tool === 'text') {
       return [];
     }
     return [{ type: 'appendPage' }];
+  }
+  if (hit.kind === 'slot') {
+    return [];
   }
   if (tool === 'text' && hit.kind === 'page') {
     if (!input) {
@@ -906,30 +909,30 @@ function stepFinger(
 
     const dist = Math.hypot(input.x - session.startX, input.y - session.startY);
     if (dist >= PAN_SLOP) {
-      return {
-        session: { mode: 'pan', kind: 'finger', lastX: input.x, lastY: input.y },
-        effects: [{ type: 'panBy', dx: input.x - session.startX, dy: input.y - session.startY }],
-      };
-    }
-    if (
-      input.now - session.startedAt >= LONG_PRESS_MS &&
-      isPageBodyHit(session.hit) &&
-      canGrabPage('finger', 'longpress')
-    ) {
-      return {
-        session: {
-          mode: 'grabPage',
-          kind: 'finger',
-          pageId: session.hit.pageId,
-          fromIndex: session.hit.readingIndex,
-        },
-        effects: [
-          {
-            type: 'grabPage',
+      if (
+        input.now - session.startedAt >= LONG_PRESS_MS &&
+        isPageBodyHit(session.hit) &&
+        canGrabPage('finger', 'longpress')
+      ) {
+        return {
+          session: {
+            mode: 'grabPage',
+            kind: 'finger',
             pageId: session.hit.pageId,
             fromIndex: session.hit.readingIndex,
           },
-        ],
+          effects: [
+            {
+              type: 'grabPage',
+              pageId: session.hit.pageId,
+              fromIndex: session.hit.readingIndex,
+            },
+          ],
+        };
+      }
+      return {
+        session: { mode: 'pan', kind: 'finger', lastX: input.x, lastY: input.y },
+        effects: [{ type: 'panBy', dx: input.x - session.startX, dy: input.y - session.startY }],
       };
     }
     return { session, effects: [] };

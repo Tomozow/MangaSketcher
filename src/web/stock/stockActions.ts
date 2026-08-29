@@ -32,6 +32,20 @@ export function returnStockPageToWorkspace(
   ) as EditorDocumentAction[];
 }
 
+export function returnTrashPageToWorkspace(
+  pageId: PageId,
+  readingIndex: number,
+  rasterWidth: number,
+  rasterHeight: number,
+): EditorDocumentAction[] {
+  return dropActions(
+    { type: 'trashPage', pageId },
+    { zone: 'workspaceInsert', readingIndex },
+    rasterWidth,
+    rasterHeight,
+  ) as EditorDocumentAction[];
+}
+
 export function placeStockPage(
   pageId: PageId,
   x: number,

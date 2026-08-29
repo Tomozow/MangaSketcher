@@ -13,6 +13,7 @@ function sampleDoc(): EditorDocument {
     },
     workspaceOrder: ['a'],
     stock: [],
+    trash: [],
     pasteboardClips: [],
     pasteboardTexts: [],
     selectedPageId: 'a',
@@ -40,6 +41,11 @@ function sampleDoc(): EditorDocument {
     pdfViewerVisible: true,
     sidebarCompact: false,
     stockLayout: 'free',
+    stockPane: 'stock',
+    pagesPerColumn: 0,
+    pairGap: 4,
+    showPairDivider: false,
+    columnGap: 0,
     inkGeneration: 0,
   };
 }

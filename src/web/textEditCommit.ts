@@ -26,7 +26,19 @@ export function planTextCommit(input: {
 export const TEXT_TAP_SLOP_PX = 8;
 export const TEXT_EDIT_GAP_PX = 8;
 export const TEXT_EDIT_MIN_WIDTH_PX = 240;
+export const TEXT_EDIT_MIN_HEIGHT_PX = 44;
 export const TEXT_EDIT_MARGIN_PX = 8;
+
+/** Grow the horizontal IME textarea to the draft. Clamp so it stays on screen. */
+export function fitTextEditInputHeight(
+  scrollHeight: number,
+  minHeight = TEXT_EDIT_MIN_HEIGHT_PX,
+  maxHeight = Number.POSITIVE_INFINITY,
+): number {
+  const floor = Math.max(1, minHeight);
+  const ceiling = Math.max(floor, maxHeight);
+  return Math.min(ceiling, Math.max(floor, scrollHeight));
+}
 
 export function textEditBarPose(
   wrapRect: { left: number; top: number; right: number; bottom: number; width: number; height: number },

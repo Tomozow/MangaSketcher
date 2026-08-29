@@ -12,6 +12,7 @@ export type {
   ProjectId,
   StockItem,
   StockLayout,
+  StockPaneMode,
   TextId,
   ToolId,
   ToolProperties,
@@ -66,4 +67,9 @@ export const DEFAULT_UI_LAYOUT = {
   pdfViewerVisible: true,
   sidebarCompact: false,
   stockLayout: 'free' as import('../domain/types').StockLayout,
+  stockPane: 'stock' as import('../domain/types').StockPaneMode,
+  pagesPerColumn: 0,
+  pairGap: 4,
+  showPairDivider: false,
+  columnGap: 0,
 };

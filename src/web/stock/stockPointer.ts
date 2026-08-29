@@ -76,6 +76,9 @@ export function createStockPointerPipeline(ctx: StockPointerContext): StockPoint
     element.style.touchAction = 'none';
 
     const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest('[data-page-delete-chrome]')) {
+        return;
+      }
       if (event.pointerType === 'pen' || event.pointerType === 'touch') {
         event.preventDefault();
       }

@@ -115,35 +115,39 @@ function stepFinger(
 
   if (session.mode === 'fingerPending') {
     if (input.phase === 'up' || input.phase === 'cancel') {
+      if (
+        input.phase === 'up' &&
+        input.now - session.startedAt >= LONG_PRESS_MS &&
+        Math.hypot(input.x - session.startX, input.y - session.startY) < PAN_SLOP &&
+        session.hit.kind === 'thumb' &&
+        stockPointerPolicy('finger').dragPage
+      ) {
+        return {
+          session: { mode: 'idle' },
+          effects: [{ type: 'showPageDelete', pageId: session.hit.pageId }],
+        };
+      }
       return { session: { mode: 'idle' }, effects: [] };
     }
 
     const dist = Math.hypot(input.x - session.startX, input.y - session.startY);
     if (dist >= PAN_SLOP) {
-      if (session.hit.kind === 'thumb' && stockPointerPolicy('finger').dragPage) {
+      const held = input.now - session.startedAt >= LONG_PRESS_MS;
+      const canDragThumb =
+        session.hit.kind === 'thumb' && stockPointerPolicy('finger').dragPage;
+      if (canDragThumb && (input.layout === 'free' || held)) {
         return {
           session: { mode: 'dragPage', kind: 'finger', pageId: session.hit.pageId },
           effects: [{ type: 'dragPage', pageId: session.hit.pageId }],
         };
       }
-      if (input.layout === 'free' && stockPointerPolicy('finger').pan) {
+      if (stockPointerPolicy('finger').pan) {
         return {
           session: { mode: 'pan', kind: 'finger', lastX: input.x, lastY: input.y },
           effects: [{ type: 'panBy', dx: input.x - session.startX, dy: input.y - session.startY }],
         };
       }
       return { session: { mode: 'idle' }, effects: [] };
-    }
-
-    if (
-      input.now - session.startedAt >= LONG_PRESS_MS &&
-      session.hit.kind === 'thumb' &&
-      stockPointerPolicy('finger').dragPage
-    ) {
-      return {
-        session: { mode: 'dragPage', kind: 'finger', pageId: session.hit.pageId },
-        effects: [{ type: 'dragPage', pageId: session.hit.pageId }],
-      };
     }
 
     return { session, effects: [] };
@@ -164,7 +168,7 @@ function stepFingerDown(
   store.fingerPositions.set(input.pointerId, { x: input.x, y: input.y });
 
   const existingFingers = activeFingerIds(store).filter((id) => id !== input.pointerId);
-  if (input.layout === 'free' && existingFingers.length >= 1) {
+  if (existingFingers.length >= 1) {
     const partnerId = existingFingers[0]!;
     const { sessionA, sessionB } = beginPinch(store, input.pointerId, partnerId);
     store.sessions.set(partnerId, sessionB);

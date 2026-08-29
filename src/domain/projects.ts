@@ -50,6 +50,7 @@ export function deserializeDocument(raw: string): DocumentState {
   return {
     ...parsed,
     pages,
+    trash: [...(parsed.trash ?? [])],
     pasteboardClips: parsed.pasteboardClips.map((clip) => ({
       ...clip,
       raster: rasterFromArray(clip.raster.width, clip.raster.height, clip.raster.data),

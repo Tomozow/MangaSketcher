@@ -1,3 +1,4 @@
+import { cloneEditorDocument } from './editorDocument';
 import { createEditorHistory } from './history';
 import type { EditorDocument, EditorHistory } from './types';
 import type { StorageDatabase } from './idb';
@@ -30,10 +31,11 @@ export async function loadEditorBoot(
 ): Promise<EditorBootResult | null> {
   const db = deps.db ?? getDefaultStorageDatabase();
   const opfs = deps.opfs ?? getDefaultOpfsStorage();
-  const document = await db.getDocument(projectId);
-  if (!document) {
+  const loaded = await db.getDocument(projectId);
+  if (!loaded) {
     return null;
   }
+  const document = cloneEditorDocument(loaded);
   const encodedPng = await loadProjectRasters(document, { db });
   let pdfFile: File | null = null;
   let pdfMissing = false;
@@ -44,7 +46,7 @@ export async function loadEditorBoot(
     }
   }
   return {
-    document,
+    document: cloneEditorDocument(document),
     encodedPng,
     pdfFile,
     pdfMissing,

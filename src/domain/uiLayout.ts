@@ -1,4 +1,10 @@
-import type { StockLayout } from './types';
+import type { StockLayout, StockPaneMode } from './types';
+import {
+  clampColumnGap,
+  clampPairGap,
+  clampStoredPagesPerColumn,
+  PAIR_GAP,
+} from './stripGeometry';
 
 export const SPLIT_MIN = 0.22;
 export const SPLIT_MAX = 0.78;
@@ -11,6 +17,11 @@ export type UiLayout = {
   pdfViewerVisible: boolean;
   sidebarCompact: boolean;
   stockLayout: StockLayout;
+  stockPane: StockPaneMode;
+  pagesPerColumn: number;
+  pairGap: number;
+  showPairDivider: boolean;
+  columnGap: number;
 };
 
 export const DEFAULT_UI_LAYOUT: UiLayout = {
@@ -19,6 +30,11 @@ export const DEFAULT_UI_LAYOUT: UiLayout = {
   pdfViewerVisible: true,
   sidebarCompact: false,
   stockLayout: 'free',
+  stockPane: 'stock',
+  pagesPerColumn: 0,
+  pairGap: PAIR_GAP,
+  showPairDivider: false,
+  columnGap: 0,
 };
 
 export function clampSplit(value: number): number {
@@ -59,11 +75,17 @@ export function togglePdfViewer(layout: UiLayout, visible: boolean): UiLayout {
 
 export function normalizeUiLayout(partial: Partial<UiLayout> | undefined): UiLayout {
   const stockLayout = partial?.stockLayout === 'grid' ? 'grid' : 'free';
+  const stockPane = partial?.stockPane === 'trash' ? 'trash' : 'stock';
   return {
     workspacePdfSplit: clampSplit(partial?.workspacePdfSplit ?? DEFAULT_WORKSPACE_PDF_SPLIT),
     paletteStockSplit: clampSplit(partial?.paletteStockSplit ?? DEFAULT_PALETTE_STOCK_SPLIT),
     pdfViewerVisible: partial?.pdfViewerVisible !== false,
     sidebarCompact: Boolean(partial?.sidebarCompact),
     stockLayout,
+    stockPane,
+    pagesPerColumn: clampStoredPagesPerColumn(partial?.pagesPerColumn),
+    pairGap: clampPairGap(partial?.pairGap),
+    showPairDivider: Boolean(partial?.showPairDivider),
+    columnGap: clampColumnGap(partial?.columnGap),
   };
 }

@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { mainPaneFlex, nextSplitFromDrag, sidebarPaneFlex } from '@/src/domain/uiLayout';
 import type { PageId } from '@/src/domain/types';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
@@ -20,6 +20,7 @@ import { PageInkOverlay } from './PageInkOverlay';
 import { TextEditBar } from './TextEditBar';
 import type { TextEditSelection } from '@/src/web/TextEditBar';
 import type { PdfExtractPayload } from '@/src/web/pdf/PdfPageViewer';
+import { WorkspaceLayoutMenu } from './WorkspaceLayoutMenu';
 import { WorkspaceStrip } from './WorkspaceStrip';
 
 type EditorLayoutProps = {
@@ -91,6 +92,53 @@ export function EditorLayout({
   const sidebarClass = doc.sidebarCompact ? styles.sidebarCompact : styles.sidebarNormal;
   const [workspaceGrab, setWorkspaceGrab] = useState<WorkspaceGrab | null>(null);
   const [liveTextDraft, setLiveTextDraft] = useState<string | null>(null);
+  const [pageDelete, setPageDelete] = useState<{ pageId: PageId; source: 'workspace' | 'stock' } | null>(
+    null,
+  );
+
+  const insertPageAfter = useCallback(
+    (pageId: PageId) => {
+      if (doc.selectedPageId !== pageId) {
+        dispatch({ type: 'selectPage', pageId });
+      }
+      dispatch({ type: 'insertAfterSelected' });
+      setPageDelete(null);
+    },
+    [dispatch, doc.selectedPageId],
+  );
+
+  const confirmPageDelete = useCallback(
+    (pageId: PageId, source: 'workspace' | 'stock') => {
+      if (!window.confirm('このページをゴミ箱に移しますか？')) {
+        return;
+      }
+      dispatch({
+        type: source === 'stock' ? 'deleteStockPage' : 'deleteWorkspacePage',
+        pageId,
+      });
+      setPageDelete(null);
+    },
+    [dispatch],
+  );
+
+  useEffect(() => {
+    if (!pageDelete) {
+      return;
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Element) {
+        if (event.target.closest('[data-page-delete-chrome]')) {
+          return;
+        }
+        if (event.target.closest('[data-page-number-band]')) {
+          return;
+        }
+      }
+      setPageDelete(null);
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [pageDelete]);
 
   const handleWorkspaceEffects = useCallback(
     (
@@ -101,9 +149,13 @@ export function EditorLayout({
       for (const effect of effects) {
         if (effect.type === 'grabPage') {
           setWorkspaceGrab({ pageId: effect.pageId, fromIndex: effect.fromIndex });
+          setPageDelete(null);
         }
         if (effect.type === 'endGrabPage') {
           setWorkspaceGrab(null);
+        }
+        if (effect.type === 'showPageDelete') {
+          setPageDelete({ pageId: effect.pageId, source: 'workspace' });
         }
       }
       return applyWorkspaceEffects(effects, fingerPositions, surfaceRect);
@@ -187,7 +239,9 @@ export function EditorLayout({
             data-ms-shell="pane"
             style={{ flexGrow: sideFlex.stock, flexShrink: 1, flexBasis: 0 }}
           >
-            <span className={styles.paneLabel} data-ms-shell="pane-label">ストック</span>
+            <span className={styles.paneLabel} data-ms-shell="pane-label">
+              {doc.stockPane === 'trash' ? 'ゴミ箱' : 'ストック'}
+            </span>
             <StockPane
               doc={doc}
               dispatch={dispatch}
@@ -196,6 +250,15 @@ export function EditorLayout({
               getPageThumb={getPageThumb}
               inkEngine={inkEngine}
               inkFrame={inkFrame}
+              deletePageId={pageDelete?.source === 'stock' ? pageDelete.pageId : null}
+              onShowPageDelete={(pageId) => {
+                if (!pageId) {
+                  setPageDelete(null);
+                  return;
+                }
+                setPageDelete({ pageId, source: 'stock' });
+              }}
+              onDeletePage={(pageId) => confirmPageDelete(pageId, 'stock')}
             />
           </div>
         </div>
@@ -210,6 +273,7 @@ export function EditorLayout({
             style={{ flexGrow: mainFlex.workspace, flexShrink: 1, flexBasis: 0 }}
           >
             <span className={styles.paneLabel} data-ms-shell="pane-label">ワークスペース</span>
+            <WorkspaceLayoutMenu doc={doc} dispatch={dispatch} />
             <WorkspaceStrip
               workspaceOrder={doc.workspaceOrder}
               pages={doc.pages}
@@ -225,6 +289,7 @@ export function EditorLayout({
               rasterWidth={doc.rasterWidth}
               rasterHeight={doc.rasterHeight}
               getClipRasterSize={getClipRasterSize}
+              stripLayout={doc}
               applyWorkspaceEffects={handleWorkspaceEffects}
               getPageThumb={getPageThumb}
               selectedTextId={doc.selectedTextId}
@@ -235,6 +300,9 @@ export function EditorLayout({
                   : null
               }
               onDeleteText={deleteText}
+              deletePageId={pageDelete?.source === 'workspace' ? pageDelete.pageId : null}
+              onDeletePage={(pageId) => confirmPageDelete(pageId, 'workspace')}
+              onInsertPage={insertPageAfter}
             />
             {inkEngine ? (
               <PageInkOverlay

@@ -7,7 +7,8 @@ export type StockHit =
 export type StockEffect =
   | { type: 'panBy'; dx: number; dy: number }
   | { type: 'pinchBy'; scaleBy: number; midDx: number; midDy: number }
-  | { type: 'dragPage'; pageId: PageId };
+  | { type: 'dragPage'; pageId: PageId }
+  | { type: 'showPageDelete'; pageId: PageId };
 
 export type StockSession =
   | { mode: 'idle' }

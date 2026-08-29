@@ -14,7 +14,7 @@ import { screenToWorld } from '../../domain/stripGeometry';
 import { stepWorkspacePointer } from './workspaceFsm';
 import type { WorkspaceEffect, WorkspaceGestureStore, WorkspaceHit } from './types';
 import { createWorkspaceGestureStore } from './types';
-import { PAGE_TEXT_CHROME_ATTR } from './pageTextDom';
+import { PAGE_TEXT_CHROME_ATTR, PAGE_DELETE_CHROME_ATTR } from './pageTextDom';
 
 export type PointerTarget = 'workspace' | 'pdf' | 'stock' | 'splitter';
 
@@ -49,7 +49,11 @@ export type WorkspacePointerPipeline = {
 
 function isTextChromeTarget(event: PointerEvent): boolean {
   const el = event.target;
-  return el instanceof Element && el.closest(`[${PAGE_TEXT_CHROME_ATTR}]`) !== null;
+  return (
+    el instanceof Element &&
+    (el.closest(`[${PAGE_TEXT_CHROME_ATTR}]`) !== null ||
+      el.closest(`[${PAGE_DELETE_CHROME_ATTR}]`) !== null)
+  );
 }
 
 function shouldPreventDefault(target: PointerTarget): boolean {

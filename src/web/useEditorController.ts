@@ -8,11 +8,12 @@ import {
   nextExtractPack,
   startExtractPack,
   extractedTextBoxSize,
+  wrapExtractedText,
   workspaceFontSizeFromTool,
   type ExtractPackCursor,
 } from '@/src/domain/pdfExtractPack';
 import { brushRadius } from '@/src/domain/pointers';
-import { clampRasterPoint, pageLocalFromWorld, screenToWorld } from '@/src/domain/stripGeometry';
+import { clampRasterPoint, pageLocalFromWorld, screenToWorld, buildStripFrames, stripLayoutFromDoc } from '@/src/domain/stripGeometry';
 import { defaultTextBox, findText, isTextContentEmpty, clampTextBoxOrigin } from '@/src/domain/text';
 import type { StrokePoint } from '@/src/domain/stroke';
 import { AutosaveManager, type AutosaveStatus } from '@/src/storage/autosave';
@@ -551,6 +552,7 @@ export function useEditorController(projectId: string): EditorController {
       if (!api) {
         return;
       }
+      const frames = buildStripFrames(present.workspaceOrder, stripLayoutFromDoc(present)).frames;
 
       for (const effect of effects) {
         if (effect.type === 'marqueePreview') {
@@ -574,7 +576,7 @@ export function useEditorController(projectId: string): EditorController {
           if (!page) {
             continue;
           }
-          const frame = frameForPage(present.workspaceOrder, effect.pageId);
+          const frame = frameForPage(present.workspaceOrder, effect.pageId, frames);
           if (!frame) {
             continue;
           }
@@ -607,7 +609,7 @@ export function useEditorController(projectId: string): EditorController {
         if (effect.type === 'dropClipOnPage') {
           const clip = present.pasteboardClips.find((c) => c.id === effect.clipId);
           const page = present.pages[effect.pageId];
-          const frame = frameForPage(present.workspaceOrder, effect.pageId);
+          const frame = frameForPage(present.workspaceOrder, effect.pageId, frames);
           if (!clip || !page || !frame) {
             continue;
           }
@@ -691,6 +693,7 @@ export function useEditorController(projectId: string): EditorController {
 
   const applyTextLiveEffects = useCallback(
     (effects: WorkspaceEffect[], present: EditorDocument) => {
+      const frames = buildStripFrames(present.workspaceOrder, stripLayoutFromDoc(present)).frames;
       const clampOnPage = (pageId: PageId | undefined, box: { x: number; y: number; width: number; height: number }) => {
         if (!pageId || !present.pages[pageId]) {
           return box;
@@ -749,7 +752,7 @@ export function useEditorController(projectId: string): EditorController {
             y: effect.y,
             targetPasteboard: Boolean(effect.pasteboard),
             targetPageId,
-            frameForPageId: (pageId) => frameForPage(present.workspaceOrder, pageId),
+            frameForPageId: (pageId) => frameForPage(present.workspaceOrder, pageId, frames),
             rasterWidth: present.rasterWidth,
             rasterHeight: present.rasterHeight,
           });
@@ -779,13 +782,13 @@ export function useEditorController(projectId: string): EditorController {
               y: effect.y,
               targetPasteboard: Boolean(effect.pasteboard),
               targetPageId,
-              frameForPageId: (pageId) => frameForPage(present.workspaceOrder, pageId),
+              frameForPageId: (pageId) => frameForPage(present.workspaceOrder, pageId, frames),
               rasterWidth: present.rasterWidth,
               rasterHeight: present.rasterHeight,
             });
             const clamped = clampOnPage(targetPageId, targetBox);
             if (effect.pasteboard && found.where === 'page' && found.pageId) {
-              const frame = frameForPage(present.workspaceOrder, found.pageId);
+              const frame = frameForPage(present.workspaceOrder, found.pageId, frames);
               dispatch({
                 type: 'detachTextToPasteboard',
                 textId: effect.textId,
@@ -808,7 +811,7 @@ export function useEditorController(projectId: string): EditorController {
                 y: clamped.y,
               });
             } else if (effect.pageId && found.where === 'pasteboard') {
-              const frame = frameForPage(present.workspaceOrder, effect.pageId);
+              const frame = frameForPage(present.workspaceOrder, effect.pageId, frames);
               dispatch({
                 type: 'attachTextToPage',
                 textId: effect.textId,
@@ -1069,7 +1072,8 @@ export function useEditorController(projectId: string): EditorController {
         zoom,
       };
       const fontSize = workspaceFontSizeFromTool(present.tools.textFontSize, present.rasterWidth);
-      const size = extractedTextBoxSize(payload.preview, fontSize);
+      const content = wrapExtractedText(payload.preview);
+      const size = extractedTextBoxSize(content, fontSize);
       const packed = extractPackRef.current
         ? nextExtractPack(extractPackRef.current, size)
         : startExtractPack(viewport, size);
@@ -1080,7 +1084,7 @@ export function useEditorController(projectId: string): EditorController {
         range: payload.range,
         attachment: { kind: 'pasteboard' },
         box: packed.box,
-        content: payload.preview,
+        content,
         glyphs: payload.glyphs,
         fontSize,
       });

@@ -61,8 +61,8 @@ export async function loadDocument(
   deps?: ProjectStoreDeps,
 ): Promise<EditorDocument | null> {
   const { db } = resolveDeps(deps);
-  const doc = await db.getDocument(projectId);
-  return doc ?? null;
+  const loaded = await db.getDocument(projectId);
+  return loaded ? cloneEditorDocument(loaded) : null;
 }
 
 export async function loadProjectRasters(

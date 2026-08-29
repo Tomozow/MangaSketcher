@@ -2,8 +2,28 @@ import { PAGE_DISPLAY_H, PAGE_DISPLAY_W } from './stripGeometry';
 import type { Rect } from './types';
 
 export const EXTRACT_TEXT_HEIGHT = PAGE_DISPLAY_H;
+export const EXTRACT_CHARS_PER_COL = 10;
+/** Matches workspace `lineHeight: 1.2` (column pitch in vertical-rl). */
+export const EXTRACT_LINE_HEIGHT = 1.2;
 export const EXTRACT_GAP = 8;
 export const EXTRACT_MARGIN_CSS = 16;
+
+/** Vertical-rl: insert a column break every 10 characters. Idempotent if already wrapped. */
+export function wrapExtractedText(
+  content: string,
+  charsPerCol = EXTRACT_CHARS_PER_COL,
+): string {
+  const limit = Math.max(1, charsPerCol);
+  const chars = [...content.replace(/\s+/g, '')];
+  if (chars.length === 0) {
+    return '';
+  }
+  const columns: string[] = [];
+  for (let i = 0; i < chars.length; i += limit) {
+    columns.push(chars.slice(i, i + limit).join(''));
+  }
+  return columns.join('\n');
+}
 
 /** Map text-tool font (page raster px) to workspace CSS, matching on-page rendering. */
 export function workspaceFontSizeFromTool(toolFontSize: number, rasterWidth: number): number {
@@ -26,17 +46,29 @@ export type ViewportWorld = {
   zoom: number;
 };
 
-/** Vertical-rl: fixed column height, width grows by column count. */
+/** Columns after 10-character wraps. No cap — 3, 4, … keep going. */
+export function extractedColumnCount(
+  content: string,
+  charsPerCol = EXTRACT_CHARS_PER_COL,
+): number {
+  const wrapped = wrapExtractedText(content, charsPerCol);
+  if (!wrapped) {
+    return 1;
+  }
+  return Math.max(1, wrapped.split('\n').length);
+}
+
+/** Vertical-rl: height is 10 characters; width follows the final column count. */
 export function extractedTextBoxSize(
   content: string,
   fontSize: number,
-  height = EXTRACT_TEXT_HEIGHT,
+  charsPerCol = EXTRACT_CHARS_PER_COL,
 ): { width: number; height: number } {
   const size = Math.max(1, fontSize);
-  const charsPerCol = Math.max(1, Math.floor(height / size));
-  const chars = [...content.replace(/\s+/g, '')].length;
-  const columns = Math.max(1, Math.ceil(Math.max(1, chars) / charsPerCol));
-  return { width: columns * size, height };
+  const perCol = Math.max(1, charsPerCol);
+  const columns = extractedColumnCount(content, perCol);
+  const colPitch = size * EXTRACT_LINE_HEIGHT;
+  return { width: columns * colPitch, height: perCol * colPitch };
 }
 
 export function startExtractPack(

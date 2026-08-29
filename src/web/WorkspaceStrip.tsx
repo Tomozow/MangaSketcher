@@ -5,6 +5,8 @@ import {
   buildStripFrames,
   NUMBER_BAND,
   pageLocalFromWorld,
+  stripLayoutFromDoc,
+  type StripLayoutOptions,
 } from '@/src/domain/stripGeometry';
 import { PAGE_INK_FRAME_ATTR, PAGE_INK_PLANE_ATTR, PAGE_NUMBER_BAND_ATTR, APPEND_SLOT_ATTR } from '@/src/web/gestures/pageInkDom';
 import {
@@ -19,13 +21,13 @@ import {
 import type { PageMeta } from '@/src/storage/types';
 import { createWorkspacePointerPipeline, type WorkspaceEffect } from '@/src/web/gestures';
 import {
-  frameForPage,
   inkLocalOnPage,
   resolveWorkspaceDropTarget,
   resolveWorkspaceHit,
 } from '@/src/web/gestures/resolveHit';
 import { pageInkLocalFromClient } from '@/src/web/gestures/pageInkDom';
 import { PageDragThumbnail } from '@/src/web/PageDragThumbnail';
+import { PageChromeButtons } from '@/src/web/PageDeleteButton';
 import { effectiveClipPose, type ClipLiveTransform } from '@/src/web/clip/clipLiveTransform';
 import {
   PageTextsOnFrame,
@@ -58,6 +60,7 @@ type WorkspaceStripProps = {
   rasterWidth: number;
   rasterHeight: number;
   getClipRasterSize: (clipId: ClipId) => { width: number; height: number };
+  stripLayout?: StripLayoutOptions;
   applyWorkspaceEffects: (
     effects: WorkspaceEffect[],
     fingerPositions: Map<number, { x: number; y: number }>,
@@ -65,6 +68,9 @@ type WorkspaceStripProps = {
   ) => string | null | undefined;
   /** Optional §9.7 ink thumb from InkEngine (wired by Editor later). */
   getPageThumb?: (pageId: PageId) => ImageBitmap | undefined;
+  deletePageId?: PageId | null;
+  onDeletePage?: (pageId: PageId) => void;
+  onInsertPage?: (pageId: PageId) => void;
 };
 
 export function WorkspaceStrip({
@@ -86,16 +92,21 @@ export function WorkspaceStrip({
   rasterWidth,
   rasterHeight,
   getClipRasterSize,
+  stripLayout,
   applyWorkspaceEffects,
   getPageThumb,
+  deletePageId = null,
+  onDeletePage,
+  onInsertPage,
 }: WorkspaceStripProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const pipelineRef = useRef<ReturnType<typeof createWorkspacePointerPipeline> | null>(null);
   const [grabbedPageId, setGrabbedPageId] = useState<PageId | null>(null);
   const [dragPointer, setDragPointer] = useState<{ x: number; y: number } | null>(null);
-  const { frames, contentWidth, contentHeight } = useMemo(
-    () => buildStripFrames(workspaceOrder),
-    [workspaceOrder],
+  const layout = stripLayoutFromDoc(stripLayout ?? {});
+  const { frames, dividers, contentWidth, contentHeight } = useMemo(
+    () => buildStripFrames(workspaceOrder, layout),
+    [workspaceOrder, layout.pagesPerColumn, layout.pairGap, layout.showPairDivider, layout.columnGap],
   );
 
   const syncDragPointer = useCallback(() => {
@@ -254,7 +265,9 @@ export function WorkspaceStrip({
         );
       },
       mapWorldToPage: (pageId, worldX, worldY) => {
-        const frame = frameForPage(ctxRef.current.workspaceOrder, pageId);
+        const frame = ctxRef.current.frames.find(
+          (candidate) => candidate.slot.kind === 'page' && candidate.slot.pageId === pageId,
+        );
         if (!frame) {
           return null;
         }
@@ -325,13 +338,30 @@ export function WorkspaceStrip({
           height: contentHeight,
         }}
       >
+        {dividers.map((divider) => (
+          <div
+            key={divider.key}
+            className={styles.pairDivider}
+            style={{
+              left: divider.x,
+              top: divider.y,
+              height: divider.height,
+            }}
+            aria-hidden
+          />
+        ))}
         {frames.map((frame) => {
           if (frame.slot.kind === 'append') {
             return (
               <div
                 key={frame.key}
                 className={styles.appendButton}
-                style={{ position: 'absolute', left: frame.x, top: frame.y }}
+                style={{
+                position: 'absolute',
+                left: frame.x,
+                top: frame.y,
+                width: frame.width,
+              }}
                 {...{ [APPEND_SLOT_ATTR]: '' }}
                 aria-label="ページ追加"
               >
@@ -345,7 +375,12 @@ export function WorkspaceStrip({
               <div
                 key={frame.key}
                 className={styles.stripFrame}
-                style={{ position: 'absolute', left: frame.x, top: frame.y }}
+                style={{
+                position: 'absolute',
+                left: frame.x,
+                top: frame.y,
+                width: frame.width,
+              }}
               >
                 <div className={styles.blankSlot} aria-label="余白" />
               </div>
@@ -378,7 +413,12 @@ export function WorkspaceStrip({
             <div
               key={frame.key}
               className={styles.stripFrame}
-              style={{ position: 'absolute', left: frame.x, top: frame.y }}
+              style={{
+                position: 'absolute',
+                left: frame.x,
+                top: frame.y,
+                width: frame.width,
+              }}
             >
               <div
                 className={`${styles.pageFrame} ${selectedPageId === pageId ? styles.pageFrameSelected : ''} ${isGrabbed ? styles.pageFrameGrabbed : ''}`}
@@ -404,6 +444,12 @@ export function WorkspaceStrip({
                   textLiveTransforms={textLiveTransforms}
                   liveTextContent={liveTextContent}
                 />
+                {deletePageId === pageId ? (
+                  <PageChromeButtons
+                    onInsert={onInsertPage ? () => onInsertPage(pageId) : undefined}
+                    onDelete={onDeletePage ? () => onDeletePage(pageId) : undefined}
+                  />
+                ) : null}
               </div>
               <div
                 className={`${styles.pageNumberBand} ${selectedPageId === pageId ? styles.pageNumberBandSelected : ''}`}

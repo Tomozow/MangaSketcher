@@ -137,10 +137,13 @@ describe('Web workspace FSM', () => {
         hit: { kind: 'pageNumber', pageId: 'p2', readingIndex: 1 },
         now: 150,
       });
-      expect(up.effects).toEqual([{ type: 'selectPage', pageId: 'p2' }]);
+      expect(up.effects).toEqual([
+        { type: 'selectPage', pageId: 'p2' },
+        { type: 'showPageDelete', pageId: 'p2' },
+      ]);
     });
 
-    test('pending up → 選択済みなら insertAfterSelected', () => {
+    test('pending up → 番号帯タップで挿入・削除ボタンを出す', () => {
       const store = createWorkspaceGestureStore();
       finger(store, 'down', {
         hit: { kind: 'pageNumber', pageId: 'p2', readingIndex: 1 },
@@ -152,7 +155,22 @@ describe('Web workspace FSM', () => {
         selectedPageId: 'p2',
         now: 150,
       });
-      expect(up.effects).toEqual([{ type: 'insertAfterSelected' }]);
+      expect(up.effects).toEqual([
+        { type: 'selectPage', pageId: 'p2' },
+        { type: 'showPageDelete', pageId: 'p2' },
+      ]);
+      expect(up.effects.some((e) => e.type === 'appendPage' || e.type === 'insertAfterSelected')).toBe(
+        false,
+      );
+    });
+
+    test('余白スロット tap ではページを作らない', () => {
+      const store = createWorkspaceGestureStore();
+      finger(store, 'down', { hit: { kind: 'slot', insertIndex: 0 }, now: 100 });
+      const up = finger(store, 'up', { hit: { kind: 'slot', insertIndex: 0 }, now: 150 });
+      expect(up.effects.some((e) => e.type === 'appendPage' || e.type === 'insertAfterSelected')).toBe(
+        false,
+      );
     });
 
     test('pending up on + → appendPage', () => {
@@ -534,10 +552,14 @@ describe('Web workspace FSM', () => {
   });
 
   describe('長押し grab → reorder', () => {
-    test('420ms 静止後 grabPage、ドラッグで reorderWorkspace', () => {
+    test('420ms 静止後にドラッグすると grabPage、離すと並べ替え終了', () => {
       const store = createWorkspaceGestureStore();
       finger(store, 'down', { x: 0, y: 0, now: 0 });
-      const grab = finger(store, 'move', { x: 2, y: 0, now: LONG_PRESS_MS + 1 });
+      const held = finger(store, 'move', { x: 2, y: 0, now: LONG_PRESS_MS + 1 });
+      expect(getWorkspaceSession(store, 1)?.mode).toBe('fingerPending');
+      expect(held.effects.some((e) => e.type === 'grabPage')).toBe(false);
+
+      const grab = finger(store, 'move', { x: 20, y: 0, now: LONG_PRESS_MS + 20 });
       expect(getWorkspaceSession(store, 1)?.mode).toBe('grabPage');
       expect(grab.effects).toContainEqual({ type: 'grabPage', pageId: 'p1', fromIndex: 0 });
 
@@ -558,6 +580,14 @@ describe('Web workspace FSM', () => {
       const up = finger(store, 'up', { x: 90, y: 0, now: LONG_PRESS_MS + 100, hit: targetHit });
       expect(up.effects).toEqual([{ type: 'endGrabPage' }]);
       expect(getWorkspaceSession(store, 1)).toBeUndefined();
+    });
+
+    test('420ms 静止後に離しても showPageDelete しない', () => {
+      const store = createWorkspaceGestureStore();
+      finger(store, 'down', { x: 0, y: 0, now: 0 });
+      finger(store, 'move', { x: 2, y: 0, now: LONG_PRESS_MS + 1 });
+      const up = finger(store, 'up', { x: 2, y: 0, now: LONG_PRESS_MS + 10 });
+      expect(up.effects.some((e) => e.type === 'showPageDelete')).toBe(false);
     });
 
     test('reorderTargetIndex: append は末尾 (-1)', () => {
@@ -586,6 +616,7 @@ describe('Web workspace FSM', () => {
       const store = createWorkspaceGestureStore();
       finger(store, 'down', { x: 0, y: 0, now: 0 });
       finger(store, 'move', { x: 2, y: 0, now: LONG_PRESS_MS + 1 });
+      finger(store, 'move', { x: 20, y: 0, now: LONG_PRESS_MS + 20 });
 
       const textOnP3 = {
         kind: 'pageText' as const,
@@ -689,7 +720,10 @@ describe('Web workspace FSM', () => {
         x: 100,
         y: 200,
       });
-      expect(up.effects).toEqual([{ type: 'selectPage', pageId: 'p2' }]);
+      expect(up.effects).toEqual([
+        { type: 'selectPage', pageId: 'p2' },
+        { type: 'showPageDelete', pageId: 'p2' },
+      ]);
     });
 
     test('moveClip uses world coordinates under zoom', () => {

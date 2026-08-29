@@ -138,10 +138,12 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(getWorkspaceSession(store, 10)?.mode).toBe('penOverlay');
   });
 
-  test('3. 指 420ms で grabPage、ストック MOVE で隙間が閉じる', () => {
+  test('3. 指 420ms 後にドラッグすると grabPage、ストック MOVE で隙間が閉じる', () => {
     const store = createWorkspaceGestureStore();
     finger(store, 'down', { x: 0, y: 0, now: 0 });
-    const grab = finger(store, 'move', { x: 2, y: 0, now: LONG_PRESS_MS + 1 });
+    const held = finger(store, 'move', { x: 2, y: 0, now: LONG_PRESS_MS + 1 });
+    expect(held.effects.some((e) => e.type === 'grabPage')).toBe(false);
+    const grab = finger(store, 'move', { x: 20, y: 0, now: LONG_PRESS_MS + 20 });
     expect(grab.effects).toContainEqual({ type: 'grabPage', pageId: 'p1', fromIndex: 0 });
 
     let doc = createDocument({

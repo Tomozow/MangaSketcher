@@ -321,9 +321,13 @@ export function resolveWorkspaceDropTarget(input: ResolveWorkspaceHitInput): Wor
   return resolvePageWorkspaceHit(input, worldX, worldY, frames, true) ?? { kind: 'empty' };
 }
 
-export function frameForPage(workspaceOrder: PageId[], pageId: PageId) {
-  const { frames } = buildStripFrames(workspaceOrder);
-  return frames.find((f) => f.slot.kind === 'page' && f.slot.pageId === pageId) ?? null;
+export function frameForPage(
+  workspaceOrder: PageId[],
+  pageId: PageId,
+  frames?: StripFrame[],
+) {
+  const list = frames ?? buildStripFrames(workspaceOrder).frames;
+  return list.find((f) => f.slot.kind === 'page' && f.slot.pageId === pageId) ?? null;
 }
 
 /** Raster coords on a locked page, even if the pointer is over a neighbor or off-canvas. */
@@ -339,6 +343,7 @@ export function inkLocalOnPage(
     | 'zoom'
     | 'rasterWidth'
     | 'rasterHeight'
+    | 'frames'
   >,
   pageId: PageId,
 ): { x: number; y: number } | null {
@@ -354,7 +359,7 @@ export function inkLocalOnPage(
     return domLocal;
   }
 
-  const frame = frameForPage(input.workspaceOrder, pageId);
+  const frame = frameForPage(input.workspaceOrder, pageId, input.frames);
   if (!frame) {
     return null;
   }

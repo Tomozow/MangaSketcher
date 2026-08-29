@@ -1,4 +1,4 @@
-import { buildStripFrames, hitStripFrame, screenToWorld } from '../../domain/stripGeometry';
+import { buildStripFrames, hitStripFrame, screenToWorld, type StripLayoutOptions } from '../../domain/stripGeometry';
 import type { PageId } from '../../domain/types';
 import { THUMB_HEIGHT, THUMB_WIDTH } from '../ink/InkEngine';
 
@@ -41,6 +41,7 @@ export function resolveWorkspaceInsertIndex(
   panX: number,
   panY: number,
   zoom: number,
+  stripLayout?: StripLayoutOptions,
 ): number | null {
   if (!pointInRect(clientX, clientY, workspaceRect)) {
     return null;
@@ -48,7 +49,7 @@ export function resolveWorkspaceInsertIndex(
   const localX = clientX - workspaceRect.left;
   const localY = clientY - workspaceRect.top;
   const { x: worldX, y: worldY } = screenToWorld(localX, localY, panX, panY, zoom);
-  const { frames } = buildStripFrames(workspaceOrder);
+  const { frames } = buildStripFrames(workspaceOrder, stripLayout);
   const frame = hitStripFrame(frames, worldX, worldY);
   return frame?.insertIndex ?? workspaceOrder.length;
 }

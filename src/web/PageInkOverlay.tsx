@@ -1,6 +1,6 @@
 'use client';
 
-import { buildStripFrames } from '@/src/domain/stripGeometry';
+import { buildStripFrames, stripLayoutFromDoc } from '@/src/domain/stripGeometry';
 import type { ClipId } from '@/src/domain/types';
 import type { EditorDocument } from '@/src/storage/types';
 import { clipWorldBounds, rasterToDisplayScale } from './clip/clipGeometry';
@@ -25,7 +25,7 @@ export function PageInkOverlay({
   marqueePreview,
   clipLiveTransforms,
 }: PageInkOverlayProps) {
-  const { frames } = buildStripFrames(doc.workspaceOrder);
+  const { frames } = buildStripFrames(doc.workspaceOrder, stripLayoutFromDoc(doc));
 
   return (
     <div className={styles.pageInkOverlay} aria-hidden>

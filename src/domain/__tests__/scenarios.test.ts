@@ -157,17 +157,22 @@ describe('シナリオ: ストックへ移動・復帰・ペーストボード�
 });
 
 describe('シナリオ: 削除', () => {
-  test('ワークスペースとストックの両方からページを消せる', () => {
+  test('ワークスペースとストックのページをゴミ箱へ移せる', () => {
     let doc = blankDoc(3);
     const [a, b, c] = doc.workspaceOrder;
     doc = apply(doc, { type: 'deleteWorkspacePage', pageId: b });
     expect(doc.workspaceOrder).toEqual([a, c]);
-    expect(doc.pages[b]).toBeUndefined();
+    expect(doc.pages[b]).toBeDefined();
+    expect(doc.trash).toEqual([b]);
     doc = apply(doc, { type: 'movePageToStock', pageId: c, x: 1, y: 1 });
     doc = apply(doc, { type: 'deleteStockPage', pageId: c });
     expect(doc.stock).toHaveLength(0);
-    expect(doc.pages[c]).toBeUndefined();
+    expect(doc.pages[c]).toBeDefined();
+    expect(doc.trash).toEqual([b, c]);
     expect(doc.workspaceOrder).toEqual([a]);
+    doc = apply(doc, { type: 'returnTrashToWorkspace', pageId: b, readingIndex: 0 });
+    expect(doc.workspaceOrder[0]).toBe(b);
+    expect(doc.trash).toEqual([c]);
   });
 });
 
@@ -518,6 +523,17 @@ describe('シナリオ: 分割・PDF表示・サイドバー縮小は保存さ�
     doc = apply(doc, { type: 'setUiLayout', sidebarCompact: true, stockLayout: 'grid' });
     expect(doc.sidebarCompact).toBe(true);
     expect(doc.stockLayout).toBe('grid');
+    doc = apply(doc, {
+      type: 'setUiLayout',
+      pagesPerColumn: 3,
+      pairGap: 24,
+      showPairDivider: true,
+      columnGap: 80,
+    });
+    expect(doc.pagesPerColumn).toBe(3);
+    expect(doc.pairGap).toBe(24);
+    expect(doc.showPairDivider).toBe(true);
+    expect(doc.columnGap).toBe(80);
 
     const store = createMemoryStore();
     await saveProject(store, doc, '2026-08-28T00:00:00.000Z');
@@ -527,6 +543,10 @@ describe('シナリオ: 分割・PDF表示・サイドバー縮小は保存さ�
     expect(loaded?.sidebarCompact).toBe(true);
     expect(loaded?.stockLayout).toBe('grid');
     expect(loaded?.paletteStockSplit).toBe(0.3);
+    expect(loaded?.pagesPerColumn).toBe(3);
+    expect(loaded?.pairGap).toBe(24);
+    expect(loaded?.showPairDivider).toBe(true);
+    expect(loaded?.columnGap).toBe(80);
 
     let history = createHistory(doc);
     const factory = ids();

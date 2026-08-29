@@ -162,6 +162,7 @@ export type WorkspaceEffect =
   | { type: 'pinchBy'; scaleBy: number; midDx: number; midDy: number }
   | { type: 'grabPage'; pageId: PageId; fromIndex: number }
   | { type: 'endGrabPage' }
+  | { type: 'showPageDelete'; pageId: PageId }
   | { type: 'reorderWorkspace'; pageId: PageId; toIndex: number }
   | { type: 'selectPage'; pageId: PageId }
   | { type: 'insertAfterSelected' }

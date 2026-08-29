@@ -10,6 +10,7 @@ import {
 import { pageRasterId } from './rasterIds';
 import { randomId } from './randomId';
 import { clonePdfDocument } from '../domain/document';
+import { normalizeUiLayout } from '../domain/uiLayout';
 
 export type IdFactory = () => string;
 
@@ -51,6 +52,7 @@ export function createEditorDocument(options: {
     pages,
     workspaceOrder,
     stock: [],
+    trash: [],
     pasteboardClips: [],
     pasteboardTexts: [],
     selectedPageId: workspaceOrder[0] ?? null,
@@ -84,10 +86,12 @@ export function cloneEditorDocument(doc: EditorDocument): EditorDocument {
     pages,
     workspaceOrder: [...doc.workspaceOrder],
     stock: doc.stock.map((item) => ({ ...item })),
+    trash: [...(doc.trash ?? [])],
     pasteboardClips: doc.pasteboardClips.map((clip) => ({ ...clip })),
     pasteboardTexts: doc.pasteboardTexts.map((text) => ({ ...text, box: { ...text.box } })),
     tools: { ...doc.tools },
     pdf: doc.pdf ? clonePdfDocument(doc.pdf) : null,
+    ...normalizeUiLayout(doc),
   };
 }
 
