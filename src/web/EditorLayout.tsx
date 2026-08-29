@@ -20,7 +20,7 @@ import { PageInkOverlay } from './PageInkOverlay';
 import { TextEditBar } from './TextEditBar';
 import type { TextEditSelection } from '@/src/web/TextEditBar';
 import type { PdfExtractPayload } from '@/src/web/pdf/PdfPageViewer';
-import { WorkspaceLayoutMenu } from './WorkspaceLayoutMenu';
+import { WorkspacePaneActions } from './WorkspacePaneActions';
 import { WorkspaceStrip } from './WorkspaceStrip';
 
 type EditorLayoutProps = {
@@ -273,7 +273,7 @@ export function EditorLayout({
             style={{ flexGrow: mainFlex.workspace, flexShrink: 1, flexBasis: 0 }}
           >
             <span className={styles.paneLabel} data-ms-shell="pane-label">ワークスペース</span>
-            <WorkspaceLayoutMenu doc={doc} dispatch={dispatch} />
+            <WorkspacePaneActions doc={doc} dispatch={dispatch} inkEngine={inkEngine} />
             <WorkspaceStrip
               workspaceOrder={doc.workspaceOrder}
               pages={doc.pages}

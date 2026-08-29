@@ -83,4 +83,57 @@ describe('drawPageTextsOnThumb', () => {
     expect(fills[1]!.x).toBeLessThan(fills[0]!.x);
     expect(fills[1]!.y).toBeCloseTo(fills[0]!.y);
   });
+
+  test('export dest=raster keeps fontSize unscaled', () => {
+    const { ctx, fills } = recordingContext();
+    drawPageTextsOnThumb(
+      ctx,
+      [
+        {
+          content: 'あ',
+          box: { x: 100, y: 100, width: 80, height: 400 },
+          fontSize: 40,
+          color: '#000',
+        },
+      ],
+      1200,
+      1700,
+      1200,
+      1700,
+    );
+    expect(fills[0]!.font).toBe('40px sans-serif');
+  });
+
+  test('fixed corpus draws without throwing', () => {
+    const { ctx } = recordingContext();
+    expect(() =>
+      drawPageTextsOnThumb(
+        ctx,
+        [
+          {
+            content: 'セリフ',
+            box: { x: 900, y: 100, width: 80, height: 400 },
+            fontSize: 36,
+            color: '#1A1A1A',
+          },
+          {
+            content: 'あ\nい\r\nう',
+            box: { x: 100, y: 50, width: 120, height: 800 },
+            fontSize: 24,
+            color: '#000',
+          },
+          {
+            content: '   ',
+            box: { x: 0, y: 0, width: 10, height: 10 },
+            fontSize: 12,
+            color: '#000',
+          },
+        ],
+        1200,
+        1700,
+        1200,
+        1700,
+      ),
+    ).not.toThrow();
+  });
 });

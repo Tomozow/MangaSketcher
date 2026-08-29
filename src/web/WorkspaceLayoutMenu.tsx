@@ -15,28 +15,39 @@ import { styles } from './editorStyles';
 type WorkspaceLayoutMenuProps = {
   doc: EditorDocument;
   dispatch: (action: EditorDocumentAction) => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 };
 
-export function WorkspaceLayoutMenu({ doc, dispatch }: WorkspaceLayoutMenuProps) {
-  const [open, setOpen] = useState(false);
+export function WorkspaceLayoutMenu({ doc, dispatch, open, onOpenChange }: WorkspaceLayoutMenuProps) {
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const isControlled = onOpenChange !== undefined;
+  const panelOpen = isControlled ? Boolean(open) : uncontrolledOpen;
+  const setPanelOpen = (next: boolean) => {
+    if (onOpenChange) {
+      onOpenChange(next);
+      return;
+    }
+    setUncontrolledOpen(next);
+  };
   const rootRef = useRef<HTMLDivElement>(null);
   const pageCount = doc.workspaceOrder.length;
   const maxPages = maxPagesPerColumn(pageCount);
   const pagesPerColumn = resolvePagesPerColumn(doc.pagesPerColumn, pageCount);
 
   useEffect(() => {
-    if (!open) {
+    if (!panelOpen) {
       return undefined;
     }
     const onPointerDown = (event: PointerEvent) => {
       const root = rootRef.current;
       if (root && event.target instanceof Node && !root.contains(event.target)) {
-        setOpen(false);
+        setPanelOpen(false);
       }
     };
     window.addEventListener('pointerdown', onPointerDown);
     return () => window.removeEventListener('pointerdown', onPointerDown);
-  }, [open]);
+  }, [panelOpen, isControlled, onOpenChange]);
 
   return (
     <div ref={rootRef} className={styles.workspaceLayoutMenu} data-ms-shell="workspace-layout">
@@ -44,12 +55,12 @@ export function WorkspaceLayoutMenu({ doc, dispatch }: WorkspaceLayoutMenuProps)
         type="button"
         className={`${styles.iconButton} ${open ? styles.iconButtonActive : ''}`}
         aria-label="ページレイアウト"
-        aria-expanded={open}
-        onClick={() => setOpen((value) => !value)}
+        aria-expanded={panelOpen}
+        onClick={() => setPanelOpen(!panelOpen)}
       >
         配置
       </button>
-      {open ? (
+      {panelOpen ? (
         <div className={styles.workspaceLayoutPanel} role="dialog" aria-label="ページレイアウト">
           <div className={styles.sliderBlock}>
             <label className={styles.sliderLabel}>1列のページ数 {pagesPerColumn}</label>
