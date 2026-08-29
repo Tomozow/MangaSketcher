@@ -12,7 +12,7 @@ import {
   clampPairGap,
   clampStoredPagesPerColumn,
 } from './stripGeometry';
-import { clampPdfPage } from './pdfView';
+import { clampPdfPage, keepPdfViewOnReload, pdfViewAfterLoad } from './pdfView';
 import type {
   ClipId,
   DocumentState,
@@ -84,6 +84,7 @@ export type DocumentAction =
       pageCount: number;
       sourceTextByPage: Record<number, PdfTextItem[]>;
       generation?: number;
+      sourceFingerprint?: string;
     }
   | { type: 'setPdfView'; currentPage?: number; zoom?: number; panX?: number; panY?: number }
   | { type: 'setPdfExtractMarkersVisible'; visible: boolean }
@@ -498,20 +499,28 @@ export function reduceTestDocument(
       }
       return doc;
     case 'loadPdf': {
-      const sameSource = doc.pdf?.opfsPath === action.opfsPath;
-      const keepPage = sameSource ? doc.pdf!.currentPage : 1;
+      const view = pdfViewAfterLoad(doc.pdf, {
+        opfsPath: action.opfsPath,
+        pageCount: action.pageCount,
+        fingerprint: action.sourceFingerprint,
+      });
+      const sameSource = keepPdfViewOnReload(doc.pdf, {
+        opfsPath: action.opfsPath,
+        fingerprint: action.sourceFingerprint,
+      });
       doc.pdf = {
         opfsPath: action.opfsPath,
         pageCount: action.pageCount,
-        currentPage: clampPdfPage(keepPage, action.pageCount),
-        zoom: sameSource ? doc.pdf!.zoom : 1,
-        panX: sameSource ? doc.pdf!.panX : 0,
-        panY: sameSource ? doc.pdf!.panY : 0,
+        currentPage: view.currentPage,
+        zoom: view.zoom,
+        panX: view.panX,
+        panY: view.panY,
         sourceTextByPage: action.sourceTextByPage,
         generation: action.generation ?? (sameSource ? doc.pdf!.generation : 1),
-        extractedGlyphs: [],
-        extractMarkersVisible: sameSource ? doc.pdf!.extractMarkersVisible !== false : true,
-        extractSanitizePunctuation: sameSource ? doc.pdf!.extractSanitizePunctuation === true : false,
+        sourceFingerprint: action.sourceFingerprint ?? (sameSource ? doc.pdf?.sourceFingerprint : undefined),
+        extractedGlyphs: view.extractedGlyphs,
+        extractMarkersVisible: view.extractMarkersVisible,
+        extractSanitizePunctuation: view.extractSanitizePunctuation,
       };
       return doc;
     }

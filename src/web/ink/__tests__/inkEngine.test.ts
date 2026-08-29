@@ -278,6 +278,19 @@ describe('InkEngine production pixel truth', () => {
     expect(countAlphaPixels(engine.getHotContext(clipId)!, 8, 8)).toBeGreaterThan(0);
   });
 
+  test('duplicateRaster copies clip pixels onto a new raster id', () => {
+    const engine = createTestEngine();
+    const pageId = 'page0';
+    engine.registerRaster(pageId);
+    const pageCtx = engine.getHotContext(pageId)!;
+    pageCtx.fillStyle = '#000000';
+    pageCtx.fillRect(4, 4, 8, 8);
+    engine.marqueeCut(pageId, 'clip-src', { x: 4, y: 4, width: 8, height: 8 });
+    const sourceAlpha = countAlphaPixels(engine.getHotContext('clip-src')!, 8, 8);
+    expect(engine.duplicateRaster('clip-src', 'clip-copy')).toBe(true);
+    expect(countAlphaPixels(engine.getHotContext('clip-copy')!, 8, 8)).toBe(sourceAlpha);
+  });
+
   test('registerRaster blits png onto an already-created empty hot canvas', async () => {
     const src = createTestEngine();
     const rasterId = 'late-png';

@@ -713,6 +713,33 @@ describe('Web workspace FSM', () => {
       expect(up.effects).toEqual([]);
     });
 
+    test('pencil select on pasteboard starts a world-space marquee', () => {
+      const store = createWorkspaceGestureStore();
+      const empty = { kind: 'empty' as const };
+      const down = pencil(store, 'down', { tool: 'select', hit: empty, worldX: 40, worldY: 50 });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('marquee');
+      expect(down.effects[0]).toMatchObject({
+        type: 'marqueePreview',
+        pageId: null,
+        rect: { x: 40, y: 50, width: 0, height: 0 },
+      });
+      pencil(store, 'move', { tool: 'select', hit: empty, worldX: 80, worldY: 90 });
+      const up = pencil(store, 'up', { tool: 'select', hit: empty, worldX: 80, worldY: 90 });
+      expect(up.effects[0]).toMatchObject({
+        type: 'completeMarquee',
+        pageId: null,
+        rect: { x: 40, y: 50, width: 40, height: 40 },
+      });
+    });
+
+    test('tiny pasteboard marquee clears clip selection', () => {
+      const store = createWorkspaceGestureStore();
+      const empty = { kind: 'empty' as const };
+      pencil(store, 'down', { tool: 'select', hit: empty, worldX: 10, worldY: 10, selectedClipId: 'c1' });
+      const up = pencil(store, 'up', { tool: 'select', hit: empty, worldX: 11, worldY: 11 });
+      expect(up.effects).toEqual([{ type: 'selectClips', clipIds: [] }]);
+    });
+
     test('pencil tap on page number selects page (mouse/pen)', () => {
       const store = createWorkspaceGestureStore();
       pencil(store, 'down', {

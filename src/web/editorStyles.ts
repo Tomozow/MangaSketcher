@@ -4,6 +4,7 @@ export const styles = {
   blankSlot: 'ms-blankSlot',
   body: 'ms-body',
   clipFrame: 'ms-clipFrame',
+  clipFrameSelected: 'ms-clipFrameSelected',
   clipHandleCorner: 'ms-clipHandleCorner',
   clipHandleRotate: 'ms-clipHandleRotate',
   colorRow: 'ms-colorRow',

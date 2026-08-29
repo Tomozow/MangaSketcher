@@ -151,6 +151,30 @@ export class InkEngine {
     }
   }
 
+  /** Copy hot pixels of a clip/page raster into a new raster id (same dimensions). */
+  duplicateRaster(sourceRasterId: string, destRasterId: string): boolean {
+    if (sourceRasterId === destRasterId) {
+      return false;
+    }
+    const dims = this.getRasterDimensions(sourceRasterId);
+    this.registerClipRaster(destRasterId, dims.width, dims.height);
+    const source = this.decode(sourceRasterId);
+    const dest = this.decode(destRasterId);
+    const ctx = dest.getContext('2d');
+    if (!ctx) {
+      this.disposeRaster(destRasterId);
+      return false;
+    }
+    ctx.clearRect(0, 0, dest.width, dest.height);
+    ctx.drawImage(source as unknown as CanvasImageSource, 0, 0);
+    this.bumpHotRevision(destRasterId);
+    this.invalidateThumb(destRasterId);
+    this.startEncode(destRasterId);
+    void this.generateThumb(destRasterId);
+    this.callbacks.onBake?.(destRasterId);
+    return true;
+  }
+
   registerClipRaster(rasterId: string, width: number, height: number, png?: ArrayBuffer): void {
     const w = Math.max(1, Math.round(width));
     const h = Math.max(1, Math.round(height));

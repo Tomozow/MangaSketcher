@@ -89,7 +89,7 @@ export type WorkspaceSession =
   | {
       mode: 'marquee';
       kind: 'pencil';
-      pageId: PageId;
+      pageId: PageId | null;
       x0: number;
       y0: number;
       x1: number;
@@ -175,8 +175,8 @@ export type WorkspaceEffect =
   | { type: 'beginEraseDirect'; pageId: PageId }
   | { type: 'eraseDirectMove'; pageId: PageId; x: number; y: number; pressure: number }
   | { type: 'commitEraseDirect'; pageId: PageId }
-  | { type: 'marqueePreview'; pageId: PageId; rect: { x: number; y: number; width: number; height: number } }
-  | { type: 'completeMarquee'; pageId: PageId; rect: { x: number; y: number; width: number; height: number } }
+  | { type: 'marqueePreview'; pageId: PageId | null; rect: { x: number; y: number; width: number; height: number } }
+  | { type: 'completeMarquee'; pageId: PageId | null; rect: { x: number; y: number; width: number; height: number } }
   | { type: 'createText'; pageId: PageId; x: number; y: number }
   | { type: 'selectText'; textId: TextId }
   | { type: 'moveText'; textId: TextId; x: number; y: number }
@@ -200,6 +200,7 @@ export type WorkspaceEffect =
   | { type: 'commitClipTransform'; clipId: ClipId }
   | { type: 'cancelClipTransform'; clipId: ClipId }
   | { type: 'selectClip'; clipId: ClipId | null }
+  | { type: 'selectClips'; clipIds: ClipId[] }
   | {
       type: 'dropClipOnPage';
       clipId: ClipId;

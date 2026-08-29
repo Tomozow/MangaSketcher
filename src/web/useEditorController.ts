@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { reduceEditorDocument, type EditorDocumentAction } from '@/src/domain/editorReducer';
 import { extractPdfSourceText } from '@/src/domain/pdfExtract';
+import { pdfFileFingerprint } from '@/src/domain/pdfView';
 import {
   nextExtractPack,
   startExtractPack,
@@ -19,6 +20,7 @@ import type { StrokePoint } from '@/src/domain/stroke';
 import { AutosaveManager, type AutosaveStatus } from '@/src/storage/autosave';
 import { getAutosaveDelays } from '@/src/storage/appSettings';
 import { editorHistoryFromBoot, loadEditorBoot } from '@/src/storage/editorBoot';
+import { applyPdfViewSession, loadPdfViewSession, savePdfViewSession } from '@/src/storage/pdfViewSession';
 import { writeProjectPdf } from '@/src/storage/projectStore';
 import { randomId } from '@/src/storage/randomId';
 import {
@@ -48,8 +50,9 @@ import {
   mergeTextLive,
   sanitizeTextBox,
 } from '@/src/web/text/textLiveTransform';
-import { pageLocalRectToWorld } from './clip/clipGeometry';
-import { MIN_MARQUEE_RASTER_PX } from './clip/constants';
+import { clipTouchesWorldRect, pageLocalRectToWorld, selectedClipIdsOf } from './clip/clipGeometry';
+import { CLIP_DUPLICATE_OFFSET, MIN_MARQUEE_RASTER_PX } from './clip/constants';
+import { clipRasterId } from '@/src/storage/rasterIds';
 import {
   createInkRestoreSink,
   appendLiveBrushStroke,
@@ -84,7 +87,7 @@ function consumePendingInkHistory(
 }
 
 export type MarqueePreview = {
-  pageId: PageId;
+  pageId: PageId | null;
   rect: { x: number; y: number; width: number; height: number };
 };
 
@@ -115,6 +118,8 @@ type EditorController = {
   commitTextEdit: (textId: string, content: string) => void;
   deleteText: (textId: string) => void;
   duplicateText: (textId: string) => void;
+  deleteClip: (clipId: string) => void;
+  duplicateClip: (clipId: string) => void;
   setTextEditing: (editing: boolean) => void;
   undo: () => void;
   redo: () => void;
@@ -486,7 +491,8 @@ export function useEditorController(projectId: string): EditorController {
       setBootEncodedPng(new Map(boot.encodedPng));
       setPdfMissing(boot.pdfMissing);
       setPdfBytes(boot.pdfFile ? await boot.pdfFile.arrayBuffer() : null);
-      setHistory(editorHistoryFromBoot(boot));
+      const restored = applyPdfViewSession(boot.document, loadPdfViewSession(projectId));
+      setHistory(editorHistoryFromBoot({ ...boot, document: restored }));
 
       autosaveRef.current = new AutosaveManager({
         getEncodedPng: () => {
@@ -584,10 +590,20 @@ export function useEditorController(projectId: string): EditorController {
       }
     }
     autosaveRef.current?.scheduleSave(nextHistory.present, dirty, viewOnly);
+    const pdf = nextHistory.present.pdf;
+    if (pdf) {
+      savePdfViewSession(projectId, {
+        currentPage: pdf.currentPage,
+        zoom: pdf.zoom,
+        panX: pdf.panX,
+        panY: pdf.panY,
+        fingerprint: pdf.sourceFingerprint,
+      });
+    }
     if (flushNow) {
       void autosaveRef.current?.flushRouteLeave();
     }
-  }, []);
+  }, [projectId]);
 
   const dispatch = useCallback(
     (action: EditorDocumentAction) => {
@@ -608,11 +624,15 @@ export function useEditorController(projectId: string): EditorController {
         }
         const nextPresent = reduceEditorDocument(prev.present, action, randomId);
         const nextHistory = pushEditorHistory(prev, nextPresent, inkUndoRef.current, viewOnly);
-        const flushClip =
+        const flushNow =
           action.type === 'commitMarqueeCut' ||
           action.type === 'transformClip' ||
-          action.type === 'commitClipBake';
-        persist(nextHistory, viewOnly, flushClip);
+          action.type === 'commitClipBake' ||
+          action.type === 'deleteClip' ||
+          action.type === 'duplicateClip' ||
+          action.type === 'loadPdf' ||
+          (action.type === 'setPdfView' && action.currentPage !== undefined);
+        persist(nextHistory, viewOnly, flushNow);
         return nextHistory;
       });
     },
@@ -659,6 +679,22 @@ export function useEditorController(projectId: string): EditorController {
             effect.rect.width < MIN_MARQUEE_RASTER_PX ||
             effect.rect.height < MIN_MARQUEE_RASTER_PX
           ) {
+            continue;
+          }
+          if (effect.pageId === null) {
+            const ids = present.pasteboardClips
+              .filter((clip) => {
+                const pose = effectiveClipPose(clip, clipLiveRef.current.get(clip.id));
+                return clipTouchesWorldRect(
+                  { ...clip, ...pose },
+                  api.engine.getRasterDimensions(clip.rasterId),
+                  present.rasterWidth,
+                  present.rasterHeight,
+                  effect.rect,
+                );
+              })
+              .map((clip) => clip.id);
+            dispatch({ type: 'selectClips', clipIds: ids });
             continue;
           }
           const page = present.pages[effect.pageId];
@@ -1132,6 +1168,60 @@ export function useEditorController(projectId: string): EditorController {
     [dispatch],
   );
 
+  const deleteClip = useCallback(
+    (clipId: string) => {
+      const present = historyRef.current?.present;
+      const selected = present ? selectedClipIdsOf(present) : [];
+      const ids = selected.includes(clipId) ? selected : [clipId];
+      for (const id of ids) {
+        clipLiveRef.current.delete(id);
+      }
+      bumpClipDragFrame();
+      dispatch({ type: 'deleteClip', clipIds: ids });
+    },
+    [bumpClipDragFrame, dispatch],
+  );
+
+  const duplicateClip = useCallback(
+    (clipId: string) => {
+      const present = historyRef.current?.present;
+      const api = inkApiRef.current;
+      if (!present || !api) {
+        return;
+      }
+      const selected = selectedClipIdsOf(present);
+      const sourceIds = selected.includes(clipId) ? selected : [clipId];
+      let lastId: string | null = null;
+      for (const sourceId of sourceIds) {
+        const source = present.pasteboardClips.find((c) => c.id === sourceId);
+        if (!source) {
+          continue;
+        }
+        const pose = effectiveClipPose(source, clipLiveRef.current.get(sourceId));
+        const nextClipId = randomId();
+        const nextRasterId = clipRasterId(present.projectId, nextClipId);
+        if (!api.engine.duplicateRaster(source.rasterId, nextRasterId)) {
+          continue;
+        }
+        dispatch({
+          type: 'duplicateClip',
+          sourceClipId: sourceId,
+          clipId: nextClipId,
+          rasterId: nextRasterId,
+          x: pose.x + CLIP_DUPLICATE_OFFSET,
+          y: pose.y + CLIP_DUPLICATE_OFFSET,
+          scale: pose.scale,
+          rotation: pose.rotation,
+        });
+        lastId = nextClipId;
+      }
+      if (lastId) {
+        bumpInkFrame();
+      }
+    },
+    [bumpInkFrame, dispatch],
+  );
+
   const commitTextEdit = useCallback(
     (textId: string, content: string) => {
       if (isTextContentEmpty(content)) {
@@ -1180,11 +1270,8 @@ export function useEditorController(projectId: string): EditorController {
         pageCount,
         sourceTextByPage,
         generation: nextGeneration,
+        sourceFingerprint: pdfFileFingerprint(file),
       });
-
-      if (present.pdf) {
-        dispatch({ type: 'setPdfView', currentPage: 1, zoom: 1, panX: 0, panY: 0 });
-      }
     },
     [dispatch, projectId],
   );
@@ -1383,6 +1470,8 @@ export function useEditorController(projectId: string): EditorController {
     commitTextEdit,
     deleteText,
     duplicateText,
+    deleteClip,
+    duplicateClip,
     setTextEditing,
     undo,
     redo,

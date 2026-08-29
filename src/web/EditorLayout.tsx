@@ -38,6 +38,8 @@ type EditorLayoutProps = {
   commitTextEdit: (textId: string, content: string) => void;
   deleteText: (textId: string) => void;
   duplicateText: (textId: string) => void;
+  deleteClip: (clipId: string) => void;
+  duplicateClip: (clipId: string) => void;
   onTextEditingChange: (editing: boolean) => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -72,6 +74,8 @@ export function EditorLayout({
   commitTextEdit,
   deleteText,
   duplicateText,
+  deleteClip,
+  duplicateClip,
   onTextEditingChange,
   onUndo,
   onRedo,
@@ -295,6 +299,7 @@ export function EditorLayout({
               pasteboardTexts={doc.pasteboardTexts}
               selectedPageId={doc.selectedPageId}
               selectedClipId={doc.selectedClipId}
+              selectedClipIds={doc.selectedClipIds}
               tool={doc.tool}
               zoom={doc.workspaceZoom}
               panX={doc.workspacePanX}
@@ -327,6 +332,8 @@ export function EditorLayout({
                 inkFrame={inkFrame}
                 marqueePreview={marqueePreview}
                 clipLiveTransforms={clipLiveTransforms}
+                onDeleteClip={deleteClip}
+                onDuplicateClip={duplicateClip}
               />
             ) : null}
           </div>

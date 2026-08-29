@@ -32,6 +32,7 @@ export type ResolveWorkspaceHitInput = {
   pasteboardClips: ClipMeta[];
   pasteboardTexts: PasteboardText[];
   selectedClipId: ClipId | null;
+  selectedClipIds?: ClipId[];
   selectedTextId?: TextId | null;
   panX: number;
   panY: number;
@@ -104,28 +105,30 @@ function hitRenderedTextFromDomStack(
 
 function hitPasteboardClips(
   clips: ClipMeta[],
-  selectedClipId: ClipId | null,
+  selectedClipIds: ClipId[],
   worldX: number,
   worldY: number,
   rasterWidth: number,
   rasterHeight: number,
   getClipRasterSize: (clipId: ClipId) => { width: number; height: number },
 ): WorkspaceHit | null {
-  if (selectedClipId) {
-    const selected = clips.find((c) => c.id === selectedClipId);
-    if (selected) {
-      const handle = hitClipAt(
-        worldX,
-        worldY,
-        selected,
-        getClipRasterSize(selected.id),
-        rasterWidth,
-        rasterHeight,
-        true,
-      );
-      if (handle) {
-        return { kind: 'clip', clipId: selected.id, handle };
-      }
+  const selectedSet = new Set(selectedClipIds);
+  for (let i = clips.length - 1; i >= 0; i -= 1) {
+    const clip = clips[i]!;
+    if (!selectedSet.has(clip.id)) {
+      continue;
+    }
+    const handle = hitClipAt(
+      worldX,
+      worldY,
+      clip,
+      getClipRasterSize(clip.id),
+      rasterWidth,
+      rasterHeight,
+      true,
+    );
+    if (handle) {
+      return { kind: 'clip', clipId: clip.id, handle };
     }
   }
 
@@ -138,7 +141,7 @@ function hitPasteboardClips(
       getClipRasterSize(clip.id),
       rasterWidth,
       rasterHeight,
-      clip.id === selectedClipId,
+      selectedSet.has(clip.id),
     );
     if (handle) {
       return { kind: 'clip', clipId: clip.id, handle };
@@ -293,7 +296,7 @@ export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceH
 
   const clipHit = hitPasteboardClips(
     input.pasteboardClips,
-    input.selectedClipId,
+    input.selectedClipIds ?? (input.selectedClipId ? [input.selectedClipId] : []),
     worldX,
     worldY,
     input.rasterWidth,

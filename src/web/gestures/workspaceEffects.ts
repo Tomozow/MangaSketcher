@@ -74,6 +74,9 @@ export function reduceWorkspaceEffects(
       case 'selectClip':
         actions.push({ type: 'selectClip', clipId: effect.clipId });
         break;
+      case 'selectClips':
+        actions.push({ type: 'selectClips', clipIds: effect.clipIds });
+        break;
       case 'moveClip':
         actions.push({ type: 'transformClip', clipId: effect.clipId, x: effect.x, y: effect.y });
         break;

@@ -6,6 +6,7 @@ export * from './idb';
 export * from './opfs';
 export * from './projectStore';
 export * from './appSettings';
+export * from './pdfViewSession';
 export * from './autosave';
 export * from './history';
 export * from './editorBoot';

@@ -503,15 +503,25 @@ function stepLockedPencil(
         width: Math.abs(session.x1 - session.x0),
         height: Math.abs(session.y1 - session.y0),
       };
+      const tooSmall =
+        rect.width < MIN_MARQUEE_RASTER_PX || rect.height < MIN_MARQUEE_RASTER_PX;
+      if (session.pageId === null) {
+        return {
+          session: { mode: 'idle' },
+          effects: tooSmall
+            ? [{ type: 'selectClips', clipIds: [] }]
+            : [{ type: 'completeMarquee', pageId: null, rect }],
+        };
+      }
       return {
         session: { mode: 'idle' },
-        effects:
-          rect.width < MIN_MARQUEE_RASTER_PX || rect.height < MIN_MARQUEE_RASTER_PX
-            ? []
-            : [{ type: 'completeMarquee', pageId: session.pageId, rect }],
+        effects: tooSmall ? [] : [{ type: 'completeMarquee', pageId: session.pageId, rect }],
       };
     }
-    const point = inkRasterPoint(hit, session.x1, session.y1, session.pageId, input);
+    const point =
+      session.pageId === null
+        ? { x: input.worldX, y: input.worldY }
+        : inkRasterPoint(hit, session.x1, session.y1, session.pageId, input);
     const next = { ...session, x1: point.x, y1: point.y };
     const rect = {
       x: Math.min(next.x0, next.x1),
@@ -812,10 +822,24 @@ function stepPencilDown(
         ],
       };
     }
-    if (hit.kind === 'empty' && input.selectedClipId) {
+    if (hit.kind === 'empty') {
       return {
-        session: { mode: 'idle' },
-        effects: [{ type: 'selectClip', clipId: null }],
+        session: {
+          mode: 'marquee',
+          kind: 'pencil',
+          pageId: null,
+          x0: input.worldX,
+          y0: input.worldY,
+          x1: input.worldX,
+          y1: input.worldY,
+        },
+        effects: [
+          {
+            type: 'marqueePreview',
+            pageId: null,
+            rect: { x: input.worldX, y: input.worldY, width: 0, height: 0 },
+          },
+        ],
       };
     }
     return { session: { mode: 'idle' }, effects: [] };

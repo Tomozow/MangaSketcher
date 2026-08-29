@@ -38,6 +38,37 @@ export type PdfPaneProps = {
   onToggleExtractSanitizePunctuation?: (enabled: boolean) => void;
 };
 
+function PdfFileInput({
+  inputId,
+  onPickPdf,
+  label,
+}: {
+  inputId: string;
+  onPickPdf?: (file: File) => void | Promise<void>;
+  label: string;
+}) {
+  return (
+    <>
+      <label htmlFor={inputId} className={styles.pdfPickButton}>
+        {label}
+      </label>
+      <input
+        id={inputId}
+        type="file"
+        accept="application/pdf,application/x-pdf"
+        className={styles.pdfFileInput}
+        onChange={(event) => {
+          const file = event.target.files?.[0];
+          if (file && onPickPdf) {
+            void onPickPdf(file);
+          }
+          event.target.value = '';
+        }}
+      />
+    </>
+  );
+}
+
 export function PdfPane({
   visible,
   hasPdf,
@@ -83,6 +114,7 @@ export function PdfPane({
     return (
       <div className={styles.pdfPlaceholder}>
         <span>PDF ファイルが見つかりません。</span>
+        <PdfFileInput inputId={inputId} onPickPdf={onPickPdf} label="PDF を選び直す" />
       </div>
     );
   }
@@ -90,22 +122,7 @@ export function PdfPane({
   if (!hasPdf || !pdf) {
     return (
       <div className={styles.pdfPlaceholder}>
-        <label htmlFor={inputId} className={styles.pdfPickButton}>
-          PDF を選択
-        </label>
-        <input
-          id={inputId}
-          type="file"
-          accept="application/pdf,application/x-pdf"
-          className={styles.pdfFileInput}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            if (file && onPickPdf) {
-              void onPickPdf(file);
-            }
-            event.target.value = '';
-          }}
-        />
+        <PdfFileInput inputId={inputId} onPickPdf={onPickPdf} label="PDF を選択" />
         {!onPickPdf ? <span>PDF ピッカーはエディタ接続後に有効になります。</span> : null}
       </div>
     );

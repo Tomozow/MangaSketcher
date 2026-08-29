@@ -14,6 +14,7 @@ import { AutosaveManager } from '../../storage/autosave';
 import { loadEditorBoot } from '../../storage/editorBoot';
 import { createProject, writeProjectPdf } from '../../storage/projectStore';
 import { pdfOpfsPath } from '../../storage/rasterIds';
+import { applyPdfViewSession } from '../../storage/pdfViewSession';
 import { MemoryStorageDatabase } from '../../storage/testUtils/memoryDb';
 import { MemoryOpfsStorage } from '../../storage/testUtils/memoryOpfs';
 import { historyControlsDisabled } from '../historyControls';
@@ -32,6 +33,7 @@ const pageTextOverlaySrc = readFileSync(join(here, '../PageTextOverlay.tsx'), 'u
 const textEditBarSrc = readFileSync(join(here, '../TextEditBar.tsx'), 'utf8');
 const editorLayoutSrc = readFileSync(join(here, '../EditorLayout.tsx'), 'utf8');
 const workspaceStripSrc = readFileSync(join(here, '../WorkspaceStrip.tsx'), 'utf8');
+const pageInkOverlaySrc = readFileSync(join(here, '../PageInkOverlay.tsx'), 'utf8');
 
 const pageHit = {
   kind: 'page' as const,
@@ -191,6 +193,13 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(editorLayoutSrc).toContain('このページの線画を削除しますか？');
   });
 
+  test('クリップ選択時は削除と複製ボタンを上に出す', () => {
+    expect(pageInkOverlaySrc).toContain('クリップを削除');
+    expect(pageInkOverlaySrc).toContain('クリップを複製');
+    expect(pageInkOverlaySrc).toContain('ClipChromeOverlay');
+    expect(pageInkOverlaySrc).toContain('metrics.stack');
+  });
+
   test('6. 確定は explicit のみ。ページ上は textarea ではなく表示専用', () => {
     expect(pageTextOverlaySrc).not.toMatch(/<textarea/i);
     expect(pageTextOverlaySrc).toContain('pageTextBox');
@@ -243,6 +252,16 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(boot?.document.pdf?.panX).toBe(12);
     expect(boot?.document.pdf?.panY).toBe(-8);
     expect(boot?.document.pdf?.generation).toBe(3);
+
+    const restored = applyPdfViewSession(boot!.document, {
+      currentPage: 4,
+      zoom: 2,
+      panX: 0,
+      panY: 1,
+      fingerprint: 'novel.pdf:1:1',
+    });
+    expect(restored.pdf?.currentPage).toBe(4);
+    expect(restored.pdf?.zoom).toBe(2);
   });
 
   test('8. 範囲ドロップはルビを落とし原文を残す。1 本指はパンできる', () => {

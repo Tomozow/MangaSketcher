@@ -51,6 +51,7 @@ type WorkspaceStripProps = {
   pasteboardTexts: PasteboardText[];
   selectedPageId: PageId | null;
   selectedClipId: ClipId | null;
+  selectedClipIds?: ClipId[];
   selectedTextId: TextId | null;
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
   liveTextContent?: LiveTextContent | null;
@@ -86,6 +87,7 @@ export function WorkspaceStrip({
   pasteboardTexts,
   selectedPageId,
   selectedClipId,
+  selectedClipIds = [],
   selectedTextId,
   textLiveTransforms,
   liveTextContent,
@@ -149,6 +151,7 @@ export function WorkspaceStrip({
     pasteboardTexts,
     selectedPageId,
     selectedClipId,
+    selectedClipIds,
     selectedTextId,
     tool,
     panX,
@@ -167,6 +170,7 @@ export function WorkspaceStrip({
     pasteboardTexts,
     selectedPageId,
     selectedClipId,
+    selectedClipIds,
     selectedTextId,
     tool,
     panX,

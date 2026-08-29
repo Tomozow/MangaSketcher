@@ -9,7 +9,7 @@ import {
   clampPairGap,
   clampStoredPagesPerColumn,
 } from './stripGeometry';
-import { clampPdfPage } from './pdfView';
+import { clampPdfPage, keepPdfViewOnReload, pdfViewAfterLoad } from './pdfView';
 import type {
   ClipId,
   EditorDocument,
@@ -33,6 +33,7 @@ const VIEW_ONLY = new Set<string>([
   'setPdfExtractMarkersVisible',
   'setPdfExtractSanitizePunctuation',
   'selectClip',
+  'selectClips',
   'selectText',
   'setUiLayout',
 ]);
@@ -47,6 +48,7 @@ type ViewOnlyEditorAction =
   | { type: 'setPdfExtractMarkersVisible'; visible: boolean }
   | { type: 'setPdfExtractSanitizePunctuation'; enabled: boolean }
   | { type: 'selectClip'; clipId: ClipId | null }
+  | { type: 'selectClips'; clipIds: ClipId[] }
   | { type: 'selectText'; textId: TextId | null }
   | {
       type: 'setUiLayout';
@@ -95,7 +97,19 @@ export type EditorDocumentAction =
     }
   | { type: 'commitClipBake'; clipId: ClipId; pageId: PageId }
   | { type: 'transformClip'; clipId: ClipId; x?: number; y?: number; scale?: number; rotation?: number }
+  | { type: 'deleteClip'; clipIds: ClipId[] }
+  | {
+      type: 'duplicateClip';
+      sourceClipId: ClipId;
+      clipId: ClipId;
+      rasterId: string;
+      x: number;
+      y: number;
+      scale: number;
+      rotation: number;
+    }
   | { type: 'selectClip'; clipId: ClipId | null }
+  | { type: 'selectClips'; clipIds: ClipId[] }
   | {
       type: 'createText';
       attachment: { kind: 'page'; pageId: PageId } | { kind: 'pasteboard' };
@@ -119,6 +133,7 @@ export type EditorDocumentAction =
       pageCount: number;
       sourceTextByPage: Record<number, PdfTextItem[]>;
       generation?: number;
+      sourceFingerprint?: string;
     }
   | { type: 'setPdfView'; currentPage?: number; zoom?: number; panX?: number; panY?: number }
   | { type: 'setPdfExtractMarkersVisible'; visible: boolean }
@@ -146,6 +161,14 @@ export type EditorDocumentAction =
       showPairDivider?: boolean;
       columnGap?: number;
     };
+
+function clipSelection(ids: ClipId[]): { selectedClipId: ClipId | null; selectedClipIds: ClipId[] } {
+  const selectedClipIds = [...new Set(ids)];
+  return {
+    selectedClipIds,
+    selectedClipId: selectedClipIds[selectedClipIds.length - 1] ?? null,
+  };
+}
 
 function findEditorText(
   doc: EditorDocument,
@@ -299,7 +322,7 @@ export function reduceEditorDocument(
         scale: 1,
         rotation: 0,
       });
-      doc.selectedClipId = a.clipId;
+      Object.assign(doc, clipSelection([a.clipId]));
       doc.selectedTextId = null;
       return doc;
     }
@@ -309,9 +332,10 @@ export function reduceEditorDocument(
         return doc;
       }
       doc.pasteboardClips.splice(clipIndex, 1);
-      if (doc.selectedClipId === a.clipId) {
-        doc.selectedClipId = null;
-      }
+      Object.assign(
+        doc,
+        clipSelection((doc.selectedClipIds ?? (doc.selectedClipId ? [doc.selectedClipId] : [])).filter((id) => id !== a.clipId)),
+      );
       return doc;
     }
     case 'transformClip': {
@@ -331,6 +355,32 @@ export function reduceEditorDocument(
       if (a.rotation !== undefined) {
         clip.rotation = a.rotation;
       }
+      return doc;
+    }
+    case 'deleteClip': {
+      const remove = new Set(a.clipIds);
+      doc.pasteboardClips = doc.pasteboardClips.filter((c) => !remove.has(c.id));
+      Object.assign(
+        doc,
+        clipSelection((doc.selectedClipIds ?? (doc.selectedClipId ? [doc.selectedClipId] : [])).filter((id) => !remove.has(id))),
+      );
+      return doc;
+    }
+    case 'duplicateClip': {
+      const source = doc.pasteboardClips.find((c) => c.id === a.sourceClipId);
+      if (!source) {
+        return doc;
+      }
+      doc.pasteboardClips.push({
+        id: a.clipId,
+        rasterId: a.rasterId,
+        x: a.x,
+        y: a.y,
+        scale: a.scale,
+        rotation: a.rotation,
+      });
+      Object.assign(doc, clipSelection([a.clipId]));
+      doc.selectedTextId = null;
       return doc;
     }
     case 'createText': {
@@ -503,20 +553,25 @@ export function reduceEditorDocument(
       return doc;
     }
     case 'loadPdf': {
-      const sameSource = doc.pdf?.opfsPath === a.opfsPath;
-      const keepPage = sameSource ? doc.pdf!.currentPage : 1;
+      const view = pdfViewAfterLoad(doc.pdf, {
+        opfsPath: a.opfsPath,
+        pageCount: a.pageCount,
+        fingerprint: a.sourceFingerprint,
+      });
+      const sameSource = keepPdfViewOnReload(doc.pdf, { opfsPath: a.opfsPath, fingerprint: a.sourceFingerprint });
       doc.pdf = {
         opfsPath: a.opfsPath,
         pageCount: a.pageCount,
-        currentPage: clampPdfPage(keepPage, a.pageCount),
-        zoom: sameSource ? doc.pdf!.zoom : 1,
-        panX: sameSource ? doc.pdf!.panX : 0,
-        panY: sameSource ? doc.pdf!.panY : 0,
+        currentPage: view.currentPage,
+        zoom: view.zoom,
+        panX: view.panX,
+        panY: view.panY,
         sourceTextByPage: a.sourceTextByPage,
         generation: a.generation ?? (sameSource ? doc.pdf!.generation : 1),
-        extractedGlyphs: [],
-        extractMarkersVisible: sameSource ? doc.pdf!.extractMarkersVisible !== false : true,
-        extractSanitizePunctuation: sameSource ? doc.pdf!.extractSanitizePunctuation === true : false,
+        sourceFingerprint: a.sourceFingerprint ?? (sameSource ? doc.pdf?.sourceFingerprint : undefined),
+        extractedGlyphs: view.extractedGlyphs,
+        extractMarkersVisible: view.extractMarkersVisible,
+        extractSanitizePunctuation: view.extractSanitizePunctuation,
       };
       return doc;
     }
@@ -569,14 +624,14 @@ function reduceEditorDocumentViewOnly(
   switch (action.type) {
     case 'selectPage':
       if (state.pages[action.pageId] && state.workspaceOrder.includes(action.pageId)) {
-        return { ...state, selectedPageId: action.pageId, selectedClipId: null };
+        return { ...state, selectedPageId: action.pageId, ...clipSelection([]) };
       }
       return state;
     case 'setTool':
       return {
         ...state,
         tool: action.tool,
-        selectedClipId: action.tool !== 'select' ? null : state.selectedClipId,
+        ...clipSelection(action.tool !== 'select' ? [] : (state.selectedClipIds ?? (state.selectedClipId ? [state.selectedClipId] : []))),
       };
     case 'setToolProperties':
       return { ...state, tools: { ...state.tools, ...action.patch } };
@@ -631,14 +686,21 @@ function reduceEditorDocumentViewOnly(
     case 'selectClip':
       return {
         ...state,
-        selectedClipId: action.clipId,
+        ...clipSelection(action.clipId ? [action.clipId] : []),
         selectedTextId: action.clipId ? null : state.selectedTextId,
+      };
+    case 'selectClips':
+      const existing = new Set(state.pasteboardClips.map((c) => c.id));
+      return {
+        ...state,
+        ...clipSelection(action.clipIds.filter((id) => existing.has(id))),
+        selectedTextId: action.clipIds.length > 0 ? null : state.selectedTextId,
       };
     case 'selectText':
       return {
         ...state,
         selectedTextId: action.textId,
-        selectedClipId: action.textId ? null : state.selectedClipId,
+        ...(action.textId ? clipSelection([]) : {}),
       };
     case 'setUiLayout': {
       const patch: Partial<EditorDocument> = {};

@@ -509,6 +509,22 @@ describe('シナリオ: PDF ページ送りでビューア key が差し替わ�
       sourceTextByPage: { 1: [], 2: [], 3: [], 4: [] },
     });
     expect(doc.pdf?.currentPage).toBe(3);
+    doc = apply(doc, {
+      type: 'loadPdf',
+      opfsPath: 'pdfs/p1/novel.pdf',
+      pageCount: 8,
+      sourceTextByPage: {},
+      sourceFingerprint: 'novel.pdf:1:1',
+    });
+    expect(doc.pdf?.currentPage).toBe(3);
+    doc = apply(doc, {
+      type: 'loadPdf',
+      opfsPath: 'pdfs/p1/novel.pdf',
+      pageCount: 8,
+      sourceTextByPage: {},
+      sourceFingerprint: 'other.pdf:2:2',
+    });
+    expect(doc.pdf?.currentPage).toBe(1);
   });
 });
 

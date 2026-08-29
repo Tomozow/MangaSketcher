@@ -1012,7 +1012,7 @@ body {
 .ms-pageInkOverlay {
   position: absolute;
   inset: 0;
-  overflow: hidden;
+  overflow: visible;
   pointer-events: none;
   z-index: 2;
 }
@@ -1245,6 +1245,10 @@ body {
 .ms-clipFrame {
   pointer-events: none;
   z-index: 2;
+}
+
+.ms-clipFrameSelected {
+  box-shadow: 0 0 0 2px var(--ms-accent);
 }
 
 .ms-clipHandleRotate,

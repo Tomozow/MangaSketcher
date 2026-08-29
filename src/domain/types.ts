@@ -118,6 +118,8 @@ export type PdfDocument = {
   sourceTextByPage: Record<number, PdfTextItem[]>;
   opfsPath: string;
   generation: number;
+  /** File identity (name/size/mtime) so a re-pick of the same PDF can restore the page. */
+  sourceFingerprint?: string;
   /** Glyph boxes already copied to the workspace (non-destructive). */
   extractedGlyphs?: PdfExtractedGlyph[];
   /** PDF-pane toggle; default on. */
@@ -192,6 +194,8 @@ export type EditorDocument = {
   pasteboardTexts: PasteboardText[];
   selectedPageId: PageId | null;
   selectedClipId: ClipId | null;
+  /** All currently selected pasteboard clips; `selectedClipId` is the last / primary. */
+  selectedClipIds?: ClipId[];
   selectedTextId: TextId | null;
   tool: ToolId;
   tools: ToolProperties;

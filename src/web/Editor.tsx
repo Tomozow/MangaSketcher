@@ -24,6 +24,8 @@ export default function Editor({ projectId }: EditorProps) {
     commitTextEdit,
     deleteText,
     duplicateText,
+    deleteClip,
+    duplicateClip,
     setTextEditing,
     undo,
     redo,
@@ -109,6 +111,8 @@ export default function Editor({ projectId }: EditorProps) {
         commitTextEdit={commitTextEdit}
         deleteText={deleteText}
         duplicateText={duplicateText}
+        deleteClip={deleteClip}
+        duplicateClip={duplicateClip}
         onTextEditingChange={setTextEditing}
         onUndo={undo}
         onRedo={redo}

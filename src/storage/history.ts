@@ -19,6 +19,7 @@ export function isViewOnlyHistoryAction(actionType: string): boolean {
     actionType === 'setPdfView' ||
     actionType === 'setPdfExtractMarkersVisible' ||
     actionType === 'selectClip' ||
+    actionType === 'selectClips' ||
     actionType === 'selectText' ||
     actionType === 'setUiLayout'
   );
