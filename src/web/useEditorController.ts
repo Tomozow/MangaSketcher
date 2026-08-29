@@ -13,7 +13,7 @@ import {
   type ExtractPackCursor,
 } from '@/src/domain/pdfExtractPack';
 import { brushRadius } from '@/src/domain/pointers';
-import { clampRasterPoint, pageLocalFromWorld, screenToWorld, buildStripFrames, stripLayoutFromDoc } from '@/src/domain/stripGeometry';
+import { pageLocalFromWorld, screenToWorld, buildStripFrames, stripLayoutFromDoc } from '@/src/domain/stripGeometry';
 import { defaultTextBox, findText, isTextContentEmpty, clampTextBoxOrigin } from '@/src/domain/text';
 import type { StrokePoint } from '@/src/domain/stroke';
 import { AutosaveManager, type AutosaveStatus } from '@/src/storage/autosave';
@@ -172,6 +172,9 @@ function visiblePageRasterIds(doc: EditorDocument): string[] {
       ids.push(rasterId);
     }
   }
+  for (const clip of doc.pasteboardClips) {
+    ids.push(clip.rasterId);
+  }
   return ids;
 }
 
@@ -188,7 +191,9 @@ function documentRasterIdsKey(doc: EditorDocument): string {
 }
 
 function workspaceVisibleRasterIdsKey(doc: EditorDocument): string {
-  return doc.workspaceOrder.map((pageId) => doc.pages[pageId]?.rasterId ?? '').join('\0');
+  const pages = doc.workspaceOrder.map((pageId) => doc.pages[pageId]?.rasterId ?? '');
+  const clips = doc.pasteboardClips.map((clip) => clip.rasterId);
+  return `${pages.join('\0')}|${clips.join('\0')}`;
 }
 
 function isClipLiveEffect(effect: WorkspaceEffect): boolean {
@@ -484,7 +489,18 @@ export function useEditorController(projectId: string): EditorController {
       setHistory(editorHistoryFromBoot(boot));
 
       autosaveRef.current = new AutosaveManager({
-        getEncodedPng: () => encodedPngRef.current,
+        getEncodedPng: () => {
+          const merged = new Map(encodedPngRef.current);
+          const engine = inkApiRef.current?.engine;
+          if (engine) {
+            for (const [rasterId, png] of engine.encodedPng) {
+              if (png.byteLength > 0) {
+                merged.set(rasterId, png);
+              }
+            }
+          }
+          return merged;
+        },
         onStatusChange: setAutosaveStatus,
         getDelays: getAutosaveDelays,
       });
@@ -494,7 +510,12 @@ export function useEditorController(projectId: string): EditorController {
 
     return () => {
       cancelled = true;
-      autosaveRef.current?.dispose();
+      const autosave = autosaveRef.current;
+      if (autosave) {
+        void autosave.flushRouteLeave().finally(() => {
+          autosave.dispose();
+        });
+      }
       autosaveRef.current = null;
     };
   }, [projectId, router]);
@@ -502,6 +523,14 @@ export function useEditorController(projectId: string): EditorController {
   useEffect(() => {
     const flushHidden = () => {
       inkApiRef.current?.engine.flushPendingEncodes();
+      const engine = inkApiRef.current?.engine;
+      if (engine) {
+        for (const [rasterId, png] of engine.encodedPng) {
+          if (png.byteLength > 0) {
+            encodedPngRef.current.set(rasterId, png);
+          }
+        }
+      }
       const pending = pendingInkHistoryRef.current;
       if (pending.length > 0) {
         pendingInkHistoryRef.current = [];
@@ -511,11 +540,17 @@ export function useEditorController(projectId: string): EditorController {
             return prev;
           }
           const history = consumePendingInkHistory(prev, pending, inkUndoRef.current);
-          autosaveRef.current?.scheduleSave(history.present, [], false);
+          autosaveRef.current?.scheduleSave(history.present, collectRasterIds(history.present), false);
           return history;
         });
+      } else {
+        const present = historyRef.current?.present;
+        if (present) {
+          autosaveRef.current?.scheduleSave(present, collectRasterIds(present), false);
+        }
       }
       autosaveRef.current?.flushHidden();
+      void autosaveRef.current?.flushRouteLeave();
     };
 
     const onVisibilityChange = () => {
@@ -529,15 +564,29 @@ export function useEditorController(projectId: string): EditorController {
     };
 
     window.addEventListener('pagehide', flushHidden);
+    window.addEventListener('beforeunload', flushHidden);
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
       window.removeEventListener('pagehide', flushHidden);
+      window.removeEventListener('beforeunload', flushHidden);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
   }, []);
 
-  const persist = useCallback((nextHistory: EditorHistory, viewOnly: boolean) => {
-    autosaveRef.current?.scheduleSave(nextHistory.present, [], viewOnly);
+  const persist = useCallback((nextHistory: EditorHistory, viewOnly: boolean, flushNow = false) => {
+    const dirty = viewOnly ? [] : collectRasterIds(nextHistory.present);
+    const engine = inkApiRef.current?.engine;
+    if (engine) {
+      for (const [rasterId, png] of engine.encodedPng) {
+        if (png.byteLength > 0) {
+          encodedPngRef.current.set(rasterId, png);
+        }
+      }
+    }
+    autosaveRef.current?.scheduleSave(nextHistory.present, dirty, viewOnly);
+    if (flushNow) {
+      void autosaveRef.current?.flushRouteLeave();
+    }
   }, []);
 
   const dispatch = useCallback(
@@ -559,7 +608,11 @@ export function useEditorController(projectId: string): EditorController {
         }
         const nextPresent = reduceEditorDocument(prev.present, action, randomId);
         const nextHistory = pushEditorHistory(prev, nextPresent, inkUndoRef.current, viewOnly);
-        persist(nextHistory, viewOnly);
+        const flushClip =
+          action.type === 'commitMarqueeCut' ||
+          action.type === 'transformClip' ||
+          action.type === 'commitClipBake';
+        persist(nextHistory, viewOnly, flushClip);
         return nextHistory;
       });
     },
@@ -618,16 +671,26 @@ export function useEditorController(projectId: string): EditorController {
           }
           const clipId = randomId();
           const rasterId = `${present.projectId}:clip:${clipId}`;
+          const cut = api.engine.marqueeCut(page.rasterId, rasterId, effect.rect);
+          if (!cut.trim) {
+            continue;
+          }
+          const trimmedRect = {
+            x: effect.rect.x + cut.trim.x,
+            y: effect.rect.y + cut.trim.y,
+            width: cut.trim.width,
+            height: cut.trim.height,
+          };
           const world = pageLocalRectToWorld(
             frame.x,
             frame.y,
             frame.width,
             frame.height,
-            effect.rect,
+            trimmedRect,
             present.rasterWidth,
             present.rasterHeight,
           );
-          const pageUndo = api.engine.marqueeCut(page.rasterId, rasterId, effect.rect);
+          const pageUndo = cut.pageUndo;
           if (pageUndo.byteLength > 0) {
             inkUndoRef.current.set(page.rasterId, pageUndo.slice(0));
           }
@@ -657,17 +720,29 @@ export function useEditorController(projectId: string): EditorController {
             present.rasterWidth,
             present.rasterHeight,
           );
-          const bakeAt = clampRasterPoint(
-            local.x,
-            local.y,
-            present.rasterWidth,
-            present.rasterHeight,
-          );
+          if (
+            local.x < 0 ||
+            local.x > present.rasterWidth ||
+            local.y < 0 ||
+            local.y > present.rasterHeight
+          ) {
+            dispatch({
+              type: 'transformClip',
+              clipId: effect.clipId,
+              x: pose.x,
+              y: pose.y,
+              scale: pose.scale,
+              rotation: pose.rotation,
+            });
+            clipLiveRef.current.delete(effect.clipId);
+            bumpClipDragFrame();
+            continue;
+          }
           const pageUndo = api.engine.bakeClipOntoPage(
             page.rasterId,
             clip.rasterId,
-            bakeAt.x,
-            bakeAt.y,
+            local.x,
+            local.y,
             pose.scale,
             pose.rotation,
           );
@@ -1296,7 +1371,7 @@ export function useEditorController(projectId: string): EditorController {
     textEditing,
     textSelection,
     ink: history ? ink : null,
-    inkFrame,
+    inkFrame: inkFrame + ink.rasterLayoutGen,
     marqueePreview,
     clipLiveTransforms,
     textLiveTransforms,

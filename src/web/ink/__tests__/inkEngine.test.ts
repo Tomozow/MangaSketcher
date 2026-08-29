@@ -260,6 +260,24 @@ describe('InkEngine production pixel truth', () => {
     expect(engine.hot.has('r1')).toBe(true);
   });
 
+  test('LRU does not evict a clip that has not encoded yet', () => {
+    const engine = createTestEngine();
+    const pinned = Array.from({ length: 10 }, (_, i) => `page${i}`);
+    engine.setPinnedHotRasterIds(pinned);
+    for (const id of pinned) {
+      engine.registerRaster(id);
+      engine.decode(id);
+    }
+    const pageId = 'page0';
+    const clipId = 'clip-fresh';
+    const pageCtx = engine.getHotContext(pageId)!;
+    pageCtx.fillStyle = '#000000';
+    pageCtx.fillRect(4, 4, 8, 8);
+    engine.marqueeCut(pageId, clipId, { x: 4, y: 4, width: 8, height: 8 });
+    expect(engine.hot.has(clipId)).toBe(true);
+    expect(countAlphaPixels(engine.getHotContext(clipId)!, 8, 8)).toBeGreaterThan(0);
+  });
+
   test('registerRaster blits png onto an already-created empty hot canvas', async () => {
     const src = createTestEngine();
     const rasterId = 'late-png';
@@ -360,5 +378,19 @@ describe('InkEngine production pixel truth', () => {
 
     expect(engine.encodedPng.get(rasterId)?.byteLength).toBe(freshBytes.byteLength);
     expect(countAlphaPixels(engine.getHotContext(rasterId)!, TEST_W, TEST_H)).toBe(freshAlpha);
+  });
+
+  test('registerRaster uses PNG IHDR size instead of page raster size', () => {
+    const engine = createTestEngine();
+    const buf = new ArrayBuffer(24);
+    const view = new DataView(buf);
+    view.setUint32(0, 0x89504e47);
+    view.setUint32(4, 0x0d0a1a0a);
+    view.setUint32(8, 13);
+    view.setUint32(12, 0x49484452);
+    view.setUint32(16, 51);
+    view.setUint32(20, 222);
+    engine.registerRaster('proj:clip:tiny', buf);
+    expect(engine.getRasterDimensions('proj:clip:tiny')).toEqual({ width: 51, height: 222 });
   });
 });

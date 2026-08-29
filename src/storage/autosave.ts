@@ -5,6 +5,7 @@ import {
   type ProjectMeta,
 } from './types';
 import { cloneEditorDocument } from './editorDocument';
+import { collectRasterIds } from './rasterIds';
 import type { StorageDatabase } from './idb';
 import { getDefaultStorageDatabase } from './idb';
 
@@ -160,9 +161,12 @@ export class AutosaveManager {
     this.runningJob = job;
     try {
       const encoded = this.getEncodedPng();
-      for (const rasterId of job.dirtyRasterIds) {
+      const rasterIds = job.viewOnly
+        ? [...job.dirtyRasterIds]
+        : [...new Set([...job.dirtyRasterIds, ...collectRasterIds(job.doc)])];
+      for (const rasterId of rasterIds) {
         const png = encoded.get(rasterId);
-        if (png) {
+        if (png && png.byteLength > 0) {
           await this.db.putRaster(rasterId, png.slice(0));
         }
       }
@@ -202,11 +206,25 @@ export class AutosaveManager {
 
   /**
    * §7.6 hidden/pagehide: put in-memory encoded PNG only. Never start convertToBlob here.
+   * Also writes the pending document JSON so a reload does not drop unsaved clips.
    */
   flushHidden(): void {
     const encoded = this.getEncodedPng();
     for (const [rasterId, png] of encoded.entries()) {
-      void this.db.putRaster(rasterId, png.slice(0));
+      if (png.byteLength > 0) {
+        void this.db.putRaster(rasterId, png.slice(0));
+      }
+    }
+    const pendingDoc = this.pendingJob?.doc;
+    if (pendingDoc) {
+      const updatedAt = new Date().toISOString();
+      void this.db.putDocument(pendingDoc);
+      void this.db.putMeta({
+        id: pendingDoc.projectId,
+        name: pendingDoc.name,
+        updatedAt,
+        pageCount: Object.keys(pendingDoc.pages).length,
+      });
     }
   }
 

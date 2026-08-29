@@ -388,6 +388,29 @@ export function isPngBuffer(buffer: ArrayBuffer): boolean {
   return PNG_SIGNATURE.every((byte, index) => bytes[index] === byte);
 }
 
+/** Width/height from a real PNG IHDR or an ink snapshot header. */
+export function encodedRasterDimensions(
+  buffer: ArrayBuffer,
+): { width: number; height: number } | null {
+  const snapshot = tryDecodeInkSnapshot(buffer);
+  if (snapshot) {
+    return { width: snapshot.width, height: snapshot.height };
+  }
+  if (!isPngBuffer(buffer) || buffer.byteLength < 24) {
+    return null;
+  }
+  const view = new DataView(buffer);
+  if (view.getUint32(12) !== 0x49484452) {
+    return null;
+  }
+  const width = view.getUint32(16);
+  const height = view.getUint32(20);
+  if (width < 1 || height < 1 || width > 32767 || height > 32767) {
+    return null;
+  }
+  return { width, height };
+}
+
 /**
  * Undo snapshots and Vitest fake canvases use raw RGBA + 8-byte width/height header.
  * Returns null for real PNGs and malformed buffers.

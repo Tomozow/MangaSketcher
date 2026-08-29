@@ -42,6 +42,49 @@ function finiteGrabOffset(value: number | undefined): number {
   return value !== undefined && Number.isFinite(value) ? value : 0;
 }
 
+function clipCenterPageDrop(
+  session: Extract<WorkspaceSession, { mode: 'moveClip' }>,
+  input: WorkspacePointerInput,
+): { pageId: PageId; localX: number; localY: number } | null {
+  const clip = input.getClipMeta(session.clipId);
+  if (!clip) {
+    return null;
+  }
+  const liveX = input.worldX - session.offsetX;
+  const liveY = input.worldY - session.offsetY;
+  const bounds = clipWorldBounds(
+    { ...clip, x: liveX, y: liveY },
+    input.getClipRasterSize(session.clipId),
+    input.rasterWidth,
+    input.rasterHeight,
+  );
+  if (input.pageInkAtWorld) {
+    const origin = input.pageInkAtWorld(liveX, liveY);
+    const center = input.pageInkAtWorld(bounds.cx, bounds.cy);
+    if (!origin || !center || origin.pageId !== center.pageId) {
+      return null;
+    }
+    return center;
+  }
+  const drop = input.dropHit ?? input.hit;
+  if (drop.kind !== 'page' && drop.kind !== 'pageText') {
+    return null;
+  }
+  const local = input.mapWorldToPage?.(drop.pageId, bounds.cx, bounds.cy);
+  if (!local) {
+    return null;
+  }
+  if (
+    local.x < 0 ||
+    local.x > input.rasterWidth ||
+    local.y < 0 ||
+    local.y > input.rasterHeight
+  ) {
+    return null;
+  }
+  return { pageId: drop.pageId, localX: local.x, localY: local.y };
+}
+
 function textMoveSessionFromHit(hit: WorkspaceHit): TextMoveSession | null {
   if (hit.kind === 'pageText') {
     return {
@@ -563,22 +606,21 @@ function stepLockedPencil(
       y: input.worldY - session.offsetY,
     };
     if (input.phase === 'up') {
-      const drop = input.dropHit ?? input.hit;
+      const centerDrop = clipCenterPageDrop(session, input);
       return {
         session: { mode: 'idle' },
-        effects:
-          drop.kind === 'page' || drop.kind === 'pageText'
-            ? [
-                clipLiveEffect,
-                {
-                  type: 'dropClipOnPage',
-                  clipId: session.clipId,
-                  pageId: drop.pageId,
-                  localX: drop.localX,
-                  localY: drop.localY,
-                },
-              ]
-            : [clipLiveEffect, { type: 'commitClipTransform', clipId: session.clipId }],
+        effects: centerDrop
+          ? [
+              clipLiveEffect,
+              {
+                type: 'dropClipOnPage',
+                clipId: session.clipId,
+                pageId: centerDrop.pageId,
+                localX: centerDrop.localX,
+                localY: centerDrop.localY,
+              },
+            ]
+          : [clipLiveEffect, { type: 'commitClipTransform', clipId: session.clipId }],
       };
     }
     return {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { scheduleInkDisplay } from './PageInkCanvas';
 import {
@@ -42,6 +42,8 @@ export type InkEngineApi = {
   decode: InkEngine['decode'];
   thumbWidth: typeof THUMB_WIDTH;
   thumbHeight: typeof THUMB_HEIGHT;
+  /** Bumped after clip raster sizes are known so overlay layout can match PNG pixels. */
+  rasterLayoutGen: number;
 };
 
 /**
@@ -71,15 +73,20 @@ export function useInkEngine(options: UseInkEngineOptions): InkEngineApi {
     return wireInkAutosave(engine, sink);
   }, [engine]);
 
+  const [rasterLayoutGen, setRasterLayoutGen] = useState(0);
+
   useEffect(() => {
     engine.setCallbacks({
       onHotPixelsReady: (rasterId) => {
         scheduleInkDisplay(rasterId);
+        if (rasterId.includes(':clip:')) {
+          setRasterLayoutGen((n) => n + 1);
+        }
       },
     });
   }, [engine]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const visible = options.visibleRasterIds ?? [];
     const visibleSet = new Set(visible);
     const bootOrder = [...visible, ...options.rasterIds.filter((id) => !visibleSet.has(id))];
@@ -96,7 +103,8 @@ export function useInkEngine(options: UseInkEngineOptions): InkEngineApi {
         engine.decode(rasterId);
       }
     }
-  }, [engine, options.rasterIds, options.encodedByRasterId]);
+    setRasterLayoutGen((n) => n + 1);
+  }, [engine, options.rasterIds, options.encodedByRasterId, options.visibleRasterIds]);
 
   useEffect(() => {
     engine.setPinnedHotRasterIds(options.visibleRasterIds ?? []);
@@ -124,7 +132,8 @@ export function useInkEngine(options: UseInkEngineOptions): InkEngineApi {
       decode: (rasterId: string) => engine.decode(rasterId),
       thumbWidth: THUMB_WIDTH,
       thumbHeight: THUMB_HEIGHT,
+      rasterLayoutGen,
     }),
-    [engine, takeStrokeUndoPng, commitInkBake],
+    [engine, takeStrokeUndoPng, commitInkBake, rasterLayoutGen],
   );
 }

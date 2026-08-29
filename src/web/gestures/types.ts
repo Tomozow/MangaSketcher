@@ -238,6 +238,8 @@ export type WorkspacePointerInput = {
   /** DOM page-frame coords only (no strip/world fallback). Used for text placement. */
   mapPageDomLocal?: (pageId: PageId, clientX: number, clientY: number) => { x: number; y: number } | null;
   mapWorldToPage?: (pageId: PageId, worldX: number, worldY: number) => { x: number; y: number } | null;
+  /** Page whose ink rectangle contains this world point (clip-center drop). */
+  pageInkAtWorld?: (worldX: number, worldY: number) => { pageId: PageId; localX: number; localY: number } | null;
   pointerType?: PointerEvent['pointerType'];
   desktopNav?: DesktopNavMode;
 };

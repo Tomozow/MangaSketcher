@@ -1,5 +1,10 @@
-import { canvasBakeClipOntoPage, canvasMarqueeCut } from '../clip/clipCanvas';
-import { isPngBuffer, tryDecodeInkSnapshot } from './fakeCanvas';
+import {
+  canvasBakeClipOntoPage,
+  canvasCopyPageRect,
+  cropCanvasToRect,
+  inkAlphaBounds,
+} from '../clip/clipCanvas';
+import { encodedRasterDimensions, isPngBuffer, tryDecodeInkSnapshot } from './fakeCanvas';
 
 /** §9.7 standard drag thumbnail size. */
 export const THUMB_WIDTH = 144;
@@ -130,7 +135,13 @@ export class InkEngine {
       this.noteEncodedPng(rasterId, png);
     }
     if (!this.rasterDimensions.has(rasterId)) {
-      this.rasterDimensions.set(rasterId, { width: this.rasterWidth, height: this.rasterHeight });
+      const stored = this.encodedPng.get(rasterId);
+      const parsed =
+        stored && stored.byteLength > 0 ? encodedRasterDimensions(stored) : null;
+      this.rasterDimensions.set(
+        rasterId,
+        parsed ?? { width: this.rasterWidth, height: this.rasterHeight },
+      );
     }
     const stored = this.encodedPng.get(rasterId);
     const storedLen = stored?.byteLength ?? 0;
@@ -217,7 +228,8 @@ export class InkEngine {
           !this.pinnedHotRasterIds.has(id) &&
           !this.overlays.has(id) &&
           !this.strokeUndoCanvas.has(id) &&
-          !this.pendingEncodes.has(id),
+          !this.pendingEncodes.has(id) &&
+          (this.encodedPng.get(id)?.byteLength ?? 0) > 0,
       );
       if (evictIdx < 0) {
         break;
@@ -601,30 +613,49 @@ export class InkEngine {
   }
 
   /**
-   * §9.4: cut page rect into a new clip canvas (drawImage + clearRect). Returns page undo PNG.
+   * §9.4: cut page rect into a new clip canvas (drawImage + clearRect).
+   * Empty ink → no clip (`trim` null). Otherwise clip is cropped to ink bounds.
    */
   marqueeCut(
     pageRasterId: string,
     clipRasterId: string,
     rect: { x: number; y: number; width: number; height: number },
-  ): ArrayBuffer {
+  ): { pageUndo: ArrayBuffer; trim: { x: number; y: number; width: number; height: number } | null } {
     const w = Math.max(1, Math.round(rect.width));
     const h = Math.max(1, Math.round(rect.height));
     this.registerClipRaster(clipRasterId, w, h);
-    this.captureStrokeUndo(pageRasterId);
     const page = this.decode(pageRasterId);
     const clip = this.decode(clipRasterId);
-    canvasMarqueeCut(page, clip, rect);
+    canvasCopyPageRect(page, clip, rect);
+    const trim = inkAlphaBounds(clip);
+    if (!trim) {
+      this.disposeRaster(clipRasterId);
+      return { pageUndo: new ArrayBuffer(0), trim: null };
+    }
+    this.captureStrokeUndo(pageRasterId);
+    const pageCtx = page.getContext('2d');
+    if (!pageCtx) {
+      this.disposeRaster(clipRasterId);
+      return { pageUndo: new ArrayBuffer(0), trim: null };
+    }
+    pageCtx.clearRect(Math.round(rect.x), Math.round(rect.y), w, h);
+    if (trim.x !== 0 || trim.y !== 0 || trim.width !== clip.width || trim.height !== clip.height) {
+      const cropped = cropCanvasToRect(clip, trim, (cw, ch) => this.canvasFactory(cw, ch));
+      this.hot.set(clipRasterId, cropped);
+      this.rasterDimensions.set(clipRasterId, { width: trim.width, height: trim.height });
+    }
+    this.bumpHotRevision(pageRasterId);
+    this.bumpHotRevision(clipRasterId);
     const pageUndo = this.takeStrokeUndoPng(pageRasterId);
     this.invalidateThumb(pageRasterId);
     this.invalidateThumb(clipRasterId);
-    void this.generateThumb(pageRasterId);
-    void this.generateThumb(clipRasterId);
     this.startEncode(pageRasterId);
     this.startEncode(clipRasterId);
+    void this.generateThumb(pageRasterId);
+    void this.generateThumb(clipRasterId);
     this.callbacks.onBake?.(pageRasterId);
     this.callbacks.onBake?.(clipRasterId);
-    return pageUndo;
+    return { pageUndo, trim };
   }
 
   /**

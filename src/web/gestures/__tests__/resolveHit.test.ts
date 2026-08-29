@@ -4,7 +4,7 @@ import { buildStripFrames } from '../../../domain/stripGeometry';
 import { resolveWorkspaceDropTarget, resolveWorkspaceHit } from '../resolveHit';
 
 describe('resolveWorkspaceHit ink tool priority', () => {
-  test('pen and eraser prefer page under a pasteboard clip', () => {
+  test('pen and eraser prefer page under a pasteboard clip; select hits the clip', () => {
     vi.stubGlobal('document', {
       elementFromPoint: () => null,
     });
@@ -64,6 +64,9 @@ describe('resolveWorkspaceHit ink tool priority', () => {
     expect(resolveWorkspaceHit({ ...shared, tool: 'eraser' }).kind).toBe('page');
     expect(resolveWorkspaceHit({ ...shared, tool: 'eraser', selectedClipId: 'clip1' }).kind).toBe(
       'page',
+    );
+    expect(resolveWorkspaceHit({ ...shared, tool: 'select', selectedClipId: 'clip1' }).kind).toBe(
+      'clip',
     );
 
     vi.unstubAllGlobals();

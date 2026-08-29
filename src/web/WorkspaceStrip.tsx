@@ -5,6 +5,7 @@ import {
   buildStripFrames,
   NUMBER_BAND,
   pageLocalFromWorld,
+  pageInkFrameAtWorld,
   stripLayoutFromDoc,
   type StripLayoutOptions,
 } from '@/src/domain/stripGeometry';
@@ -309,6 +310,20 @@ export function WorkspaceStrip({
           ctxRef.current.rasterWidth,
           ctxRef.current.rasterHeight,
         );
+      },
+      pageInkAtWorld: (worldX, worldY) => {
+        const frame = pageInkFrameAtWorld(ctxRef.current.frames, worldX, worldY);
+        if (!frame || frame.slot.kind !== 'page') {
+          return null;
+        }
+        const local = pageLocalFromWorld(
+          frame,
+          worldX,
+          worldY,
+          ctxRef.current.rasterWidth,
+          ctxRef.current.rasterHeight,
+        );
+        return { pageId: frame.slot.pageId, localX: local.x, localY: local.y };
       },
       onEffects: (effects) => {
         const grabbed = applyWorkspaceEffects(

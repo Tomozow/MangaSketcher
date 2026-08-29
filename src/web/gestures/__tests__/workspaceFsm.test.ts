@@ -796,10 +796,69 @@ describe('Web workspace FSM', () => {
         worldX: 210,
         worldY: 190,
         getClipMeta: () => clip,
+        mapWorldToPage: (_pageId, x, y) => ({ x, y }),
       });
       expect(up.effects).toEqual([
         { type: 'clipTransformLive', clipId: 'c1', x: 200, y: 180 },
-        { type: 'dropClipOnPage', clipId: 'c1', pageId: 'p1', localX: 10, localY: 10 },
+        { type: 'dropClipOnPage', clipId: 'c1', pageId: 'p1', localX: 201.8, localY: 181.8 },
+      ]);
+    });
+
+    test('moveClip release does not bake when clip center is outside the page', () => {
+      const store = createWorkspaceGestureStore();
+      const clip = { id: 'c1', x: 100, y: 80, scale: 1, rotation: 0, rasterId: 'r1' };
+      const clipHit = { kind: 'clip' as const, clipId: 'c1', handle: 'body' as const };
+      pencil(store, 'down', {
+        tool: 'select',
+        hit: clipHit,
+        worldX: 110,
+        worldY: 90,
+        getClipMeta: () => clip,
+      });
+      const up = pencil(store, 'up', {
+        tool: 'select',
+        hit: clipHit,
+        dropHit: pageHit,
+        worldX: 210,
+        worldY: 190,
+        getClipMeta: () => clip,
+        pageInkAtWorld: () => null,
+        mapWorldToPage: () => ({ x: -40, y: 10 }),
+      });
+      expect(up.effects).toEqual([
+        { type: 'clipTransformLive', clipId: 'c1', x: 200, y: 180 },
+        { type: 'commitClipTransform', clipId: 'c1' },
+      ]);
+    });
+
+    test('moveClip release does not bake when clip origin is off the page even if center hits', () => {
+      const store = createWorkspaceGestureStore();
+      const clip = { id: 'c1', x: 100, y: 80, scale: 1, rotation: 0, rasterId: 'r1' };
+      const clipHit = { kind: 'clip' as const, clipId: 'c1', handle: 'body' as const };
+      pencil(store, 'down', {
+        tool: 'select',
+        hit: clipHit,
+        worldX: 110,
+        worldY: 90,
+        getClipMeta: () => clip,
+      });
+      const up = pencil(store, 'up', {
+        tool: 'select',
+        hit: clipHit,
+        dropHit: pageHit,
+        worldX: 210,
+        worldY: 190,
+        getClipMeta: () => clip,
+        pageInkAtWorld: (worldX, worldY) => {
+          if (worldX > 201) {
+            return { pageId: 'p1', localX: worldX, localY: worldY };
+          }
+          return null;
+        },
+      });
+      expect(up.effects).toEqual([
+        { type: 'clipTransformLive', clipId: 'c1', x: 200, y: 180 },
+        { type: 'commitClipTransform', clipId: 'c1' },
       ]);
     });
 

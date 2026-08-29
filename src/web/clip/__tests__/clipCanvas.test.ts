@@ -2,7 +2,7 @@ import { describe, expect, test } from 'vitest';
 
 import { FakeOffscreenCanvas, countAlphaPixels } from '../../ink/fakeCanvas';
 import { InkEngine } from '../../ink/InkEngine';
-import { canvasMarqueeCut, canvasBakeClipOntoPage } from '../clipCanvas';
+import { canvasMarqueeCut, canvasBakeClipOntoPage, inkAlphaBounds } from '../clipCanvas';
 
 const W = 64;
 const H = 64;
@@ -41,9 +41,33 @@ describe('clip canvas bake (no cutRect)', () => {
 
     const afterPage = countAlphaPixels(engine.getHotContext(pageId)!, W, H);
     const clipCtx = engine.getHotContext(clipId)!;
-    const clipPixels = countAlphaPixels(clipCtx, 8, 8);
+    const clipPixels = countAlphaPixels(clipCtx, clipCtx.canvas.width, clipCtx.canvas.height);
     expect(afterPage).toBeLessThan(beforePage);
     expect(clipPixels).toBeGreaterThan(0);
+  });
+
+  test('marqueeCut does not create a clip when the rect has no ink', () => {
+    const engine = createTestEngine();
+    const pageId = 'p:page:empty';
+    const clipId = 'p:clip:empty';
+    engine.registerRaster(pageId);
+    const result = engine.marqueeCut(pageId, clipId, { x: 4, y: 4, width: 8, height: 8 });
+    expect(result.trim).toBeNull();
+    expect(engine.hot.has(clipId)).toBe(false);
+    expect(countAlphaPixels(engine.getHotContext(pageId)!, W, H)).toBe(0);
+  });
+
+  test('marqueeCut crops the clip to ink bounds', () => {
+    const engine = createTestEngine();
+    const pageId = 'p:page:crop';
+    const clipId = 'p:clip:crop';
+    engine.registerRaster(pageId);
+    const pageCtx = engine.getHotContext(pageId)!;
+    pageCtx.fillStyle = '#000000';
+    pageCtx.fillRect(8, 10, 4, 6);
+    const result = engine.marqueeCut(pageId, clipId, { x: 0, y: 0, width: 32, height: 32 });
+    expect(result.trim).toEqual({ x: 7, y: 9, width: 6, height: 8 });
+    expect(engine.getRasterDimensions(clipId)).toEqual({ width: 6, height: 8 });
   });
 
   test('bakeClipOntoPage composites clip with transform', () => {
@@ -64,7 +88,13 @@ describe('clip canvas bake (no cutRect)', () => {
 
   test('production clip path does not import cutRect', async () => {
     const mod = await import('../clipCanvas');
-    expect(Object.keys(mod).sort()).toEqual(['canvasBakeClipOntoPage', 'canvasMarqueeCut']);
+    expect(Object.keys(mod).sort()).toEqual([
+      'canvasBakeClipOntoPage',
+      'canvasCopyPageRect',
+      'canvasMarqueeCut',
+      'cropCanvasToRect',
+      'inkAlphaBounds',
+    ]);
     const fs = await import('node:fs/promises');
     const webSrc = await fs.readFile('src/web/useEditorController.ts', 'utf8');
     const inkSrc = await fs.readFile('src/web/ink/InkEngine.ts', 'utf8');
@@ -84,7 +114,20 @@ describe('canvasMarqueeCut unit', () => {
     canvasMarqueeCut(page, clip, { x: 2, y: 2, width: 6, height: 6 });
 
     expect(countAlphaPixels(pageCtx, W, H)).toBe(0);
-    expect(countAlphaPixels(clip.getContext('2d')!, 10, 10)).toBeGreaterThan(0);
+    expect(countAlphaPixels(clip.getContext('2d')!, clip.width, clip.height)).toBeGreaterThan(0);
+  });
+
+  test('inkAlphaBounds is null for an empty canvas', () => {
+    const clip = new FakeOffscreenCanvas(10, 10) as unknown as OffscreenCanvas;
+    expect(inkAlphaBounds(clip)).toBeNull();
+  });
+
+  test('inkAlphaBounds shrinks to ink plus 1px pad', () => {
+    const clip = new FakeOffscreenCanvas(32, 32) as unknown as OffscreenCanvas;
+    const ctx = clip.getContext('2d')!;
+    ctx.fillStyle = '#000';
+    ctx.fillRect(8, 10, 4, 6);
+    expect(inkAlphaBounds(clip)).toEqual({ x: 7, y: 9, width: 6, height: 8 });
   });
 
   test('canvasBakeClipOntoPage draws transformed clip', () => {

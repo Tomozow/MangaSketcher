@@ -130,6 +130,23 @@ describe('AutosaveManager', () => {
     manager.dispose();
   });
 
+  test('flushHidden writes pending document JSON', async () => {
+    const db = new MemoryStorageDatabase();
+    const encoded = new Map<string, ArrayBuffer>([['p1:page:a', new ArrayBuffer(4)]]);
+    const manager = new AutosaveManager({ db, getEncodedPng: () => encoded });
+    manager.scheduleSave(
+      { ...sampleDoc(), pasteboardClips: [{ id: 'c1', rasterId: 'p1:clip:c1', x: 1, y: 2, scale: 1, rotation: 0 }] },
+      [],
+      false,
+    );
+    manager.flushHidden();
+    await Promise.resolve();
+    const loaded = await db.getDocument('p1');
+    expect(loaded?.pasteboardClips).toHaveLength(1);
+    expect(loaded?.pasteboardClips[0]?.id).toBe('c1');
+    manager.dispose();
+  });
+
   test('document delay を差し替えると、その時間まで IndexedDB へ書かない', async () => {
     vi.useFakeTimers();
     const db = new MemoryStorageDatabase();

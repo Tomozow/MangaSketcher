@@ -5,6 +5,7 @@
  */
 type DebugPayload = {
   sessionId?: string;
+  ingest?: string;
   runId?: string;
   hypothesisId?: string;
   location: string;

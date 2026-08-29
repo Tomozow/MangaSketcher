@@ -296,6 +296,24 @@ export function pageLocalFromWorld(
   };
 }
 
+/** Page ink rectangle only (no number band, no nearest-frame fallback). */
+export function pageInkFrameAtWorld(frames: StripFrame[], worldX: number, worldY: number): StripFrame | null {
+  for (const frame of frames) {
+    if (frame.slot.kind !== 'page') {
+      continue;
+    }
+    if (
+      worldX >= frame.x &&
+      worldX <= frame.x + frame.width &&
+      worldY >= frame.y &&
+      worldY < frame.y + frame.height
+    ) {
+      return frame;
+    }
+  }
+  return null;
+}
+
 export function clampRasterPoint(
   x: number,
   y: number,

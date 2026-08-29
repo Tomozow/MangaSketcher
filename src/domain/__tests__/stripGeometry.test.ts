@@ -5,6 +5,7 @@ import {
   buildStripFrames,
   clampRasterPoint,
   hitStripFrame,
+  pageInkFrameAtWorld,
   pageLocalFromWorld,
   PAGE_DISPLAY_H,
   PAGE_DISPLAY_W,
@@ -55,6 +56,24 @@ describe('stripGeometry 216×306 hit tests', () => {
     const mapped = pageLocalFromWorld(pageFrame!, localX, localY, 1200, 1700);
     expect(mapped.x).toBeCloseTo(600, 0);
     expect(mapped.y).toBeCloseTo(850, 0);
+  });
+
+  test('pageInkFrameAtWorld はページ端の外側を最近傍ページに吸着しない', () => {
+    const doc = createDocument({
+      projectId: 'p',
+      name: 't',
+      pageCount: 1,
+      ids: sequentialIds('pg'),
+    });
+    const { frames } = buildStripFrames(doc.workspaceOrder);
+    const pageFrame = frames.find((f) => f.slot.kind === 'page');
+    expect(pageFrame).toBeTruthy();
+    const outsideX = pageFrame!.x + PAGE_DISPLAY_W + 8;
+    const insideY = pageFrame!.y + PAGE_DISPLAY_H / 2;
+    expect(pageInkFrameAtWorld(frames, outsideX, insideY)).toBeNull();
+    expect(
+      pageInkFrameAtWorld(frames, pageFrame!.x + PAGE_DISPLAY_W / 2, insideY)?.slot.kind,
+    ).toBe('page');
   });
 
   test('隣ページ上の world を元ページへ写すと端にクランプされ反対側には飛ばない', () => {

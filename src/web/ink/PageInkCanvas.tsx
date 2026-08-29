@@ -106,7 +106,11 @@ export function PageInkCanvas({
         return;
       }
       const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-      const displayHeight = Math.round((displayWidth * 1700) / 1200);
+      const dims = engine.getRasterDimensions(rasterId);
+      const displayHeight = Math.max(
+        1,
+        Math.round((displayWidth * dims.height) / Math.max(1, dims.width)),
+      );
       const pixelW = Math.round(displayWidth * dpr);
       const pixelH = Math.round(displayHeight * dpr);
       if (el.width !== pixelW || el.height !== pixelH) {
