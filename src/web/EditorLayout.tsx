@@ -40,6 +40,7 @@ type EditorLayoutProps = {
   duplicateText: (textId: string) => void;
   deleteClip: (clipId: string) => void;
   duplicateClip: (clipId: string) => void;
+  insertClipOnPage: (clipId: string) => void;
   onTextEditingChange: (editing: boolean) => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -76,6 +77,7 @@ export function EditorLayout({
   duplicateText,
   deleteClip,
   duplicateClip,
+  insertClipOnPage,
   onTextEditingChange,
   onUndo,
   onRedo,
@@ -334,6 +336,7 @@ export function EditorLayout({
                 clipLiveTransforms={clipLiveTransforms}
                 onDeleteClip={deleteClip}
                 onDuplicateClip={duplicateClip}
+                onInsertClip={insertClipOnPage}
               />
             ) : null}
           </div>

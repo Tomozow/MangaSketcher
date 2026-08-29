@@ -805,7 +805,7 @@ describe('Web workspace FSM', () => {
       ]);
     });
 
-    test('moveClip release on page emits one bake drop instead of transform commit', () => {
+    test('moveClip release on a page commits pose instead of baking', () => {
       const store = createWorkspaceGestureStore();
       const clip = { id: 'c1', x: 100, y: 80, scale: 1, rotation: 0, rasterId: 'r1' };
       const clipHit = { kind: 'clip' as const, clipId: 'c1', handle: 'body' as const };
@@ -827,7 +827,7 @@ describe('Web workspace FSM', () => {
       });
       expect(up.effects).toEqual([
         { type: 'clipTransformLive', clipId: 'c1', x: 200, y: 180 },
-        { type: 'dropClipOnPage', clipId: 'c1', pageId: 'p1', localX: 201.8, localY: 181.8 },
+        { type: 'commitClipTransform', clipId: 'c1' },
       ]);
     });
 

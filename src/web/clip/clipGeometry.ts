@@ -1,5 +1,11 @@
-import { PAGE_DISPLAY_H, PAGE_DISPLAY_W } from '../../domain/stripGeometry';
-import type { ClipId, Rect } from '../../domain/types';
+import {
+  PAGE_DISPLAY_H,
+  PAGE_DISPLAY_W,
+  pageInkFrameAtWorld,
+  pageLocalFromWorld,
+  type StripFrame,
+} from '../../domain/stripGeometry';
+import type { ClipId, PageId, Rect } from '../../domain/types';
 import { CLIP_HANDLE_RADIUS, MIN_CLIP_SCALE } from './constants';
 
 export type ClipMetaLike = {
@@ -42,6 +48,30 @@ export function clipWorldBounds(
     halfH,
     rotation: clip.rotation,
   };
+}
+
+/** Origin and center must sit on the same page ink rect before a clip can bake into a コマ. */
+export function clipInsertTarget(
+  clip: ClipMetaLike,
+  size: ClipRasterSize,
+  rasterWidth: number,
+  rasterHeight: number,
+  frames: StripFrame[],
+): { pageId: PageId; localX: number; localY: number } | null {
+  const bounds = clipWorldBounds(clip, size, rasterWidth, rasterHeight);
+  const originFrame = pageInkFrameAtWorld(frames, clip.x, clip.y);
+  const centerFrame = pageInkFrameAtWorld(frames, bounds.cx, bounds.cy);
+  if (
+    !originFrame ||
+    !centerFrame ||
+    originFrame.slot.kind !== 'page' ||
+    centerFrame.slot.kind !== 'page' ||
+    originFrame.slot.pageId !== centerFrame.slot.pageId
+  ) {
+    return null;
+  }
+  const local = pageLocalFromWorld(centerFrame, bounds.cx, bounds.cy, rasterWidth, rasterHeight);
+  return { pageId: originFrame.slot.pageId, localX: local.x, localY: local.y };
 }
 
 function worldToClipLocal(

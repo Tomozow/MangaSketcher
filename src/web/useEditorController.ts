@@ -50,7 +50,7 @@ import {
   mergeTextLive,
   sanitizeTextBox,
 } from '@/src/web/text/textLiveTransform';
-import { clipTouchesWorldRect, pageLocalRectToWorld, selectedClipIdsOf } from './clip/clipGeometry';
+import { clipTouchesWorldRect, clipInsertTarget, pageLocalRectToWorld, selectedClipIdsOf } from './clip/clipGeometry';
 import { CLIP_DUPLICATE_OFFSET, MIN_MARQUEE_RASTER_PX } from './clip/constants';
 import { clipRasterId } from '@/src/storage/rasterIds';
 import {
@@ -120,6 +120,7 @@ type EditorController = {
   duplicateText: (textId: string) => void;
   deleteClip: (clipId: string) => void;
   duplicateClip: (clipId: string) => void;
+  insertClipOnPage: (clipId: string) => void;
   setTextEditing: (editing: boolean) => void;
   undo: () => void;
   redo: () => void;
@@ -655,6 +656,69 @@ export function useEditorController(projectId: string): EditorController {
     return inkApiRef.current?.engine.getRasterDimensions(clip.rasterId) ?? { width: 1, height: 1 };
   }, []);
 
+  const bakeClipOntoPage = useCallback(
+    (clipId: string, present: EditorDocument) => {
+      const api = inkApiRef.current;
+      if (!api) {
+        return;
+      }
+      const clip = present.pasteboardClips.find((c) => c.id === clipId);
+      if (!clip) {
+        return;
+      }
+      const frames = buildStripFrames(present.workspaceOrder, stripLayoutFromDoc(present)).frames;
+      const pose = effectiveClipPose(clip, clipLiveRef.current.get(clipId));
+      const target = clipInsertTarget(
+        { ...clip, ...pose },
+        api.engine.getRasterDimensions(clip.rasterId),
+        present.rasterWidth,
+        present.rasterHeight,
+        frames,
+      );
+      if (!target) {
+        dispatch({
+          type: 'transformClip',
+          clipId,
+          x: pose.x,
+          y: pose.y,
+          scale: pose.scale,
+          rotation: pose.rotation,
+        });
+        clipLiveRef.current.delete(clipId);
+        bumpClipDragFrame();
+        return;
+      }
+      const page = present.pages[target.pageId];
+      const frame = frameForPage(present.workspaceOrder, target.pageId, frames);
+      if (!page || !frame) {
+        return;
+      }
+      const local = pageLocalFromWorld(
+        frame,
+        pose.x,
+        pose.y,
+        present.rasterWidth,
+        present.rasterHeight,
+      );
+      const pageUndo = api.engine.bakeClipOntoPage(
+        page.rasterId,
+        clip.rasterId,
+        local.x,
+        local.y,
+        pose.scale,
+        pose.rotation,
+      );
+      if (pageUndo.byteLength > 0) {
+        inkUndoRef.current.set(page.rasterId, pageUndo.slice(0));
+      }
+      dispatch({ type: 'commitClipBake', clipId, pageId: target.pageId });
+      clipLiveRef.current.delete(clipId);
+      bumpClipDragFrame();
+      bumpInkFrame();
+    },
+    [bumpClipDragFrame, bumpInkFrame, dispatch],
+  );
+
   const applyClipEffects = useCallback(
     (effects: WorkspaceEffect[], present: EditorDocument) => {
       const api = inkApiRef.current;
@@ -742,57 +806,11 @@ export function useEditorController(projectId: string): EditorController {
           continue;
         }
         if (effect.type === 'dropClipOnPage') {
-          const clip = present.pasteboardClips.find((c) => c.id === effect.clipId);
-          const page = present.pages[effect.pageId];
-          const frame = frameForPage(present.workspaceOrder, effect.pageId, frames);
-          if (!clip || !page || !frame) {
-            continue;
-          }
-          const pose = effectiveClipPose(clip, clipLiveRef.current.get(effect.clipId));
-          const local = pageLocalFromWorld(
-            frame,
-            pose.x,
-            pose.y,
-            present.rasterWidth,
-            present.rasterHeight,
-          );
-          if (
-            local.x < 0 ||
-            local.x > present.rasterWidth ||
-            local.y < 0 ||
-            local.y > present.rasterHeight
-          ) {
-            dispatch({
-              type: 'transformClip',
-              clipId: effect.clipId,
-              x: pose.x,
-              y: pose.y,
-              scale: pose.scale,
-              rotation: pose.rotation,
-            });
-            clipLiveRef.current.delete(effect.clipId);
-            bumpClipDragFrame();
-            continue;
-          }
-          const pageUndo = api.engine.bakeClipOntoPage(
-            page.rasterId,
-            clip.rasterId,
-            local.x,
-            local.y,
-            pose.scale,
-            pose.rotation,
-          );
-          if (pageUndo.byteLength > 0) {
-            inkUndoRef.current.set(page.rasterId, pageUndo.slice(0));
-          }
-          dispatch({ type: 'commitClipBake', clipId: effect.clipId, pageId: effect.pageId });
-          clipLiveRef.current.delete(effect.clipId);
-          bumpClipDragFrame();
-          bumpInkFrame();
+          bakeClipOntoPage(effect.clipId, present);
         }
       }
     },
-    [bumpClipDragFrame, bumpInkFrame, dispatch, scheduleMarqueePreview],
+    [bakeClipOntoPage, bumpInkFrame, dispatch, scheduleMarqueePreview],
   );
 
   const applyClipLiveEffects = useCallback(
@@ -1222,6 +1240,21 @@ export function useEditorController(projectId: string): EditorController {
     [bumpInkFrame, dispatch],
   );
 
+  const insertClipOnPage = useCallback(
+    (clipId: string) => {
+      const present = historyRef.current?.present;
+      if (!present) {
+        return;
+      }
+      const selected = selectedClipIdsOf(present);
+      const ids = selected.includes(clipId) ? selected : [clipId];
+      for (const id of ids) {
+        bakeClipOntoPage(id, present);
+      }
+    },
+    [bakeClipOntoPage],
+  );
+
   const commitTextEdit = useCallback(
     (textId: string, content: string) => {
       if (isTextContentEmpty(content)) {
@@ -1472,6 +1505,7 @@ export function useEditorController(projectId: string): EditorController {
     duplicateText,
     deleteClip,
     duplicateClip,
+    insertClipOnPage,
     setTextEditing,
     undo,
     redo,

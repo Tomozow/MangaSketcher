@@ -196,6 +196,7 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
   test('クリップ選択時は削除と複製ボタンを上に出す', () => {
     expect(pageInkOverlaySrc).toContain('クリップを削除');
     expect(pageInkOverlaySrc).toContain('クリップを複製');
+    expect(pageInkOverlaySrc).toContain('クリップをコマに挿入');
     expect(pageInkOverlaySrc).toContain('ClipChromeOverlay');
     expect(pageInkOverlaySrc).toContain('metrics.stack');
   });

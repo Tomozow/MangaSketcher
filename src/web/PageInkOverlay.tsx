@@ -4,22 +4,20 @@ import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { buildStripFrames, PAGE_DISPLAY_W, stripLayoutFromDoc, textChromeScreenMetrics } from '@/src/domain/stripGeometry';
 import type { ClipId } from '@/src/domain/types';
 import type { EditorDocument } from '@/src/storage/types';
-import { clipWorldBounds, rasterToDisplayScale, selectedClipIdsOf } from './clip/clipGeometry';
 import {
   CLIP_CHROME_ATTR,
   CLIP_COPY_ATTR,
   CLIP_DELETE_ATTR,
   CLIP_FRAME_ATTR,
   CLIP_ID_ATTR,
+  CLIP_INSERT_ATTR,
 } from './clip/constants';
+import { clipInsertTarget, clipWorldBounds, rasterToDisplayScale, selectedClipIdsOf } from './clip/clipGeometry';
 import { effectiveClipPose, type ClipLiveTransform } from './clip/clipLiveTransform';
 import type { MarqueePreview } from '@/src/web/useEditorController';
 import { PageInkCanvas } from '@/src/web/ink/PageInkCanvas';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
 import { styles } from '@/src/web/editorStyles';
-import { ipadDebugLog } from '@/src/web/ipadDebugLog';
-
-const lastClipLayoutKey = new Map<string, string>();
 
 type PageInkOverlayProps = {
   doc: EditorDocument;
@@ -29,6 +27,7 @@ type PageInkOverlayProps = {
   clipLiveTransforms: Readonly<Record<string, ClipLiveTransform>>;
   onDeleteClip: (clipId: ClipId) => void;
   onDuplicateClip: (clipId: ClipId) => void;
+  onInsertClip: (clipId: ClipId) => void;
 };
 
 function ClipBoxChrome({
@@ -36,15 +35,19 @@ function ClipBoxChrome({
   buttonPx,
   gapPx,
   style,
+  canInsert,
   onDeleteClip,
   onDuplicateClip,
+  onInsertClip,
 }: {
   clipId: ClipId;
   buttonPx: number;
   gapPx: number;
   style?: { left: number; top: number };
+  canInsert: boolean;
   onDeleteClip: (clipId: ClipId) => void;
   onDuplicateClip: (clipId: ClipId) => void;
+  onInsertClip: (clipId: ClipId) => void;
 }) {
   const size = { width: buttonPx, height: buttonPx };
   const icon = Math.max(6, buttonPx * 0.6);
@@ -97,6 +100,24 @@ function ClipBoxChrome({
           <rect x="1.5" y="3.5" width="7" height="7" fill="var(--ms-background)" stroke="currentColor" strokeWidth="1.4" />
         </svg>
       </div>
+      {canInsert ? (
+        <div
+          role="button"
+          className={styles.pageTextChromeButton}
+          style={{ height: buttonPx, padding: `0 ${Math.max(6, buttonPx * 0.35)}px` }}
+          {...{ [CLIP_INSERT_ATTR]: '' }}
+          aria-label="クリップをコマに挿入"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+            onInsertClip(clipId);
+          }}
+        >
+          <span style={{ fontSize: Math.max(9, buttonPx * 0.48), fontWeight: 600, lineHeight: 1 }}>挿入</span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -110,6 +131,8 @@ function ClipChromeOverlay({
   layoutKey,
   onDeleteClip,
   onDuplicateClip,
+  onInsertClip,
+  canInsert,
 }: {
   overlayRef: RefObject<HTMLDivElement | null>;
   clipIds: ClipId[];
@@ -117,8 +140,10 @@ function ClipChromeOverlay({
   panX: number;
   panY: number;
   layoutKey: unknown;
+  canInsert: boolean;
   onDeleteClip: (clipId: ClipId) => void;
   onDuplicateClip: (clipId: ClipId) => void;
+  onInsertClip: (clipId: ClipId) => void;
 }) {
   const [pose, setPose] = useState<{ left: number; top: number; button: number; gap: number } | null>(null);
   const primaryId = clipIds[clipIds.length - 1];
@@ -164,8 +189,10 @@ function ClipChromeOverlay({
         buttonPx={pose.button}
         gapPx={pose.gap}
         style={{ left: pose.left, top: pose.top }}
+        canInsert={canInsert}
         onDeleteClip={onDeleteClip}
         onDuplicateClip={onDuplicateClip}
+        onInsertClip={onInsertClip}
       />
     </div>
   );
@@ -179,6 +206,7 @@ export function PageInkOverlay({
   clipLiveTransforms,
   onDeleteClip,
   onDuplicateClip,
+  onInsertClip,
 }: PageInkOverlayProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const { frames } = buildStripFrames(doc.workspaceOrder, stripLayoutFromDoc(doc));
@@ -188,6 +216,22 @@ export function PageInkOverlay({
     marqueePreview?.pageId === null &&
     marqueePreview.rect.width > 0 &&
     marqueePreview.rect.height > 0;
+  const canInsert = selectedIds.some((id) => {
+    const clip = doc.pasteboardClips.find((item) => item.id === id);
+    if (!clip) {
+      return false;
+    }
+    const pose = effectiveClipPose(clip, clipLiveTransforms[id]);
+    return (
+      clipInsertTarget(
+        { ...clip, ...pose },
+        engine.getRasterDimensions(clip.rasterId),
+        doc.rasterWidth,
+        doc.rasterHeight,
+        frames,
+      ) !== null
+    );
+  });
 
   return (
     <div ref={overlayRef} className={styles.pageInkOverlay}>
@@ -262,30 +306,6 @@ export function PageInkOverlay({
           const { sx, sy } = rasterToDisplayScale(doc.rasterWidth, doc.rasterHeight);
           const displayW = size.width * sx * pose.scale;
           const displayH = size.height * sy * pose.scale;
-          // #region agent log
-          const layoutKey = `${size.width}x${size.height}:${Math.round(displayW)}x${Math.round(displayH)}`;
-          if (lastClipLayoutKey.get(clip.id) !== layoutKey) {
-            lastClipLayoutKey.set(clip.id, layoutKey);
-            ipadDebugLog({
-              sessionId: '5a1fb6',
-              ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-              hypothesisId: 'H5',
-              location: 'PageInkOverlay.tsx:clip',
-              message: 'clip overlay layout',
-              data: {
-                runId: 'post-fix',
-                clipId: clip.id,
-                rasterId: clip.rasterId,
-                size,
-                displayW,
-                displayH,
-                panX: doc.workspacePanX,
-                panY: doc.workspacePanY,
-              },
-              timestamp: Date.now(),
-            });
-          }
-          // #endregion
 
           return (
             <div
@@ -329,6 +349,8 @@ export function PageInkOverlay({
           )}`}
           onDeleteClip={onDeleteClip}
           onDuplicateClip={onDuplicateClip}
+          onInsertClip={onInsertClip}
+          canInsert={canInsert}
         />
       ) : null}
     </div>

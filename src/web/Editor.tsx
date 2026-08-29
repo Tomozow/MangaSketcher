@@ -26,6 +26,7 @@ export default function Editor({ projectId }: EditorProps) {
     duplicateText,
     deleteClip,
     duplicateClip,
+    insertClipOnPage,
     setTextEditing,
     undo,
     redo,
@@ -113,6 +114,7 @@ export default function Editor({ projectId }: EditorProps) {
         duplicateText={duplicateText}
         deleteClip={deleteClip}
         duplicateClip={duplicateClip}
+        insertClipOnPage={insertClipOnPage}
         onTextEditingChange={setTextEditing}
         onUndo={undo}
         onRedo={redo}
