@@ -120,6 +120,8 @@ export type PdfDocument = {
   extractedGlyphs?: PdfExtractedGlyph[];
   /** PDF-pane toggle; default on. */
   extractMarkersVisible?: boolean;
+  /** When extracting, drop 「」 and replace 、。 with ASCII spaces. */
+  extractSanitizePunctuation?: boolean;
 };
 
 export type PdfTextItem = {

@@ -128,4 +128,24 @@ describe('AutosaveManager', () => {
     expect(stored?.byteLength).toBe(buffer.byteLength);
     manager.dispose();
   });
+
+  test('document delay を差し替えると、その時間まで IndexedDB へ書かない', async () => {
+    vi.useFakeTimers();
+    const db = new MemoryStorageDatabase();
+    const manager = new AutosaveManager({
+      db,
+      getEncodedPng: () => new Map(),
+      getDelays: () => ({ documentMs: 5000, viewOnlyMs: 6000 }),
+    });
+    try {
+      manager.scheduleSave(sampleDoc(), [], false);
+      await vi.advanceTimersByTimeAsync(4999);
+      expect(await db.getDocument('p1')).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(await db.getDocument('p1')).toBeDefined();
+    } finally {
+      manager.dispose();
+      vi.useRealTimers();
+    }
+  });
 });

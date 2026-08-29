@@ -465,7 +465,7 @@ body {
   position: absolute;
   inset: 0;
   pointer-events: none;
-  z-index: 0;
+  z-index: 1;
 }
 
 .ms-pageFrameSelected {
@@ -655,6 +655,11 @@ body {
 
 .ms-pdfNavButton:disabled {
   opacity: 0.4;
+}
+
+.ms-pdfNavButton[aria-pressed='true'] {
+  border-color: var(--ms-accent);
+  background: color-mix(in srgb, var(--ms-accent) 22%, var(--ms-surface));
 }
 
 .ms-pdfNavLabel {
@@ -972,6 +977,8 @@ body {
 
 .ms-pageInkCanvas {
   display: block;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
 }
 
@@ -998,7 +1005,7 @@ body {
   box-sizing: border-box;
   pointer-events: none;
   overflow: hidden;
-  z-index: 1;
+  z-index: 2;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
@@ -1092,14 +1099,16 @@ body {
   white-space: pre-wrap;
   word-break: break-all;
   box-sizing: border-box;
-  border: 1px solid transparent;
+  border: none;
+  outline: none;
   pointer-events: none;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
 }
 
 .ms-pageTextBoxSelected {
-  border-color: var(--ms-accent);
+  outline: 1px solid var(--ms-accent);
+  outline-offset: -1px;
 }
 
 .ms-textEditBar {

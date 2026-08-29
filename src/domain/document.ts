@@ -86,6 +86,7 @@ export function clonePdfDocument(pdf: PdfDocument): PdfDocument {
     ),
     extractedGlyphs: (pdf.extractedGlyphs ?? []).map((glyph) => ({ ...glyph })),
     extractMarkersVisible: pdf.extractMarkersVisible !== false,
+    extractSanitizePunctuation: pdf.extractSanitizePunctuation === true,
   };
 }
 

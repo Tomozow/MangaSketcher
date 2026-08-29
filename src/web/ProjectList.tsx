@@ -11,6 +11,13 @@ import {
   runStartupGc,
   type ProjectMeta,
 } from '@/src/storage';
+import {
+  AUTOSAVE_PRESET_OPTIONS,
+  isAutosavePresetId,
+  loadAppSettings,
+  saveAppSettings,
+  type AutosavePresetId,
+} from '@/src/storage/appSettings';
 import styles from '@/app/page.module.css';
 
 const DEFAULT_PROJECT_NAME = '無題';
@@ -62,6 +69,9 @@ export function ProjectList() {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [autosavePreset, setAutosavePreset] = useState<AutosavePresetId>(
+    () => loadAppSettings().autosavePreset,
+  );
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -153,6 +163,13 @@ export function ProjectList() {
     }
   };
 
+  const handleAutosavePreset = (value: string) => {
+    if (!isAutosavePresetId(value)) {
+      return;
+    }
+    setAutosavePreset(saveAppSettings({ autosavePreset: value }).autosavePreset);
+  };
+
   const creating = busyId === '__create__';
 
   return (
@@ -201,6 +218,31 @@ export function ProjectList() {
           </ul>
         )}
         {error ? <p className={styles.error}>{error}</p> : null}
+      </section>
+      <section className={styles.settings} aria-labelledby="app-settings-heading">
+        <h2 id="app-settings-heading" className={styles.settingsTitle}>
+          オプション
+        </h2>
+        <div className={styles.settingsRow}>
+          <label className={styles.settingsLabel} htmlFor="autosave-preset">
+            自動保存の間隔
+          </label>
+          <select
+            id="autosave-preset"
+            className={styles.settingsSelect}
+            value={autosavePreset}
+            onChange={(event) => handleAutosavePreset(event.target.value)}
+          >
+            {AUTOSAVE_PRESET_OPTIONS.map((preset) => (
+              <option key={preset.id} value={preset.id}>
+                {preset.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <p className={styles.settingsHint}>
+          間隔を長くすると描画中の保存負荷が下がります。タブを閉じる・バックグラウンドにするときはすぐ保存します。
+        </p>
       </section>
       <footer className={styles.footer}>
         <button

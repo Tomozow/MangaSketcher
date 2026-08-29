@@ -155,6 +155,8 @@ export type WorkspaceSession =
       pageId: PageId;
       startX: number;
       startY: number;
+      localX: number;
+      localY: number;
     };
 
 export type WorkspaceEffect =

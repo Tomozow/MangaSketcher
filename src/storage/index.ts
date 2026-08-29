@@ -5,6 +5,7 @@ export * from './editorDocument';
 export * from './idb';
 export * from './opfs';
 export * from './projectStore';
+export * from './appSettings';
 export * from './autosave';
 export * from './history';
 export * from './editorBoot';

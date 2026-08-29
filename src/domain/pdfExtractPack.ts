@@ -8,13 +8,13 @@ export const EXTRACT_LINE_HEIGHT = 1.2;
 export const EXTRACT_GAP = 8;
 export const EXTRACT_MARGIN_CSS = 16;
 
-/** Vertical-rl: insert a column break every 10 characters. Idempotent if already wrapped. */
+/** Vertical-rl: insert a column break every 10 characters. Keeps ASCII spaces; strips other whitespace. Idempotent if already wrapped. */
 export function wrapExtractedText(
   content: string,
   charsPerCol = EXTRACT_CHARS_PER_COL,
 ): string {
   const limit = Math.max(1, charsPerCol);
-  const chars = [...content.replace(/\s+/g, '')];
+  const chars = [...content.replace(/[^\S ]+/g, '')];
   if (chars.length === 0) {
     return '';
   }
@@ -58,7 +58,11 @@ export function extractedColumnCount(
   return Math.max(1, wrapped.split('\n').length);
 }
 
-/** Vertical-rl: height is 10 characters; width follows the final column count. */
+/**
+ * Vertical-rl: height is 10 characters; width follows the final column count.
+ * Ceil so fractional pitches (e.g. 24×1.2 = 28.8) are not snapped smaller than
+ * a line box — that clips a few CSS px on the left for odd column counts.
+ */
 export function extractedTextBoxSize(
   content: string,
   fontSize: number,
@@ -68,7 +72,10 @@ export function extractedTextBoxSize(
   const perCol = Math.max(1, charsPerCol);
   const columns = extractedColumnCount(content, perCol);
   const colPitch = size * EXTRACT_LINE_HEIGHT;
-  return { width: columns * colPitch, height: perCol * colPitch };
+  return {
+    width: Math.ceil(columns * colPitch),
+    height: Math.ceil(perCol * colPitch),
+  };
 }
 
 export function startExtractPack(

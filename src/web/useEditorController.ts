@@ -17,6 +17,7 @@ import { clampRasterPoint, pageLocalFromWorld, screenToWorld, buildStripFrames, 
 import { defaultTextBox, findText, isTextContentEmpty, clampTextBoxOrigin } from '@/src/domain/text';
 import type { StrokePoint } from '@/src/domain/stroke';
 import { AutosaveManager, type AutosaveStatus } from '@/src/storage/autosave';
+import { getAutosaveDelays } from '@/src/storage/appSettings';
 import { editorHistoryFromBoot, loadEditorBoot } from '@/src/storage/editorBoot';
 import { writeProjectPdf } from '@/src/storage/projectStore';
 import { randomId } from '@/src/storage/randomId';
@@ -32,6 +33,7 @@ import {
   DEFAULT_RASTER_WIDTH,
   type EditorDocument,
   type EditorHistory,
+  type InkUndoPixels,
 } from '@/src/storage/types';
 import { colors } from '@/src/theme/tokens';
 import type { WorkspaceEffect } from '@/src/web/gestures';
@@ -56,6 +58,7 @@ import {
   useInkEngine,
   type InkEngineApi,
   repaintInkDisplay,
+  scheduleInkDisplay,
 } from '@/src/web/ink';
 import type { PageId } from '@/src/domain/types';
 import { textBoxForOwnerMove } from '@/src/web/gestures/elementInteraction';
@@ -63,6 +66,22 @@ import type { PdfExtractPayload } from '@/src/web/pdf/PdfPageViewer';
 import { dropPdfSession, getOrLoadPdfProxy } from '@/src/web/pdf/pdfSession';
 
 import type { TextEditSelection } from '@/src/web/TextEditBar';
+
+type PendingInkHistoryItem = { rasterId: string; canvas: OffscreenCanvas };
+
+function consumePendingInkHistory(
+  history: EditorHistory,
+  pending: PendingInkHistoryItem[],
+  inkUndo: Map<string, InkUndoPixels>,
+): EditorHistory {
+  let next = history;
+  for (const item of pending) {
+    inkUndo.set(item.rasterId, item.canvas);
+    const nextPresent = reduceEditorDocument(next.present, { type: 'commitInkBake', rasterId: item.rasterId }, randomId);
+    next = pushEditorHistory(next, nextPresent, inkUndo, false);
+  }
+  return next;
+}
 
 export type MarqueePreview = {
   pageId: PageId;
@@ -279,7 +298,8 @@ export function useEditorController(projectId: string): EditorController {
   });
   const encodedPngRef = useRef<Map<string, ArrayBuffer>>(new Map());
   const autosaveRef = useRef<AutosaveManager | null>(null);
-  const inkUndoRef = useRef<Map<string, ArrayBuffer>>(new Map());
+  const inkUndoRef = useRef<Map<string, InkUndoPixels>>(new Map());
+  const pendingInkHistoryRef = useRef<PendingInkHistoryItem[]>([]);
   const historyRef = useRef<EditorHistory | null>(null);
   const createTextAtPointer = useCallback((pending: PendingCreate) => {
     if (!Number.isFinite(pending.x) || !Number.isFinite(pending.y)) {
@@ -465,6 +485,7 @@ export function useEditorController(projectId: string): EditorController {
       autosaveRef.current = new AutosaveManager({
         getEncodedPng: () => encodedPngRef.current,
         onStatusChange: setAutosaveStatus,
+        getDelays: getAutosaveDelays,
       });
 
       setReady(true);
@@ -479,6 +500,20 @@ export function useEditorController(projectId: string): EditorController {
 
   useEffect(() => {
     const flushHidden = () => {
+      inkApiRef.current?.engine.flushPendingEncodes();
+      const pending = pendingInkHistoryRef.current;
+      if (pending.length > 0) {
+        pendingInkHistoryRef.current = [];
+        setHistory((prev) => {
+          if (!prev) {
+            pendingInkHistoryRef.current = pending.concat(pendingInkHistoryRef.current);
+            return prev;
+          }
+          const history = consumePendingInkHistory(prev, pending, inkUndoRef.current);
+          autosaveRef.current?.scheduleSave(history.present, [], false);
+          return history;
+        });
+      }
       autosaveRef.current?.flushHidden();
     };
 
@@ -841,9 +876,13 @@ export function useEditorController(projectId: string): EditorController {
   );
 
   const commitInkBake = useCallback(
-    (rasterId: string, undoPng: ArrayBuffer) => {
-      if (undoPng.byteLength > 0) {
-        inkUndoRef.current.set(rasterId, undoPng.slice(0));
+    (rasterId: string, undo: InkUndoPixels) => {
+      if (undo instanceof ArrayBuffer) {
+        if (undo.byteLength > 0) {
+          inkUndoRef.current.set(rasterId, undo.slice(0));
+        }
+      } else {
+        inkUndoRef.current.set(rasterId, undo);
       }
       dispatch({ type: 'commitInkBake', rasterId });
       bumpInkFrame();
@@ -902,8 +941,11 @@ export function useEditorController(projectId: string): EditorController {
           }
           case 'commitPenOverlay': {
             lastLiveInkRef.current.delete(rasterId);
-            const undoPng = api.bakePenOverlay(rasterId);
-            commitInkBake(rasterId, undoPng);
+            api.engine.blitPenOverlay(rasterId);
+            const drained = api.engine.drainPendingBakeWork(1, { encode: false });
+            for (const item of drained) {
+              pendingInkHistoryRef.current.push(item);
+            }
             visualBump = true;
             break;
           }
@@ -951,19 +993,24 @@ export function useEditorController(projectId: string): EditorController {
             continue;
           }
           painted.add(rasterId);
-          repaintInkDisplay(rasterId);
+          if (
+            effects.some(
+              (effect) =>
+                (effect.type === 'penOverlayMove' || effect.type === 'eraseDirectMove') &&
+                rasterIdForInkEffect(present, effect) === rasterId,
+            ) &&
+            !effects.some(
+              (effect) =>
+                (effect.type === 'commitPenOverlay' || effect.type === 'commitEraseDirect') &&
+                rasterIdForInkEffect(present, effect) === rasterId,
+            )
+          ) {
+            scheduleInkDisplay(rasterId);
+          } else {
+            repaintInkDisplay(rasterId);
+          }
         }
-        const liveInk = effects.some(
-          (effect) =>
-            effect.type === 'penOverlayMove' ||
-            effect.type === 'eraseDirectMove' ||
-            effect.type === 'beginPenOverlay' ||
-            effect.type === 'beginEraseDirect',
-        );
-        const finishedInk = effects.some(
-          (effect) => effect.type === 'commitPenOverlay' || effect.type === 'commitEraseDirect',
-        );
-        if (!liveInk || finishedInk) {
+        if (effects.some((effect) => effect.type === 'commitEraseDirect')) {
           bumpInkFrame();
         }
       }
@@ -1101,7 +1148,10 @@ export function useEditorController(projectId: string): EditorController {
       if (!prev) {
         return prev;
       }
-      const next = undoEditorHistory(prev, inkRestoreSink);
+      const pending = pendingInkHistoryRef.current;
+      pendingInkHistoryRef.current = [];
+      const withInk = consumePendingInkHistory(prev, pending, inkUndoRef.current);
+      const next = undoEditorHistory(withInk, inkRestoreSink);
       if (!next) {
         return prev;
       }
@@ -1120,7 +1170,10 @@ export function useEditorController(projectId: string): EditorController {
       if (!prev) {
         return prev;
       }
-      const next = redoEditorHistory(prev, inkRestoreSink);
+      const pending = pendingInkHistoryRef.current;
+      pendingInkHistoryRef.current = [];
+      const withInk = consumePendingInkHistory(prev, pending, inkUndoRef.current);
+      const next = redoEditorHistory(withInk, inkRestoreSink);
       if (!next) {
         return prev;
       }

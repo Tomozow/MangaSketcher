@@ -31,6 +31,7 @@ const VIEW_ONLY = new Set<string>([
   'setStockView',
   'setPdfView',
   'setPdfExtractMarkersVisible',
+  'setPdfExtractSanitizePunctuation',
   'selectClip',
   'selectText',
   'setUiLayout',
@@ -44,6 +45,7 @@ type ViewOnlyEditorAction =
   | { type: 'setStockView'; zoom: number; panX: number; panY: number }
   | { type: 'setPdfView'; currentPage?: number; zoom?: number; panX?: number; panY?: number }
   | { type: 'setPdfExtractMarkersVisible'; visible: boolean }
+  | { type: 'setPdfExtractSanitizePunctuation'; enabled: boolean }
   | { type: 'selectClip'; clipId: ClipId | null }
   | { type: 'selectText'; textId: TextId | null }
   | {
@@ -120,6 +122,7 @@ export type EditorDocumentAction =
     }
   | { type: 'setPdfView'; currentPage?: number; zoom?: number; panX?: number; panY?: number }
   | { type: 'setPdfExtractMarkersVisible'; visible: boolean }
+  | { type: 'setPdfExtractSanitizePunctuation'; enabled: boolean }
   | {
       type: 'dropPdfTextRange';
       pdfPage: number;
@@ -513,6 +516,7 @@ export function reduceEditorDocument(
         generation: a.generation ?? (sameSource ? doc.pdf!.generation : 1),
         extractedGlyphs: [],
         extractMarkersVisible: sameSource ? doc.pdf!.extractMarkersVisible !== false : true,
+        extractSanitizePunctuation: sameSource ? doc.pdf!.extractSanitizePunctuation === true : false,
       };
       return doc;
     }
@@ -615,6 +619,14 @@ function reduceEditorDocumentViewOnly(
       return {
         ...state,
         pdf: { ...state.pdf, extractMarkersVisible: action.visible },
+      };
+    case 'setPdfExtractSanitizePunctuation':
+      if (!state.pdf) {
+        return state;
+      }
+      return {
+        ...state,
+        pdf: { ...state.pdf, extractSanitizePunctuation: action.enabled },
       };
     case 'selectClip':
       return {

@@ -12,7 +12,7 @@ import { bindDesktopNavKeys, desktopNavMode } from '../../input/desktopNavKeys';
 import type { ClipId, PageId, TextId, ToolId } from '../../domain/types';
 import { screenToWorld } from '../../domain/stripGeometry';
 import { stepWorkspacePointer } from './workspaceFsm';
-import type { WorkspaceEffect, WorkspaceGestureStore, WorkspaceHit } from './types';
+import type { WorkspaceEffect, WorkspaceGestureStore, WorkspaceHit, WorkspaceSession } from './types';
 import { createWorkspaceGestureStore } from './types';
 import { PAGE_TEXT_CHROME_ATTR, PAGE_DELETE_CHROME_ATTR } from './pageTextDom';
 
@@ -70,6 +70,30 @@ function collectCoalesced(event: PointerEvent): PointerEvent[] {
   return [event];
 }
 
+function lockedInkHit(session: WorkspaceSession): WorkspaceHit | null {
+  if (session.mode === 'penOverlay') {
+    return {
+      kind: 'page',
+      pageId: session.pageId,
+      localX: session.lastX,
+      localY: session.lastY,
+      readingIndex: 0,
+      insertIndex: 0,
+    };
+  }
+  if (session.mode === 'eraseDirect') {
+    return {
+      kind: 'page',
+      pageId: session.pageId,
+      localX: 0,
+      localY: 0,
+      readingIndex: 0,
+      insertIndex: 0,
+    };
+  }
+  return null;
+}
+
 function mergeLiveInkEffects(effects: WorkspaceEffect[]): WorkspaceEffect[] {
   const merged: WorkspaceEffect[] = [];
   for (const effect of effects) {
@@ -104,6 +128,7 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
         event.pointerType === 'mouse'
           ? pointerKindForWorkspace(event, phase, nav)
           : kindTracker.classify(event);
+      const prevSession = store.sessions.get(pointerId);
       if (kind === 'pencil' && phase === 'move' && isPencilHover(event, kind)) {
         return;
       }
@@ -117,19 +142,30 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
         markPointerDown(pressureState);
       }
 
+      const lockedHit = prevSession ? lockedInkHit(prevSession) : null;
+      const tailMoves =
+        (phase === 'up' || phase === 'cancel') && lockedHit
+          ? collectCoalesced(event).filter((pe) => pe !== event)
+          : [];
       const events = phase === 'move' ? collectCoalesced(event) : [event];
       const batch: WorkspaceEffect[] = [];
-      const surfaceRect = element.getBoundingClientRect();
-      for (const pe of events) {
-        const hit = ctx.resolveHit(pe.clientX, pe.clientY, surfaceRect);
-        const dropHit = ctx.resolveDropHit?.(pe.clientX, pe.clientY, surfaceRect) ?? hit;
-        const localX = pe.clientX - surfaceRect.left;
-        const localY = pe.clientY - surfaceRect.top;
+      const surfaceRect = lockedHit ? undefined : element.getBoundingClientRect();
+
+      const stepPe = (pe: PointerEvent, pePhase: 'down' | 'move' | 'up' | 'cancel') => {
+        const hit =
+          lockedHit ??
+          ctx.resolveHit(pe.clientX, pe.clientY, surfaceRect ?? element.getBoundingClientRect());
+        const dropHit = lockedHit
+          ? hit
+          : (ctx.resolveDropHit?.(pe.clientX, pe.clientY, surfaceRect ?? element.getBoundingClientRect()) ?? hit);
+        const rect = surfaceRect ?? element.getBoundingClientRect();
+        const localX = pe.clientX - rect.left;
+        const localY = pe.clientY - rect.top;
         const { x: worldX, y: worldY } = screenToWorld(localX, localY, ctx.panX, ctx.panY, ctx.zoom);
         const { effects } = stepWorkspacePointer(store, {
           pointerId,
           kind,
-          phase,
+          phase: pePhase,
           tool: ctx.tool,
           x: pe.clientX,
           y: pe.clientY,
@@ -154,6 +190,13 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
           desktopNav: pe.pointerType === 'mouse' ? nav : 'none',
         });
         batch.push(...effects);
+      };
+
+      for (const pe of tailMoves) {
+        stepPe(pe, 'move');
+      }
+      for (const pe of events) {
+        stepPe(pe, phase);
       }
       if (batch.length > 0) {
         ctx.onEffects(mergeLiveInkEffects(batch));

@@ -129,6 +129,55 @@
   align-items: center;
 }
 
+.settings {
+  border: 1px solid #c9c0b0;
+  border-radius: 12px;
+  background: #fff;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.settingsTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.settingsRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+}
+
+.settingsLabel {
+  margin: 0;
+  font-size: 0.875rem;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.settingsSelect {
+  min-height: 44px;
+  min-width: min(100%, 240px);
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 1px solid #c9c0b0;
+  background: #fff;
+  color: #2b2620;
+  touch-action: manipulation;
+}
+
+.settingsHint {
+  margin: 0;
+  color: #6f675c;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
 .primaryButton {
   min-height: 44px;
   min-width: 44px;

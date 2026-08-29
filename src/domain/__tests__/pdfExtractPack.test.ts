@@ -24,21 +24,32 @@ describe('wrapExtractedText', () => {
     expect(extractedColumnCount('あ'.repeat(40))).toBe(4);
     expect(wrapExtractedText('あ'.repeat(40)).split('\n')).toHaveLength(4);
   });
+
+  test('半角スペースは列の1マスとして残る', () => {
+    expect(wrapExtractedText('あ い')).toBe('あ い');
+    expect(wrapExtractedText(`${'あ'.repeat(9)} い`)).toBe(`${'あ'.repeat(9)} \nい`);
+  });
 });
 
 describe('extractedTextBoxSize', () => {
   test('横幅は折り返し後の列数、高さは10文字分', () => {
     const font = 36;
     const pitch = font * EXTRACT_LINE_HEIGHT;
-    const height = EXTRACT_CHARS_PER_COL * pitch;
+    const height = Math.ceil(EXTRACT_CHARS_PER_COL * pitch);
     const one = extractedTextBoxSize('あ'.repeat(EXTRACT_CHARS_PER_COL), font);
-    expect(one).toEqual({ width: pitch, height });
+    expect(one).toEqual({ width: Math.ceil(pitch), height });
     const two = extractedTextBoxSize('あ'.repeat(EXTRACT_CHARS_PER_COL + 1), font);
-    expect(two).toEqual({ width: pitch * 2, height });
+    expect(two).toEqual({ width: Math.ceil(pitch * 2), height });
     const three = extractedTextBoxSize('あ'.repeat(21), font);
-    expect(three).toEqual({ width: pitch * 3, height });
+    expect(three).toEqual({ width: Math.ceil(pitch * 3), height });
     const four = extractedTextBoxSize('あ'.repeat(40), font);
-    expect(four).toEqual({ width: pitch * 4, height });
+    expect(four).toEqual({ width: Math.ceil(pitch * 4), height });
+  });
+
+  test('サイズ24の奇数列は列ピッチの端数を切り上げて左端が欠けない', () => {
+    const font = 24;
+    expect(extractedTextBoxSize('あ', font).width).toBe(29);
+    expect(extractedTextBoxSize('あ'.repeat(21), font).width).toBe(87);
   });
 
   test('テキストツールのサイズはページ表示スケールに写す', () => {

@@ -1,0 +1,23 @@
+---
+description: Debug logs must be captured from iPad via same-origin API, never 127.0.0.1 in the browser
+alwaysApply: true
+---
+
+# iPad-first debug logging
+
+This app is verified on iPad (Apple Pencil). Browser `fetch('http://127.0.0.1:...')` only hits the tablet itself and never reaches the PC.
+
+When adding runtime debug logs:
+
+- Import `ipadDebugLog` from `src/web/ipadDebugLog.ts` and call that. Do not POST to `127.0.0.1` or `localhost` from client code.
+- The helper sends to same-origin `/api/debug-log`. The Next server writes `debug-{sessionId}.log` and forwards to Cursor ingest on loopback.
+- Prefer `sendBeacon` / `keepalive` (already in the helper). Do not fire a raw `fetch` per pointermove.
+- Include `pointerType`, `pointerId`, and hypothesis ids in `data`. Filter iPad vs PC with `ua` / `maxTouchPoints` already attached by the helper.
+
+```ts
+// BAD — silent on iPad
+fetch('http://127.0.0.1:7901/ingest/...', { method: 'POST', body })
+
+// GOOD
+ipadDebugLog({ sessionId: 'debug', hypothesisId: 'A', location: 'file.ts:12', message: 'pointer', data: { phase } })
+```

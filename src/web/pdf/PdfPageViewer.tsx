@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { pointerKindFromWeb, isPencilHover } from '@/src/input/pointerEvents';
-import { joinVerticalBody, sliceReadingRange, sortBodyReadingOrder } from '@/src/domain/pdfText';
+import { joinVerticalBody, sanitizeExtractedBody, sliceReadingRange, sortBodyReadingOrder } from '@/src/domain/pdfText';
 import {
   hitBodyReadingIndex,
   isExtractedGlyph,
@@ -46,6 +46,7 @@ export type PdfPageViewerProps = {
   sourceTextByPage: Record<number, PdfTextItem[]>;
   extractedGlyphs?: PdfExtractedGlyph[];
   extractMarkersVisible?: boolean;
+  extractSanitizePunctuation?: boolean;
   mediaWidth: number;
   mediaHeight: number;
   onViewChange?: (patch: {
@@ -56,6 +57,7 @@ export type PdfPageViewerProps = {
   }) => void;
   onExtractText?: (payload: PdfExtractPayload) => void;
   onToggleExtractMarkers?: (visible: boolean) => void;
+  onToggleExtractSanitizePunctuation?: (enabled: boolean) => void;
 };
 
 function canvasScreenPoint(
@@ -105,11 +107,13 @@ export function PdfPageViewer({
   sourceTextByPage,
   extractedGlyphs = [],
   extractMarkersVisible = true,
+  extractSanitizePunctuation = false,
   mediaWidth,
   mediaHeight,
   onViewChange,
   onExtractText,
   onToggleExtractMarkers,
+  onToggleExtractSanitizePunctuation,
 }: PdfPageViewerProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -518,7 +522,8 @@ export function PdfPageViewer({
     if (selectedItems.length === 0) {
       return;
     }
-    const preview = joinVerticalBody(selectedItems);
+    const joined = joinVerticalBody(selectedItems);
+    const preview = extractSanitizePunctuation ? sanitizeExtractedBody(joined) : joined;
     const range = unionPdfItems(selectedItems);
     if (!preview || !range) {
       return;
@@ -561,6 +566,15 @@ export function PdfPageViewer({
           onClick={() => onToggleExtractMarkers?.(!extractMarkersVisible)}
         >
           マーカー
+        </button>
+        <button
+          type="button"
+          className={styles.pdfNavButton}
+          aria-pressed={extractSanitizePunctuation}
+          title="「」を削除し、句読点を半角スペースにする"
+          onClick={() => onToggleExtractSanitizePunctuation?.(!extractSanitizePunctuation)}
+        >
+          整形
         </button>
       </div>
       <div

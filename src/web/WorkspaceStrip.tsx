@@ -8,7 +8,7 @@ import {
   stripLayoutFromDoc,
   type StripLayoutOptions,
 } from '@/src/domain/stripGeometry';
-import { PAGE_INK_FRAME_ATTR, PAGE_INK_PLANE_ATTR, PAGE_NUMBER_BAND_ATTR, APPEND_SLOT_ATTR } from '@/src/web/gestures/pageInkDom';
+import { PAGE_INK_FRAME_ATTR, PAGE_INK_PLANE_ATTR, PAGE_NUMBER_BAND_ATTR, APPEND_SLOT_ATTR, pageInkLocalFromClient, pageInkLocalFromFrameRect, pageFrameMapRect } from '@/src/web/gestures/pageInkDom';
 import {
   TEMPLATE_PAGE_NUMBER_COVER,
   type ClipId,
@@ -25,9 +25,10 @@ import {
   resolveWorkspaceDropTarget,
   resolveWorkspaceHit,
 } from '@/src/web/gestures/resolveHit';
-import { pageInkLocalFromClient } from '@/src/web/gestures/pageInkDom';
 import { PageDragThumbnail } from '@/src/web/PageDragThumbnail';
 import { PageChromeButtons } from '@/src/web/PageDeleteButton';
+import { PageInkCanvas } from '@/src/web/ink/PageInkCanvas';
+import type { InkEngine } from '@/src/web/ink/InkEngine';
 import { effectiveClipPose, type ClipLiveTransform } from '@/src/web/clip/clipLiveTransform';
 import {
   PageTextsOnFrame,
@@ -68,6 +69,8 @@ type WorkspaceStripProps = {
   ) => string | null | undefined;
   /** Optional §9.7 ink thumb from InkEngine (wired by Editor later). */
   getPageThumb?: (pageId: PageId) => ImageBitmap | undefined;
+  inkEngine?: InkEngine | null;
+  inkFrame?: number;
   deletePageId?: PageId | null;
   onDeletePage?: (pageId: PageId) => void;
   onInsertPage?: (pageId: PageId) => void;
@@ -95,15 +98,25 @@ export function WorkspaceStrip({
   stripLayout,
   applyWorkspaceEffects,
   getPageThumb,
+  inkEngine = null,
+  inkFrame = 0,
   deletePageId = null,
   onDeletePage,
   onInsertPage,
 }: WorkspaceStripProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
   const pipelineRef = useRef<ReturnType<typeof createWorkspacePointerPipeline> | null>(null);
+  const inkMapCacheRef = useRef<{
+    pageId: PageId;
+    panX: number;
+    panY: number;
+    zoom: number;
+    rect: DOMRectReadOnly;
+  } | null>(null);
   const [grabbedPageId, setGrabbedPageId] = useState<PageId | null>(null);
   const [dragPointer, setDragPointer] = useState<{ x: number; y: number } | null>(null);
   const layout = stripLayoutFromDoc(stripLayout ?? {});
+  const visibleSelectedTextId = tool === 'text' ? selectedTextId : null;
   const { frames, dividers, contentWidth, contentHeight } = useMemo(
     () => buildStripFrames(workspaceOrder, layout),
     [workspaceOrder, layout.pagesPerColumn, layout.pairGap, layout.showPairDivider, layout.columnGap],
@@ -240,15 +253,31 @@ export function WorkspaceStrip({
         if (!el) {
           return null;
         }
-        return inkLocalOnPage(
-          {
-            clientX,
-            clientY,
-            surfaceEl: el,
-            ...ctxRef.current,
-          },
-          pageId,
-        );
+        const { panX, panY, zoom, rasterWidth, rasterHeight } = ctxRef.current;
+        let cache = inkMapCacheRef.current;
+        if (
+          !cache ||
+          cache.pageId !== pageId ||
+          cache.panX !== panX ||
+          cache.panY !== panY ||
+          cache.zoom !== zoom
+        ) {
+          const frameEl = el.querySelector<HTMLElement>(`[${PAGE_INK_FRAME_ATTR}="${pageId}"]`);
+          if (!frameEl) {
+            return inkLocalOnPage(
+              {
+                clientX,
+                clientY,
+                surfaceEl: el,
+                ...ctxRef.current,
+              },
+              pageId,
+            );
+          }
+          cache = { pageId, panX, panY, zoom, rect: pageFrameMapRect(frameEl) };
+          inkMapCacheRef.current = cache;
+        }
+        return pageInkLocalFromFrameRect(cache.rect, clientX, clientY, rasterWidth, rasterHeight);
       },
       mapPageDomLocal: (pageId, clientX, clientY) => {
         const el = surfaceRef.current;
@@ -393,6 +422,7 @@ export function WorkspaceStrip({
 
           const { pageId, number } = frame.slot;
           const isGrabbed = grabbedPageId === pageId;
+          const rasterId = pages[pageId]?.rasterId;
           const pageTexts = textsForFrame(pageId, pages, textLiveTransforms);
           for (const text of pasteboardTexts) {
             const live = textLiveTransforms[text.id];
@@ -425,7 +455,17 @@ export function WorkspaceStrip({
                 style={{ backgroundImage: `url(${TEMPLATE_URL})` }}
                 {...{ [PAGE_INK_FRAME_ATTR]: pageId }}
               >
-                <div className={styles.pageInkPlane} {...{ [PAGE_INK_PLANE_ATTR]: '' }} />
+                <div className={styles.pageInkPlane} {...{ [PAGE_INK_PLANE_ATTR]: '' }}>
+                  {inkEngine && rasterId ? (
+                    <PageInkCanvas
+                      engine={inkEngine}
+                      rasterId={rasterId}
+                      displayWidth={frame.width}
+                      inkFrame={inkFrame}
+                      className={styles.pageInkCanvas}
+                    />
+                  ) : null}
+                </div>
                 <div
                   className={styles.templateCover}
                   style={{
@@ -440,7 +480,7 @@ export function WorkspaceStrip({
                   texts={pageTexts}
                   rasterWidth={rasterWidth}
                   rasterHeight={rasterHeight}
-                  selectedTextId={selectedTextId}
+                  selectedTextId={visibleSelectedTextId}
                   textLiveTransforms={textLiveTransforms}
                   liveTextContent={liveTextContent}
                 />
@@ -467,15 +507,15 @@ export function WorkspaceStrip({
           texts={pasteboardTexts}
           rasterWidth={rasterWidth}
           rasterHeight={rasterHeight}
-          selectedTextId={selectedTextId}
+          selectedTextId={visibleSelectedTextId}
           textLiveTransforms={textLiveTransforms}
           liveTextContent={liveTextContent}
         />
       </div>
-      {selectedTextId ? (
+      {visibleSelectedTextId ? (
         <TextChromeOverlay
           surfaceRef={surfaceRef}
-          textId={selectedTextId}
+          textId={visibleSelectedTextId}
           zoom={zoom}
           panX={panX}
           panY={panY}

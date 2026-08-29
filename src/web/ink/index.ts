@@ -29,4 +29,4 @@ export {
 } from './fakeCanvas';
 export { useInkEngine } from './useInkEngine';
 export type { InkEngineApi, UseInkEngineOptions } from './useInkEngine';
-export { PageInkCanvas, repaintInkDisplay } from './PageInkCanvas';
+export { PageInkCanvas, repaintInkDisplay, repaintAllInkDisplays, scheduleInkDisplay } from './PageInkCanvas';

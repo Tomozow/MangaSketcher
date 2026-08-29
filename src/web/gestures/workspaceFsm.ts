@@ -326,7 +326,6 @@ function beginPinch(
 
 function stepTextDrag(
   session: WorkspaceSession,
-  hit: WorkspaceHit,
   input: WorkspacePointerInput,
 ): { session: WorkspaceSession; effects: WorkspaceEffect[] } | null {
   if (session.mode === 'moveText') {
@@ -370,28 +369,30 @@ function stepTextDrag(
   }
 
   if (session.mode === 'pendingTextCreate') {
-    const dist = Math.hypot(input.x - session.startX, input.y - session.startY);
-    if (input.phase === 'up' || input.phase === 'cancel') {
-      if (dist >= TEXT_MOVE_SLOP) {
+    if (input.phase === 'cancel') {
+      return { session: { mode: 'idle' }, effects: [] };
+    }
+    if (input.phase === 'up') {
+      const pageHit: Extract<WorkspaceHit, { kind: 'page' }> = {
+        kind: 'page',
+        pageId: session.pageId,
+        localX: session.localX,
+        localY: session.localY,
+        readingIndex: 0,
+        insertIndex: 0,
+      };
+      const coords = createTextCoords(pageHit, {
+        ...input,
+        x: session.startX,
+        y: session.startY,
+      });
+      if (!coords) {
         return { session: { mode: 'idle' }, effects: [] };
       }
-      if (isTextBodyHit(hit)) {
-        return {
-          session: { mode: 'idle' },
-          effects: [{ type: 'selectText', textId: hit.textId }],
-        };
-      }
-      if (isPageBodyHit(hit)) {
-        const coords = createTextCoords(hit, input);
-        if (!coords) {
-          return { session: { mode: 'idle' }, effects: [] };
-        }
-        return {
-          session: { mode: 'idle' },
-          effects: [{ type: 'createText', pageId: hit.pageId, x: coords.x, y: coords.y }],
-        };
-      }
-      return { session: { mode: 'idle' }, effects: [] };
+      return {
+        session: { mode: 'idle' },
+        effects: [{ type: 'createText', pageId: session.pageId, x: coords.x, y: coords.y }],
+      };
     }
     return { session, effects: [] };
   }
@@ -528,7 +529,7 @@ function stepLockedPencil(
     };
   }
 
-  const textDrag = stepTextDrag(session, hit, input);
+  const textDrag = stepTextDrag(session, input);
   if (textDrag) {
     return textDrag;
   }
@@ -816,6 +817,8 @@ function stepPencilDown(
           pageId: hit.pageId,
           startX: input.x,
           startY: input.y,
+          localX: hit.localX,
+          localY: hit.localY,
         },
         effects: [],
       };

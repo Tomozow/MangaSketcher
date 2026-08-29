@@ -1,5 +1,5 @@
 import { cloneEditorDocument } from './editorDocument';
-import { HISTORY_DEPTH, type EditorDocument, type EditorHistory, type EditorHistoryEntry } from './types';
+import { HISTORY_DEPTH, type EditorDocument, type EditorHistory, type EditorHistoryEntry, type InkUndoPixels } from './types';
 
 export function createEditorHistory(doc: EditorDocument): EditorHistory {
   return {
@@ -24,10 +24,19 @@ export function isViewOnlyHistoryAction(actionType: string): boolean {
   );
 }
 
-function cloneInkUndo(inkUndo: Map<string, ArrayBuffer>): Map<string, ArrayBuffer> {
-  const next = new Map<string, ArrayBuffer>();
+function cloneInkUndoPixels(value: InkUndoPixels): InkUndoPixels {
+  if (value instanceof ArrayBuffer) {
+    return value.slice(0);
+  }
+  const copy = new OffscreenCanvas(value.width, value.height);
+  copy.getContext('2d')?.drawImage(value, 0, 0);
+  return copy;
+}
+
+function cloneInkUndo(inkUndo: Map<string, InkUndoPixels>): Map<string, InkUndoPixels> {
+  const next = new Map<string, InkUndoPixels>();
   for (const [rasterId, buffer] of inkUndo.entries()) {
-    next.set(rasterId, buffer.slice(0));
+    next.set(rasterId, cloneInkUndoPixels(buffer));
   }
   return next;
 }
@@ -39,7 +48,7 @@ function releaseEntry(entry: EditorHistoryEntry): void {
 export function pushEditorHistory(
   history: EditorHistory,
   nextPresent: EditorDocument,
-  inkUndo: Map<string, ArrayBuffer>,
+  inkUndo: Map<string, InkUndoPixels>,
   viewOnly: boolean,
 ): EditorHistory {
   if (viewOnly) {
@@ -68,7 +77,7 @@ export function pushEditorHistory(
 }
 
 export type InkRestoreSink = {
-  restoreRaster(rasterId: string, png: ArrayBuffer): void;
+  restoreRaster(rasterId: string, png: InkUndoPixels): void;
   captureRaster(rasterId: string): ArrayBuffer | undefined;
   invalidateThumb(rasterId: string): void;
 };
@@ -93,7 +102,7 @@ export function undoEditorHistory(
     }
   }
   for (const [rasterId, png] of entry.inkUndo.entries()) {
-    ink.restoreRaster(rasterId, png.slice(0));
+    ink.restoreRaster(rasterId, cloneInkUndoPixels(png));
     ink.invalidateThumb(rasterId);
   }
   const futureEntry: EditorHistoryEntry = {
@@ -127,7 +136,7 @@ export function redoEditorHistory(
     }
   }
   for (const [rasterId, png] of entry.inkUndo.entries()) {
-    ink.restoreRaster(rasterId, png.slice(0));
+    ink.restoreRaster(rasterId, cloneInkUndoPixels(png));
     ink.invalidateThumb(rasterId);
   }
   const pastEntry: EditorHistoryEntry = {

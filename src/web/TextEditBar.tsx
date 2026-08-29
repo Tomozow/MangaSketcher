@@ -17,6 +17,7 @@ import {
   PAGE_TEXT_WRAP_ATTR,
 } from '@/src/web/gestures/pageTextDom';
 import { styles } from '@/src/web/editorStyles';
+import { repaintAllInkDisplays } from '@/src/web/ink/PageInkCanvas';
 
 export type TextEditSelection = {
   id: TextId;
@@ -250,6 +251,10 @@ export function TextEditBar({
 
   const handleFocus = () => {
     onEditingChange(true);
+    repaintAllInkDisplays();
+    requestAnimationFrame(() => {
+      repaintAllInkDisplays();
+    });
   };
 
   const handleCompositionStart = () => {

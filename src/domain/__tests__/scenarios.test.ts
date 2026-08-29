@@ -11,7 +11,7 @@ import { resolvePointerIntent, brushRadius, workspacePointerPolicy, pdfPointerPo
 import { pdfPageViewerKey } from '../pdfView';
 import { mainPaneFlex, nextSplitFromDrag, SPLIT_MAX, SPLIT_MIN } from '../uiLayout';
 import { findText, selectedTextForEditor, verticalGlyphs } from '../text';
-import { stripRuby, joinVerticalBody } from '../pdfText';
+import { stripRuby, joinVerticalBody, sanitizeExtractedBody } from '../pdfText';
 import {
   createMemoryStore,
   saveProject,
@@ -213,6 +213,11 @@ describe('シナリオ: PDF 本文抽出とドロップ', () => {
     doc = apply(doc, { type: 'editText', textId, content: '本文です（編集）' });
     expect(doc.pasteboardTexts[0].content).toBe('本文です（編集）');
     expect(JSON.stringify(doc.pdf?.sourceTextByPage[1])).toBe(before);
+  });
+
+  test('整形オプションはかぎ括弧を消し句読点を半角スペースにする', () => {
+    expect(sanitizeExtractedBody('「本文です。」')).toBe('本文です');
+    expect(sanitizeExtractedBody('あ、い。う')).toBe('あ い う');
   });
 });
 

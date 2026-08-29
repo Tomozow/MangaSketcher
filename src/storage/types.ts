@@ -40,9 +40,11 @@ export type ProjectMeta = {
   pageCount: number;
 };
 
+export type InkUndoPixels = ArrayBuffer | OffscreenCanvas;
+
 export type EditorHistoryEntry = {
   doc: EditorDocument;
-  inkUndo: Map<string, ArrayBuffer>;
+  inkUndo: Map<string, InkUndoPixels>;
 };
 
 export type EditorHistory = {

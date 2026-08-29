@@ -87,6 +87,7 @@ export type DocumentAction =
     }
   | { type: 'setPdfView'; currentPage?: number; zoom?: number; panX?: number; panY?: number }
   | { type: 'setPdfExtractMarkersVisible'; visible: boolean }
+  | { type: 'setPdfExtractSanitizePunctuation'; enabled: boolean }
   | {
       type: 'dropPdfTextRange';
       pdfPage: number;
@@ -508,6 +509,7 @@ export function reduceTestDocument(
         generation: action.generation ?? (sameSource ? doc.pdf!.generation : 1),
         extractedGlyphs: [],
         extractMarkersVisible: sameSource ? doc.pdf!.extractMarkersVisible !== false : true,
+        extractSanitizePunctuation: sameSource ? doc.pdf!.extractSanitizePunctuation === true : false,
       };
       return doc;
     }
@@ -533,6 +535,12 @@ export function reduceTestDocument(
         return doc;
       }
       doc.pdf.extractMarkersVisible = action.visible;
+      return doc;
+    case 'setPdfExtractSanitizePunctuation':
+      if (!doc.pdf) {
+        return doc;
+      }
+      doc.pdf.extractSanitizePunctuation = action.enabled;
       return doc;
     case 'dropPdfTextRange': {
       if (!doc.pdf) {

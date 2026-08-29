@@ -13,10 +13,16 @@ export type AutosaveStatus = {
   encodingCount: number;
 };
 
+export type AutosaveDelays = {
+  documentMs: number;
+  viewOnlyMs: number;
+};
+
 export type AutosaveManagerOptions = {
   db?: StorageDatabase;
   getEncodedPng: () => ReadonlyMap<string, ArrayBuffer>;
   onStatusChange?: (status: AutosaveStatus) => void;
+  getDelays?: () => AutosaveDelays;
 };
 
 type PendingJob = {
@@ -34,6 +40,7 @@ export class AutosaveManager {
   private readonly db: StorageDatabase;
   private readonly getEncodedPng: () => ReadonlyMap<string, ArrayBuffer>;
   private readonly onStatusChange?: (status: AutosaveStatus) => void;
+  private readonly getDelays: () => AutosaveDelays;
 
   private saveGen = 0;
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
@@ -48,6 +55,12 @@ export class AutosaveManager {
     this.db = options.db ?? getDefaultStorageDatabase();
     this.getEncodedPng = options.getEncodedPng;
     this.onStatusChange = options.onStatusChange;
+    this.getDelays =
+      options.getDelays ??
+      (() => ({
+        documentMs: DOCUMENT_SAVE_DEBOUNCE_MS,
+        viewOnlyMs: VIEW_ONLY_SAVE_DEBOUNCE_MS,
+      }));
   }
 
   getStatus(): AutosaveStatus {
@@ -105,7 +118,10 @@ export class AutosaveManager {
     if (this.debounceTimer) {
       clearTimeout(this.debounceTimer);
     }
-    const delay = viewOnly ? VIEW_ONLY_SAVE_DEBOUNCE_MS : DOCUMENT_SAVE_DEBOUNCE_MS;
+    const delays = this.getDelays();
+    const documentMs = Number.isFinite(delays.documentMs) ? delays.documentMs : DOCUMENT_SAVE_DEBOUNCE_MS;
+    const viewOnlyMs = Number.isFinite(delays.viewOnlyMs) ? delays.viewOnlyMs : VIEW_ONLY_SAVE_DEBOUNCE_MS;
+    const delay = viewOnly ? Math.max(0, viewOnlyMs) : Math.max(0, documentMs);
     this.debounceTimer = setTimeout(() => {
       this.debounceTimer = null;
       void this.runLatestJob();

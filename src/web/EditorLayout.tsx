@@ -300,6 +300,8 @@ export function EditorLayout({
                   : null
               }
               onDeleteText={deleteText}
+              inkEngine={inkEngine}
+              inkFrame={inkFrame}
               deletePageId={pageDelete?.source === 'workspace' ? pageDelete.pageId : null}
               onDeletePage={(pageId) => confirmPageDelete(pageId, 'workspace')}
               onInsertPage={insertPageAfter}
@@ -342,6 +344,7 @@ export function EditorLayout({
                           sourceTextByPage: doc.pdf.sourceTextByPage,
                           extractedGlyphs: doc.pdf.extractedGlyphs,
                           extractMarkersVisible: doc.pdf.extractMarkersVisible,
+                          extractSanitizePunctuation: doc.pdf.extractSanitizePunctuation,
                         }
                       : null
                   }
@@ -350,6 +353,9 @@ export function EditorLayout({
                   onExtractText={onExtractPdfText}
                   onToggleExtractMarkers={(visible) =>
                     dispatch({ type: 'setPdfExtractMarkersVisible', visible })
+                  }
+                  onToggleExtractSanitizePunctuation={(enabled) =>
+                    dispatch({ type: 'setPdfExtractSanitizePunctuation', enabled })
                   }
                 />
               </div>

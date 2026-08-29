@@ -54,6 +54,15 @@ export function joinVerticalBody(items: readonly PdfTextItem[]): string {
     .replace(/\s+/g, '');
 }
 
+/** Drop 「」 and turn 、。 into ASCII spaces. Does not mutate source glyphs. */
+export function sanitizeExtractedBody(text: string): string {
+  return text
+    .replace(/[「」]/g, '')
+    .replace(/[、。]/g, ' ')
+    .replace(/ {2,}/g, ' ')
+    .trim();
+}
+
 export function sliceReadingRange(
   sorted: readonly PdfTextItem[],
   startIndex: number,

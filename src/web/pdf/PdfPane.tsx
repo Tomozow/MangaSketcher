@@ -17,6 +17,7 @@ export type PdfPanePdfState = {
   sourceTextByPage: Record<number, PdfTextItem[]>;
   extractedGlyphs?: PdfExtractedGlyph[];
   extractMarkersVisible?: boolean;
+  extractSanitizePunctuation?: boolean;
 };
 
 export type PdfPaneProps = {
@@ -34,6 +35,7 @@ export type PdfPaneProps = {
   onPickPdf?: (file: File) => void | Promise<void>;
   onExtractText?: (payload: PdfExtractPayload) => void;
   onToggleExtractMarkers?: (visible: boolean) => void;
+  onToggleExtractSanitizePunctuation?: (enabled: boolean) => void;
 };
 
 export function PdfPane({
@@ -46,6 +48,7 @@ export function PdfPane({
   onPickPdf,
   onExtractText,
   onToggleExtractMarkers,
+  onToggleExtractSanitizePunctuation,
 }: PdfPaneProps) {
   const inputId = useId();
   const [mediaSize, setMediaSize] = useState({ width: 1032, height: 729 });
@@ -129,11 +132,13 @@ export function PdfPane({
       sourceTextByPage={pdf.sourceTextByPage}
       extractedGlyphs={pdf.extractedGlyphs}
       extractMarkersVisible={pdf.extractMarkersVisible !== false}
+      extractSanitizePunctuation={pdf.extractSanitizePunctuation === true}
       mediaWidth={mediaSize.width}
       mediaHeight={mediaSize.height}
       onViewChange={onViewChange}
       onExtractText={onExtractText}
       onToggleExtractMarkers={onToggleExtractMarkers}
+      onToggleExtractSanitizePunctuation={onToggleExtractSanitizePunctuation}
     />
   );
 }

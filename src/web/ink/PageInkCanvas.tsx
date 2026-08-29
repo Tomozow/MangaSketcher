@@ -15,10 +15,76 @@ type PageInkCanvasProps = {
 };
 
 const painters = new Map<string, () => void>();
+const livePaintQueued = new Set<string>();
+let livePaintRaf = 0;
+let keepAliveUsers = 0;
+let keepAliveCleanup: (() => void) | null = null;
 
 /** Paint the on-screen copy immediately (do not wait for React). */
 export function repaintInkDisplay(rasterId: string): void {
   painters.get(rasterId)?.();
+}
+
+/** Blit every mounted display copy (iOS may drop the backing store without a size change). */
+export function repaintAllInkDisplays(): void {
+  for (const paint of painters.values()) {
+    paint();
+  }
+}
+
+function refreshInkDisplays(): void {
+  repaintAllInkDisplays();
+  if (typeof requestAnimationFrame !== 'function') {
+    return;
+  }
+  requestAnimationFrame(() => {
+    repaintAllInkDisplays();
+  });
+}
+
+function retainInkDisplayKeepAlive(): void {
+  keepAliveUsers += 1;
+  if (keepAliveUsers !== 1 || typeof window === 'undefined') {
+    return;
+  }
+  const viewport = window.visualViewport;
+  viewport?.addEventListener('resize', refreshInkDisplays);
+  viewport?.addEventListener('scroll', refreshInkDisplays);
+  window.addEventListener('resize', refreshInkDisplays);
+  window.addEventListener('pageshow', refreshInkDisplays);
+  document.addEventListener('visibilitychange', refreshInkDisplays);
+  keepAliveCleanup = () => {
+    viewport?.removeEventListener('resize', refreshInkDisplays);
+    viewport?.removeEventListener('scroll', refreshInkDisplays);
+    window.removeEventListener('resize', refreshInkDisplays);
+    window.removeEventListener('pageshow', refreshInkDisplays);
+    document.removeEventListener('visibilitychange', refreshInkDisplays);
+  };
+}
+
+function releaseInkDisplayKeepAlive(): void {
+  keepAliveUsers = Math.max(0, keepAliveUsers - 1);
+  if (keepAliveUsers > 0) {
+    return;
+  }
+  keepAliveCleanup?.();
+  keepAliveCleanup = null;
+}
+
+/** Coalesce live overlay paints to one display blit per animation frame. */
+export function scheduleInkDisplay(rasterId: string): void {
+  livePaintQueued.add(rasterId);
+  if (livePaintRaf) {
+    return;
+  }
+  livePaintRaf = requestAnimationFrame(() => {
+    livePaintRaf = 0;
+    const ids = [...livePaintQueued];
+    livePaintQueued.clear();
+    for (const id of ids) {
+      painters.get(id)?.();
+    }
+  });
 }
 
 /**
@@ -61,13 +127,29 @@ export function PageInkCanvas({
     };
 
     painters.set(rasterId, paint);
+    retainInkDisplayKeepAlive();
     paint();
+
+    const el = canvasRef.current;
+    const onContextEvent = () => {
+      refreshInkDisplays();
+    };
+    el?.addEventListener('contextlost', onContextEvent);
+    el?.addEventListener('contextrestored', onContextEvent);
+
     return () => {
+      el?.removeEventListener('contextlost', onContextEvent);
+      el?.removeEventListener('contextrestored', onContextEvent);
       if (painters.get(rasterId) === paint) {
         painters.delete(rasterId);
       }
+      releaseInkDisplayKeepAlive();
     };
-  }, [engine, rasterId, displayWidth, inkFrame]);
+  }, [engine, rasterId, displayWidth]);
+
+  useEffect(() => {
+    painters.get(rasterId)?.();
+  }, [inkFrame, rasterId]);
 
   return <canvas ref={canvasRef} className={className} style={{ display: 'block' }} aria-hidden />;
 }

@@ -31,6 +31,7 @@ const editorCss = readFileSync(join(here, '../editor.css'), 'utf8');
 const pageTextOverlaySrc = readFileSync(join(here, '../PageTextOverlay.tsx'), 'utf8');
 const textEditBarSrc = readFileSync(join(here, '../TextEditBar.tsx'), 'utf8');
 const editorLayoutSrc = readFileSync(join(here, '../EditorLayout.tsx'), 'utf8');
+const workspaceStripSrc = readFileSync(join(here, '../WorkspaceStrip.tsx'), 'utf8');
 
 const pageHit = {
   kind: 'page' as const,
@@ -177,6 +178,12 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(editorCss).not.toMatch(/@media[^{]+\{[^}]*\.ms-pane[^}]*display:\s*none/);
   });
 
+  test('ページ線画はページ枠内でテキストより下に描く', () => {
+    expect(workspaceStripSrc).toMatch(/PAGE_INK_PLANE_ATTR[\s\S]*PageInkCanvas/);
+    expect(editorCss).toMatch(/\.ms-pageInkPlane[^{]*\{[^}]*z-index:\s*1/);
+    expect(editorCss).toMatch(/\.ms-pageTextWrap[^{]*\{[^}]*z-index:\s*2/);
+  });
+
   test('6. 確定は explicit のみ。ページ上は textarea ではなく表示専用', () => {
     expect(pageTextOverlaySrc).not.toMatch(/<textarea/i);
     expect(pageTextOverlaySrc).toContain('pageTextBox');
@@ -185,6 +192,7 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(textEditBarSrc).not.toContain('完了');
     expect(textEditBarSrc).toContain('PAGE_TEXT_WRAP_ATTR');
     expect(editorLayoutSrc).toContain("doc.tool === 'text' ? textSelection : null");
+    expect(workspaceStripSrc).toContain("tool === 'text' ? selectedTextId : null");
     expect(
       planTextCommit({
         draft: '確定文',

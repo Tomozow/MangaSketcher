@@ -42,15 +42,13 @@ export function PageInkOverlay({
             return null;
           }
           const pageId = frame.slot.pageId;
-          const rasterId = doc.pages[pageId]?.rasterId;
-          if (!rasterId) {
-            return null;
-          }
-
           const showMarquee =
             marqueePreview?.pageId === pageId &&
             marqueePreview.rect.width > 0 &&
             marqueePreview.rect.height > 0;
+          if (!showMarquee) {
+            return null;
+          }
 
           return (
             <div
@@ -63,24 +61,15 @@ export function PageInkOverlay({
                 height: frame.height,
               }}
             >
-              <PageInkCanvas
-                engine={engine}
-                rasterId={rasterId}
-                displayWidth={frame.width}
-                inkFrame={inkFrame}
-                className={styles.pageInkCanvas}
+              <div
+                className={styles.marqueePreview}
+                style={{
+                  left: `${(marqueePreview.rect.x / doc.rasterWidth) * 100}%`,
+                  top: `${(marqueePreview.rect.y / doc.rasterHeight) * 100}%`,
+                  width: `${(marqueePreview.rect.width / doc.rasterWidth) * 100}%`,
+                  height: `${(marqueePreview.rect.height / doc.rasterHeight) * 100}%`,
+                }}
               />
-              {showMarquee ? (
-                <div
-                  className={styles.marqueePreview}
-                  style={{
-                    left: `${(marqueePreview.rect.x / doc.rasterWidth) * 100}%`,
-                    top: `${(marqueePreview.rect.y / doc.rasterHeight) * 100}%`,
-                    width: `${(marqueePreview.rect.width / doc.rasterWidth) * 100}%`,
-                    height: `${(marqueePreview.rect.height / doc.rasterHeight) * 100}%`,
-                  }}
-                />
-              ) : null}
             </div>
           );
         })}
