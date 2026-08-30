@@ -173,6 +173,10 @@ describe('シナリオ: 削除', () => {
     doc = apply(doc, { type: 'returnTrashToWorkspace', pageId: b, readingIndex: 0 });
     expect(doc.workspaceOrder[0]).toBe(b);
     expect(doc.trash).toEqual([c]);
+    doc = apply(doc, { type: 'emptyTrash' });
+    expect(doc.trash).toEqual([]);
+    expect(doc.pages[c]).toBeUndefined();
+    expect(doc.pages[b]).toBeDefined();
   });
 });
 

@@ -1,11 +1,13 @@
 import type { ProjectMeta, EditorDocument } from '../types';
-import type { StorageDatabase } from './idb';
+import { collectRasterIds } from '../rasterIds';
+import type { ProjectExportSnapshot, ProjectImportPayload, StorageDatabase } from './idb';
 
 export class MemoryStorageDatabase implements StorageDatabase {
   readonly meta = new Map<string, ProjectMeta>();
   readonly documents = new Map<string, EditorDocument>();
   readonly rasters = new Map<string, ArrayBuffer>();
   failDeleteProjectRecords = false;
+  failImportProjectAtomic = false;
 
   async listMeta(): Promise<ProjectMeta[]> {
     return [...this.meta.values()];
@@ -65,5 +67,51 @@ export class MemoryStorageDatabase implements StorageDatabase {
     }
     this.documents.delete(projectId);
     this.meta.delete(projectId);
+  }
+
+  async readProjectExportSnapshot(projectId: string): Promise<ProjectExportSnapshot | null> {
+    const doc = await this.getDocument(projectId);
+    if (!doc) {
+      return null;
+    }
+    const rasterIds = collectRasterIds(doc);
+    const rasters = new Map<string, ArrayBuffer>();
+    for (const rasterId of rasterIds) {
+      const png = await this.getRaster(rasterId);
+      if (png) {
+        rasters.set(rasterId, png.slice(0));
+      }
+    }
+    return { document: doc, rasters };
+  }
+
+  async importProjectAtomic(payload: ProjectImportPayload): Promise<void> {
+    if (this.failImportProjectAtomic) {
+      throw new Error('simulated import failure');
+    }
+    const rasterBackup = new Map(this.rasters);
+    const documentsBackup = new Map(this.documents);
+    const metaBackup = new Map(this.meta);
+    try {
+      for (const [rasterId, png] of payload.rasters.entries()) {
+        this.rasters.set(rasterId, png.slice(0));
+      }
+      this.documents.set(payload.document.projectId, structuredClone(payload.document));
+      this.meta.set(payload.meta.id, { ...payload.meta });
+    } catch (err) {
+      this.rasters.clear();
+      for (const [key, value] of rasterBackup) {
+        this.rasters.set(key, value);
+      }
+      this.documents.clear();
+      for (const [key, value] of documentsBackup) {
+        this.documents.set(key, value);
+      }
+      this.meta.clear();
+      for (const [key, value] of metaBackup) {
+        this.meta.set(key, value);
+      }
+      throw err;
+    }
   }
 }

@@ -125,6 +125,10 @@ export async function ensureSharedTransparentPng(
   sharedTransparentPng = encodeTransparentPng(width, height);
 }
 
+export function encodeTransparentPngBuffer(width: number, height: number): ArrayBuffer {
+  return encodeTransparentPng(width, height);
+}
+
 export function copySharedTransparentPng(): ArrayBuffer {
   if (!sharedTransparentPng) {
     sharedTransparentPng = encodeTransparentPng(DEFAULT_RASTER_WIDTH, DEFAULT_RASTER_HEIGHT);

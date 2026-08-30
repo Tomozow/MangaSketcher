@@ -239,12 +239,20 @@
 }
 
 .miniPage {
-  width: 42%;
-  max-width: 72px;
+  position: relative;
+  flex: 0 0 auto;
+  width: 72px;
   aspect-ratio: 3 / 4.2;
-  background: #f4f1ea;
+  background-color: #f4f1ea;
   border-radius: 3px;
   box-shadow: 0 6px 14px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+}
+
+.miniPageCanvas {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .cardMeta {
@@ -383,4 +391,30 @@
 
 .home[data-ms-theme='dark'] .settingsHint {
   color: rgba(246, 243, 236, 0.55);
+}
+
+.exportReady {
+  margin-top: 12px;
+  padding: 12px 14px;
+  border: 1px solid #c9c0b0;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.82);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.home[data-ms-theme='dark'] .exportReady {
+  background: rgba(40, 40, 46, 0.78);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.exportReadyLabel {
+  font-size: 0.875rem;
+}
+
+.exportReadyActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }

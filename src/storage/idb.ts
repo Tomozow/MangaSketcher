@@ -1,4 +1,17 @@
+import { cloneEditorDocument } from './editorDocument';
+import { collectRasterIds } from './rasterIds';
 import { DB_NAME, DB_VERSION, type EditorDocument, type ProjectMeta } from './types';
+
+export type ProjectExportSnapshot = {
+  document: EditorDocument;
+  rasters: Map<string, ArrayBuffer>;
+};
+
+export type ProjectImportPayload = {
+  document: EditorDocument;
+  rasters: ReadonlyMap<string, ArrayBuffer>;
+  meta: ProjectMeta;
+};
 
 export type MetaStore = 'meta';
 export type DocumentsStore = 'documents';
@@ -22,6 +35,9 @@ export interface StorageDatabase {
   listRasterIds(): Promise<string[]>;
 
   deleteProjectRecords(projectId: string): Promise<void>;
+
+  readProjectExportSnapshot(projectId: string): Promise<ProjectExportSnapshot | null>;
+  importProjectAtomic(payload: ProjectImportPayload): Promise<void>;
 }
 
 export type DeleteProjectRecordsOptions = {
@@ -50,6 +66,28 @@ function hasRequiredStores(db: IDBDatabase): boolean {
   return REQUIRED_STORES.every((name) => db.objectStoreNames.contains(name));
 }
 
+/** First meta read must start in `indexedDB.open` onsuccess (Safari hangs later transactions). */
+let metaWarmup: Promise<ProjectMeta[]> | null = null;
+
+function warmupMeta(db: IDBDatabase): Promise<ProjectMeta[]> {
+  return new Promise((resolve, reject) => {
+    const items: ProjectMeta[] = [];
+    const transaction = db.transaction([META], 'readonly');
+    const request = transaction.objectStore(META).openCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (cursor) {
+        items.push(cursor.value as ProjectMeta);
+        cursor.continue();
+      }
+    };
+    request.onerror = () => reject(request.error ?? new Error('idb warmup cursor failed'));
+    transaction.oncomplete = () => resolve(items);
+    transaction.onerror = () => reject(transaction.error ?? new Error('idb warmup failed'));
+    transaction.onabort = () => reject(transaction.error ?? new Error('idb warmup aborted'));
+  });
+}
+
 function openBrowserDatabase(allowReset = true): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -59,7 +97,11 @@ function openBrowserDatabase(allowReset = true): Promise<IDBDatabase> {
     };
     request.onsuccess = () => {
       const db = request.result;
+      db.onversionchange = () => {
+        db.close();
+      };
       if (hasRequiredStores(db)) {
+        metaWarmup = warmupMeta(db);
         resolve(db);
         return;
       }
@@ -77,11 +119,12 @@ function openBrowserDatabase(allowReset = true): Promise<IDBDatabase> {
   });
 }
 
+/** Safari: never await inside a transaction; resolve on `oncomplete`, not request success. */
 function tx<T>(
   db: IDBDatabase,
   storeNames: StoreName[],
   mode: IDBTransactionMode,
-  run: (stores: Record<StoreName, IDBObjectStore>) => Promise<T> | T,
+  run: (stores: Record<StoreName, IDBObjectStore>) => IDBRequest<T>,
 ): Promise<T> {
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(storeNames, mode);
@@ -89,26 +132,105 @@ function tx<T>(
     for (const name of storeNames) {
       stores[name] = transaction.objectStore(name);
     }
-    Promise.resolve(run(stores))
-      .then(resolve)
-      .catch(reject);
+    let request: IDBRequest<T>;
+    try {
+      request = run(stores);
+    } catch (err) {
+      reject(err);
+      return;
+    }
+    let settled = false;
+    const fail = (error: unknown) => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      reject(error);
+    };
+    request.onerror = () => fail(request.error ?? new Error('idb request failed'));
+    transaction.oncomplete = () => {
+      if (settled) {
+        return;
+      }
+      settled = true;
+      resolve(request.result);
+    };
+    transaction.onerror = () => fail(transaction.error ?? new Error('idb transaction failed'));
+    transaction.onabort = () => fail(transaction.error ?? new Error('idb transaction aborted'));
+  });
+}
+
+/** Safari `getAll` / `getAllKeys` can hang; walk with a cursor instead. */
+function collectStore<T>(
+  db: IDBDatabase,
+  storeName: StoreName,
+  pick: (cursor: IDBCursorWithValue) => T,
+): Promise<T[]> {
+  return new Promise((resolve, reject) => {
+    const transaction = db.transaction([storeName], 'readonly');
+    const store = transaction.objectStore(storeName);
+    const results: T[] = [];
+    const request = store.openCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (cursor) {
+        results.push(pick(cursor));
+        cursor.continue();
+      }
+    };
+    request.onerror = () => reject(request.error ?? new Error('idb cursor failed'));
+    transaction.oncomplete = () => resolve(results);
     transaction.onerror = () => reject(transaction.error ?? new Error('idb transaction failed'));
     transaction.onabort = () => reject(transaction.error ?? new Error('idb transaction aborted'));
   });
 }
 
-function req<T>(request: IDBRequest<T>): Promise<T> {
-  return new Promise((resolve, reject) => {
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('idb request failed'));
-  });
+async function rasterToArrayBuffer(value: unknown): Promise<ArrayBuffer | undefined> {
+  if (value == null) {
+    return undefined;
+  }
+  if (typeof Blob !== 'undefined' && value instanceof Blob) {
+    return value.arrayBuffer();
+  }
+  return rasterValueToArrayBuffer(value);
+}
+
+function rasterValueToArrayBuffer(value: unknown): ArrayBuffer | undefined {
+  if (value == null) {
+    return undefined;
+  }
+  if (value instanceof ArrayBuffer) {
+    return value.slice(0);
+  }
+  if (ArrayBuffer.isView(value)) {
+    const view = value as ArrayBufferView;
+    return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
+  }
+  if (typeof value === 'object' && value !== null && 'png' in value) {
+    return rasterValueToArrayBuffer((value as { png: unknown }).png);
+  }
+  return undefined;
 }
 
 export class BrowserStorageDatabase implements StorageDatabase {
   private dbPromise: Promise<IDBDatabase>;
+  private connection: IDBDatabase | null = null;
 
   constructor(dbPromise?: Promise<IDBDatabase>) {
-    this.dbPromise = dbPromise ?? openBrowserDatabase();
+    this.dbPromise = (dbPromise ?? openBrowserDatabase()).then((db) => {
+      this.connection = db;
+      return db;
+    });
+  }
+
+  close(): void {
+    this.connection?.close();
+    this.connection = null;
+    void this.dbPromise
+      .then((db) => {
+        db.close();
+      })
+      .catch(() => {});
   }
 
   private async db(): Promise<IDBDatabase> {
@@ -117,94 +239,75 @@ export class BrowserStorageDatabase implements StorageDatabase {
 
   async listMeta(): Promise<ProjectMeta[]> {
     const db = await this.db();
-    return tx(db, [META], 'readonly', async ({ meta }) => {
-      const all = await req(meta.getAll());
-      return all as ProjectMeta[];
-    });
+    const pending = metaWarmup;
+    metaWarmup = null;
+    if (pending) {
+      try {
+        return await pending;
+      } catch {
+        return collectStore(db, META, (cursor) => cursor.value as ProjectMeta);
+      }
+    }
+    return collectStore(db, META, (cursor) => cursor.value as ProjectMeta);
   }
 
   async getMeta(id: string): Promise<ProjectMeta | undefined> {
     const db = await this.db();
-    return tx(db, [META], 'readonly', async ({ meta }) => {
-      const value = await req(meta.get(id));
-      return value as ProjectMeta | undefined;
-    });
+    const value = await tx(db, [META], 'readonly', ({ meta }) => meta.get(id));
+    return value as ProjectMeta | undefined;
   }
 
   async putMeta(meta: ProjectMeta): Promise<void> {
     const db = await this.db();
-    await tx(db, [META], 'readwrite', async ({ meta: store }) => {
-      await req(store.put(meta));
-    });
+    await tx(db, [META], 'readwrite', ({ meta: store }) => store.put(meta));
   }
 
   async deleteMeta(id: string): Promise<void> {
     const db = await this.db();
-    await tx(db, [META], 'readwrite', async ({ meta: store }) => {
-      await req(store.delete(id));
-    });
+    await tx(db, [META], 'readwrite', ({ meta: store }) => store.delete(id));
   }
 
   async getDocument(id: string): Promise<EditorDocument | undefined> {
     const db = await this.db();
-    return tx(db, [DOCUMENTS], 'readonly', async ({ documents }) => {
-      const stored = await req(documents.get(id));
-      if (!stored) {
-        return undefined;
-      }
-      const { id: _key, ...doc } = stored as EditorDocument & { id: string };
-      return { ...doc, projectId: stored.id ?? doc.projectId } as EditorDocument;
-    });
+    const stored = await tx(db, [DOCUMENTS], 'readonly', ({ documents }) => documents.get(id));
+    if (!stored) {
+      return undefined;
+    }
+    const { id: _key, ...doc } = stored as EditorDocument & { id: string };
+    return { ...doc, projectId: stored.id ?? doc.projectId } as EditorDocument;
   }
 
   async putDocument(doc: EditorDocument): Promise<void> {
     const db = await this.db();
-    await tx(db, [DOCUMENTS], 'readwrite', async ({ documents }) => {
-      await req(documents.put({ ...doc, id: doc.projectId }));
-    });
+    await tx(db, [DOCUMENTS], 'readwrite', ({ documents }) =>
+      documents.put({ ...doc, id: doc.projectId }),
+    );
   }
 
   async deleteDocument(id: string): Promise<void> {
     const db = await this.db();
-    await tx(db, [DOCUMENTS], 'readwrite', async ({ documents }) => {
-      await req(documents.delete(id));
-    });
+    await tx(db, [DOCUMENTS], 'readwrite', ({ documents }) => documents.delete(id));
   }
 
   async getRaster(rasterId: string): Promise<ArrayBuffer | undefined> {
     const db = await this.db();
-    return tx(db, [RASTERS], 'readonly', async ({ rasters }) => {
-      const stored = await req(rasters.get(rasterId));
-      if (!stored) {
-        return undefined;
-      }
-      if (stored instanceof ArrayBuffer) {
-        return stored;
-      }
-      return (stored as { png: ArrayBuffer }).png;
-    });
+    const stored = await tx(db, [RASTERS], 'readonly', ({ rasters }) => rasters.get(rasterId));
+    return rasterToArrayBuffer(stored);
   }
 
   async putRaster(rasterId: string, png: ArrayBuffer): Promise<void> {
     const db = await this.db();
-    await tx(db, [RASTERS], 'readwrite', async ({ rasters }) => {
-      await req(rasters.put({ rasterId, png }));
-    });
+    await tx(db, [RASTERS], 'readwrite', ({ rasters }) => rasters.put({ rasterId, png }));
   }
 
   async deleteRaster(rasterId: string): Promise<void> {
     const db = await this.db();
-    await tx(db, [RASTERS], 'readwrite', async ({ rasters }) => {
-      await req(rasters.delete(rasterId));
-    });
+    await tx(db, [RASTERS], 'readwrite', ({ rasters }) => rasters.delete(rasterId));
   }
 
   async listRasterIds(): Promise<string[]> {
     const db = await this.db();
-    return tx(db, [RASTERS], 'readonly', async ({ rasters }) => {
-      const keys = await req(rasters.getAllKeys());
-      return keys as string[];
-    });
+    return collectStore(db, RASTERS, (cursor) => cursor.key as string);
   }
 
   async deleteProjectRecords(projectId: string): Promise<void> {
@@ -231,6 +334,70 @@ export class BrowserStorageDatabase implements StorageDatabase {
       transaction.onabort = () => reject(transaction.error ?? new Error('deleteProjectRecords aborted'));
     });
   }
+
+  async readProjectExportSnapshot(projectId: string): Promise<ProjectExportSnapshot | null> {
+    const db = await this.db();
+    return new Promise((resolve, reject) => {
+      const transaction = db.transaction([DOCUMENTS, RASTERS], 'readonly');
+      const documents = transaction.objectStore(DOCUMENTS);
+      const rasters = transaction.objectStore(RASTERS);
+      const docRequest = documents.get(projectId);
+
+      docRequest.onsuccess = () => {
+        const stored = docRequest.result as (EditorDocument & { id: string }) | undefined;
+        if (!stored) {
+          resolve(null);
+          return;
+        }
+        const { id: _key, ...docFields } = stored;
+        const document = { ...docFields, projectId: stored.id ?? docFields.projectId } as EditorDocument;
+        const rasterIds = collectRasterIds(document);
+        const rasterMap = new Map<string, ArrayBuffer>();
+        if (rasterIds.length === 0) {
+          resolve({ document: cloneEditorDocument(document), rasters: rasterMap });
+          return;
+        }
+        let pending = rasterIds.length;
+        for (const rasterId of rasterIds) {
+          const rasterRequest = rasters.get(rasterId);
+          rasterRequest.onsuccess = () => {
+            const png = rasterValueToArrayBuffer(rasterRequest.result);
+            if (png) {
+              rasterMap.set(rasterId, png);
+            }
+            pending -= 1;
+            if (pending === 0) {
+              resolve({ document: cloneEditorDocument(document), rasters: rasterMap });
+            }
+          };
+          rasterRequest.onerror = () => reject(rasterRequest.error ?? new Error('raster read failed'));
+        }
+      };
+      docRequest.onerror = () => reject(docRequest.error ?? new Error('document read failed'));
+      transaction.onerror = () => reject(transaction.error ?? new Error('export snapshot failed'));
+      transaction.onabort = () => reject(transaction.error ?? new Error('export snapshot aborted'));
+    });
+  }
+
+  async importProjectAtomic(payload: ProjectImportPayload): Promise<void> {
+    const db = await this.db();
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction([RASTERS, DOCUMENTS, META], 'readwrite');
+      const rasters = transaction.objectStore(RASTERS);
+      const documents = transaction.objectStore(DOCUMENTS);
+      const meta = transaction.objectStore(META);
+
+      for (const [rasterId, png] of payload.rasters.entries()) {
+        rasters.put({ rasterId, png: png.slice(0) });
+      }
+      documents.put({ ...payload.document, id: payload.document.projectId });
+      meta.put(payload.meta);
+
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error ?? new Error('importProjectAtomic failed'));
+      transaction.onabort = () => reject(transaction.error ?? new Error('importProjectAtomic aborted'));
+    });
+  }
 }
 
 let defaultDb: StorageDatabase | null = null;
@@ -244,6 +411,19 @@ export function getDefaultStorageDatabase(): StorageDatabase {
 
 export function setDefaultStorageDatabase(db: StorageDatabase | null): void {
   defaultDb = db;
+  if (!db) {
+    metaWarmup = null;
+  }
+}
+
+/** Close the shared IndexedDB connection so the next page can open a fresh one (Safari). */
+export function releaseDefaultStorageDatabase(): void {
+  const current = defaultDb;
+  defaultDb = null;
+  metaWarmup = null;
+  if (current instanceof BrowserStorageDatabase) {
+    current.close();
+  }
 }
 
 export { openBrowserDatabase };

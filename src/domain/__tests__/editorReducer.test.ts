@@ -344,6 +344,23 @@ describe('trash', () => {
     expect(history.past).toHaveLength(0);
     expect(history.present.stockPane).toBe('trash');
   });
+
+  test('emptyTrash はゴミ箱のページを完全に削除する', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 2,
+      ids: sequentialIds('page'),
+    });
+    const [a, b] = doc.workspaceOrder;
+    doc = reduceEditorDocument(doc, { type: 'deleteWorkspacePage', pageId: b }, ids);
+    expect(doc.pages[b]).toBeDefined();
+    doc = reduceEditorDocument(doc, { type: 'emptyTrash' }, ids);
+    expect(doc.trash).toEqual([]);
+    expect(doc.pages[b]).toBeUndefined();
+    expect(doc.workspaceOrder).toEqual([a]);
+  });
 });
 
 describe('select texts and bulk font size', () => {

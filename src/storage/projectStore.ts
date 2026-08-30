@@ -3,14 +3,32 @@ import type { StorageDatabase } from './idb';
 import { getDefaultStorageDatabase } from './idb';
 import type { OpfsStorage } from './opfs';
 import { getDefaultOpfsStorage } from './opfs';
+import {
+  buildProjectPackFileName,
+  buildProjectPackZip,
+  parseProjectPackZip,
+  ProjectPackError,
+  rasterZipPathForDocumentMember,
+  rewriteImportedDocument,
+} from './projectPack';
+import {
+  ProjectExportCheckpointError,
+  requestProjectExportCheckpoint,
+} from './projectExportCheckpoint';
+import { randomId } from './randomId';
 import { collectRasterIds, pdfOpfsPath, rasterBelongsToProject } from './rasterIds';
-import { copySharedTransparentPng, ensureSharedTransparentPng } from './transparentPng';
-import type { EditorDocument, ProjectMeta } from './types';
+import {
+  copySharedTransparentPng,
+  encodeTransparentPngBuffer,
+  ensureSharedTransparentPng,
+} from './transparentPng';
+import type { EditorDocument, PageText, ProjectMeta } from './types';
 
 export type ProjectStoreDeps = {
   db?: StorageDatabase;
   opfs?: OpfsStorage;
   now?: () => string;
+  requestExportCheckpoint?: (projectId: string) => Promise<void>;
 };
 
 function resolveDeps(deps: ProjectStoreDeps = {}) {
@@ -18,6 +36,7 @@ function resolveDeps(deps: ProjectStoreDeps = {}) {
     db: deps.db ?? getDefaultStorageDatabase(),
     opfs: deps.opfs ?? getDefaultOpfsStorage(),
     now: deps.now ?? (() => new Date().toISOString()),
+    requestExportCheckpoint: deps.requestExportCheckpoint ?? requestProjectExportCheckpoint,
   };
 }
 
@@ -177,6 +196,148 @@ export async function runStartupGc(deps?: ProjectStoreDeps): Promise<void> {
   }
 }
 
+const LIST_THUMB_PAGE_LIMIT = 2;
+
+function previewPageIds(doc: EditorDocument, maxPages: number): string[] {
+  const fromWorkspace = doc.workspaceOrder.filter((id) => doc.pages[id]);
+  if (fromWorkspace.length > 0) {
+    return fromWorkspace.slice(0, maxPages);
+  }
+  const seen = new Set<string>();
+  const fromStock: string[] = [];
+  for (const item of doc.stock) {
+    if (seen.has(item.pageId) || !doc.pages[item.pageId]) {
+      continue;
+    }
+    seen.add(item.pageId);
+    fromStock.push(item.pageId);
+    if (fromStock.length >= maxPages) {
+      break;
+    }
+  }
+  return fromStock;
+}
+
+export type ProjectPreviewPage = {
+  pageId: string;
+  png: ArrayBuffer | null;
+  texts: PageText[];
+  rasterWidth: number;
+  rasterHeight: number;
+};
+
+export async function loadProjectPreviewPages(
+  projectId: string,
+  maxPages = LIST_THUMB_PAGE_LIMIT,
+  deps?: ProjectStoreDeps,
+): Promise<ProjectPreviewPage[]> {
+  const { db } = resolveDeps(deps);
+  const loaded = await db.getDocument(projectId);
+  if (!loaded) {
+    return [];
+  }
+  const doc = cloneEditorDocument(loaded);
+  const pages: ProjectPreviewPage[] = [];
+  for (const pageId of previewPageIds(doc, maxPages)) {
+    const page = doc.pages[pageId];
+    if (!page) {
+      continue;
+    }
+    const png = await db.getRaster(page.rasterId);
+    pages.push({
+      pageId,
+      png: png ? png.slice(0) : null,
+      texts: page.texts,
+      rasterWidth: doc.rasterWidth,
+      rasterHeight: doc.rasterHeight,
+    });
+  }
+  return pages;
+}
+
 export function projectHasPdf(document: EditorDocument): boolean {
   return document.pdf?.opfsPath != null;
+}
+
+export async function exportProjectPack(
+  projectId: string,
+  deps?: ProjectStoreDeps,
+): Promise<File> {
+  const { db, now, requestExportCheckpoint } = resolveDeps(deps);
+  try {
+    await requestExportCheckpoint(projectId);
+  } catch (err) {
+    if (err instanceof ProjectExportCheckpointError) {
+      throw err;
+    }
+    throw new Error('エクスポートの準備に失敗しました。');
+  }
+
+  const snapshot = await db.readProjectExportSnapshot(projectId);
+  if (!snapshot) {
+    throw new Error('プロジェクトが見つかりませんでした。');
+  }
+
+  const needed = collectRasterIds(snapshot.document);
+  for (const rasterId of needed) {
+    if (snapshot.rasters.has(rasterId)) {
+      continue;
+    }
+    snapshot.rasters.set(
+      rasterId,
+      encodeTransparentPngBuffer(snapshot.document.rasterWidth, snapshot.document.rasterHeight),
+    );
+  }
+
+  const exportedAt = new Date(now());
+  const bytes = buildProjectPackZip({
+    document: snapshot.document,
+    rasters: snapshot.rasters,
+  });
+  const fileName = buildProjectPackFileName(snapshot.document.name, exportedAt);
+  const copy = bytes.slice();
+  return new File([copy.buffer], fileName, {
+    type: 'application/zip',
+    lastModified: exportedAt.getTime(),
+  });
+}
+
+export async function importProjectPack(
+  file: Blob,
+  deps?: ProjectStoreDeps,
+): Promise<ProjectMeta> {
+  const { db, now } = resolveDeps(deps);
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  let parsed;
+  try {
+    parsed = parseProjectPackZip(bytes);
+  } catch (err) {
+    if (err instanceof ProjectPackError) {
+      throw err;
+    }
+    throw new ProjectPackError('インポートに失敗しました。');
+  }
+
+  const newProjectId = randomId();
+  const document = rewriteImportedDocument(parsed.document, newProjectId);
+  const rasters = new Map<string, ArrayBuffer>();
+  for (const rasterId of collectRasterIds(document)) {
+    const zipPath = rasterZipPathForDocumentMember(document, rasterId);
+    const png = parsed.rasters.get(zipPath);
+    if (!png) {
+      throw new ProjectPackError('ラスターデータが不足しています。');
+    }
+    rasters.set(rasterId, png.slice(0));
+  }
+
+  const meta = toMeta(document, now());
+  try {
+    await db.importProjectAtomic({ document, rasters, meta });
+  } catch (err) {
+    if (err instanceof ProjectPackError) {
+      throw err;
+    }
+    throw new ProjectPackError('インポートに失敗しました。');
+  }
+  return meta;
 }

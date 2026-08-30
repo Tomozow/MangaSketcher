@@ -1261,22 +1261,26 @@ body {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 
-.ms-saveStatusRow {
+.ms-saveStatusCorner {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
   display: flex;
   align-items: center;
   gap: 6px;
   margin: 0;
-  flex: 0 0 auto;
-  min-width: 6.5em;
-  justify-content: flex-end;
+  padding: 6px 10px;
+  pointer-events: none;
   font-size: 12px;
-  color: var(--ms-text-muted);
+  color: var(--ms-chrome-fg);
   white-space: nowrap;
-  position: relative;
-}
-
-.ms-saveStatusRow[data-ms-save='idle'] {
-  visibility: hidden;
+  border-radius: 999px;
+  background: var(--ms-chrome);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  border: 1px solid var(--ms-chrome-hair);
+  box-shadow: var(--ms-chrome-shadow);
 }
 
 .ms-saveStatusLabel {
@@ -1428,10 +1432,6 @@ body {
   gap: 6px;
   font-size: 10px;
   color: var(--ms-chrome-muted);
-}
-
-.ms-saveStatusIdle {
-  background: #2a9d8f;
 }
 
 .ms-topbar .ms-workspacePaneActionRow {
@@ -1689,6 +1689,11 @@ body {
 .ms-stockSegButton.ms-chromeIconPressed {
   background: var(--ms-on-tool-bg);
   color: var(--ms-on-tool-fg);
+}
+
+.ms-stockSegButton:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 
 .ms-stockSegButton[data-drop-hover] {

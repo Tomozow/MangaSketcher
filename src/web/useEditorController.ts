@@ -26,6 +26,7 @@ import {
   undoEditorHistory,
 } from '@/src/storage/history';
 import { copySharedTransparentPng } from '@/src/storage/transparentPng';
+import { releaseDefaultStorageDatabase } from '@/src/storage/idb';
 import { hardNavigate } from '@/src/web/hardNavigate';
 import {
   DEFAULT_RASTER_HEIGHT,
@@ -595,6 +596,7 @@ export function useEditorController(projectId: string): EditorController {
     return () => {
       cancelled = true;
       const autosave = autosaveRef.current;
+      autosaveRef.current = null;
       if (autosave) {
         void (async () => {
           try {
@@ -606,7 +608,6 @@ export function useEditorController(projectId: string): EditorController {
           }
         })();
       }
-      autosaveRef.current = null;
     };
   }, [projectId]);
 
@@ -654,11 +655,16 @@ export function useEditorController(projectId: string): EditorController {
       });
     };
 
-    window.addEventListener('pagehide', flushHidden);
+    const onPageHide = () => {
+      flushHidden();
+      releaseDefaultStorageDatabase();
+    };
+
+    window.addEventListener('pagehide', onPageHide);
     window.addEventListener('beforeunload', flushHidden);
     document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
-      window.removeEventListener('pagehide', flushHidden);
+      window.removeEventListener('pagehide', onPageHide);
       window.removeEventListener('beforeunload', flushHidden);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };

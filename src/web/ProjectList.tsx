@@ -1,16 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'react';
 import {
   createProject,
   deleteProject,
+  exportProjectPack,
+  importProjectPack,
   listProjects,
+  releaseDefaultStorageDatabase,
   renameProject,
   runStartupGc,
   type ProjectMeta,
 } from '@/src/storage';
+import { ProjectPackError } from '@/src/storage/projectPack';
 import {
   AUTOSAVE_PRESET_OPTIONS,
+  DEFAULT_APP_SETTINGS,
   isAutosavePresetId,
   loadAppSettings,
   saveAppSettings,
@@ -18,9 +23,18 @@ import {
 } from '@/src/storage/appSettings';
 import { projectHref } from '@/src/web/projectRoutes';
 import { hardNavigate } from '@/src/web/hardNavigate';
-import { HomeScreenInstallHint } from '@/src/web/HomeScreenInstallHint';
 import { IconMoon, IconSun } from '@/src/web/chromeIcons';
 import { useChromeTheme } from '@/src/web/useChromeTheme';
+import { ProjectListThumbs } from '@/src/web/ProjectListThumbs';
+import {
+  canShareExportFile,
+  EXPORT_DOWNLOAD_LABEL,
+  EXPORT_SHARE_LABEL,
+  revokeExportObjectUrl,
+  shareExportFile,
+  startExportDownload,
+  type ObjectUrlTracker,
+} from '@/src/web/export';
 import styles from '@/app/page.module.css';
 
 const DEFAULT_PROJECT_NAME = '無題';
@@ -74,8 +88,17 @@ export function ProjectList() {
   const [error, setError] = useState<string | null>(null);
   const [menuId, setMenuId] = useState<string | null>(null);
   const [autosavePreset, setAutosavePreset] = useState<AutosavePresetId>(
-    () => loadAppSettings().autosavePreset,
+    DEFAULT_APP_SETTINGS.autosavePreset,
   );
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const objectUrlRef = useRef<ObjectUrlTracker | null>(null);
+  const [exportGeneratingId, setExportGeneratingId] = useState<string | null>(null);
+  const [pendingExport, setPendingExport] = useState<{
+    projectId: string;
+    projectName: string;
+    file: File;
+    canShare: boolean;
+  } | null>(null);
 
   const refresh = useCallback(async () => {
     setError(null);
@@ -84,10 +107,27 @@ export function ProjectList() {
   }, []);
 
   useEffect(() => {
+    return () => {
+      revokeExportObjectUrl(objectUrlRef.current, { unusedOnly: true });
+      objectUrlRef.current = null;
+    };
+  }, []);
+
+  const discardPendingExport = useCallback(() => {
+    revokeExportObjectUrl(objectUrlRef.current, { unusedOnly: true });
+    objectUrlRef.current = null;
+    setPendingExport(null);
+  }, []);
+
+  useEffect(() => {
+    setAutosavePreset(loadAppSettings().autosavePreset);
+  }, []);
+
+  useEffect(() => {
     let cancelled = false;
-    (async () => {
+    const load = async () => {
+      releaseDefaultStorageDatabase();
       try {
-        await runStartupGc();
         const items = await listProjects();
         if (!cancelled) {
           setProjects(items);
@@ -101,9 +141,33 @@ export function ProjectList() {
           setLoading(false);
         }
       }
-    })();
+      try {
+        await runStartupGc();
+        const items = await listProjects();
+        if (!cancelled) {
+          setProjects(items);
+        }
+      } catch {
+        // GC must not keep the list spinning
+      }
+    };
+    void load();
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        cancelled = false;
+        setLoading(true);
+        void load();
+      }
+    };
+    const onPageHide = () => {
+      releaseDefaultStorageDatabase();
+    };
+    window.addEventListener('pageshow', onPageShow);
+    window.addEventListener('pagehide', onPageHide);
     return () => {
       cancelled = true;
+      window.removeEventListener('pageshow', onPageShow);
+      window.removeEventListener('pagehide', onPageHide);
     };
   }, []);
 
@@ -183,6 +247,78 @@ export function ProjectList() {
     }
   };
 
+  const handleExport = async (project: ProjectMeta) => {
+    if (exportGeneratingId || pendingExport) {
+      return;
+    }
+    setMenuId(null);
+    setError(null);
+    discardPendingExport();
+    setExportGeneratingId(project.id);
+    try {
+      const file = await exportProjectPack(project.id);
+      setPendingExport({
+        projectId: project.id,
+        projectName: project.name,
+        file,
+        canShare: canShareExportFile(file),
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'エクスポートに失敗しました。');
+    } finally {
+      setExportGeneratingId(null);
+    }
+  };
+
+  const handleExportShare = async () => {
+    if (!pendingExport) {
+      return;
+    }
+    try {
+      const result = await shareExportFile(pendingExport.file);
+      if (result === 'aborted') {
+        return;
+      }
+    } catch {
+      setError('エクスポートに失敗しました。');
+      discardPendingExport();
+    }
+  };
+
+  const handleExportDownload = () => {
+    if (!pendingExport) {
+      return;
+    }
+    revokeExportObjectUrl(objectUrlRef.current, { unusedOnly: true });
+    objectUrlRef.current = startExportDownload(pendingExport.file);
+  };
+
+  const handleImportPick = () => {
+    importInputRef.current?.click();
+  };
+
+  const handleImportFile = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) {
+      return;
+    }
+    setError(null);
+    setBusyId('__import__');
+    try {
+      await importProjectPack(file);
+      await refresh();
+    } catch (err) {
+      setError(
+        err instanceof ProjectPackError || err instanceof Error
+          ? err.message
+          : 'インポートに失敗しました。',
+      );
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const handleAutosavePreset = (value: string) => {
     if (!isAutosavePresetId(value)) {
       return;
@@ -191,6 +327,9 @@ export function ProjectList() {
   };
 
   const creating = busyId === '__create__';
+  const importing = busyId === '__import__';
+  const exportBusy = exportGeneratingId != null || pendingExport != null;
+  const listBusy = creating || importing || exportBusy;
   const presetLabel =
     AUTOSAVE_PRESET_OPTIONS.find((preset) => preset.id === autosavePreset)?.label ?? autosavePreset;
 
@@ -234,8 +373,23 @@ export function ProjectList() {
           </button>
           <button
             type="button"
+            className={styles.secondaryButton}
+            disabled={loading || listBusy}
+            onClick={handleImportPick}
+          >
+            インポート
+          </button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept=".zip,application/zip"
+            hidden
+            onChange={(event) => void handleImportFile(event)}
+          />
+          <button
+            type="button"
             className={styles.newButton}
-            disabled={loading || creating}
+            disabled={loading || listBusy}
             onClick={() => void handleCreate()}
           >
             ＋ 新規ネーム
@@ -243,21 +397,35 @@ export function ProjectList() {
         </div>
       </header>
 
-      <HomeScreenInstallHint />
-
       <section className={styles.list} style={{ touchAction: 'pan-y' }} aria-label="プロジェクト">
         {loading ? (
           <p className={styles.empty}>読み込み中…</p>
         ) : (
           <div className={styles.grid}>
             {projects.map((project) => {
-              const rowBusy = busyId === project.id;
+              const rowBusy = busyId === project.id || exportGeneratingId === project.id;
               return (
                 <article key={project.id} className={styles.card} data-project-card-menu>
-                  <a href={projectHref(project.id)} className={styles.cardOpen}>
+                  <a
+                    href={projectHref(project.id)}
+                    className={styles.cardOpen}
+                    onClick={(event) => {
+                      if (
+                        event.defaultPrevented
+                        || event.button !== 0
+                        || event.metaKey
+                        || event.ctrlKey
+                        || event.shiftKey
+                        || event.altKey
+                      ) {
+                        return;
+                      }
+                      event.preventDefault();
+                      hardNavigate(projectHref(project.id));
+                    }}
+                  >
                     <div className={styles.cardThumb} aria-hidden>
-                      <span className={styles.miniPage} />
-                      {project.pageCount > 1 ? <span className={styles.miniPage} /> : null}
+                      <ProjectListThumbs projectId={project.id} pageCount={project.pageCount} />
                     </div>
                     <div className={styles.cardMeta}>
                       <strong className={styles.projectName}>{project.name}</strong>
@@ -271,7 +439,7 @@ export function ProjectList() {
                     className={styles.cardMenuButton}
                     aria-label={`${project.name}のメニュー`}
                     aria-expanded={menuId === project.id}
-                    disabled={rowBusy || creating}
+                    disabled={rowBusy || listBusy}
                     onClick={() => setMenuId((current) => (current === project.id ? null : project.id))}
                   >
                     ⋯
@@ -282,7 +450,7 @@ export function ProjectList() {
                         type="button"
                         role="menuitem"
                         className={styles.secondaryButton}
-                        disabled={rowBusy || creating}
+                        disabled={rowBusy || listBusy}
                         onClick={() => void handleRename(project)}
                       >
                         改名
@@ -290,8 +458,17 @@ export function ProjectList() {
                       <button
                         type="button"
                         role="menuitem"
+                        className={styles.secondaryButton}
+                        disabled={rowBusy || listBusy}
+                        onClick={() => void handleExport(project)}
+                      >
+                        エクスポート
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
                         className={styles.dangerButton}
-                        disabled={rowBusy || creating}
+                        disabled={rowBusy || listBusy}
                         onClick={() => void handleDelete(project)}
                       >
                         削除
@@ -301,19 +478,37 @@ export function ProjectList() {
                 </article>
               );
             })}
-            <button
-              type="button"
-              className={`${styles.card} ${styles.cardNew}`}
-              disabled={loading || creating}
-              onClick={() => void handleCreate()}
-            >
-              ＋
-              <span>新規プロジェクト</span>
-            </button>
           </div>
         )}
         {projects.length === 0 && !loading ? (
           <p className={styles.hint}>「新規ネーム」で白紙のネームを作成できます。</p>
+        ) : null}
+        {pendingExport ? (
+          <div className={styles.exportReady} aria-live="polite">
+            <span className={styles.exportReadyLabel}>
+              「{pendingExport.projectName}」のエクスポート準備ができました
+            </span>
+            <div className={styles.exportReadyActions}>
+              {pendingExport.canShare ? (
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={() => void handleExportShare()}
+                >
+                  {EXPORT_SHARE_LABEL}
+                </button>
+              ) : null}
+              <button type="button" className={styles.secondaryButton} onClick={handleExportDownload}>
+                {EXPORT_DOWNLOAD_LABEL}
+              </button>
+              <button type="button" className={styles.secondaryButton} onClick={discardPendingExport}>
+                キャンセル
+              </button>
+            </div>
+          </div>
+        ) : null}
+        {exportGeneratingId ? (
+          <p className={styles.hint}>エクスポートを準備しています…</p>
         ) : null}
         {error ? <p className={styles.error}>{error}</p> : null}
       </section>

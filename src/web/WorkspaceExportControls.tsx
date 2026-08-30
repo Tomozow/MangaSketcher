@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { exportProjectPack } from '@/src/storage';
 import type { EditorDocument } from '@/src/storage/types';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
 import { styles } from './editorStyles';
@@ -10,7 +11,9 @@ import {
   EXPORT_BUTTON_LABEL,
   EXPORT_DOWNLOAD_LABEL,
   EXPORT_FAILED_MESSAGE,
+  EXPORT_PROGRESS_ELLIPSIS,
   EXPORT_SHARE_LABEL,
+  PROJECT_PACK_EXPORT_LABEL,
   formatExportProgress,
   revokeExportObjectUrl,
   shareExportFile,
@@ -141,6 +144,45 @@ export function WorkspaceExportControls({
     }
   }, [discardReady, doc, inkEngine, onBeforeExport, phase, updatePhase]);
 
+  const handlePackExport = useCallback(async () => {
+    if (phase === 'generating') {
+      return;
+    }
+    abortRef.current?.abort();
+    const abort = new AbortController();
+    abortRef.current = abort;
+    discardReady();
+    updatePhase('generating');
+
+    try {
+      if (onBeforeExport) {
+        await onBeforeExport();
+      }
+      if (abort.signal.aborted || !mountedRef.current) {
+        return;
+      }
+      const exported = await exportProjectPack(doc.projectId, {
+        requestExportCheckpoint: async () => {},
+      });
+      if (abort.signal.aborted || !mountedRef.current) {
+        return;
+      }
+      setFile(exported);
+      setCanShare(canShareExportFile(exported));
+      setProgress(null);
+      updatePhase('ready');
+    } catch (err) {
+      if (!mountedRef.current || abort.signal.aborted || err instanceof WorkspaceExportAbortedError) {
+        if (mountedRef.current && abort.signal.aborted) {
+          updatePhase('idle');
+        }
+        return;
+      }
+      setProgress(null);
+      updatePhase('failed');
+    }
+  }, [discardReady, doc.projectId, onBeforeExport, phase, updatePhase]);
+
   const handleShare = useCallback(async () => {
     if (!file) {
       return;
@@ -200,6 +242,17 @@ export function WorkspaceExportControls({
           >
             {EXPORT_BUTTON_LABEL}
           </button>
+          <button
+            type="button"
+            role="menuitem"
+            className={styles.exportMenuItem}
+            onClick={() => {
+              setMenuOpen(false);
+              void handlePackExport();
+            }}
+          >
+            {PROJECT_PACK_EXPORT_LABEL}
+          </button>
           <div ref={setClipHost} />
       </div>
       <ClipExportControls
@@ -211,9 +264,9 @@ export function WorkspaceExportControls({
         itemClassName={styles.exportMenuItem}
         onPick={() => setMenuOpen(false)}
       />
-      {phase === 'generating' && progress ? (
+      {phase === 'generating' ? (
         <div className={styles.workspaceExportStatus} aria-live="polite">
-          {formatExportProgress(progress.current, progress.total)}
+          {progress ? formatExportProgress(progress.current, progress.total) : EXPORT_PROGRESS_ELLIPSIS}
         </div>
       ) : null}
       {phase === 'ready' && file ? (

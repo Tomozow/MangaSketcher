@@ -24,14 +24,8 @@ import { WorkspaceLayoutMenu } from './WorkspaceLayoutMenu';
 import { WorkspaceStrip } from './WorkspaceStrip';
 import { navigateHomeAfterCheckpoint } from './editorNavigate';
 import { hardNavigate } from './hardNavigate';
-import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 import { IconBack, IconMoon, IconPdf, IconStock, IconSun } from './chromeIcons';
 import { useChromeTheme } from './useChromeTheme';
-
-// #region agent log
-const AGENT_DEBUG_INGEST = 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426';
-let layoutLiveDebugCount = 0;
-// #endregion
 
 type EditorLayoutProps = {
   doc: EditorDocument;
@@ -81,10 +75,7 @@ function saveStatusLabel(status: AutosaveStatus): string {
   if (status.encodingCount > 0) {
     return 'エンコード中';
   }
-  if (status.unsaved) {
-    return '未保存';
-  }
-  return '保存済み';
+  return '未保存';
 }
 
 export function EditorLayout({
@@ -155,16 +146,23 @@ export function EditorLayout({
     [dispatch],
   );
 
-  const confirmClearPageInk = useCallback(
+  const clearPageInkNow = useCallback(
     (pageId: PageId) => {
-      if (!window.confirm('このページの線画を削除しますか？')) {
-        return;
-      }
       clearPageInk(pageId);
       setPageDelete(null);
     },
     [clearPageInk],
   );
+
+  const confirmEmptyTrash = useCallback(() => {
+    if (doc.trash.length === 0) {
+      return;
+    }
+    if (!window.confirm('ゴミ箱を空にしますか？ページは完全に削除されます。')) {
+      return;
+    }
+    dispatch({ type: 'emptyTrash' });
+  }, [dispatch, doc.trash.length]);
 
   useEffect(() => {
     if (!pageDelete) {
@@ -222,31 +220,8 @@ export function EditorLayout({
     [onNavigateHome],
   );
 
-  const liveTextDraftRef = useRef(liveTextDraft);
-  liveTextDraftRef.current = liveTextDraft;
   const handleLiveContent = useCallback(
     (draft: string | null) => {
-      // #region agent log
-      if (layoutLiveDebugCount < 12) {
-        layoutLiveDebugCount += 1;
-        const prevDraft = liveTextDraftRef.current;
-        ipadDebugLog({
-          sessionId: '183625',
-          ingest: AGENT_DEBUG_INGEST,
-          runId: 'pre-fix',
-          hypothesisId: 'E',
-          location: 'EditorLayout.tsx:onLiveContent',
-          message: 'onLiveContent',
-          data: {
-            n: layoutLiveDebugCount,
-            next: draft === null ? 'null' : `len:${draft.length}`,
-            prev: prevDraft === null ? 'null' : `len:${prevDraft.length}`,
-            same: prevDraft === draft,
-          },
-          timestamp: Date.now(),
-        });
-      }
-      // #endregion
       setLiveTextDraft(draft);
       onTextDraftChange(draft);
     },
@@ -312,7 +287,7 @@ export function EditorLayout({
               deletePageId={pageDelete?.source === 'workspace' ? pageDelete.pageId : null}
               onDeletePage={(pageId) => confirmPageDelete(pageId, 'workspace')}
               onInsertPage={insertPageAfter}
-              onClearPageInk={confirmClearPageInk}
+              onClearPageInk={clearPageInkNow}
             />
             {inkEngine ? (
               <PageInkOverlay
@@ -336,23 +311,6 @@ export function EditorLayout({
         </a>
         <div className={styles.topbarTitle}>
           <h1 className={styles.headerTitle}>{doc.name}</h1>
-          <div
-            className={styles.topbarTitleMeta}
-            data-ms-save={saveKind}
-            aria-live="polite"
-          >
-            <span
-              className={`${styles.saveStatusDot} ${
-                autosaveStatus.encodingCount > 0
-                  ? styles.saveStatusEncoding
-                  : autosaveStatus.unsaved
-                    ? styles.saveStatusUnsaved
-                    : styles.saveStatusIdle
-              }`}
-              aria-hidden
-            />
-            <span className={styles.saveStatusLabel}>{saveStatusLabel(autosaveStatus)}</span>
-          </div>
         </div>
         <WorkspaceLayoutMenu doc={doc} dispatch={dispatch} />
         <button
@@ -434,7 +392,17 @@ export function EditorLayout({
                     自由
                   </button>
                 </>
-              ) : null}
+              ) : (
+                <button
+                  type="button"
+                  className={styles.stockSegButton}
+                  aria-label="ゴミ箱を空にする"
+                  disabled={doc.trash.length === 0}
+                  onClick={confirmEmptyTrash}
+                >
+                  空にする
+                </button>
+              )}
               <button
                 type="button"
                 className={`${styles.stockSegButton} ${doc.stockPane === 'trash' ? styles.chromeIconPressed : ''}`}
@@ -537,6 +505,23 @@ export function EditorLayout({
         onEditingChange={onTextEditingChange}
         onLiveContent={handleLiveContent}
       />
+      {saveKind !== 'idle' ? (
+        <div
+          className={styles.saveStatusCorner}
+          data-ms-save={saveKind}
+          aria-live="polite"
+        >
+          <span
+            className={`${styles.saveStatusDot} ${
+              autosaveStatus.encodingCount > 0
+                ? styles.saveStatusEncoding
+                : styles.saveStatusUnsaved
+            }`}
+            aria-hidden
+          />
+          <span className={styles.saveStatusLabel}>{saveStatusLabel(autosaveStatus)}</span>
+        </div>
+      ) : null}
     </div>
   );
 }

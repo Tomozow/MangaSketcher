@@ -79,6 +79,7 @@ export type EditorDocumentAction =
   | { type: 'deleteWorkspacePage'; pageId: PageId }
   | { type: 'deleteStockPage'; pageId: PageId }
   | { type: 'returnTrashToWorkspace'; pageId: PageId; readingIndex: number }
+  | { type: 'emptyTrash' }
   | { type: 'reorderWorkspace'; fromIndex: number; toIndex: number }
   | { type: 'movePageToStock'; pageId: PageId; x: number; y: number }
   | { type: 'returnStockToWorkspace'; pageId: PageId; readingIndex: number }
@@ -350,6 +351,16 @@ export function reduceEditorDocument(
       const insertAt = Math.max(0, Math.min(doc.workspaceOrder.length, a.readingIndex));
       doc.workspaceOrder.splice(insertAt, 0, a.pageId);
       doc.selectedPageId = a.pageId;
+      return doc;
+    }
+    case 'emptyTrash': {
+      if (doc.trash.length === 0) {
+        return doc;
+      }
+      for (const pageId of doc.trash) {
+        delete doc.pages[pageId];
+      }
+      doc.trash = [];
       return doc;
     }
     case 'reorderWorkspace': {

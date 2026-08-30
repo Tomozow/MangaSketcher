@@ -197,7 +197,8 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     const pageChromeSrc = readFileSync(join(here, '../PageDeleteButton.tsx'), 'utf8');
     expect(pageChromeSrc).toContain('線画を削除');
     expect(workspaceStripSrc).toContain('onClearPageInk');
-    expect(editorLayoutSrc).toContain('このページの線画を削除しますか？');
+    expect(editorLayoutSrc).not.toContain('このページの線画を削除しますか？');
+    expect(editorLayoutSrc).toContain('ゴミ箱を空にしますか？');
   });
 
   test('クリップ選択時は削除と複製ボタンを上に出す', () => {
