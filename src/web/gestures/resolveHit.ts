@@ -2,6 +2,7 @@ import {
   NUMBER_BAND,
   PAGE_DISPLAY_H,
   PAGE_NUMBER_BAND,
+  STRIP_GAP,
   buildStripFrames,
   clampRasterPoint,
   hitStripFrame,
@@ -188,14 +189,22 @@ function resolvePageWorkspaceHit(
 
   const { pageId } = frame.slot;
   const readingIndex = input.workspaceOrder.indexOf(pageId);
+  const inPageInk =
+    worldX >= frame.x &&
+    worldX <= frame.x + frame.width &&
+    worldY >= frame.y &&
+    worldY < frame.y + frame.height;
   const inNumberBand =
-    worldY >= frame.y + PAGE_DISPLAY_H && worldY < frame.y + PAGE_DISPLAY_H + PAGE_NUMBER_BAND;
+    worldY >= frame.y + PAGE_DISPLAY_H &&
+    worldY < frame.y + PAGE_DISPLAY_H + PAGE_NUMBER_BAND &&
+    worldX >= frame.x - STRIP_GAP &&
+    worldX <= frame.x + frame.width;
 
   if (inNumberBand) {
     return { kind: 'pageNumber', pageId, readingIndex };
   }
 
-  if (worldY >= frame.y + frame.height + PAGE_NUMBER_BAND) {
+  if (!inPageInk) {
     return null;
   }
 

@@ -153,10 +153,12 @@ export function buildStripFrames(
   const rowStride = PAGE_DISPLAY_H + PAGE_NUMBER_BAND + columnGap;
   const rows = packSpreadRows(readingSpreads(workspaceOrder), pagesPerColumn);
   const pageOriginX = APPEND_W + STRIP_GAP;
+  /** Same pasteboard strip as between rows, above the first page row. */
+  const pageOriginY = columnGap;
 
   type RowLayout = { frames: StripFrame[]; dividers: StripDivider[]; width: number };
   const rowLayouts: RowLayout[] = rows.map((row, rowIndex) => {
-    const y = rowIndex * rowStride;
+    const y = pageOriginY + rowIndex * rowStride;
     const rowFrames: StripFrame[] = [];
     const rowDividers: StripDivider[] = [];
     let x = 0;
@@ -217,7 +219,7 @@ export function buildStripFrames(
     key: 'append',
     slot: { kind: 'append' },
     x: lastRowLeft - STRIP_GAP - APPEND_W,
-    y: (rowCount - 1) * rowStride,
+    y: pageOriginY + (rowCount - 1) * rowStride,
     width: APPEND_W,
     height: PAGE_DISPLAY_H,
     insertIndex: workspaceOrder.length,
@@ -227,7 +229,7 @@ export function buildStripFrames(
     frames,
     dividers,
     contentWidth: pageOriginX + maxRowWidth + 24,
-    contentHeight: (rowCount - 1) * rowStride + PAGE_DISPLAY_H + PAGE_NUMBER_BAND,
+    contentHeight: pageOriginY + (rowCount - 1) * rowStride + PAGE_DISPLAY_H + PAGE_NUMBER_BAND,
   };
 }
 

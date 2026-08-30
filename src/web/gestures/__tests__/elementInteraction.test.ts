@@ -7,7 +7,7 @@ import {
   textPoseAfterWorldMove,
   worldBoxToPage,
 } from '../elementInteraction';
-import { buildStripFrames } from '../../../domain/stripGeometry';
+import { buildStripFrames, PAGE_DISPLAY_W } from '../../../domain/stripGeometry';
 
 describe('workspace element interaction geometry', () => {
   test('page-local boxes round-trip through world space', () => {
@@ -166,5 +166,38 @@ describe('workspace element interaction geometry', () => {
     expect(ontoPage.attachment).toEqual({ kind: 'page', pageId: 'p1' });
     expect(ontoPage.box.width).toBeCloseTo(sourceBox.width);
     expect(ontoPage.box.height).toBeCloseTo(sourceBox.height);
+
+    const columnGap = 60;
+    const pairGap = 48;
+    const { frames: gapped } = buildStripFrames(['p1', 'p2', 'p3'], { pairGap, columnGap });
+    const gapped1 = gapped.find((item) => item.slot.kind === 'page' && item.slot.pageId === 'p1')!;
+    const gapped2 = gapped.find((item) => item.slot.kind === 'page' && item.slot.pageId === 'p2')!;
+    const above = textPoseAfterWorldMove({
+      sourceWhere: 'page',
+      sourcePageId: 'p1',
+      sourceBox,
+      sourceFontSize: 24,
+      worldX: gapped1.x + 20,
+      worldY: columnGap / 2,
+      frames: gapped,
+      rasterWidth: 1200,
+      rasterHeight: 1700,
+    });
+    expect(above.attachment).toEqual({ kind: 'pasteboard' });
+    expect(above.box.y).toBeCloseTo(columnGap / 2);
+
+    const betweenX = Math.min(gapped1.x, gapped2.x) + PAGE_DISPLAY_W + pairGap / 2;
+    const between = textPoseAfterWorldMove({
+      sourceWhere: 'page',
+      sourcePageId: 'p1',
+      sourceBox,
+      sourceFontSize: 24,
+      worldX: betweenX,
+      worldY: gapped1.y + 40,
+      frames: gapped,
+      rasterWidth: 1200,
+      rasterHeight: 1700,
+    });
+    expect(between.attachment).toEqual({ kind: 'pasteboard' });
   });
 });

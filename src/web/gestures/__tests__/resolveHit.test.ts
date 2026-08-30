@@ -216,4 +216,65 @@ describe('resolveWorkspaceHit ink tool priority', () => {
     expect(resolveWorkspaceDropTarget(handleInput)).toMatchObject({ kind: 'page', pageId: 'p1' });
     vi.unstubAllGlobals();
   });
+
+  test('先頭段の上と見開きの間はページに吸着せずペーストボードになる', () => {
+    vi.stubGlobal('document', { elementFromPoint: () => null });
+    const workspaceOrder = ['p1', 'p2', 'p3'];
+    const pairGap = 48;
+    const columnGap = 60;
+    const { frames } = buildStripFrames(workspaceOrder, { pagesPerColumn: 3, pairGap, columnGap });
+    const pageFrames = frames
+      .filter((f) => f.slot.kind === 'page')
+      .sort((a, b) => a.x - b.x);
+    const leftOfGap = pageFrames.find((f) => f.slot.kind === 'page' && f.slot.pageId === 'p2')!;
+    const rightOfGap = pageFrames.find((f) => f.slot.kind === 'page' && f.slot.pageId === 'p1')!;
+    const firstPage = pageFrames.find((f) => f.slot.kind === 'page' && f.slot.pageId === 'p1')!;
+    const surfaceEl = {
+      getBoundingClientRect: () =>
+        ({ left: 0, top: 0, width: 4000, height: 4000, right: 4000, bottom: 4000 }) as DOMRect,
+      contains: () => true,
+      querySelector: () => null,
+      querySelectorAll: () => [],
+    } as unknown as HTMLElement;
+    const shared = {
+      surfaceEl,
+      workspaceOrder,
+      frames,
+      pages: Object.fromEntries(workspaceOrder.map((id) => [id, { texts: [] }])),
+      pasteboardClips: [],
+      pasteboardTexts: [],
+      selectedClipId: null,
+      panX: 0,
+      panY: 0,
+      zoom: 1,
+      rasterWidth: 1200,
+      rasterHeight: 1700,
+      getClipRasterSize: () => ({ width: 1, height: 1 }),
+      tool: 'select' as const,
+    };
+
+    const above = resolveWorkspaceDropTarget({
+      ...shared,
+      clientX: firstPage.x + firstPage.width / 2,
+      clientY: columnGap / 2,
+    });
+    expect(above.kind).toBe('empty');
+
+    const between = resolveWorkspaceDropTarget({
+      ...shared,
+      clientX: leftOfGap.x + leftOfGap.width + pairGap / 2,
+      clientY: leftOfGap.y + leftOfGap.height / 2,
+    });
+    expect(between.kind).toBe('empty');
+    expect(rightOfGap.x - (leftOfGap.x + leftOfGap.width)).toBe(pairGap);
+
+    const onPage = resolveWorkspaceDropTarget({
+      ...shared,
+      clientX: firstPage.x + 20,
+      clientY: firstPage.y + 20,
+    });
+    expect(onPage).toMatchObject({ kind: 'page' });
+
+    vi.unstubAllGlobals();
+  });
 });

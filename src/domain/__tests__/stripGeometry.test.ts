@@ -194,7 +194,7 @@ describe('stripGeometry 216×306 hit tests', () => {
       columnGap,
     });
     const firstRow = frames
-      .filter((f) => f.y === 0 && f.slot.kind !== 'append')
+      .filter((f) => f.y === columnGap && f.slot.kind !== 'append')
       .sort((a, b) => a.x - b.x);
     expect(firstRow.map((f) => (f.slot.kind === 'page' ? f.slot.number : '余白'))).toEqual([
       3, 2, 1, '余白',
@@ -204,8 +204,9 @@ describe('stripGeometry 216×306 hit tests', () => {
     expect(firstRow[3]!.x - (firstRow[2]!.x + PAGE_DISPLAY_W)).toBe(SPREAD_INNER_GAP);
     expect(dividers).toHaveLength(1);
     expect(dividers[0]!.x).toBe(firstRow[1]!.x + PAGE_DISPLAY_W + pairGap / 2);
-    const secondRow = frames.filter((f) => f.y > 0 && f.slot.kind !== 'append');
-    expect(secondRow[0]!.y).toBe(PAGE_DISPLAY_H + PAGE_NUMBER_BAND + columnGap);
+    expect(dividers[0]!.y).toBe(columnGap);
+    const secondRow = frames.filter((f) => f.y > columnGap && f.slot.kind !== 'append');
+    expect(secondRow[0]!.y).toBe(columnGap + PAGE_DISPLAY_H + PAGE_NUMBER_BAND + columnGap);
   });
 
   test('1列3ページは1〜3を並べつつ先頭の穴埋め余白も出す', () => {
@@ -331,5 +332,33 @@ describe('stripGeometry 216×306 hit tests', () => {
     expect(gap(second[0]!, second[1]!)).toBe(SPREAD_INNER_GAP);
     expect(gap(second[1]!, second[2]!)).toBe(pairGap);
     expect(gap(second[2]!, second[3]!)).toBe(SPREAD_INNER_GAP);
+  });
+
+  test('列の縦余白は先頭段の上にも付き、見開きの間はページに吸着しない', () => {
+    const doc = createDocument({
+      projectId: 'p',
+      name: 't',
+      pageCount: 3,
+      ids: sequentialIds('pg'),
+    });
+    const columnGap = 80;
+    const pairGap = 40;
+    const { frames, contentHeight } = buildStripFrames(doc.workspaceOrder, {
+      pagesPerColumn: 3,
+      pairGap,
+      columnGap,
+    });
+    const pageFrames = frames
+      .filter((f) => f.slot.kind === 'page' || f.slot.kind === 'blank')
+      .sort((a, b) => a.x - b.x);
+    expect(pageFrames[0]!.y).toBe(columnGap);
+    expect(contentHeight).toBe(columnGap + PAGE_DISPLAY_H + PAGE_NUMBER_BAND);
+    const leftOfPair = pageFrames[1]!;
+    const rightOfPair = pageFrames[2]!;
+    expect(rightOfPair.x - (leftOfPair.x + PAGE_DISPLAY_W)).toBe(pairGap);
+    const gapX = leftOfPair.x + PAGE_DISPLAY_W + pairGap / 2;
+    const gapY = leftOfPair.y + PAGE_DISPLAY_H / 2;
+    expect(pageInkFrameAtWorld(frames, gapX, gapY)).toBeNull();
+    expect(pageInkFrameAtWorld(frames, leftOfPair.x + PAGE_DISPLAY_W / 2, columnGap / 2)).toBeNull();
   });
 });
