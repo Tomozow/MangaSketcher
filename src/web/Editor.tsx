@@ -2,6 +2,8 @@
 
 import { useEffect, useLayoutEffect, useState } from 'react';
 import { subscribeProjectExportCheckpoint } from '@/src/storage/projectExportCheckpoint';
+import { bindHistoryShortcuts } from '@/src/input/historyShortcuts';
+import { bindToolShortcuts } from '@/src/input/toolShortcuts';
 import { EditorLayout } from '@/src/web/EditorLayout';
 import { EditorLoadingSurface } from '@/src/web/EditorLoadingSurface';
 import { styles } from '@/src/web/editorStyles';
@@ -78,6 +80,22 @@ export default function Editor({ projectId }: EditorProps) {
       window.removeEventListener('resize', applyViewportHeight);
     };
   }, [ready]);
+
+  useEffect(() => {
+    if (!ready) {
+      return undefined;
+    }
+    return bindToolShortcuts((tool) => {
+      dispatch({ type: 'setTool', tool });
+    });
+  }, [ready, dispatch]);
+
+  useEffect(() => {
+    if (!ready) {
+      return undefined;
+    }
+    return bindHistoryShortcuts({ onUndo: undo, onRedo: redo });
+  }, [ready, undo, redo]);
 
   useEffect(() => {
     if (!ready) {

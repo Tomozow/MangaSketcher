@@ -267,6 +267,10 @@ function tapHitForEffects(
   return sessionHit;
 }
 
+function isPasteboardCreateHit(hit: WorkspaceHit): boolean {
+  return hit.kind === 'empty' || hit.kind === 'slot';
+}
+
 function createTextCoords(
   hit: Extract<WorkspaceHit, { kind: 'page' }>,
   input: WorkspacePointerInput,
@@ -293,9 +297,6 @@ function tapEffects(
     ];
   }
   if (hit.kind === 'append') {
-    if (tool === 'text') {
-      return [];
-    }
     return [{ type: 'appendPage' }];
   }
   if (hit.kind === 'slot') {
@@ -310,6 +311,12 @@ function tapEffects(
       return [];
     }
     return [{ type: 'createText', pageId: hit.pageId, x: coords.x, y: coords.y }];
+  }
+  if (tool === 'text' && isPasteboardCreateHit(hit)) {
+    if (!input) {
+      return [];
+    }
+    return [{ type: 'createText', pasteboard: true, x: input.worldX, y: input.worldY }];
   }
   return [];
 }
@@ -441,6 +448,12 @@ function stepTextDrag(
       return { session: { mode: 'idle' }, effects: [] };
     }
     if (input.phase === 'up') {
+      if (!session.pageId) {
+        return {
+          session: { mode: 'idle' },
+          effects: [{ type: 'createText', pasteboard: true, x: session.worldX, y: session.worldY }],
+        };
+      }
       const pageHit: Extract<WorkspaceHit, { kind: 'page' }> = {
         kind: 'page',
         pageId: session.pageId,
@@ -963,6 +976,23 @@ function stepPencilDown(
           startY: input.y,
           localX: hit.localX,
           localY: hit.localY,
+          worldX: input.worldX,
+          worldY: input.worldY,
+        },
+        effects: [],
+      };
+    }
+    if (isPasteboardCreateHit(hit)) {
+      return {
+        session: {
+          mode: 'pendingTextCreate',
+          kind: 'pencil',
+          startX: input.x,
+          startY: input.y,
+          localX: 0,
+          localY: 0,
+          worldX: input.worldX,
+          worldY: input.worldY,
         },
         effects: [],
       };

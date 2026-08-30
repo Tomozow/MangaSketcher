@@ -180,11 +180,30 @@ describe('Web workspace FSM', () => {
       expect(up.effects).toEqual([{ type: 'appendPage' }]);
     });
 
-    test('text tool: pending up on + は appendPage しない', () => {
+    test('text tool でも + の tap は appendPage する', () => {
       const store = createWorkspaceGestureStore();
       finger(store, 'down', { tool: 'text', hit: { kind: 'append' }, now: 100 });
       const up = finger(store, 'up', { tool: 'text', hit: { kind: 'append' }, now: 150 });
-      expect(up.effects).toEqual([]);
+      expect(up.effects).toEqual([{ type: 'appendPage' }]);
+    });
+
+    test('text tool: ページ外 empty なら台紙に createText する', () => {
+      const store = createWorkspaceGestureStore();
+      finger(store, 'down', {
+        tool: 'text',
+        hit: { kind: 'empty' },
+        worldX: 120,
+        worldY: 240,
+        now: 100,
+      });
+      const up = finger(store, 'up', {
+        tool: 'text',
+        hit: { kind: 'empty' },
+        worldX: 120,
+        worldY: 240,
+        now: 150,
+      });
+      expect(up.effects).toEqual([{ type: 'createText', pasteboard: true, x: 120, y: 240 }]);
     });
 
     test('text tool: down=append / up=page なら UP 位置で createText', () => {
@@ -296,6 +315,30 @@ describe('Web workspace FSM', () => {
       pencilText(store, 'down', { hit: pageHit, x: 10, y: 10, now: 100 });
       const up = pencilText(store, 'up', { hit: pageHit, x: 30, y: 18, now: 150 });
       expect(up.effects).toEqual([{ type: 'createText', pageId: 'p1', x: 10, y: 10 }]);
+    });
+
+    test('ページ外の empty をタップすると台紙に createText する', () => {
+      const store = createWorkspaceGestureStore();
+      const empty = { kind: 'empty' as const };
+      const down = pencilText(store, 'down', {
+        hit: empty,
+        x: 80,
+        y: 90,
+        worldX: 400,
+        worldY: 500,
+        now: 100,
+      });
+      expect(down.effects.some((e) => e.type === 'createText')).toBe(false);
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('pendingTextCreate');
+      const up = pencilText(store, 'up', { hit: empty, x: 82, y: 91, now: 150 });
+      expect(up.effects).toEqual([{ type: 'createText', pasteboard: true, x: 400, y: 500 }]);
+    });
+
+    test('テキストツールでも + をタップすると appendPage する', () => {
+      const store = createWorkspaceGestureStore();
+      pencilText(store, 'down', { hit: { kind: 'append' }, x: 10, y: 10, now: 100 });
+      const up = pencilText(store, 'up', { hit: { kind: 'append' }, x: 11, y: 11, now: 150 });
+      expect(up.effects).toEqual([{ type: 'appendPage' }]);
     });
 
     test('移動 ≥ 8px なら textTransformLive（tap ではない）', () => {
@@ -669,6 +712,15 @@ describe('Web workspace FSM', () => {
   });
 
   describe('select / marquee', () => {
+    test('select / eraser でも + の tap は appendPage する', () => {
+      for (const tool of ['select', 'eraser'] as const) {
+        const store = createWorkspaceGestureStore();
+        pencil(store, 'down', { tool, hit: { kind: 'append' }, x: 10, y: 10, now: 100 });
+        const up = pencil(store, 'up', { tool, hit: { kind: 'append' }, x: 11, y: 11, now: 150 });
+        expect(up.effects).toEqual([{ type: 'appendPage' }]);
+      }
+    });
+
     test('pencil select on page starts marquee; finger still pans', () => {
       const store = createWorkspaceGestureStore();
       const down = pencil(store, 'down', { tool: 'select', x: 10, y: 10 });

@@ -15,7 +15,7 @@ import {
   pdfItemToView,
   unionPdfItems,
 } from '@/src/domain/pdfLayout';
-import { pdfPageViewerKey } from '@/src/domain/pdfView';
+import { clampPdfZoom, PDF_MAX_ZOOM, PDF_MIN_ZOOM, PDF_ZOOM_STEP, pdfPageViewerKey } from '@/src/domain/pdfView';
 import type { PdfExtractedGlyph, PdfTextItem, Rect } from '@/src/domain/types';
 import { styles } from '@/src/web/editorStyles';
 import { PDF_MAX_EDGE, PDF_SHARP_MAX_EDGE } from './constants';
@@ -69,7 +69,7 @@ export type PdfPageViewerProps = {
   onExtractText?: (payload: PdfExtractPayload) => void;
   onToggleExtractMarkers?: (visible: boolean) => void;
   onToggleExtractSanitizePunctuation?: (enabled: boolean) => void;
-  navExtra?: ReactNode;
+  navLeading?: ReactNode;
 };
 
 function canvasScreenPoint(
@@ -126,7 +126,7 @@ export function PdfPageViewer({
   onExtractText,
   onToggleExtractMarkers,
   onToggleExtractSanitizePunctuation,
-  navExtra,
+  navLeading,
 }: PdfPageViewerProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -319,7 +319,7 @@ export function PdfPageViewer({
     if (!pinch) {
       return;
     }
-    const nextZoom = Math.max(0.25, Math.min(8, pinch.startZoom * livePinchScaleRef.current));
+    const nextZoom = clampPdfZoom(pinch.startZoom * livePinchScaleRef.current);
     const canvas = canvasRef.current;
     const viewport = viewportRef.current;
     if (canvas && viewport) {
@@ -547,6 +547,15 @@ export function PdfPageViewer({
     }
   };
 
+  const nudgeZoom = (direction: 1 | -1) => {
+    const factor = direction > 0 ? PDF_ZOOM_STEP : 1 / PDF_ZOOM_STEP;
+    const nextZoom = clampPdfZoom(zoom * factor);
+    if (nextZoom === zoom) {
+      return;
+    }
+    onViewChange?.({ zoom: nextZoom });
+  };
+
   const canvas = canvasRef.current;
   const viewW = Math.max(1, canvas?.clientWidth ?? letterbox.width);
   const viewH = Math.max(1, canvas?.clientHeight ?? letterbox.height);
@@ -585,38 +594,63 @@ export function PdfPageViewer({
   return (
     <div className={styles.pdfPaneInner}>
       <div className={styles.pdfNav}>
-        <button type="button" className={styles.pdfNavButton} onClick={() => goPage(-1)} disabled={currentPage <= 1}>
-          前
-        </button>
-        <span className={styles.pdfNavLabel}>
-          {currentPage} / {pageCount}
-        </span>
-        <button
-          type="button"
-          className={styles.pdfNavButton}
-          onClick={() => goPage(1)}
-          disabled={currentPage >= pageCount}
-        >
-          次
-        </button>
-        <button
-          type="button"
-          className={styles.pdfNavButton}
-          aria-pressed={extractMarkersVisible}
-          onClick={() => onToggleExtractMarkers?.(!extractMarkersVisible)}
-        >
-          マーカー
-        </button>
-        <button
-          type="button"
-          className={styles.pdfNavButton}
-          aria-pressed={extractSanitizePunctuation}
-          title="「」を削除し、句読点を半角スペースにする"
-          onClick={() => onToggleExtractSanitizePunctuation?.(!extractSanitizePunctuation)}
-        >
-          整形
-        </button>
-        {navExtra}
+        <div className={styles.pdfNavPrimary}>
+          {navLeading}
+          <button
+            type="button"
+            className={styles.pdfNavButton}
+            onClick={() => goPage(1)}
+            disabled={currentPage >= pageCount}
+          >
+            次
+          </button>
+          <span className={styles.pdfNavLabel}>
+            {currentPage} / {pageCount}
+          </span>
+          <button type="button" className={styles.pdfNavButton} onClick={() => goPage(-1)} disabled={currentPage <= 1}>
+            前
+          </button>
+          <button
+            type="button"
+            className={styles.pdfNavButton}
+            aria-label="ズームアウト"
+            title="ズームアウト"
+            onClick={() => nudgeZoom(-1)}
+            disabled={zoom <= PDF_MIN_ZOOM}
+          >
+            −
+          </button>
+          <span className={styles.pdfNavLabel}>{Math.round(zoom * 100)}%</span>
+          <button
+            type="button"
+            className={styles.pdfNavButton}
+            aria-label="ズームイン"
+            title="ズームイン"
+            onClick={() => nudgeZoom(1)}
+            disabled={zoom >= PDF_MAX_ZOOM}
+          >
+            ＋
+          </button>
+        </div>
+        <div className={styles.pdfNavTools}>
+          <button
+            type="button"
+            className={styles.pdfNavButton}
+            aria-pressed={extractMarkersVisible}
+            onClick={() => onToggleExtractMarkers?.(!extractMarkersVisible)}
+          >
+            マーカー
+          </button>
+          <button
+            type="button"
+            className={styles.pdfNavButton}
+            aria-pressed={extractSanitizePunctuation}
+            title="「」を削除し、句読点を半角スペースにする"
+            onClick={() => onToggleExtractSanitizePunctuation?.(!extractSanitizePunctuation)}
+          >
+            整形
+          </button>
+        </div>
       </div>
       <div
         ref={viewportRef}

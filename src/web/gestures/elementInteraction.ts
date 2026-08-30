@@ -223,18 +223,9 @@ export function hitTextInteraction(
   elements: TextInteractionElement[],
   worldX: number,
   worldY: number,
-  selectedTextId: TextId | null,
+  _selectedTextId: TextId | null,
   handleWorldSize: number,
 ): { element: TextInteractionElement; handle: 'body' | 'se' } | null {
-  const selected = selectedTextId ? elements.find((element) => element.id === selectedTextId) : undefined;
-  if (selected) {
-    const seX = selected.worldBox.x + selected.worldBox.width;
-    const seY = selected.worldBox.y + selected.worldBox.height;
-    if (Math.hypot(worldX - seX, worldY - seY) <= handleWorldSize) {
-      return { element: selected, handle: 'se' };
-    }
-  }
-
   const padding = Math.max(0, handleWorldSize * 0.35);
   const minBodyWidth = handleWorldSize * (MIN_TEXT_HIT_CSS / 14);
   for (let index = elements.length - 1; index >= 0; index -= 1) {

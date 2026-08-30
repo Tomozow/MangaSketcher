@@ -38,7 +38,7 @@ export type PdfPaneProps = {
   onToggleExtractSanitizePunctuation?: (enabled: boolean) => void;
 };
 
-function PdfFileInput({
+export function PdfFileInput({
   inputId,
   onPickPdf,
   label,
@@ -54,19 +54,22 @@ function PdfFileInput({
       <label htmlFor={inputId} className={className}>
         {label}
       </label>
-      <input
-        id={inputId}
-        type="file"
-        accept="application/pdf,application/x-pdf"
-        className={styles.pdfFileInput}
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (file && onPickPdf) {
-            void onPickPdf(file);
-          }
-          event.target.value = '';
-        }}
-      />
+      <span className={styles.pdfFileInputWrap}>
+        <input
+          id={inputId}
+          type="file"
+          accept="application/pdf,application/x-pdf"
+          className={styles.pdfFileInput}
+          tabIndex={-1}
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            if (file && onPickPdf) {
+              void onPickPdf(file);
+            }
+            event.target.value = '';
+          }}
+        />
+      </span>
     </>
   );
 }
@@ -158,14 +161,9 @@ export function PdfPane({
       onExtractText={onExtractText}
       onToggleExtractMarkers={onToggleExtractMarkers}
       onToggleExtractSanitizePunctuation={onToggleExtractSanitizePunctuation}
-      navExtra={
+      navLeading={
         onPickPdf ? (
-          <PdfFileInput
-            inputId={inputId}
-            onPickPdf={onPickPdf}
-            label="別のPDF"
-            className={styles.pdfNavButton}
-          />
+          <PdfFileInput inputId={inputId} onPickPdf={onPickPdf} label="別のPDF" className={styles.pdfNavButton} />
         ) : null
       }
     />

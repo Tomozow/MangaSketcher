@@ -1,5 +1,6 @@
 import { isTextContentEmpty, verticalGlyphs } from '../../domain/text';
 import type { PageText, Rect } from '../../domain/types';
+import { pageTextCanvasFont } from '../pageTextFont';
 
 export type ThumbText = Pick<PageText, 'content' | 'box' | 'fontSize' | 'color'>;
 
@@ -60,7 +61,7 @@ export function drawPageTextsOnThumb(
     ctx.rect(box.x, box.y, box.width, box.height);
     ctx.clip();
     ctx.fillStyle = text.color || '#1A1A1A';
-    ctx.font = `${fontPx}px sans-serif`;
+    ctx.font = pageTextCanvasFont(fontPx);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
 

@@ -1,15 +1,16 @@
 import { cloneEditorDocument, newPageMeta, type IdFactory } from './document';
 import { layoutWorkspace } from './layout';
-import { wrapExtractedText } from './pdfExtractPack';
+import { wrapExtractedText, workspaceFontSizeFromTool } from './pdfExtractPack';
 import { joinVerticalBody, rangeSelectBody } from './pdfText';
 import { applyFontSizeToText, resizeTextBox, selectedTextIdsOf } from './text';
-import { clampSplit } from './uiLayout';
+import { fitTextBoxToContent } from './textWrap';
+import { clampSplit, clampPdfDrawerHeight, clampPdfDrawerWidth } from './uiLayout';
 import {
   clampColumnGap,
   clampPairGap,
   clampStoredPagesPerColumn,
 } from './stripGeometry';
-import { clampPdfPage, keepPdfViewOnReload, pdfViewAfterLoad } from './pdfView';
+import { clampPdfPage, clampPdfZoom, keepPdfViewOnReload, pdfViewAfterLoad } from './pdfView';
 import type {
   ClipId,
   EditorDocument,
@@ -56,6 +57,8 @@ type ViewOnlyEditorAction =
       type: 'setUiLayout';
       workspacePdfSplit?: number;
       paletteStockSplit?: number;
+      pdfDrawerWidth?: number;
+      pdfDrawerHeight?: number;
       pdfViewerVisible?: boolean;
       sidebarCompact?: boolean;
       stockLayout?: 'free' | 'grid';
@@ -170,6 +173,8 @@ export type EditorDocumentAction =
       type: 'setUiLayout';
       workspacePdfSplit?: number;
       paletteStockSplit?: number;
+      pdfDrawerWidth?: number;
+      pdfDrawerHeight?: number;
       pdfViewerVisible?: boolean;
       sidebarCompact?: boolean;
       stockLayout?: 'free' | 'grid';
@@ -512,6 +517,11 @@ export function reduceEditorDocument(
       const found = findEditorText(doc, a.textId);
       if (found) {
         found.node.content = a.content;
+        const layoutFont =
+          found.where === 'pasteboard'
+            ? workspaceFontSizeFromTool(found.node.fontSize, doc.rasterWidth)
+            : found.node.fontSize;
+        found.node.box = fitTextBoxToContent(found.node.box, a.content, layoutFont);
       }
       return doc;
     }
@@ -816,7 +826,7 @@ function reduceEditorDocumentViewOnly(
         pdf.currentPage = clampPdfPage(action.currentPage, pdf.pageCount);
       }
       if (action.zoom !== undefined) {
-        pdf.zoom = action.zoom;
+        pdf.zoom = clampPdfZoom(action.zoom);
       }
       if (action.panX !== undefined) {
         pdf.panX = action.panX;
@@ -874,6 +884,12 @@ function reduceEditorDocumentViewOnly(
       }
       if (action.paletteStockSplit !== undefined) {
         patch.paletteStockSplit = clampSplit(action.paletteStockSplit);
+      }
+      if (action.pdfDrawerWidth !== undefined) {
+        patch.pdfDrawerWidth = clampPdfDrawerWidth(action.pdfDrawerWidth);
+      }
+      if (action.pdfDrawerHeight !== undefined) {
+        patch.pdfDrawerHeight = clampPdfDrawerHeight(action.pdfDrawerHeight);
       }
       if (action.pdfViewerVisible !== undefined) {
         patch.pdfViewerVisible = action.pdfViewerVisible;

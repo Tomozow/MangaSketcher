@@ -261,16 +261,6 @@ export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceH
       input.selectedTextId ?? null,
       14 / Math.max(0.1, input.zoom),
     );
-    if (textHit?.handle === 'se') {
-      return {
-        kind: 'resizeHandle',
-        textId: textHit.element.id,
-        owner: textHit.element.owner.kind,
-        pageId: textHit.element.owner.kind === 'page' ? textHit.element.owner.pageId : undefined,
-        worldBox: textHit.element.worldBox,
-      };
-    }
-
     if (textHit) {
       const offsetX = worldX - textHit.element.worldBox.x;
       const offsetY = worldY - textHit.element.worldBox.y;

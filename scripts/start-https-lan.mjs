@@ -18,16 +18,26 @@ const MKCERT_URL =
 const HTTPS_PORT = 3443;
 const CA_PORT = 3002;
 
-function lanIPv4() {
+function lanIPv4s() {
+  const ips = [];
   const nets = networkInterfaces();
   for (const list of Object.values(nets)) {
     for (const net of list ?? []) {
-      if (net.family === 'IPv4' && !net.internal) {
-        return net.address;
+      if (net.family !== 'IPv4' || net.internal) {
+        continue;
       }
+      if (net.address.startsWith('169.254.')) {
+        continue;
+      }
+      ips.push(net.address);
     }
   }
-  return '192.168.0.2';
+  return [...new Set(ips)];
+}
+
+function lanIPv4() {
+  const ips = lanIPv4s();
+  return ips.find((ip) => ip.startsWith('192.168.')) ?? ips[0] ?? '192.168.0.2';
 }
 
 async function ensureMkcert() {
@@ -145,7 +155,13 @@ function caPage(ip) {
   <ol>
     <li>設定 → 一般 → 情報 → <strong>証明書信頼設定</strong></li>
     <li><strong>mkcert</strong> で始まる項目をオンにする</li>
-    <li>Safari で <a href="https://${ip}:${HTTPS_PORT}/">https://${ip}:${HTTPS_PORT}/</a> を開き直す</li>
+    <li>Safari で次のどちらかを開き直す（警告が出ないこと）:
+      <br/><a href="https://${ip}:${HTTPS_PORT}/">https://${ip}:${HTTPS_PORT}/</a>
+${lanIPv4s()
+  .filter((item) => item !== ip)
+  .map((item) => `      <br/><a href="https://${item}:${HTTPS_PORT}/">https://${item}:${HTTPS_PORT}/</a>`)
+  .join('\n')}
+    </li>
     <li>警告が消えたら、ホーム画面のアイコンを削除して入れ直す</li>
   </ol>
 </body>
@@ -157,12 +173,15 @@ async function main() {
   mkdirSync(join(certDir, 'public'), { recursive: true });
   mkdirSync(caDir, { recursive: true });
   await ensureMkcert();
-  try {
-    runMkcert(['-install']);
-  } catch {
-    // Windows の信頼ストアへ入れられなくても、iPad は mobileconfig で信頼できる。
+  if (!existsSync(caPem)) {
+    try {
+      runMkcert(['-install']);
+    } catch {
+      // iPad trusts via mobileconfig.
+    }
   }
-  runMkcert(['-cert-file', certFile, '-key-file', keyFile, ip, '127.0.0.1', 'localhost']);
+  const extraIps = lanIPv4s().filter((item) => item !== ip);
+  runMkcert(['-cert-file', certFile, '-key-file', keyFile, ip, ...extraIps, '127.0.0.1', 'localhost']);
   const pem = readFileSync(caPem, 'utf8');
   writeFileSync(profilePath, pemToMobileconfig(pem, 'MangaSketcher LAN CA'));
   writeFileSync(join(certDir, 'public', 'index.html'), caPage(ip));

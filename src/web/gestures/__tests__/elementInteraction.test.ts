@@ -55,7 +55,7 @@ describe('workspace element interaction geometry', () => {
     ).toBeCloseTo(onPage.width);
   });
 
-  test('pasteboard text is topmost, but the selected page handle has priority', () => {
+  test('pasteboard text is topmost over overlapping page text', () => {
     const elements = buildTextInteractionElements({
       workspaceOrder: ['p1'],
       pages: {
@@ -95,7 +95,7 @@ describe('workspace element interaction geometry', () => {
         'page',
         8,
       ),
-    ).toMatchObject({ element: { id: 'page' }, handle: 'se' });
+    ).toMatchObject({ element: { id: 'pasteboard' }, handle: 'body' });
   });
 
   test('world origin chooses page vs pasteboard and converts box size', () => {

@@ -11,7 +11,7 @@ import {
   type ExtractPackCursor,
 } from '@/src/domain/pdfExtractPack';
 import { brushRadius } from '@/src/domain/pointers';
-import { pageLocalFromWorld, screenToWorld, buildStripFrames, stripLayoutFromDoc, type StripFrame } from '@/src/domain/stripGeometry';
+import { pageLocalFromWorld, screenToWorld, buildStripFrames, stripLayoutFromDoc, PAGE_DISPLAY_H, PAGE_DISPLAY_W, type StripFrame } from '@/src/domain/stripGeometry';
 import { defaultTextBox, findText, isTextContentEmpty, clampTextBoxOrigin, rectsOverlap } from '@/src/domain/text';
 import type { StrokePoint } from '@/src/domain/stroke';
 import { AutosaveManager, type AutosaveStatus } from '@/src/storage/autosave';
@@ -173,12 +173,12 @@ function selectedTextFromDocument(doc: EditorDocument): TextEditSelection | null
   for (const page of Object.values(doc.pages)) {
     const text = page.texts.find((item) => item.id === doc.selectedTextId);
     if (text) {
-      return { id: text.id, content: text.content };
+      return { id: text.id, content: text.content, onPasteboard: false };
     }
   }
   const pasteboard = doc.pasteboardTexts.find((item) => item.id === doc.selectedTextId);
   if (pasteboard) {
-    return { id: pasteboard.id, content: pasteboard.content };
+    return { id: pasteboard.id, content: pasteboard.content, onPasteboard: true };
   }
   return null;
 }
@@ -327,11 +327,9 @@ function eraseStrokeStyle(
   };
 }
 
-type PendingCreate = {
-  pageId: string;
-  x: number;
-  y: number;
-};
+type PendingCreate =
+  | { pageId: string; x: number; y: number }
+  | { pasteboard: true; x: number; y: number };
 
 export function useEditorController(projectId: string): EditorController {
   const [ready, setReady] = useState(false);
@@ -395,25 +393,40 @@ export function useEditorController(projectId: string): EditorController {
     if (!present) {
       return;
     }
-    const { width, height } = defaultTextBox(present.rasterWidth, present.rasterHeight);
-    const centered = clampTextBoxOrigin(
-      pending.x - width / 2,
-      pending.y - height / 2,
-      width,
-      height,
-      present.rasterWidth,
-      present.rasterHeight,
-    );
+    const rasterBox = defaultTextBox(present.rasterWidth, present.rasterHeight);
+    const pasteboard = 'pasteboard' in pending && pending.pasteboard;
+    const width = pasteboard
+      ? rasterBox.width * (PAGE_DISPLAY_W / Math.max(1, present.rasterWidth))
+      : rasterBox.width;
+    const height = pasteboard
+      ? rasterBox.height * (PAGE_DISPLAY_H / Math.max(1, present.rasterHeight))
+      : rasterBox.height;
+    const origin = pasteboard
+      ? { x: pending.x - width / 2, y: pending.y - height / 2 }
+      : clampTextBoxOrigin(
+          pending.x - width / 2,
+          pending.y - height / 2,
+          width,
+          height,
+          present.rasterWidth,
+          present.rasterHeight,
+        );
     const pendingInkUndo = takePendingInkUndo(inkUndoRef.current);
     setHistory((prev) => {
       if (!prev) {
         return prev;
       }
-      const action: EditorDocumentAction = {
-        type: 'createText',
-        attachment: { kind: 'page', pageId: pending.pageId },
-        box: { x: centered.x, y: centered.y, width, height },
-      };
+      const action: EditorDocumentAction = pasteboard
+        ? {
+            type: 'createText',
+            attachment: { kind: 'pasteboard' },
+            box: { x: origin.x, y: origin.y, width, height },
+          }
+        : {
+            type: 'createText',
+            attachment: { kind: 'page', pageId: pending.pageId },
+            box: { x: origin.x, y: origin.y, width, height },
+          };
       const nextPresent = reduceEditorDocument(prev.present, action, randomId);
       const nextHistory = pushEditorHistory(prev, nextPresent, pendingInkUndo, false);
       autosaveRef.current?.scheduleSave(nextHistory.present, [], false);
@@ -1573,7 +1586,7 @@ export function useEditorController(projectId: string): EditorController {
     if (!textEditingRef.current || !textSelectionRef.current) {
       return;
     }
-    const { id, content: savedContent } = textSelectionRef.current;
+    const { id, content: savedContent, onPasteboard } = textSelectionRef.current;
     const content = textDraftRef.current ?? savedContent;
     textDraftRef.current = null;
     setTextEditing(false);
@@ -1582,6 +1595,9 @@ export function useEditorController(projectId: string): EditorController {
 
     const prev = historyRef.current;
     if (!prev) {
+      return;
+    }
+    if (isTextContentEmpty(content) && !onPasteboard) {
       return;
     }
     const action: EditorDocumentAction = isTextContentEmpty(content)
@@ -1797,12 +1813,11 @@ export function useEditorController(projectId: string): EditorController {
       const deferred: WorkspaceEffect[] = [];
       for (const effect of effects) {
         if (effect.type === 'createText') {
-          const pending = {
-            pageId: effect.pageId,
-            x: effect.x,
-            y: effect.y,
-          };
-          createTextAtPointer(pending);
+          if ('pasteboard' in effect) {
+            createTextAtPointer({ pasteboard: true, x: effect.x, y: effect.y });
+          } else {
+            createTextAtPointer({ pageId: effect.pageId, x: effect.x, y: effect.y });
+          }
           continue;
         }
         if (isInkWorkspaceEffect(effect)) {

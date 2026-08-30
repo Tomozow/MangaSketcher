@@ -596,16 +596,33 @@ body {
 }
 
 .ms-blankSlot {
+  --ms-blank-line: color-mix(in srgb, var(--ms-text) 15%, transparent);
+  position: relative;
   width: 216px;
   height: 306px;
-  background: repeating-linear-gradient(
-    -45deg,
-    transparent,
-    transparent 8px,
-    rgba(201, 192, 176, 0.35) 8px,
-    rgba(201, 192, 176, 0.35) 9px
-  );
-  box-shadow: inset 0 0 0 1px var(--ms-border);
+  box-sizing: border-box;
+  border: 2px solid var(--ms-blank-line);
+  overflow: hidden;
+}
+
+.ms-blankSlot::before,
+.ms-blankSlot::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 2px;
+  height: 141%;
+  background: var(--ms-blank-line);
+  pointer-events: none;
+}
+
+.ms-blankSlot::before {
+  transform: translate(-50%, -50%) rotate(atan(216 / 306));
+}
+
+.ms-blankSlot::after {
+  transform: translate(-50%, -50%) rotate(atan(-216 / 306));
 }
 
 .ms-appendButton {
@@ -631,7 +648,7 @@ body {
   align-items: center;
   justify-content: center;
   font-size: 13px;
-  color: var(--ms-text);
+  color: var(--ms-chrome-fg);
   touch-action: none;
   cursor: default;
   min-height: 44px;
@@ -639,7 +656,7 @@ body {
 }
 
 .ms-pageNumberBandSelected {
-  color: var(--ms-accent);
+  color: var(--ms-chrome-accent);
   font-weight: 600;
 }
 
@@ -665,6 +682,15 @@ body {
   opacity: 0.35;
   pointer-events: none;
   transform: translateX(-50%);
+}
+
+.ms-body[data-ms-theme='dark'] .ms-blankSlot {
+  --ms-blank-line: color-mix(in srgb, var(--ms-chrome-fg) 32%, transparent);
+}
+
+.ms-body[data-ms-theme='dark'] .ms-pairDivider {
+  background: var(--ms-chrome-fg);
+  opacity: 0.32;
 }
 
 .ms-pdfPlaceholder {
@@ -699,10 +725,19 @@ body {
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px 12px;
   padding: 8px;
   flex-shrink: 0;
   touch-action: manipulation;
+}
+
+.ms-pdfNavPrimary,
+.ms-pdfNavTools {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
 }
 
 .ms-pdfNavButton {
@@ -735,6 +770,23 @@ body {
   color: var(--ms-text-muted);
   min-width: 64px;
   text-align: center;
+}
+
+.ms-body[data-ms-theme='dark'] .ms-pdfNavButton,
+.ms-body[data-ms-theme='dark'] .ms-pdfPickButton {
+  border-color: var(--ms-chrome-hair);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ms-chrome-fg);
+}
+
+.ms-body[data-ms-theme='dark'] .ms-pdfNavButton[aria-pressed='true'] {
+  border-color: var(--ms-chrome-accent);
+  background: color-mix(in srgb, var(--ms-chrome-accent) 28%, transparent);
+  color: var(--ms-chrome-fg);
+}
+
+.ms-body[data-ms-theme='dark'] .ms-pdfNavLabel {
+  color: var(--ms-chrome-muted);
 }
 
 .ms-pdfViewport {
@@ -828,13 +880,27 @@ body {
   touch-action: manipulation;
 }
 
+.ms-pdfFileInputWrap {
+  position: relative;
+  flex: 0 0 0;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 .ms-pdfFileInput {
   position: absolute;
+  left: 0;
+  top: 0;
   width: 1px;
   height: 1px;
+  margin: 0;
+  padding: 0;
+  border: 0;
   opacity: 0;
   overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  pointer-events: none;
 }
 
 .ms-stockSurface {
@@ -1140,20 +1206,6 @@ body {
   text-size-adjust: 100%;
 }
 
-.ms-textResizeHandle {
-  position: absolute;
-  right: -7px;
-  bottom: -7px;
-  width: 14px;
-  height: 14px;
-  box-sizing: border-box;
-  border: 2px solid #fff;
-  border-radius: 50%;
-  background: var(--ms-accent);
-  box-shadow: 0 1px 4px rgb(0 0 0 / 35%);
-  pointer-events: none;
-}
-
 .ms-pageTextChromeLayer {
   position: absolute;
   inset: 0;
@@ -1211,6 +1263,7 @@ body {
 .ms-pageTextBox {
   position: absolute;
   inset: 0;
+  font-family: 'I-OTFアンチックStd B', 'I-OTF アンチック Std B', 'I-OTF Antique Std B', sans-serif;
   writing-mode: vertical-rl;
   text-orientation: mixed;
   overflow: hidden;
@@ -1629,7 +1682,7 @@ body {
 }
 
 #editor-root .ms-body[data-ms-pdf='open'] .ms-stockSheet {
-  right: calc(32% + 24px);
+  right: calc(max(220px, 100% * var(--ms-pdf-drawer-w, 0.32)) + 24px);
 }
 
 .ms-stockDrawerHead {
@@ -1715,9 +1768,10 @@ body {
   position: absolute;
   top: 68px;
   right: 12px;
-  bottom: 16px;
-  width: 32%;
+  width: max(220px, calc(100% * var(--ms-pdf-drawer-w, 0.32)));
+  height: calc((100% - 84px) * var(--ms-pdf-drawer-h, 1));
   min-width: 220px;
+  min-height: 200px;
   z-index: 6;
   display: flex;
   flex-direction: column;
@@ -1733,18 +1787,75 @@ body {
   box-shadow: var(--ms-chrome-shadow);
 }
 
-.ms-pdfDrawerHead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  flex-shrink: 0;
-  font-size: 13px;
+#editor-root .ms-pdfDrawer .ms-pdfDrawerResizeW,
+#editor-root .ms-pdfDrawer .ms-pdfDrawerResizeS,
+#editor-root .ms-pdfDrawer .ms-pdfDrawerResizeSw {
+  position: absolute;
+  z-index: 4;
+  touch-action: none;
+  background: transparent;
 }
 
-.ms-pdfDrawerHead span {
-  font-size: 11px;
-  color: var(--ms-chrome-muted);
+#editor-root .ms-pdfDrawer .ms-pdfDrawerResizeW {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 18px;
+  cursor: col-resize;
+}
+
+#editor-root .ms-pdfDrawer .ms-pdfDrawerResizeS {
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 18px;
+  cursor: row-resize;
+}
+
+#editor-root .ms-pdfDrawer .ms-pdfDrawerResizeSw {
+  left: 0;
+  bottom: 0;
+  width: 24px;
+  height: 24px;
+  cursor: nesw-resize;
+}
+
+#editor-root .ms-pdfDrawer .ms-pdfDrawerResizeW::after,
+#editor-root .ms-pdfDrawer .ms-pdfDrawerResizeS::after,
+#editor-root .ms-pdfDrawer .ms-pdfDrawerResizeSw::after {
+  content: '';
+  position: absolute;
+  background: var(--ms-chrome-muted);
+  opacity: 0.7;
+  border-radius: 999px;
+}
+
+#editor-root .ms-pdfDrawer .ms-pdfDrawerResizeW::after {
+  top: 50%;
+  left: 6px;
+  width: 3px;
+  height: 40px;
+  transform: translateY(-50%);
+}
+
+#editor-root .ms-pdfDrawer .ms-pdfDrawerResizeS::after {
+  left: 50%;
+  bottom: 6px;
+  width: 40px;
+  height: 3px;
+  transform: translateX(-50%);
+}
+
+#editor-root .ms-pdfDrawer .ms-pdfDrawerResizeSw::after {
+  left: 4px;
+  bottom: 5px;
+  width: 11px;
+  height: 11px;
+  border-radius: 0;
+  opacity: 0.85;
+  background: transparent;
+  border-left: 2px solid var(--ms-chrome-muted);
+  border-bottom: 2px solid var(--ms-chrome-muted);
 }
 
 .ms-pdfDrawer .ms-pdfPaneInner,

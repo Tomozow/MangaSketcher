@@ -14,6 +14,17 @@ export function clampPdfPage(page: number, pageCount: number): number {
   return Math.min(count, Math.max(1, n));
 }
 
+export const PDF_MIN_ZOOM = 0.25;
+export const PDF_MAX_ZOOM = 8;
+export const PDF_ZOOM_STEP = 1.25;
+
+export function clampPdfZoom(zoom: number): number {
+  if (!Number.isFinite(zoom)) {
+    return 1;
+  }
+  return Math.min(PDF_MAX_ZOOM, Math.max(PDF_MIN_ZOOM, zoom));
+}
+
 export function pdfFileFingerprint(file: { name: string; size: number; lastModified: number }): string {
   return `${file.name}:${file.size}:${file.lastModified}`;
 }

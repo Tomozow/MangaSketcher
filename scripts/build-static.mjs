@@ -98,6 +98,21 @@ try {
   if (status === 0) {
     const outDir = join(root, 'out');
     writeFileSync(join(outDir, '.nojekyll'), '');
+    writeFileSync(
+      join(outDir, 'serve.json'),
+      `${JSON.stringify(
+        {
+          headers: [
+            {
+              source: '**/*.webmanifest',
+              headers: [{ key: 'Content-Type', value: 'application/manifest+json; charset=utf-8' }],
+            },
+          ],
+        },
+        null,
+        2,
+      )}\n`,
+    );
     writePrecacheManifest(outDir);
   }
 } finally {

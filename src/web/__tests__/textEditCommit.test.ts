@@ -63,6 +63,35 @@ describe('planTextCommit (§3.4)', () => {
       }),
     ).toEqual({ kind: 'skip', reason: 'unchanged' });
   });
+
+  test('commits empty pasteboard draft so the box can be deleted', () => {
+    expect(
+      planTextCommit({
+        draft: '',
+        savedContent: '',
+        composing: false,
+        explicit: true,
+        deleteIfEmpty: true,
+      }),
+    ).toEqual({ kind: 'commit', content: '' });
+    expect(
+      planTextCommit({
+        draft: '   ',
+        savedContent: '   ',
+        composing: false,
+        explicit: true,
+        deleteIfEmpty: true,
+      }),
+    ).toEqual({ kind: 'commit', content: '   ' });
+    expect(
+      planTextCommit({
+        draft: '',
+        savedContent: '',
+        composing: false,
+        explicit: true,
+      }),
+    ).toEqual({ kind: 'skip', reason: 'unchanged' });
+  });
 });
 
 describe('textEditBarPose', () => {

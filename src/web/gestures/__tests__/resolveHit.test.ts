@@ -146,7 +146,7 @@ describe('resolveWorkspaceHit ink tool priority', () => {
     vi.unstubAllGlobals();
   });
 
-  test('topmost pasteboard text wins, selected text handle wins over body, and drop ignores both', () => {
+  test('topmost pasteboard text wins, and drop ignores both', () => {
     vi.stubGlobal('document', { elementFromPoint: () => null });
     const workspaceOrder = ['p1'];
     const { frames } = buildStripFrames(workspaceOrder);
@@ -201,19 +201,17 @@ describe('resolveWorkspaceHit ink tool priority', () => {
 
     expect(resolveWorkspaceHit(shared)).toMatchObject({ kind: 'pasteboardText', textId: 'pb-text' });
 
-    const handleInput = {
+    const cornerInput = {
       ...shared,
       selectedTextId: 'page-text',
       clientX: 10 + panX + (worldBox.x + worldBox.width) * zoom,
       clientY: 20 + panY + (worldBox.y + worldBox.height) * zoom,
     };
-    expect(resolveWorkspaceHit(handleInput)).toMatchObject({
-      kind: 'resizeHandle',
-      textId: 'page-text',
-      owner: 'page',
-      pageId: 'p1',
+    expect(resolveWorkspaceHit(cornerInput)).toMatchObject({
+      kind: 'pasteboardText',
+      textId: 'pb-text',
     });
-    expect(resolveWorkspaceDropTarget(handleInput)).toMatchObject({ kind: 'page', pageId: 'p1' });
+    expect(resolveWorkspaceDropTarget(cornerInput)).toMatchObject({ kind: 'page', pageId: 'p1' });
     vi.unstubAllGlobals();
   });
 

@@ -40,6 +40,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja">
       <body>
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if('serviceWorker'in navigator){navigator.serviceWorker.getRegistrations().then(function(r){r.forEach(function(x){x.unregister()})})}}catch(e){}",
+          }}
+        />
         <ServiceWorkerRegistrar />
         {children}
       </body>

@@ -72,6 +72,8 @@ export const DEFAULT_TOOL_PROPERTIES: ToolProperties = {
 export const DEFAULT_UI_LAYOUT = {
   workspacePdfSplit: 0.58,
   paletteStockSplit: 0.46,
+  pdfDrawerWidth: 0.32,
+  pdfDrawerHeight: 1,
   pdfViewerVisible: false,
   sidebarCompact: false,
   stockLayout: 'free' as import('../domain/types').StockLayout,

@@ -47,15 +47,14 @@ export function HomeScreenInstallHint() {
         ホーム画面に追加する
       </h2>
       <ol className={styles.installHintSteps}>
-        <li>
-          アドレスが <strong>https://</strong> で、証明書警告が出ていないことを確認する
-        </li>
+        <li>すでにホーム画面にある MangaSketcher を長押しして削除する</li>
+        <li>このページを再読み込みし、数秒待つ</li>
         <li>
           <strong>Safari</strong>の共有 → 下へスクロール →「ホーム画面に追加」→「追加」
         </li>
       </ol>
       <p className={styles.installHintNote}>
-        Chrome や「Dock に追加」では失敗します。警告が出る https のままだと、このエラーになります。
+        Chrome や「Dock に追加」では失敗します。証明書の警告が出ている間も失敗します。
       </p>
     </section>
   );

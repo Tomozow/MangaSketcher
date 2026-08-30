@@ -12,6 +12,8 @@ function isTypingTarget(): boolean {
   return tag === 'INPUT' || tag === 'TEXTAREA' || (el as HTMLElement).isContentEditable;
 }
 
+export { isTypingTarget };
+
 export function desktopNavMode(): DesktopNavMode {
   if (!spaceDown) {
     return 'none';

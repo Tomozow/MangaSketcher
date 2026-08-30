@@ -26,6 +26,15 @@ import { navigateHomeAfterCheckpoint } from './editorNavigate';
 import { hardNavigate } from './hardNavigate';
 import { IconBack, IconMoon, IconPdf, IconStock, IconSun } from './chromeIcons';
 import { useChromeTheme } from './useChromeTheme';
+import { PdfDrawerResizeHandle } from './SplitHandle';
+import {
+  clampPdfDrawerHeight,
+  clampPdfDrawerWidth,
+  nextPdfDrawerHeight,
+  nextPdfDrawerWidth,
+  PDF_DRAWER_BOTTOM_GAP_PX,
+  PDF_DRAWER_TOP_PX,
+} from '@/src/domain/uiLayout';
 
 type EditorLayoutProps = {
   doc: EditorDocument;
@@ -230,17 +239,54 @@ export function EditorLayout({
 
   const stockVisible = stockOpen || Boolean(workspaceGrab);
   const pdfVisible = doc.pdfViewerVisible;
+  const bodyRef = useRef<HTMLDivElement>(null);
   const saveKind =
     autosaveStatus.encodingCount > 0 ? 'encoding' : autosaveStatus.unsaved ? 'unsaved' : 'idle';
 
+  const handlePdfDrawerResize = useCallback(
+    (deltaX: number, deltaY: number) => {
+      const body = bodyRef.current;
+      if (!body) {
+        return;
+      }
+      const patch: {
+        pdfDrawerWidth?: number;
+        pdfDrawerHeight?: number;
+      } = {};
+      if (deltaX !== 0) {
+        patch.pdfDrawerWidth = nextPdfDrawerWidth(
+          clampPdfDrawerWidth(doc.pdfDrawerWidth),
+          deltaX,
+          body.clientWidth,
+        );
+      }
+      if (deltaY !== 0) {
+        patch.pdfDrawerHeight = nextPdfDrawerHeight(
+          clampPdfDrawerHeight(doc.pdfDrawerHeight),
+          deltaY,
+          body.clientHeight - PDF_DRAWER_TOP_PX - PDF_DRAWER_BOTTOM_GAP_PX,
+        );
+      }
+      if (patch.pdfDrawerWidth !== undefined || patch.pdfDrawerHeight !== undefined) {
+        dispatch({ type: 'setUiLayout', ...patch });
+      }
+    },
+    [dispatch, doc.pdfDrawerHeight, doc.pdfDrawerWidth],
+  );
+
   return (
     <div
+      ref={bodyRef}
       className={styles.body}
       data-ms-shell="body"
       data-ms-theme={theme}
       data-ms-pdf={pdfVisible ? 'open' : 'closed'}
       data-ms-stock={stockVisible ? 'open' : 'closed'}
-      style={{ ['--ms-background' as string]: colors.background }}
+      style={{
+        ['--ms-background' as string]: colors.background,
+        ['--ms-pdf-drawer-w' as string]: String(clampPdfDrawerWidth(doc.pdfDrawerWidth)),
+        ['--ms-pdf-drawer-h' as string]: String(clampPdfDrawerHeight(doc.pdfDrawerHeight)),
+      }}
     >
       <div id="editor-main-split" className={styles.mainColumn}>
         <div className={styles.splitRow} data-ms-shell="split-row">
@@ -455,10 +501,9 @@ export function EditorLayout({
           data-ms-region="pdf"
           aria-label="PDF"
         >
-          <div className={styles.pdfDrawerHead}>
-            <strong>原稿 PDF</strong>
-            <span>抽出は範囲ドラッグ</span>
-          </div>
+          <PdfDrawerResizeHandle edge="w" onDrag={handlePdfDrawerResize} />
+          <PdfDrawerResizeHandle edge="s" onDrag={handlePdfDrawerResize} />
+          <PdfDrawerResizeHandle edge="sw" onDrag={handlePdfDrawerResize} />
           <PdfPanePlaceholder
             visible
             hasPdf={Boolean(doc.pdf)}

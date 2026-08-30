@@ -170,11 +170,13 @@ export type WorkspaceSession =
   | {
       mode: 'pendingTextCreate';
       kind: 'pencil';
-      pageId: PageId;
+      pageId?: PageId;
       startX: number;
       startY: number;
       localX: number;
       localY: number;
+      worldX: number;
+      worldY: number;
     };
 
 export type WorkspaceEffect =
@@ -196,6 +198,7 @@ export type WorkspaceEffect =
   | { type: 'marqueePreview'; pageId: PageId | null; rect: { x: number; y: number; width: number; height: number } }
   | { type: 'completeMarquee'; pageId: PageId | null; rect: { x: number; y: number; width: number; height: number } }
   | { type: 'createText'; pageId: PageId; x: number; y: number }
+  | { type: 'createText'; pasteboard: true; x: number; y: number }
   | { type: 'selectText'; textId: TextId }
   | { type: 'selectTexts'; textIds: TextId[] }
   | { type: 'beginSelectionMove'; clipIds: ClipId[]; textIds: TextId[] }

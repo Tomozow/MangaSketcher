@@ -1,8 +1,10 @@
+import { isTextContentEmpty } from '@/src/domain/text';
+
 export type TextCommitPlan =
   | { kind: 'skip'; reason: 'not-explicit' | 'composing' | 'unchanged' }
   | { kind: 'commit'; content: string };
 
-/** §3.4: persist on explicit focusout after composition, if changed. */
+/** Persist on explicit focusout after composition, if changed. Empty pasteboard drafts still commit so they can be deleted. */
 export function planTextCommit(input: {
   draft: string;
   savedContent: string;
@@ -10,12 +12,17 @@ export function planTextCommit(input: {
   explicit: boolean;
   /** IME 変換中でも確定する（フォーカス喪失時の後追いなど） */
   forceOnExplicit?: boolean;
+  /** 空のまま確定する（台紙の空枠削除） */
+  deleteIfEmpty?: boolean;
 }): TextCommitPlan {
   if (!input.explicit) {
     return { kind: 'skip', reason: 'not-explicit' };
   }
   if (input.composing && !input.forceOnExplicit) {
     return { kind: 'skip', reason: 'composing' };
+  }
+  if (input.deleteIfEmpty && isTextContentEmpty(input.draft)) {
+    return { kind: 'commit', content: input.draft };
   }
   if (input.draft === input.savedContent) {
     return { kind: 'skip', reason: 'unchanged' };

@@ -18,11 +18,11 @@ import {
   IconUndo,
 } from './chromeIcons';
 
-const TOOLS: { id: ToolId; label: string }[] = [
-  { id: 'pen', label: 'ペン' },
-  { id: 'eraser', label: '消' },
-  { id: 'text', label: '文' },
-  { id: 'select', label: '選' },
+const TOOLS: { id: ToolId; label: string; shortcut: string }[] = [
+  { id: 'pen', label: 'ペン', shortcut: 'B' },
+  { id: 'eraser', label: '消', shortcut: 'E' },
+  { id: 'text', label: '文', shortcut: 'T' },
+  { id: 'select', label: '選', shortcut: 'C' },
 ];
 
 const TOOL_FLYOUT_TITLES: Record<ToolId, string> = {
@@ -143,9 +143,9 @@ export function CompactSidebar({
             type="button"
             className={`${styles.chromeIcon} ${doc.tool === tool.id ? styles.toolRailActive : ''}`}
             onClick={() => dispatch({ type: 'setTool', tool: tool.id })}
-            aria-label={tool.label}
+            aria-label={`${tool.label}（${tool.shortcut}）`}
             aria-pressed={doc.tool === tool.id}
-            title={TOOL_FLYOUT_TITLES[tool.id]}
+            title={`${TOOL_FLYOUT_TITLES[tool.id]}（${tool.shortcut}）`}
           >
             <ToolGlyph id={tool.id} />
           </button>
@@ -156,7 +156,8 @@ export function CompactSidebar({
           className={styles.chromeIcon}
           disabled={historyControlsDisabled(textEditing, history.past.length)}
           onClick={onUndo}
-          aria-label="元に戻す"
+          aria-label="取り消し（W / Ctrl+Z）"
+          title="取り消し（W / Ctrl+Z）"
         >
           <IconUndo />
         </button>
@@ -165,7 +166,8 @@ export function CompactSidebar({
           className={styles.chromeIcon}
           disabled={historyControlsDisabled(textEditing, history.future.length)}
           onClick={onRedo}
-          aria-label="やり直す"
+          aria-label="やり直し（S / Ctrl+Y）"
+          title="やり直し（S / Ctrl+Y）"
         >
           <IconRedo />
         </button>

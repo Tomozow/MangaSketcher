@@ -1,3 +1,4 @@
+import { EXTRACT_CHARS_PER_COL } from './pdfExtractPack';
 import { isTextContentEmpty, verticalGlyphs } from './text';
 import type { Rect } from './types';
 
@@ -65,3 +66,41 @@ export function wrapPageTextToLines(content: string, box: Rect, fontSize: number
 export function convertWrapToExplicitNewlines(content: string, box: Rect, fontSize: number): string {
   return wrapPageTextToLines(content, box, fontSize).join('\r\n');
 }
+
+export function verticalTextContentSize(
+  content: string,
+  fontSize: number,
+  charsPerCol = EXTRACT_CHARS_PER_COL,
+): { width: number; height: number } {
+  const fontPx = effectiveFontPx(fontSize);
+  const colW = fontPx * TEXT_WRAP_LINE_HEIGHT;
+  const wrapHeight = Math.max(fontPx, charsPerCol * fontPx);
+  const lines = wrapPageTextToLines(
+    content,
+    { x: 0, y: 0, width: colW * 4096, height: wrapHeight },
+    fontSize,
+  );
+  const columns = Math.max(1, lines.length);
+  const maxGlyphs = Math.max(1, ...lines.map((line) => [...line].length));
+  return {
+    width: Math.ceil(columns * colW),
+    height: Math.ceil(maxGlyphs * fontPx * TEXT_WRAP_LINE_HEIGHT),
+  };
+}
+
+/** Keep the top-right corner; grow/shrink so every glyph fits (vertical-rl). */
+export function fitTextBoxToContent(box: Rect, content: string, fontSize: number): Rect {
+  if (isTextContentEmpty(content)) {
+    return box;
+  }
+  const size = verticalTextContentSize(content, fontSize);
+  const right = (Number.isFinite(box.x) ? box.x : 0) + Math.max(0, box.width);
+  const y = Number.isFinite(box.y) ? box.y : 0;
+  return {
+    x: right - size.width,
+    y,
+    width: size.width,
+    height: size.height,
+  };
+}
+

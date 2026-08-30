@@ -60,3 +60,74 @@ export function SplitHandle({ orientation, onDrag }: SplitHandleProps) {
     />
   );
 }
+
+type PdfDrawerResizeEdge = 'w' | 's' | 'sw';
+
+type PdfDrawerResizeHandleProps = {
+  edge: PdfDrawerResizeEdge;
+  onDrag: (deltaX: number, deltaY: number) => void;
+};
+
+export function PdfDrawerResizeHandle({ edge, onDrag }: PdfDrawerResizeHandleProps) {
+  const dragging = useRef(false);
+  const lastX = useRef(0);
+  const lastY = useRef(0);
+
+  const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return;
+    }
+    dragging.current = true;
+    lastX.current = event.clientX;
+    lastY.current = event.clientY;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+    event.stopPropagation();
+  }, []);
+
+  const handlePointerMove = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (!dragging.current) {
+        return;
+      }
+      const dx = event.clientX - lastX.current;
+      const dy = event.clientY - lastY.current;
+      lastX.current = event.clientX;
+      lastY.current = event.clientY;
+      const useX = edge === 'w' || edge === 'sw';
+      const useY = edge === 's' || edge === 'sw';
+      if ((useX && dx !== 0) || (useY && dy !== 0)) {
+        onDrag(useX ? dx : 0, useY ? dy : 0);
+      }
+      event.preventDefault();
+    },
+    [edge, onDrag],
+  );
+
+  const handlePointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
+    dragging.current = false;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }, []);
+
+  const className =
+    edge === 'w'
+      ? styles.pdfDrawerResizeW
+      : edge === 's'
+        ? styles.pdfDrawerResizeS
+        : styles.pdfDrawerResizeSw;
+  const label = edge === 'w' ? 'PDFの幅' : edge === 's' ? 'PDFの高さ' : 'PDFの幅と高さ';
+
+  return (
+    <div
+      aria-label={label}
+      className={className}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+    />
+  );
+}
+

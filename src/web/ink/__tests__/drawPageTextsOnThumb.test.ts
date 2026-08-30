@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest';
+import { pageTextCanvasFont } from '../../pageTextFont';
 import { THUMB_HEIGHT, THUMB_WIDTH } from '../InkEngine';
 import { drawPageTextsOnThumb } from '../drawPageTextsOnThumb';
 
@@ -59,7 +60,7 @@ describe('drawPageTextsOnThumb', () => {
     expect(fills[1]!.y).toBeLessThan(fills[2]!.y);
     expect(fills[0]!.x).toBeCloseTo(fills[1]!.x);
     expect(fills[0]!.fillStyle).toBe('#1A1A1A');
-    expect(fills[0]!.font).toBe(`${40 * (THUMB_WIDTH / 1200)}px sans-serif`);
+    expect(fills[0]!.font).toBe(pageTextCanvasFont(40 * (THUMB_WIDTH / 1200)));
   });
 
   test('newline starts a new column to the left', () => {
@@ -101,7 +102,7 @@ describe('drawPageTextsOnThumb', () => {
       1200,
       1700,
     );
-    expect(fills[0]!.font).toBe('40px sans-serif');
+    expect(fills[0]!.font).toBe(pageTextCanvasFont(40));
   });
 
   test('fixed corpus draws without throwing', () => {

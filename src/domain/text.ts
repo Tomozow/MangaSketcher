@@ -13,7 +13,7 @@ type SelectedTextDocument = TextDocument & Pick<EditorDocument, 'selectedTextId'
 export function defaultTextBox(rw: number, rh: number): Pick<Rect, 'width' | 'height'> {
   return {
     width: Math.round(rw * 0.08),
-    height: Math.round(rh * 0.25),
+    height: Math.round(rh * 0.125),
   };
 }
 

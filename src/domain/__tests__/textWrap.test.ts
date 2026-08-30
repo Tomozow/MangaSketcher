@@ -4,6 +4,8 @@ import type { Rect } from '../types';
 import {
   TEXT_WRAP_LINE_HEIGHT,
   convertWrapToExplicitNewlines,
+  fitTextBoxToContent,
+  verticalTextContentSize,
   wrapPageTextToLines,
 } from '../textWrap';
 
@@ -167,5 +169,31 @@ describe('convertWrapToExplicitNewlines', () => {
   test('empty render yields empty string', () => {
     const box: Rect = { x: 0, y: 0, width: 300, height: 108 };
     expect(convertWrapToExplicitNewlines('   ', box, 36)).toBe('');
+  });
+});
+
+describe('fitTextBoxToContent', () => {
+  test('keeps the top-right corner and sizes to glyphs', () => {
+    const fontSize = 36;
+    const box: Rect = { x: 400, y: 80, width: 200, height: 400 };
+    const next = fitTextBoxToContent(box, 'あ', fontSize);
+    const size = verticalTextContentSize('あ', fontSize);
+    expect(next.width).toBe(size.width);
+    expect(next.height).toBe(size.height);
+    expect(next.x + next.width).toBeCloseTo(box.x + box.width);
+    expect(next.y).toBe(box.y);
+  });
+
+  test('an 11th glyph adds a column instead of clipping', () => {
+    const fontSize = 36;
+    const one = verticalTextContentSize('あ'.repeat(10), fontSize);
+    const two = verticalTextContentSize('あ'.repeat(11), fontSize);
+    expect(two.width).toBeGreaterThan(one.width);
+    expect(two.width).toBe(Math.ceil(2 * fontSize * TEXT_WRAP_LINE_HEIGHT));
+  });
+
+  test('empty content leaves the box unchanged', () => {
+    const box: Rect = { x: 10, y: 20, width: 30, height: 40 };
+    expect(fitTextBoxToContent(box, '   ', 36)).toEqual(box);
   });
 });

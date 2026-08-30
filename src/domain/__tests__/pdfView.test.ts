@@ -1,6 +1,13 @@
 import { describe, expect, test } from 'vitest';
 
-import { keepPdfViewOnReload, pdfFileFingerprint, pdfViewAfterLoad } from '../pdfView';
+import {
+  clampPdfZoom,
+  keepPdfViewOnReload,
+  PDF_MAX_ZOOM,
+  PDF_MIN_ZOOM,
+  pdfFileFingerprint,
+  pdfViewAfterLoad,
+} from '../pdfView';
 import type { PdfDocument } from '../types';
 
 function pdf(partial: Partial<PdfDocument> = {}): PdfDocument {
@@ -41,6 +48,13 @@ describe('pdf view restore', () => {
     const next = pdfFileFingerprint({ name: 'other.pdf', size: 20, lastModified: 2 });
     expect(keepPdfViewOnReload(prev, { opfsPath: prev.opfsPath, fingerprint: next })).toBe(false);
     expect(pdfViewAfterLoad(prev, { opfsPath: prev.opfsPath, pageCount: 10, fingerprint: next }).currentPage).toBe(1);
+  });
+
+  test('ズームは 0.25〜8 にクランプする', () => {
+    expect(clampPdfZoom(0)).toBe(PDF_MIN_ZOOM);
+    expect(clampPdfZoom(99)).toBe(PDF_MAX_ZOOM);
+    expect(clampPdfZoom(Number.NaN)).toBe(1);
+    expect(clampPdfZoom(1.25)).toBe(1.25);
   });
 
   test('指紋が無いレガシー再ロードは opfsPath が同じならページを残す', () => {

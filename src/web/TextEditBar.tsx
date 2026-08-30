@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react';
 import type { TextId } from '@/src/domain/types';
+import { isTextContentEmpty } from '@/src/domain/text';
 import {
   fitTextEditInputHeight,
   planTextCommit,
@@ -22,6 +23,7 @@ import { repaintAllInkDisplays } from '@/src/web/ink/PageInkCanvas';
 export type TextEditSelection = {
   id: TextId;
   content: string;
+  onPasteboard?: boolean;
 };
 
 type TextEditBarProps = {
@@ -87,6 +89,7 @@ export function TextEditBar({
         composing: composingRef.current,
         explicit: true,
         forceOnExplicit,
+        deleteIfEmpty: selectionRef.current?.onPasteboard === true,
       });
       if (plan.kind === 'commit') {
         lastCommittedRef.current = { id: textId, content: plan.content };
@@ -105,7 +108,10 @@ export function TextEditBar({
     const savedContent = selection?.content ?? '';
     setDraft(savedContent);
     pendingExplicitCommitRef.current = false;
-    lastCommittedRef.current = editingId ? { id: editingId, content: savedContent } : null;
+    lastCommittedRef.current =
+      editingId && !(selection?.onPasteboard && isTextContentEmpty(savedContent))
+        ? { id: editingId, content: savedContent }
+        : null;
     if (!selection) {
       onLiveContent(null);
       return;

@@ -12,17 +12,6 @@ function isAppleTouchDevice(): boolean {
   );
 }
 
-function isStandaloneDisplay(): boolean {
-  if (typeof window === 'undefined') {
-    return false;
-  }
-  return (
-    window.matchMedia('(display-mode: standalone)').matches ||
-    window.matchMedia('(display-mode: fullscreen)').matches ||
-    Boolean((window.navigator as { standalone?: boolean }).standalone)
-  );
-}
-
 export function ServiceWorkerRegistrar() {
   useEffect(() => {
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) {
@@ -36,9 +25,9 @@ export function ServiceWorkerRegistrar() {
       return;
     }
 
-    // iOS Safari: SW install + clients.claim reloads the tab and aborts
-    // 「ホーム画面に追加」. Register only after the web clip is already installed.
-    if (isAppleTouchDevice() && !isStandaloneDisplay()) {
+    // iOS: never register. An active SW makes Safari's ホーム画面に追加 fail
+    // with 「エラーが出たためホーム画面に追加できませんでした」.
+    if (isAppleTouchDevice()) {
       void navigator.serviceWorker.getRegistrations().then((regs) =>
         Promise.all(regs.map((reg) => reg.unregister())),
       );

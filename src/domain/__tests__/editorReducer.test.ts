@@ -258,6 +258,36 @@ describe('text attachment placement', () => {
       box: { x: 50, y: 60, width: 18, height: 36 },
     });
   });
+
+  test('editText resizes the box to the content', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId },
+        box: { x: 100, y: 40, width: 80, height: 400 },
+        content: '',
+      },
+      ids,
+    );
+    const textId = doc.selectedTextId!;
+    doc = reduceEditorDocument(doc, { type: 'editText', textId, content: 'あ' }, ids);
+    const one = doc.pages[pageId]!.texts[0]!;
+    expect(one.content).toBe('あ');
+    expect(one.box.width).toBeLessThan(80);
+    expect(one.box.x + one.box.width).toBeCloseTo(180);
+    doc = reduceEditorDocument(doc, { type: 'editText', textId, content: 'あ'.repeat(11) }, ids);
+    const many = doc.pages[pageId]!.texts[0]!;
+    expect(many.box.width).toBeGreaterThan(one.box.width);
+  });
 });
 
 describe('loadPdf view restore', () => {

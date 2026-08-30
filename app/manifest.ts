@@ -7,7 +7,6 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'MangaSketcher',
     short_name: 'MangaSketcher',
     display: 'standalone',
-    orientation: 'any',
     start_url: '/',
     background_color: '#F4F1EA',
     theme_color: '#F4F1EA',

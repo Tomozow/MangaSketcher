@@ -264,6 +264,7 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(pageTextOverlaySrc).not.toMatch(/<textarea/i);
     expect(pageTextOverlaySrc).toContain('pageTextBox');
     expect(editorCss).toMatch(/\.ms-pageTextBox[^{]*\{[^}]*writing-mode:\s*vertical-rl/);
+    expect(editorCss).toMatch(/\.ms-pageTextBox[^{]*\{[^}]*I-OTFアンチックStd B/);
     expect(textEditBarSrc).toMatch(/<textarea/);
     expect(textEditBarSrc).not.toContain('完了');
     expect(textEditBarSrc).toContain('PAGE_TEXT_WRAP_ATTR');
@@ -288,9 +289,20 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
   });
 
   test('PDF 表示中は別の PDF を開ける', () => {
-    const pdfPaneSrc = readFileSync(join(here, '../pdf/PdfPane.tsx'), 'utf8');
-    expect(pdfPaneSrc).toContain('別のPDF');
-    expect(pdfPaneSrc).toContain('navExtra');
+    const paneSrc = readFileSync(join(here, '../pdf/PdfPane.tsx'), 'utf8');
+    const viewerSrc = readFileSync(join(here, '../pdf/PdfPageViewer.tsx'), 'utf8');
+    expect(paneSrc).toContain('別のPDF');
+    expect(viewerSrc).toContain('pdfNavPrimary');
+    expect(viewerSrc).toContain('pdfNavTools');
+    expect(editorLayoutSrc).not.toContain('pdfDrawerHead');
+    expect(editorLayoutSrc).toContain('PdfDrawerResizeHandle');
+  });
+
+  test('PDF ナビにズームイン／アウトがある', () => {
+    const viewerSrc = readFileSync(join(here, '../pdf/PdfPageViewer.tsx'), 'utf8');
+    expect(viewerSrc).toContain('aria-label="ズームアウト"');
+    expect(viewerSrc).toContain('aria-label="ズームイン"');
+    expect(viewerSrc).toContain('nudgeZoom');
   });
 
   test('7. PDF ページ送りで key が変わり、リロードで page/zoom/pan が残る', async () => {

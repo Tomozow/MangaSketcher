@@ -17,6 +17,7 @@ import {
   type StripFrame,
 } from '@/src/domain/stripGeometry';
 import type { EditorDocument } from '@/src/storage/types';
+import { fitTextBoxToContent } from '@/src/domain/textWrap';
 import {
   effectiveTextBox,
   sanitizeTextBox,
@@ -176,10 +177,14 @@ export function PageTextsOnFrame({
     <>
       {texts.map((text) => {
         const selected = selectedIdSet.has(text.id);
-        const primary = selectedTextId === text.id;
-        const box = effectiveTextBox(sanitizeTextBox(text.box), textLiveTransforms[text.id]);
+        const box0 = effectiveTextBox(sanitizeTextBox(text.box), textLiveTransforms[text.id]);
         const fontSize = Number.isFinite(text.fontSize) ? text.fontSize : 12;
-        const resizeScale = box.width / Math.max(1, sanitizeTextBox(text.box).width);
+        const resizeScale = box0.width / Math.max(1, sanitizeTextBox(text.box).width);
+        const content = liveTextContent?.id === text.id ? liveTextContent.content : text.content;
+        const box =
+          liveTextContent?.id === text.id
+            ? fitTextBoxToContent(box0, content, fontSize * resizeScale)
+            : box0;
         const cssFontSize = displayTextFontSize(fontSize * resizeScale, scaleX);
         return (
           <div
@@ -205,9 +210,8 @@ export function PageTextsOnFrame({
                 lineHeight: 1.2,
               }}
             >
-              {liveTextContent?.id === text.id ? liveTextContent.content : text.content}
+              {content}
             </div>
-            {primary ? <span className={styles.textResizeHandle} aria-hidden="true" /> : null}
           </div>
         );
       })}
@@ -309,9 +313,11 @@ export function PasteboardTextsLayer({
 
   return (
     <>
-      {items.map(({ text, box, fontSize }) => {
+      {items.map(({ text, box: itemBox, fontSize }) => {
         const selected = selectedIdSet.has(text.id);
-        const primary = selectedTextId === text.id;
+        const content = liveTextContent?.id === text.id ? liveTextContent.content : text.content;
+        const box =
+          liveTextContent?.id === text.id ? fitTextBoxToContent(itemBox, content, fontSize) : itemBox;
         return (
           <div
             key={text.id}
@@ -326,9 +332,8 @@ export function PasteboardTextsLayer({
               className={`${styles.pageTextBox} ${selected ? styles.pageTextBoxSelected : ''}`}
               style={{ color: text.color, fontSize, lineHeight: 1.2 }}
             >
-              {liveTextContent?.id === text.id ? liveTextContent.content : text.content}
+              {content}
             </div>
-            {primary ? <span className={styles.textResizeHandle} aria-hidden="true" /> : null}
           </div>
         );
       })}

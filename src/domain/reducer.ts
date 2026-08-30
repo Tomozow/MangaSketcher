@@ -2,17 +2,18 @@ import { cloneDocument, newPage, type IdFactory } from './document';
 import { layoutWorkspace } from './layout';
 import { brushRadius, resolvePointerIntent } from './pointers';
 import { compositeRaster, cutRect, parseHexColor, stampBrush } from './raster';
-import { wrapExtractedText } from './pdfExtractPack';
+import { wrapExtractedText, workspaceFontSizeFromTool } from './pdfExtractPack';
 import { joinVerticalBody, rangeSelectBody } from './pdfText';
 import { stampStroke, type StrokePoint } from './stroke';
 import { applyFontSizeToText, findText, resizeTextBox } from './text';
-import { clampSplit } from './uiLayout';
+import { fitTextBoxToContent } from './textWrap';
+import { clampSplit, clampPdfDrawerHeight, clampPdfDrawerWidth } from './uiLayout';
 import {
   clampColumnGap,
   clampPairGap,
   clampStoredPagesPerColumn,
 } from './stripGeometry';
-import { clampPdfPage, keepPdfViewOnReload, pdfViewAfterLoad } from './pdfView';
+import { clampPdfPage, clampPdfZoom, keepPdfViewOnReload, pdfViewAfterLoad } from './pdfView';
 import type {
   ClipId,
   DocumentState,
@@ -104,6 +105,8 @@ export type DocumentAction =
       type: 'setUiLayout';
       workspacePdfSplit?: number;
       paletteStockSplit?: number;
+      pdfDrawerWidth?: number;
+      pdfDrawerHeight?: number;
       pdfViewerVisible?: boolean;
       sidebarCompact?: boolean;
       stockLayout?: 'free' | 'grid';
@@ -410,6 +413,11 @@ export function reduceTestDocument(
       const found = findText(doc, action.textId);
       if (found) {
         found.node.content = action.content;
+        const layoutFont =
+          found.where === 'pasteboard'
+            ? workspaceFontSizeFromTool(found.node.fontSize, doc.rasterWidth)
+            : found.node.fontSize;
+        found.node.box = fitTextBoxToContent(found.node.box, action.content, layoutFont);
       }
       return doc;
     }
@@ -543,7 +551,7 @@ export function reduceTestDocument(
         doc.pdf.currentPage = clampPdfPage(action.currentPage, doc.pdf.pageCount);
       }
       if (action.zoom !== undefined) {
-        doc.pdf.zoom = action.zoom;
+        doc.pdf.zoom = clampPdfZoom(action.zoom);
       }
       if (action.panX !== undefined) {
         doc.pdf.panX = action.panX;
@@ -605,6 +613,12 @@ export function reduceTestDocument(
       }
       if (action.paletteStockSplit !== undefined) {
         doc.paletteStockSplit = clampSplit(action.paletteStockSplit);
+      }
+      if (action.pdfDrawerWidth !== undefined) {
+        doc.pdfDrawerWidth = clampPdfDrawerWidth(action.pdfDrawerWidth);
+      }
+      if (action.pdfDrawerHeight !== undefined) {
+        doc.pdfDrawerHeight = clampPdfDrawerHeight(action.pdfDrawerHeight);
       }
       if (action.pdfViewerVisible !== undefined) {
         doc.pdfViewerVisible = action.pdfViewerVisible;
