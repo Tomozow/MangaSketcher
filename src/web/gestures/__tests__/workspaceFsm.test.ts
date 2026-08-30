@@ -692,25 +692,76 @@ describe('Web workspace FSM', () => {
       expect(down.effects.some((e) => e.type === 'selectText')).toBe(false);
     });
 
-    test('marquee up emits completeMarquee', () => {
+    test('select on pageText grabs text when the text filter is on', () => {
       const store = createWorkspaceGestureStore();
-      pencil(store, 'down', { tool: 'select', x: 10, y: 10 });
-      pencil(store, 'move', { tool: 'select', x: 30, y: 40, hit: { ...pageHit, localX: 30, localY: 40 } });
-      const up = pencil(store, 'up', { tool: 'select', x: 30, y: 40, hit: { ...pageHit, localX: 30, localY: 40 } });
+      const down = pencil(store, 'down', {
+        tool: 'select',
+        hit: pageText,
+        x: 10,
+        y: 10,
+        selectTargets: { text: true, ink: true, clip: true },
+      });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('pendingTextMove');
+      expect(down.effects.some((e) => e.type === 'selectText')).toBe(false);
+      const up = pencil(store, 'up', {
+        tool: 'select',
+        hit: pageText,
+        x: 11,
+        y: 11,
+        selectTargets: { text: true, ink: true, clip: true },
+      });
+      expect(up.effects).toEqual([{ type: 'selectText', textId: 'tx' }]);
+    });
+
+    test('marquee up emits completeMarquee in world space', () => {
+      const store = createWorkspaceGestureStore();
+      pencil(store, 'down', { tool: 'select', x: 10, y: 10, worldX: 10, worldY: 10 });
+      pencil(store, 'move', {
+        tool: 'select',
+        x: 30,
+        y: 40,
+        worldX: 30,
+        worldY: 40,
+        hit: { ...pageHit, localX: 30, localY: 40 },
+      });
+      const up = pencil(store, 'up', {
+        tool: 'select',
+        x: 30,
+        y: 40,
+        worldX: 30,
+        worldY: 40,
+        hit: { ...pageHit, localX: 30, localY: 40 },
+      });
       expect(up.effects[0]).toMatchObject({
         type: 'completeMarquee',
-        pageId: 'p1',
+        pageId: null,
         rect: { x: 10, y: 10, width: 20, height: 30 },
       });
     });
 
-    test('marquee below 4 raster pixels is a no-op', () => {
+    test('marquee can start off-page and finish on a page', () => {
       const store = createWorkspaceGestureStore();
-      pencil(store, 'down', { tool: 'select', hit: pageHit });
+      const empty = { kind: 'empty' as const };
+      pencil(store, 'down', { tool: 'select', hit: empty, worldX: -20, worldY: -10 });
+      pencil(store, 'move', { tool: 'select', hit: pageHit, worldX: 40, worldY: 50 });
+      const up = pencil(store, 'up', { tool: 'select', hit: pageHit, worldX: 40, worldY: 50 });
+      expect(up.effects[0]).toMatchObject({
+        type: 'completeMarquee',
+        pageId: null,
+        rect: { x: -20, y: -10, width: 60, height: 60 },
+      });
+    });
+
+    test('marquee below 4 world pixels clears selection', () => {
+      const store = createWorkspaceGestureStore();
+      pencil(store, 'down', { tool: 'select', hit: pageHit, worldX: 10, worldY: 10 });
       const tiny = { ...pageHit, localX: 13, localY: 12 };
-      pencil(store, 'move', { tool: 'select', hit: tiny });
-      const up = pencil(store, 'up', { tool: 'select', hit: tiny });
-      expect(up.effects).toEqual([]);
+      pencil(store, 'move', { tool: 'select', hit: tiny, worldX: 12, worldY: 12 });
+      const up = pencil(store, 'up', { tool: 'select', hit: tiny, worldX: 12, worldY: 12 });
+      expect(up.effects).toEqual([
+        { type: 'selectClips', clipIds: [] },
+        { type: 'selectTexts', textIds: [] },
+      ]);
     });
 
     test('pencil select on pasteboard starts a world-space marquee', () => {
@@ -737,7 +788,10 @@ describe('Web workspace FSM', () => {
       const empty = { kind: 'empty' as const };
       pencil(store, 'down', { tool: 'select', hit: empty, worldX: 10, worldY: 10, selectedClipId: 'c1' });
       const up = pencil(store, 'up', { tool: 'select', hit: empty, worldX: 11, worldY: 11 });
-      expect(up.effects).toEqual([{ type: 'selectClips', clipIds: [] }]);
+      expect(up.effects).toEqual([
+        { type: 'selectClips', clipIds: [] },
+        { type: 'selectTexts', textIds: [] },
+      ]);
     });
 
     test('pencil tap on page number selects page (mouse/pen)', () => {
@@ -886,6 +940,94 @@ describe('Web workspace FSM', () => {
       expect(up.effects).toEqual([
         { type: 'clipTransformLive', clipId: 'c1', x: 200, y: 180 },
         { type: 'commitClipTransform', clipId: 'c1' },
+      ]);
+    });
+
+    test('dragging an already-selected clip moves the whole selection', () => {
+      const store = createWorkspaceGestureStore();
+      const clip = { id: 'c1', x: 100, y: 80, scale: 1, rotation: 0, rasterId: 'r1' };
+      const clipHit = { kind: 'clip' as const, clipId: 'c1', handle: 'body' as const };
+      pencil(store, 'down', {
+        tool: 'select',
+        hit: clipHit,
+        x: 10,
+        y: 10,
+        worldX: 110,
+        worldY: 90,
+        selectedClipIds: ['c1', 'c2'],
+        selectedTextIds: ['tx'],
+        getClipMeta: () => clip,
+        selectTargets: { text: true, ink: true, clip: true },
+      });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('pendingSelectionMove');
+      const drag = pencil(store, 'move', {
+        tool: 'select',
+        hit: clipHit,
+        x: 30,
+        y: 10,
+        worldX: 130,
+        worldY: 90,
+        getClipMeta: () => clip,
+        selectTargets: { text: true, ink: true, clip: true },
+      });
+      expect(drag.effects).toEqual([
+        { type: 'beginSelectionMove', clipIds: ['c1', 'c2'], textIds: ['tx'] },
+        { type: 'selectionMoveLive', dx: 20, dy: 0 },
+      ]);
+      const up = pencil(store, 'up', {
+        tool: 'select',
+        hit: clipHit,
+        x: 30,
+        y: 10,
+        worldX: 130,
+        worldY: 90,
+        getClipMeta: () => clip,
+        selectTargets: { text: true, ink: true, clip: true },
+      });
+      expect(up.effects).toEqual([
+        { type: 'selectionMoveLive', dx: 20, dy: 0 },
+        { type: 'commitSelectionMove' },
+      ]);
+    });
+
+    test('dragging two selected texts moves the whole selection', () => {
+      const store = createWorkspaceGestureStore();
+      pencil(store, 'down', {
+        tool: 'select',
+        hit: pageText,
+        x: 10,
+        y: 10,
+        worldX: 110,
+        worldY: 90,
+        selectedTextIds: ['tx', 'ty'],
+        selectTargets: { text: true, ink: true, clip: true },
+      });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('pendingSelectionMove');
+      const drag = pencil(store, 'move', {
+        tool: 'select',
+        hit: pageText,
+        x: 30,
+        y: 10,
+        worldX: 130,
+        worldY: 90,
+        selectTargets: { text: true, ink: true, clip: true },
+      });
+      expect(drag.effects).toEqual([
+        { type: 'beginSelectionMove', clipIds: [], textIds: ['tx', 'ty'] },
+        { type: 'selectionMoveLive', dx: 20, dy: 0 },
+      ]);
+      const up = pencil(store, 'up', {
+        tool: 'select',
+        hit: pageText,
+        x: 30,
+        y: 10,
+        worldX: 130,
+        worldY: 90,
+        selectTargets: { text: true, ink: true, clip: true },
+      });
+      expect(up.effects).toEqual([
+        { type: 'selectionMoveLive', dx: 20, dy: 0 },
+        { type: 'commitSelectionMove' },
       ]);
     });
 

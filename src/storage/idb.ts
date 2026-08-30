@@ -1,4 +1,59 @@
+import { ipadDebugLog } from '../web/ipadDebugLog';
 import { DB_NAME, DB_VERSION, type EditorDocument, type ProjectMeta } from './types';
+
+// #region agent log
+const AGENT_DEBUG_INGEST = 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426';
+let inflightTx = 0;
+let idbRejectHookInstalled = false;
+
+function serializeIdbErr(err: unknown): Record<string, unknown> {
+  if (err && typeof err === 'object') {
+    const e = err as { name?: unknown; message?: unknown; code?: unknown };
+    return { name: String(e.name ?? ''), message: String(e.message ?? err), code: e.code ?? null };
+  }
+  return { name: '', message: String(err), code: null };
+}
+
+function dbgIdb(hypothesisId: string, location: string, message: string, data?: Record<string, unknown>): void {
+  ipadDebugLog({
+    sessionId: '092972',
+    ingest: AGENT_DEBUG_INGEST,
+    hypothesisId,
+    location,
+    message,
+    data: { inflightTx, ...data },
+    timestamp: Date.now(),
+  });
+}
+
+function installIdbRejectHook(): void {
+  if (idbRejectHookInstalled || typeof window === 'undefined') {
+    return;
+  }
+  idbRejectHookInstalled = true;
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason;
+    const message = reason instanceof Error ? reason.message : String(reason);
+    if (
+      message.includes('in-progress transaction') ||
+      message.includes('Indexed') ||
+      message.includes('UnknownError') ||
+      (reason && typeof reason === 'object' && (reason as { name?: string }).name === 'UnknownError')
+    ) {
+      dbgIdb('D', 'idb.ts:unhandledrejection', 'idb unhandledrejection', serializeIdbErr(reason));
+    }
+  });
+}
+
+function attachDbLifetimeLogs(db: IDBDatabase): void {
+  db.addEventListener('close', () => {
+    dbgIdb('B', 'idb.ts:onclose', 'idb connection closed', { name: db.name, version: db.version });
+  });
+  db.addEventListener('versionchange', () => {
+    dbgIdb('B', 'idb.ts:onversionchange', 'idb versionchange', { name: db.name, version: db.version });
+  });
+}
+// #endregion
 
 export type MetaStore = 'meta';
 export type DocumentsStore = 'documents';
@@ -60,6 +115,11 @@ function openBrowserDatabase(allowReset = true): Promise<IDBDatabase> {
     request.onsuccess = () => {
       const db = request.result;
       if (hasRequiredStores(db)) {
+        // #region agent log
+        installIdbRejectHook();
+        attachDbLifetimeLogs(db);
+        dbgIdb('B', 'idb.ts:open', 'idb opened', { name: db.name, version: db.version });
+        // #endregion
         resolve(db);
         return;
       }
@@ -84,23 +144,51 @@ function tx<T>(
   run: (stores: Record<StoreName, IDBObjectStore>) => Promise<T> | T,
 ): Promise<T> {
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(storeNames, mode);
+    inflightTx += 1;
+    let transaction: IDBTransaction;
+    try {
+      transaction = db.transaction(storeNames, mode);
+    } catch (err) {
+      inflightTx -= 1;
+      // #region agent log
+      dbgIdb('B', 'idb.ts:tx:create', 'db.transaction threw', { storeNames, mode, ...serializeIdbErr(err) });
+      // #endregion
+      reject(err);
+      return;
+    }
     const stores = {} as Record<StoreName, IDBObjectStore>;
     for (const name of storeNames) {
       stores[name] = transaction.objectStore(name);
     }
+    const fail = (err: unknown, where: string) => {
+      // #region agent log
+      dbgIdb('E', `idb.ts:tx:${where}`, 'idb tx failed', { storeNames, mode, ...serializeIdbErr(err) });
+      // #endregion
+      reject(err);
+    };
     Promise.resolve(run(stores))
-      .then(resolve)
-      .catch(reject);
-    transaction.onerror = () => reject(transaction.error ?? new Error('idb transaction failed'));
-    transaction.onabort = () => reject(transaction.error ?? new Error('idb transaction aborted'));
+      .then((value) => {
+        inflightTx -= 1;
+        resolve(value);
+      })
+      .catch((err) => {
+        inflightTx -= 1;
+        fail(err, 'run');
+      });
+    transaction.onerror = () => fail(transaction.error ?? new Error('idb transaction failed'), 'onerror');
+    transaction.onabort = () => fail(transaction.error ?? new Error('idb transaction aborted'), 'onabort');
   });
 }
 
 function req<T>(request: IDBRequest<T>): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('idb request failed'));
+    request.onerror = () => {
+      // #region agent log
+      dbgIdb('E', 'idb.ts:req', 'idb request failed', serializeIdbErr(request.error));
+      // #endregion
+      reject(request.error ?? new Error('idb request failed'));
+    };
   });
 }
 
@@ -187,16 +275,30 @@ export class BrowserStorageDatabase implements StorageDatabase {
 
   async putRaster(rasterId: string, png: ArrayBuffer): Promise<void> {
     const db = await this.db();
-    await tx(db, [RASTERS], 'readwrite', async ({ rasters }) => {
-      await req(rasters.put({ rasterId, png }));
-    });
+    try {
+      await tx(db, [RASTERS], 'readwrite', async ({ rasters }) => {
+        await req(rasters.put({ rasterId, png }));
+      });
+    } catch (err) {
+      // #region agent log
+      dbgIdb('D', 'idb.ts:putRaster', 'putRaster failed', { rasterId, byteLength: png.byteLength, ...serializeIdbErr(err) });
+      // #endregion
+      throw err;
+    }
   }
 
   async deleteRaster(rasterId: string): Promise<void> {
     const db = await this.db();
-    await tx(db, [RASTERS], 'readwrite', async ({ rasters }) => {
-      await req(rasters.delete(rasterId));
-    });
+    try {
+      await tx(db, [RASTERS], 'readwrite', async ({ rasters }) => {
+        await req(rasters.delete(rasterId));
+      });
+    } catch (err) {
+      // #region agent log
+      dbgIdb('C', 'idb.ts:deleteRaster', 'deleteRaster failed', { rasterId, ...serializeIdbErr(err) });
+      // #endregion
+      throw err;
+    }
   }
 
   async listRasterIds(): Promise<string[]> {
@@ -210,25 +312,82 @@ export class BrowserStorageDatabase implements StorageDatabase {
   async deleteProjectRecords(projectId: string): Promise<void> {
     const db = await this.db();
     await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction([RASTERS, DOCUMENTS, META], 'readwrite');
+      const prefix = `${projectId}:`;
+      // #region agent log
+      dbgIdb('A', 'idb.ts:deleteProjectRecords:start', 'deleteProjectRecords start', { projectId });
+      // #endregion
+      inflightTx += 1;
+      let transaction: IDBTransaction;
+      try {
+        transaction = db.transaction([RASTERS, DOCUMENTS, META], 'readwrite');
+      } catch (err) {
+        inflightTx -= 1;
+        // #region agent log
+        dbgIdb('B', 'idb.ts:deleteProjectRecords:create', 'deleteProjectRecords tx create threw', {
+          projectId,
+          ...serializeIdbErr(err),
+        });
+        // #endregion
+        reject(err);
+        return;
+      }
       const rasters = transaction.objectStore(RASTERS);
       const documents = transaction.objectStore(DOCUMENTS);
       const meta = transaction.objectStore(META);
-      const prefix = `${projectId}:`;
 
       const rasterRequest = rasters.getAllKeys();
       rasterRequest.onsuccess = () => {
-        const keys = (rasterRequest.result as string[]).filter((key) => key.startsWith(prefix));
-        for (const key of keys) {
-          rasters.delete(key);
+        const allKeys = rasterRequest.result as string[];
+        const keys = allKeys.filter((key) => key.startsWith(prefix));
+        // #region agent log
+        dbgIdb('A', 'idb.ts:deleteProjectRecords:keys', 'deleteProjectRecords keys', {
+          projectId,
+          totalKeys: allKeys.length,
+          matching: keys.length,
+        });
+        // #endregion
+        try {
+          for (const key of keys) {
+            rasters.delete(key);
+          }
+          documents.delete(projectId);
+          meta.delete(projectId);
+        } catch (err) {
+          // #region agent log
+          dbgIdb('A', 'idb.ts:deleteProjectRecords:delete', 'delete after getAllKeys threw', {
+            projectId,
+            matching: keys.length,
+            ...serializeIdbErr(err),
+          });
+          // #endregion
+          reject(err);
         }
-        documents.delete(projectId);
-        meta.delete(projectId);
       };
       rasterRequest.onerror = () => reject(rasterRequest.error ?? new Error('raster key scan failed'));
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error ?? new Error('deleteProjectRecords failed'));
-      transaction.onabort = () => reject(transaction.error ?? new Error('deleteProjectRecords aborted'));
+      transaction.oncomplete = () => {
+        inflightTx -= 1;
+        resolve();
+      };
+      transaction.onerror = () => {
+        inflightTx -= 1;
+        // #region agent log
+        dbgIdb('A', 'idb.ts:deleteProjectRecords:onerror', 'deleteProjectRecords tx error', {
+          projectId,
+          ...serializeIdbErr(transaction.error),
+        });
+        // #endregion
+        reject(transaction.error ?? new Error('deleteProjectRecords failed'));
+      };
+      transaction.onabort = () => {
+        inflightTx -= 1;
+        // #region agent log
+        dbgIdb('A', 'idb.ts:deleteProjectRecords:onabort', 'deleteProjectRecords tx abort', {
+          projectId,
+          ...serializeIdbErr(transaction.error),
+        });
+        // #endregion
+        reject(transaction.error ?? new Error('deleteProjectRecords aborted'));
+      };
     });
   }
 }

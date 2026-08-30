@@ -7,7 +7,7 @@ import {
   TEXT_MOVE_SLOP,
   type GestureHit,
 } from '../../domain/workspaceGestures';
-import type { PageId, PointerKind, TextId, ToolId } from '../../domain/types';
+import type { ClipId, PageId, PointerKind, SelectTargetFlags, TextId, ToolId } from '../../domain/types';
 import { clampRasterPoint } from '../../domain/stripGeometry';
 import {
   angleFromCenter,
@@ -159,11 +159,79 @@ function isClipHandleHit(
   return hit.kind === 'clip' && 'handle' in hit;
 }
 
-function preferWorkspaceHit(tool: ToolId, kind: PointerKind, hit: WorkspaceHit): WorkspaceHit {
+function selectTargetsOf(input: Pick<WorkspacePointerInput, 'selectTargets'>): SelectTargetFlags {
+  return input.selectTargets ?? { text: true, ink: true, clip: true };
+}
+
+function selectedClipIdsOfInput(input: WorkspacePointerInput): ClipId[] {
+  if (Array.isArray(input.selectedClipIds)) {
+    return [...input.selectedClipIds];
+  }
+  return input.selectedClipId ? [input.selectedClipId] : [];
+}
+
+function selectedTextIdsOfInput(input: WorkspacePointerInput): TextId[] {
+  if (Array.isArray(input.selectedTextIds)) {
+    return [...input.selectedTextIds];
+  }
+  return input.selectedTextId ? [input.selectedTextId] : [];
+}
+
+function startWorldMarquee(input: WorkspacePointerInput): {
+  session: WorkspaceSession;
+  effects: WorkspaceEffect[];
+} {
+  return {
+    session: {
+      mode: 'marquee',
+      kind: 'pencil',
+      pageId: null,
+      x0: input.worldX,
+      y0: input.worldY,
+      x1: input.worldX,
+      y1: input.worldY,
+    },
+    effects: [
+      {
+        type: 'marqueePreview',
+        pageId: null,
+        rect: { x: input.worldX, y: input.worldY, width: 0, height: 0 },
+      },
+    ],
+  };
+}
+
+function pendingSelectionMove(
+  input: WorkspacePointerInput,
+  clipIds: ClipId[],
+  textIds: TextId[],
+  extraEffects: WorkspaceEffect[] = [],
+): { session: WorkspaceSession; effects: WorkspaceEffect[] } {
+  return {
+    session: {
+      mode: 'pendingSelectionMove',
+      kind: 'pencil',
+      startX: input.x,
+      startY: input.y,
+      startWorldX: input.worldX,
+      startWorldY: input.worldY,
+      clipIds,
+      textIds,
+    },
+    effects: extraEffects,
+  };
+}
+
+function preferWorkspaceHit(
+  tool: ToolId,
+  kind: PointerKind,
+  hit: WorkspaceHit,
+  selectTargets?: SelectTargetFlags,
+): WorkspaceHit {
   if (hit.kind === 'pageNumber' || hit.kind === 'append') {
     return hit;
   }
-  if (kind === 'pencil' && tool === 'select') {
+  if (kind === 'pencil' && tool === 'select' && !selectTargets?.text) {
     if (hit.kind === 'pageText') {
       return {
         kind: 'page',
@@ -452,6 +520,56 @@ function stepLockedPencil(
     };
   }
 
+  if (session.mode === 'pendingSelectionMove') {
+    const dist = Math.hypot(input.x - session.startX, input.y - session.startY);
+    if (input.phase === 'cancel') {
+      return { session: { mode: 'idle' }, effects: [] };
+    }
+    if (input.phase === 'up') {
+      return { session: { mode: 'idle' }, effects: [] };
+    }
+    if (dist < TEXT_MOVE_SLOP) {
+      return { session, effects: [] };
+    }
+    const dx = input.worldX - session.startWorldX;
+    const dy = input.worldY - session.startWorldY;
+    return {
+      session: {
+        mode: 'moveSelection',
+        kind: 'pencil',
+        startWorldX: session.startWorldX,
+        startWorldY: session.startWorldY,
+        clipIds: session.clipIds,
+        textIds: session.textIds,
+      },
+      effects: [
+        { type: 'beginSelectionMove', clipIds: session.clipIds, textIds: session.textIds },
+        { type: 'selectionMoveLive', dx, dy },
+      ],
+    };
+  }
+
+  if (session.mode === 'moveSelection') {
+    const dx = input.worldX - session.startWorldX;
+    const dy = input.worldY - session.startWorldY;
+    if (input.phase === 'cancel') {
+      return {
+        session: { mode: 'idle' },
+        effects: [{ type: 'cancelSelectionMove' }],
+      };
+    }
+    if (input.phase === 'up') {
+      return {
+        session: { mode: 'idle' },
+        effects: [{ type: 'selectionMoveLive', dx, dy }, { type: 'commitSelectionMove' }],
+      };
+    }
+    return {
+      session,
+      effects: [{ type: 'selectionMoveLive', dx, dy }],
+    };
+  }
+
   if (session.mode === 'marquee') {
     if (input.phase === 'up' || input.phase === 'cancel') {
       const rect = {
@@ -462,24 +580,20 @@ function stepLockedPencil(
       };
       const tooSmall =
         rect.width < MIN_MARQUEE_RASTER_PX || rect.height < MIN_MARQUEE_RASTER_PX;
-      if (session.pageId === null) {
-        return {
-          session: { mode: 'idle' },
-          effects: tooSmall
-            ? [{ type: 'selectClips', clipIds: [] }]
-            : [{ type: 'completeMarquee', pageId: null, rect }],
-        };
+      const targets = selectTargetsOf(input);
+      const clear: WorkspaceEffect[] = [];
+      if (targets.clip) {
+        clear.push({ type: 'selectClips', clipIds: [] });
+      }
+      if (targets.text) {
+        clear.push({ type: 'selectTexts', textIds: [] });
       }
       return {
         session: { mode: 'idle' },
-        effects: tooSmall ? [] : [{ type: 'completeMarquee', pageId: session.pageId, rect }],
+        effects: tooSmall ? clear : [{ type: 'completeMarquee', pageId: null, rect }],
       };
     }
-    const point =
-      session.pageId === null
-        ? { x: input.worldX, y: input.worldY }
-        : inkRasterPoint(hit, session.x1, session.y1, session.pageId, input);
-    const next = { ...session, x1: point.x, y1: point.y };
+    const next = { ...session, x1: input.worldX, y1: input.worldY };
     const rect = {
       x: Math.min(next.x0, next.x1),
       y: Math.min(next.y0, next.y1),
@@ -488,7 +602,7 @@ function stepLockedPencil(
     };
     return {
       session: next,
-      effects: [{ type: 'marqueePreview', pageId: session.pageId, rect }],
+      effects: [{ type: 'marqueePreview', pageId: null, rect }],
     };
   }
 
@@ -690,7 +804,50 @@ function stepPencilDown(
   }
 
   if (intent.type === 'selectMarquee') {
-    if (isClipHit(hit)) {
+    const targets = selectTargetsOf(input);
+    if (targets.text && isTextHandleHit(hit)) {
+      return {
+        session: {
+          mode: 'resizeText',
+          kind: 'pencil',
+          textId: hit.textId,
+          owner: hit.owner,
+          pageId: hit.pageId,
+          startWorldBox: hit.worldBox,
+        },
+        effects: [{ type: 'selectText', textId: hit.textId }],
+      };
+    }
+    if (targets.text && isTextBodyHit(hit)) {
+      const selectedTexts = selectedTextIdsOfInput(input);
+      const selectedClips = selectedClipIdsOfInput(input);
+      const alreadySelected = selectedTexts.includes(hit.textId);
+      const textIds = alreadySelected ? selectedTexts : [hit.textId];
+      const clipIds = alreadySelected ? selectedClips : [];
+      if (textIds.length + clipIds.length > 1) {
+        return pendingSelectionMove(
+          input,
+          clipIds,
+          textIds,
+          alreadySelected ? [] : [{ type: 'selectText', textId: hit.textId }],
+        );
+      }
+      const moveSession = textMoveSessionFromHit(hit);
+      if (!moveSession) {
+        return { session: { mode: 'idle' }, effects: [] };
+      }
+      return {
+        session: {
+          mode: 'pendingTextMove',
+          kind: 'pencil',
+          startX: input.x,
+          startY: input.y,
+          ...moveSession,
+        },
+        effects: [],
+      };
+    }
+    if (targets.clip && isClipHit(hit)) {
       const clip = input.getClipMeta(hit.clipId);
       if (!clip) {
         return { session: { mode: 'idle' }, effects: [] };
@@ -736,6 +893,19 @@ function stepPencilDown(
           effects: [{ type: 'selectClip', clipId: hit.clipId }],
         };
       }
+      const selectedClips = selectedClipIdsOfInput(input);
+      const selectedTexts = selectedTextIdsOfInput(input);
+      const alreadySelected = selectedClips.includes(hit.clipId);
+      const clipIds = alreadySelected ? selectedClips : [hit.clipId];
+      const textIds = alreadySelected ? selectedTexts : [];
+      if (clipIds.length + textIds.length > 1) {
+        return pendingSelectionMove(
+          input,
+          clipIds,
+          textIds,
+          alreadySelected ? [] : [{ type: 'selectClip', clipId: hit.clipId }],
+        );
+      }
       return {
         session: {
           mode: 'moveClip',
@@ -747,45 +917,8 @@ function stepPencilDown(
         effects: [{ type: 'selectClip', clipId: hit.clipId }],
       };
     }
-    if (isPageBodyHit(hit)) {
-      return {
-        session: {
-          mode: 'marquee',
-          kind: 'pencil',
-          pageId: hit.pageId,
-          x0: hit.localX,
-          y0: hit.localY,
-          x1: hit.localX,
-          y1: hit.localY,
-        },
-        effects: [
-          {
-            type: 'marqueePreview',
-            pageId: hit.pageId,
-            rect: { x: hit.localX, y: hit.localY, width: 0, height: 0 },
-          },
-        ],
-      };
-    }
-    if (hit.kind === 'empty') {
-      return {
-        session: {
-          mode: 'marquee',
-          kind: 'pencil',
-          pageId: null,
-          x0: input.worldX,
-          y0: input.worldY,
-          x1: input.worldX,
-          y1: input.worldY,
-        },
-        effects: [
-          {
-            type: 'marqueePreview',
-            pageId: null,
-            rect: { x: input.worldX, y: input.worldY, width: 0, height: 0 },
-          },
-        ],
-      };
+    if (isPageBodyHit(hit) || hit.kind === 'empty' || hit.kind === 'slot') {
+      return startWorldMarquee(input);
     }
     return { session: { mode: 'idle' }, effects: [] };
   }
@@ -1018,7 +1151,7 @@ export function stepWorkspacePointer(
   store: WorkspaceGestureStore,
   input: WorkspacePointerInput,
 ): { effects: WorkspaceEffect[]; ignored: boolean } {
-  const hit = preferWorkspaceHit(input.tool, input.kind, input.hit);
+  const hit = preferWorkspaceHit(input.tool, input.kind, input.hit, input.selectTargets);
   const normalized = { ...input, hit };
   let session = store.sessions.get(input.pointerId) ?? { mode: 'idle' as const };
 

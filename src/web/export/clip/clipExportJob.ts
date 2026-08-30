@@ -9,6 +9,7 @@
  */
 import type { SqlJsStatic } from 'sql.js';
 import { buildPageClip } from './buildPageClip';
+import { readPageTemplateRgba } from './canvasPreview';
 import type { ClipExportStartMessage, ClipWorkerResponse } from './clipExportProtocol';
 import { parseClip } from './container';
 import { createClipZipStream } from './zipStream';
@@ -23,6 +24,7 @@ export interface ClipExportJobDeps {
 
 export class ClipExportJob {
   private readonly inkWaiters = new Map<number, (png: ArrayBuffer | null) => void>();
+  private templatePreviewRgba: Uint8Array | null = null;
 
   constructor(private readonly deps: ClipExportJobDeps) {}
 
@@ -53,6 +55,14 @@ export class ClipExportJob {
   private async generate(start: ClipExportStartMessage): Promise<Blob> {
     const sql = await this.deps.loadSql();
     const template = parseClip(await this.deps.loadTemplate());
+    if (!this.templatePreviewRgba) {
+      const db = new sql.Database(template.sqliteBytes);
+      try {
+        this.templatePreviewRgba = readPageTemplateRgba(db, template.extas);
+      } finally {
+        db.close();
+      }
+    }
     const total = start.pages.length;
     if (total === 0 || start.entryNames.length !== total) {
       throw new Error(`invalid job: ${total} pages / ${start.entryNames.length} entry names`);
@@ -87,6 +97,7 @@ export class ClipExportJob {
         rasterWidth: start.rasterWidth,
         rasterHeight: start.rasterHeight,
         lineartRgba,
+        templatePreviewRgba: this.templatePreviewRgba,
       });
 
       if (zip) {

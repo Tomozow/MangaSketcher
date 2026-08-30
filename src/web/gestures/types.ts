@@ -1,5 +1,5 @@
 import type { DesktopNavMode } from '../../input/desktopNavKeys';
-import type { ClipId, ClipMeta, PageId, PointerKind, Rect, TextId, ToolId } from '../../domain/types';
+import type { ClipId, ClipMeta, PageId, PointerKind, Rect, SelectTargetFlags, TextId, ToolId } from '../../domain/types';
 import type { GestureHit } from '../../domain/workspaceGestures';
 
 export type { GestureHit };
@@ -97,6 +97,24 @@ export type WorkspaceSession =
     }
   | { mode: 'moveClip'; kind: 'pencil'; clipId: ClipId; offsetX: number; offsetY: number }
   | {
+      mode: 'pendingSelectionMove';
+      kind: 'pencil';
+      startX: number;
+      startY: number;
+      startWorldX: number;
+      startWorldY: number;
+      clipIds: ClipId[];
+      textIds: TextId[];
+    }
+  | {
+      mode: 'moveSelection';
+      kind: 'pencil';
+      startWorldX: number;
+      startWorldY: number;
+      clipIds: ClipId[];
+      textIds: TextId[];
+    }
+  | {
       mode: 'scaleClip';
       kind: 'pencil';
       clipId: ClipId;
@@ -179,6 +197,11 @@ export type WorkspaceEffect =
   | { type: 'completeMarquee'; pageId: PageId | null; rect: { x: number; y: number; width: number; height: number } }
   | { type: 'createText'; pageId: PageId; x: number; y: number }
   | { type: 'selectText'; textId: TextId }
+  | { type: 'selectTexts'; textIds: TextId[] }
+  | { type: 'beginSelectionMove'; clipIds: ClipId[]; textIds: TextId[] }
+  | { type: 'selectionMoveLive'; dx: number; dy: number }
+  | { type: 'commitSelectionMove' }
+  | { type: 'cancelSelectionMove' }
   | { type: 'moveText'; textId: TextId; x: number; y: number }
   | { type: 'textTransformLive'; textId: TextId; x: number; y: number; pageId?: PageId; pasteboard?: boolean }
   | { type: 'commitTextTransform'; textId: TextId; x: number; y: number; pageId?: PageId; pasteboard?: boolean }
@@ -230,7 +253,10 @@ export type WorkspacePointerInput = {
   isPrimary: boolean;
   selectedPageId: PageId | null;
   selectedClipId: ClipId | null;
+  selectedClipIds?: ClipId[];
   selectedTextId?: TextId | null;
+  selectedTextIds?: TextId[];
+  selectTargets?: SelectTargetFlags;
   rasterWidth: number;
   rasterHeight: number;
   getClipMeta: (clipId: ClipId) => ClipMeta | undefined;

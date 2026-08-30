@@ -187,32 +187,27 @@ describe('textTlv', () => {
     }
   });
 
-  test('L6 two-line vertical metrics match export_sample', async () => {
+  test('L6 sample prototype bbox is 91×167 (tighter 8pt 行間)', async () => {
     const layers = await loadTextLayerBlobs();
     const l6 = layers.find((l) => l.mainId === 6)!;
+    const sample = readCanvasBBox(getTlvPayload(parseTextLayerAttributes(l6.attributes).entries, 42)!);
+    expect(sample.right - sample.left).toBe(91);
+    expect(sample.bottom - sample.top).toBe(167);
     const metrics = verticalTextMetrics(l6.text, 397);
     expect(metrics.lineCount).toBe(2);
     expect(metrics.maxLineChars).toBe(5);
-    expect(metrics.width).toBe(91);
     expect(metrics.height).toBe(167);
-    const bbox = estimateVerticalTextBBox({
-      text: l6.text,
-      fontSizeValue: 397,
-      anchorRight: 951,
-      anchorTop: 509,
-    });
-    expect(readCanvasBBox(getTlvPayload(parseTextLayerAttributes(l6.attributes).entries, 42)!)).toEqual(
-      { left: bbox.left, top: bbox.top, right: bbox.right, bottom: bbox.bottom },
-    );
+    // 2× glyph column (66) so CSP default 行間 after font-size change cannot clip.
+    expect(metrics.width).toBe(33 + 66 + 1);
   });
 
-  test('L7 four-line vertical metrics match export_sample', async () => {
+  test('L7 four-line estimator uses 2× glyph column pitch', async () => {
     const layers = await loadTextLayerBlobs();
     const l7 = layers.find((l) => l.mainId === 7)!;
     const metrics = verticalTextMetrics(l7.text, 397);
     expect(metrics.lineCount).toBe(4);
     expect(metrics.maxLineChars).toBe(12);
-    expect(metrics.width).toBe(204);
+    expect(metrics.width).toBe(33 + 3 * 66);
     expect(metrics.height).toBe(398);
   });
 
@@ -221,7 +216,7 @@ describe('textTlv', () => {
     const metrics = verticalTextMetrics(text, 397);
     expect(metrics.lineCount).toBe(2);
     expect(metrics.maxLineChars).toBe(8);
-    expect(metrics.width).toBe(91);
+    expect(metrics.width).toBe(33 + 66 + 1);
     expect(metrics.height).toBe(8 * 33 + 2);
     const estimated = estimateVerticalTextBBox({
       text,
@@ -229,10 +224,10 @@ describe('textTlv', () => {
       anchorRight: 700,
       anchorTop: 800,
     });
-    expect(estimated.left).toBe(609);
+    expect(estimated.left).toBe(700 - metrics.width);
     expect(estimated.bottom).toBe(800 + 266);
     const id72 = encodeCacheWidthHint(metrics.width, true);
-    expect(new DataView(id72.buffer).getUint32(0, true)).toBe(90);
+    expect(new DataView(id72.buffer).getUint32(0, true)).toBe(metrics.width - 1);
   });
 
   test('three-line extrapolation width and height', () => {
@@ -240,7 +235,50 @@ describe('textTlv', () => {
     const metrics = verticalTextMetrics(text, 397);
     expect(metrics.lineCount).toBe(3);
     expect(metrics.maxLineChars).toBe(3);
-    expect(metrics.width).toBe(33 + 2 * 57);
+    expect(metrics.width).toBe(33 + 2 * 66);
     expect(metrics.height).toBe(3 * 33 + 2);
+  });
+
+  test('iPad 5.82pt 3-line bbox matches CSP usersave (120×242)', async () => {
+    const text = 'しかし タマモも参加\r\nしているとは思わなか\r\nった';
+    const fontSizeValue = 289;
+    const metrics = verticalTextMetrics(text, fontSizeValue);
+    expect(metrics.lineCount).toBe(3);
+    expect(metrics.maxLineChars).toBe(10);
+    expect(metrics.glyphColumnWidth).toBe(24);
+    expect(metrics.interColumnPitchPx).toBe(48);
+    expect(metrics.width).toBe(120);
+    expect(metrics.height).toBe(242);
+
+    const layers = await loadTextLayerBlobs();
+    const l7 = layers.find((l) => l.mainId === 7)!;
+    const estimated = estimateVerticalTextBBox({
+      text,
+      fontSizeValue,
+      anchorRight: 1032,
+      anchorTop: 443,
+    });
+    expect(estimated).toMatchObject({ left: 912, top: 443, right: 1032, bottom: 685 });
+    const patched = patchTextLayerTlv(l7.attributes, l7.addAttributes, {
+      charCount: utf16CharCount(text),
+      bbox: estimated,
+      multiLine: true,
+      fontSizePt: fontSizeValue / FONT_SIZE_SCALE,
+    });
+    const attr = parseTextLayerAttributes(patched.attributes);
+    expect(readCanvasBBox(getTlvPayload(attr.entries, 42)!)).toEqual({
+      left: 912,
+      top: 443,
+      right: 1032,
+      bottom: 685,
+    });
+    const id63 = getTlvPayload(attr.entries, 63)!;
+    expect(new DataView(id63.buffer, id63.byteOffset).getUint32(0, true)).toBe(120);
+    expect(new DataView(id63.buffer, id63.byteOffset).getUint32(4, true)).toBe(242);
+    const id72 = getTlvPayload(attr.entries, 72)!;
+    expect(new DataView(id72.buffer, id72.byteOffset).getUint32(0, true)).toBe(119);
+    const id64 = getTlvPayload(attr.entries, 64)!;
+    expect(new DataView(id64.buffer, id64.byteOffset).getInt32(0, true)).toBe(-11900);
+    expect(new DataView(id64.buffer, id64.byteOffset).getInt32(20, true)).toBe(24200);
   });
 });

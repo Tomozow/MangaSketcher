@@ -1,3 +1,4 @@
+import { ipadDebugLog } from '../web/ipadDebugLog';
 import {
   DOCUMENT_SAVE_DEBOUNCE_MS,
   VIEW_ONLY_SAVE_DEBOUNCE_MS,
@@ -224,6 +225,21 @@ export class AutosaveManager {
    */
   flushHidden(): void {
     const encoded = this.getEncodedPng();
+    // #region agent log
+    ipadDebugLog({
+      sessionId: '092972',
+      ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+      hypothesisId: 'D',
+      location: 'autosave.ts:flushHidden',
+      message: 'flushHidden fire-and-forget puts',
+      data: {
+        rasterCount: encoded.size,
+        hasPendingDoc: this.pendingJob != null,
+        visibility: typeof document !== 'undefined' ? document.visibilityState : 'na',
+      },
+      timestamp: Date.now(),
+    });
+    // #endregion
     for (const [rasterId, png] of encoded.entries()) {
       if (png.byteLength > 0) {
         void this.db.putRaster(rasterId, png.slice(0));

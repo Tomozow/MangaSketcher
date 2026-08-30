@@ -26,6 +26,8 @@ import { drawBrushStroke } from '../ink/strokeDraw';
 import { createPdfGestureStore, stepPdfPointer } from '../pdf/pdfGestureFsm';
 import { moveWorkspacePageToStock } from '../stock/stockActions';
 import { planTextCommit } from '../textEditCommit';
+import { pageBoxToWorld, textPoseAfterWorldMove } from '../gestures/elementInteraction';
+import { buildStripFrames } from '../../domain/stripGeometry';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const editorCss = readFileSync(join(here, '../editor.css'), 'utf8');
@@ -201,6 +203,57 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(pageInkOverlaySrc).toContain('metrics.stack');
   });
 
+  test('クリップは透明背景の四角枠で線画と区別する', () => {
+    expect(editorCss).toMatch(/\.ms-clipFrame[^{]*\{[^}]*background:\s*transparent/);
+    expect(editorCss).toMatch(/\.ms-clipFrame[^{]*\{[^}]*border:\s*1\.5px solid/);
+    expect(editorCss).not.toMatch(/\.ms-clipFrame[^{]*\{[^}]*background:\s*#fff/);
+    expect(editorCss).not.toMatch(/\.ms-clipFrame[^{]*\{[^}]*background:\s*white/);
+  });
+
+  test('選択ツールはテキスト・線画・クリップの対象切替を持つ', () => {
+    const sidebarSrc = readFileSync(join(here, '../CompactSidebar.tsx'), 'utf8');
+    expect(sidebarSrc).toContain("label: 'テキスト'");
+    expect(sidebarSrc).toContain("label: '線画'");
+    expect(sidebarSrc).toContain("label: 'クリップ'");
+    expect(sidebarSrc).toContain('setTextsFontSize');
+  });
+
+  test('選択の一括移動は着地先でテキスト所属を付け替える', () => {
+    const controllerSrc = readFileSync(join(here, '../useEditorController.ts'), 'utf8');
+    expect(controllerSrc).toContain('textPoseAfterWorldMove');
+    expect(controllerSrc).toContain('attachment:');
+
+    const { frames } = buildStripFrames(['p1', 'p2']);
+    const page1 = frames.find((item) => item.slot.kind === 'page' && item.slot.pageId === 'p1')!;
+    const page2 = frames.find((item) => item.slot.kind === 'page' && item.slot.pageId === 'p2')!;
+    const sourceBox = { x: 120, y: 340, width: 96, height: 425 };
+    const world = pageBoxToWorld(page1, sourceBox, 1200, 1700);
+    const offPage = textPoseAfterWorldMove({
+      sourceWhere: 'page',
+      sourcePageId: 'p1',
+      sourceBox,
+      sourceFontSize: 24,
+      worldX: page1.x + page1.width + 8,
+      worldY: world.y,
+      frames,
+      rasterWidth: 1200,
+      rasterHeight: 1700,
+    });
+    expect(offPage.attachment).toEqual({ kind: 'pasteboard' });
+    const otherPage = textPoseAfterWorldMove({
+      sourceWhere: 'page',
+      sourcePageId: 'p1',
+      sourceBox,
+      sourceFontSize: 24,
+      worldX: page2.x + 12,
+      worldY: page2.y + 16,
+      frames,
+      rasterWidth: 1200,
+      rasterHeight: 1700,
+    });
+    expect(otherPage.attachment).toEqual({ kind: 'page', pageId: 'p2' });
+  });
+
   test('6. 確定は explicit のみ。ページ上は textarea ではなく表示専用', () => {
     expect(pageTextOverlaySrc).not.toMatch(/<textarea/i);
     expect(pageTextOverlaySrc).toContain('pageTextBox');
@@ -209,7 +262,7 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(textEditBarSrc).not.toContain('完了');
     expect(textEditBarSrc).toContain('PAGE_TEXT_WRAP_ATTR');
     expect(editorLayoutSrc).toContain("doc.tool === 'text' ? textSelection : null");
-    expect(workspaceStripSrc).toContain("tool === 'text' ? selectedTextId : null");
+    expect(workspaceStripSrc).toContain('tool === \'text\' || (tool === \'select\' && resolvedSelectTargets.text)');
     expect(
       planTextCommit({
         draft: '確定文',

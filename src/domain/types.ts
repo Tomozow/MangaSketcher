@@ -87,6 +87,12 @@ export type StockLayout = 'free' | 'grid';
 
 export type StockPaneMode = 'stock' | 'trash';
 
+export type SelectTargetFlags = {
+  text: boolean;
+  ink: boolean;
+  clip: boolean;
+};
+
 export type ToolProperties = {
   penColor: string;
   /** Base size; actual stamp radius = size * pressure for pencil. */
@@ -98,7 +104,21 @@ export type ToolProperties = {
   textFontSize: number;
   /** When false, pen/eraser ignore stylus pressure (undefined treated as true). */
   pressureEnabled?: boolean;
+  /** Select-tool filters. Undefined is treated as true (legacy documents). */
+  selectText?: boolean;
+  selectInk?: boolean;
+  selectClip?: boolean;
 };
+
+export function selectTargetFlagsOf(
+  tools: Pick<ToolProperties, 'selectText' | 'selectInk' | 'selectClip'> | undefined,
+): SelectTargetFlags {
+  return {
+    text: tools?.selectText !== false,
+    ink: tools?.selectInk !== false,
+    clip: tools?.selectClip !== false,
+  };
+}
 
 export type PdfExtractedGlyph = {
   page: number;
@@ -197,6 +217,8 @@ export type EditorDocument = {
   /** All currently selected pasteboard clips; `selectedClipId` is the last / primary. */
   selectedClipIds?: ClipId[];
   selectedTextId: TextId | null;
+  /** All currently selected texts; `selectedTextId` is the last / primary. */
+  selectedTextIds?: TextId[];
   tool: ToolId;
   tools: ToolProperties;
   pdf: PdfDocument | null;
@@ -271,6 +293,9 @@ export const DEFAULT_TOOL_PROPERTIES: ToolProperties = {
   textColor: '#1A1A1A',
   textFontSize: 36,
   pressureEnabled: true,
+  selectText: true,
+  selectInk: true,
+  selectClip: true,
 };
 
 /** In-memory test document with embedded raster bytes (Vitest only). */

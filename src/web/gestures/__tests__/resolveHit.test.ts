@@ -68,6 +68,13 @@ describe('resolveWorkspaceHit ink tool priority', () => {
     expect(resolveWorkspaceHit({ ...shared, tool: 'select', selectedClipId: 'clip1' }).kind).toBe(
       'clip',
     );
+    expect(
+      resolveWorkspaceHit({
+        ...shared,
+        tool: 'select',
+        selectTargets: { text: true, ink: true, clip: false },
+      }).kind,
+    ).toBe('page');
 
     vi.unstubAllGlobals();
   });

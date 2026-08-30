@@ -22,7 +22,10 @@ export type WorkspacePointerContext = {
   tool: ToolId;
   selectedPageId: PageId | null;
   selectedClipId: ClipId | null;
+  selectedClipIds?: ClipId[];
   selectedTextId?: TextId | null;
+  selectedTextIds?: TextId[];
+  selectTargets?: import('../../domain/types').SelectTargetFlags;
   panX: number;
   panY: number;
   zoom: number;
@@ -178,7 +181,10 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
           isPrimary: pe.isPrimary,
           selectedPageId: ctx.selectedPageId,
           selectedClipId: ctx.selectedClipId,
+          selectedClipIds: ctx.selectedClipIds,
           selectedTextId: ctx.selectedTextId,
+          selectedTextIds: ctx.selectedTextIds,
+          selectTargets: ctx.selectTargets,
           rasterWidth: ctx.rasterWidth,
           rasterHeight: ctx.rasterHeight,
           getClipMeta: ctx.getClipMeta,

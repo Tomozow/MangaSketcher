@@ -71,6 +71,9 @@ export function reduceWorkspaceEffects(
       case 'selectText':
         actions.push({ type: 'selectText', textId: effect.textId });
         break;
+      case 'selectTexts':
+        actions.push({ type: 'selectTexts', textIds: effect.textIds });
+        break;
       case 'selectClip':
         actions.push({ type: 'selectClip', clipId: effect.clipId });
         break;

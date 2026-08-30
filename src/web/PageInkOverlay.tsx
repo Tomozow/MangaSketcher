@@ -212,8 +212,8 @@ export function PageInkOverlay({
   const { frames } = buildStripFrames(doc.workspaceOrder, stripLayoutFromDoc(doc));
   const selectedIds = selectedClipIdsOf(doc);
   const selectedIdSet = new Set(selectedIds);
-  const showPasteboardMarquee =
-    marqueePreview?.pageId === null &&
+  const showWorldMarquee =
+    marqueePreview != null &&
     marqueePreview.rect.width > 0 &&
     marqueePreview.rect.height > 0;
   const canInsert = selectedIds.some((id) => {
@@ -242,46 +242,10 @@ export function PageInkOverlay({
           transform: `translate(${doc.workspacePanX}px, ${doc.workspacePanY}px) scale(${doc.workspaceZoom})`,
           width: 'max-content',
           height: 'max-content',
+          overflow: 'visible',
         }}
       >
-        {frames.map((frame) => {
-          if (frame.slot.kind !== 'page') {
-            return null;
-          }
-          const pageId = frame.slot.pageId;
-          const showMarquee =
-            marqueePreview?.pageId === pageId &&
-            marqueePreview.rect.width > 0 &&
-            marqueePreview.rect.height > 0;
-          if (!showMarquee) {
-            return null;
-          }
-
-          return (
-            <div
-              key={frame.key}
-              style={{
-                position: 'absolute',
-                left: frame.x,
-                top: frame.y,
-                width: frame.width,
-                height: frame.height,
-              }}
-            >
-              <div
-                className={styles.marqueePreview}
-                style={{
-                  left: `${(marqueePreview.rect.x / doc.rasterWidth) * 100}%`,
-                  top: `${(marqueePreview.rect.y / doc.rasterHeight) * 100}%`,
-                  width: `${(marqueePreview.rect.width / doc.rasterWidth) * 100}%`,
-                  height: `${(marqueePreview.rect.height / doc.rasterHeight) * 100}%`,
-                }}
-              />
-            </div>
-          );
-        })}
-
-        {showPasteboardMarquee ? (
+        {showWorldMarquee ? (
           <div
             className={styles.marqueePreview}
             style={{

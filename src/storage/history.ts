@@ -21,6 +21,7 @@ export function isViewOnlyHistoryAction(actionType: string): boolean {
     actionType === 'selectClip' ||
     actionType === 'selectClips' ||
     actionType === 'selectText' ||
+    actionType === 'selectTexts' ||
     actionType === 'setUiLayout'
   );
 }

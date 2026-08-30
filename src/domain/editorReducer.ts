@@ -2,7 +2,7 @@ import { cloneEditorDocument, newPageMeta, type IdFactory } from './document';
 import { layoutWorkspace } from './layout';
 import { wrapExtractedText } from './pdfExtractPack';
 import { joinVerticalBody, rangeSelectBody } from './pdfText';
-import { applyFontSizeToText, resizeTextBox } from './text';
+import { applyFontSizeToText, resizeTextBox, selectedTextIdsOf } from './text';
 import { clampSplit } from './uiLayout';
 import {
   clampColumnGap,
@@ -35,6 +35,7 @@ const VIEW_ONLY = new Set<string>([
   'selectClip',
   'selectClips',
   'selectText',
+  'selectTexts',
   'setUiLayout',
 ]);
 
@@ -50,6 +51,7 @@ type ViewOnlyEditorAction =
   | { type: 'selectClip'; clipId: ClipId | null }
   | { type: 'selectClips'; clipIds: ClipId[] }
   | { type: 'selectText'; textId: TextId | null }
+  | { type: 'selectTexts'; textIds: TextId[] }
   | {
       type: 'setUiLayout';
       workspacePdfSplit?: number;
@@ -120,13 +122,28 @@ export type EditorDocumentAction =
   | { type: 'deleteText'; textId: TextId }
   | { type: 'duplicateText'; textId: TextId }
   | { type: 'moveText'; textId: TextId; x: number; y: number }
+  | {
+      type: 'moveSelection';
+      clips: Array<{ clipId: ClipId; x: number; y: number }>;
+      texts: Array<{
+        textId: TextId;
+        x: number;
+        y: number;
+        width?: number;
+        height?: number;
+        fontSize?: number;
+        attachment?: { kind: 'page'; pageId: PageId } | { kind: 'pasteboard' };
+      }>;
+    }
   | { type: 'transferTextToPage'; textId: TextId; pageId: PageId; x: number; y: number }
   | { type: 'resizeText'; textId: TextId; box: Rect }
   | { type: 'setTextColor'; textId: TextId; color: string }
   | { type: 'setTextFontSize'; textId: TextId; fontSize: number }
+  | { type: 'setTextsFontSize'; textIds: TextId[]; fontSize: number }
   | { type: 'attachTextToPage'; textId: TextId; pageId: PageId; pageBox: Rect; fontSize?: number }
   | { type: 'detachTextToPasteboard'; textId: TextId; workspaceBox: Rect; fontSize?: number }
   | { type: 'selectText'; textId: TextId | null }
+  | { type: 'selectTexts'; textIds: TextId[] }
   | {
       type: 'loadPdf';
       opfsPath: string;
@@ -162,12 +179,33 @@ export type EditorDocumentAction =
       columnGap?: number;
     };
 
+function textSelection(ids: TextId[]): { selectedTextId: TextId | null; selectedTextIds: TextId[] } {
+  const selectedTextIds = [...new Set(ids)];
+  return {
+    selectedTextIds,
+    selectedTextId: selectedTextIds[selectedTextIds.length - 1] ?? null,
+  };
+}
+
 function clipSelection(ids: ClipId[]): { selectedClipId: ClipId | null; selectedClipIds: ClipId[] } {
   const selectedClipIds = [...new Set(ids)];
   return {
     selectedClipIds,
     selectedClipId: selectedClipIds[selectedClipIds.length - 1] ?? null,
   };
+}
+
+function allTextIds(doc: EditorDocument): Set<TextId> {
+  const ids = new Set<TextId>();
+  for (const page of Object.values(doc.pages)) {
+    for (const text of page.texts) {
+      ids.add(text.id);
+    }
+  }
+  for (const text of doc.pasteboardTexts) {
+    ids.add(text.id);
+  }
+  return ids;
 }
 
 function findEditorText(
@@ -182,6 +220,61 @@ function findEditorText(
   }
   const pb = doc.pasteboardTexts.find((x) => x.id === textId);
   return pb ? { node: pb, where: 'pasteboard' } : null;
+}
+
+function takeEditorText(doc: EditorDocument, textId: TextId): PageText | PasteboardText | null {
+  for (const page of Object.values(doc.pages)) {
+    const index = page.texts.findIndex((item) => item.id === textId);
+    if (index !== -1) {
+      const [item] = page.texts.splice(index, 1);
+      return item ?? null;
+    }
+  }
+  const pbIndex = doc.pasteboardTexts.findIndex((item) => item.id === textId);
+  if (pbIndex === -1) {
+    return null;
+  }
+  const [item] = doc.pasteboardTexts.splice(pbIndex, 1);
+  return item ?? null;
+}
+
+function putEditorText(
+  doc: EditorDocument,
+  node: PageText | PasteboardText,
+  attachment: { kind: 'page'; pageId: PageId } | { kind: 'pasteboard' },
+): boolean {
+  if (attachment.kind === 'pasteboard') {
+    doc.pasteboardTexts.push(node);
+    return true;
+  }
+  const page = doc.pages[attachment.pageId];
+  if (!page) {
+    return false;
+  }
+  page.texts.push(node);
+  return true;
+}
+
+function textAttachmentOf(
+  found: { where: 'page' | 'pasteboard'; pageId?: PageId },
+): { kind: 'page'; pageId: PageId } | { kind: 'pasteboard' } | null {
+  if (found.where === 'pasteboard') {
+    return { kind: 'pasteboard' };
+  }
+  return found.pageId ? { kind: 'page', pageId: found.pageId } : null;
+}
+
+function sameTextAttachment(
+  found: { where: 'page' | 'pasteboard'; pageId?: PageId },
+  attachment: { kind: 'page'; pageId: PageId } | { kind: 'pasteboard' } | undefined,
+): boolean {
+  if (!attachment) {
+    return true;
+  }
+  if (attachment.kind === 'pasteboard') {
+    return found.where === 'pasteboard';
+  }
+  return found.where === 'page' && found.pageId === attachment.pageId;
 }
 
 function addPageToTrash(doc: EditorDocument, pageId: PageId): void {
@@ -323,7 +416,7 @@ export function reduceEditorDocument(
         rotation: 0,
       });
       Object.assign(doc, clipSelection([a.clipId]));
-      doc.selectedTextId = null;
+      Object.assign(doc, textSelection([]));
       return doc;
     }
     case 'commitClipBake': {
@@ -380,7 +473,7 @@ export function reduceEditorDocument(
         rotation: a.rotation,
       });
       Object.assign(doc, clipSelection([a.clipId]));
-      doc.selectedTextId = null;
+      Object.assign(doc, textSelection([]));
       return doc;
     }
     case 'createText': {
@@ -401,7 +494,7 @@ export function reduceEditorDocument(
       } else {
         doc.pasteboardTexts.push(text);
       }
-      doc.selectedTextId = id;
+      Object.assign(doc, textSelection([id]));
       return doc;
     }
     case 'editText': {
@@ -418,17 +511,19 @@ export function reduceEditorDocument(
           continue;
         }
         page.texts.splice(index, 1);
-        if (doc.selectedTextId === a.textId) {
-          doc.selectedTextId = null;
-        }
+        Object.assign(
+          doc,
+          textSelection(selectedTextIdsOf(doc).filter((id) => id !== a.textId)),
+        );
         return doc;
       }
       const pbIndex = doc.pasteboardTexts.findIndex((t) => t.id === a.textId);
       if (pbIndex !== -1) {
         doc.pasteboardTexts.splice(pbIndex, 1);
-        if (doc.selectedTextId === a.textId) {
-          doc.selectedTextId = null;
-        }
+        Object.assign(
+          doc,
+          textSelection(selectedTextIdsOf(doc).filter((id) => id !== a.textId)),
+        );
       }
       return doc;
     }
@@ -455,7 +550,7 @@ export function reduceEditorDocument(
       } else {
         doc.pasteboardTexts.push(clone);
       }
-      doc.selectedTextId = id;
+      Object.assign(doc, textSelection([id]));
       return doc;
     }
     case 'moveText': {
@@ -463,6 +558,46 @@ export function reduceEditorDocument(
       if (found && Number.isFinite(a.x) && Number.isFinite(a.y)) {
         found.node.box.x = a.x;
         found.node.box.y = a.y;
+      }
+      return doc;
+    }
+    case 'moveSelection': {
+      for (const clipMove of a.clips) {
+        const clip = doc.pasteboardClips.find((item) => item.id === clipMove.clipId);
+        if (!clip || !Number.isFinite(clipMove.x) || !Number.isFinite(clipMove.y)) {
+          continue;
+        }
+        clip.x = clipMove.x;
+        clip.y = clipMove.y;
+      }
+      for (const textMove of a.texts) {
+        const found = findEditorText(doc, textMove.textId);
+        if (!found || !Number.isFinite(textMove.x) || !Number.isFinite(textMove.y)) {
+          continue;
+        }
+        const nextBox = {
+          ...found.node.box,
+          x: textMove.x,
+          y: textMove.y,
+          ...(Number.isFinite(textMove.width) ? { width: textMove.width as number } : {}),
+          ...(Number.isFinite(textMove.height) ? { height: textMove.height as number } : {}),
+        };
+        const nextFontSize = Number.isFinite(textMove.fontSize) ? (textMove.fontSize as number) : found.node.fontSize;
+        if (sameTextAttachment(found, textMove.attachment)) {
+          found.node.box = nextBox;
+          found.node.fontSize = nextFontSize;
+          continue;
+        }
+        const home = textAttachmentOf(found);
+        const taken = takeEditorText(doc, textMove.textId);
+        if (!taken || !home) {
+          continue;
+        }
+        taken.box = nextBox;
+        taken.fontSize = nextFontSize;
+        if (!putEditorText(doc, taken, textMove.attachment!)) {
+          putEditorText(doc, taken, home);
+        }
       }
       return doc;
     }
@@ -510,6 +645,18 @@ export function reduceEditorDocument(
     case 'setTextFontSize': {
       const found = findEditorText(doc, a.textId);
       if (found) {
+        const next = applyFontSizeToText(found.node, a.fontSize);
+        found.node.box = next.box;
+        found.node.fontSize = next.fontSize;
+      }
+      return doc;
+    }
+    case 'setTextsFontSize': {
+      for (const textId of a.textIds) {
+        const found = findEditorText(doc, textId);
+        if (!found) {
+          continue;
+        }
         const next = applyFontSizeToText(found.node, a.fontSize);
         found.node.box = next.box;
         found.node.fontSize = next.fontSize;
@@ -602,7 +749,7 @@ export function reduceEditorDocument(
       } else {
         doc.pasteboardTexts.push(text);
       }
-      doc.selectedTextId = id;
+      Object.assign(doc, textSelection([id]));
       doc.pdf.sourceTextByPage[a.pdfPage] = snapshot;
       doc.pdf.extractedGlyphs = [
         ...(doc.pdf.extractedGlyphs ?? []),
@@ -624,7 +771,7 @@ function reduceEditorDocumentViewOnly(
   switch (action.type) {
     case 'selectPage':
       if (state.pages[action.pageId] && state.workspaceOrder.includes(action.pageId)) {
-        return { ...state, selectedPageId: action.pageId, ...clipSelection([]) };
+        return { ...state, selectedPageId: action.pageId, ...clipSelection([]), ...textSelection([]) };
       }
       return state;
     case 'setTool':
@@ -687,21 +834,28 @@ function reduceEditorDocumentViewOnly(
       return {
         ...state,
         ...clipSelection(action.clipId ? [action.clipId] : []),
-        selectedTextId: action.clipId ? null : state.selectedTextId,
+        ...(action.clipId ? textSelection([]) : {}),
       };
-    case 'selectClips':
+    case 'selectClips': {
       const existing = new Set(state.pasteboardClips.map((c) => c.id));
       return {
         ...state,
         ...clipSelection(action.clipIds.filter((id) => existing.has(id))),
-        selectedTextId: action.clipIds.length > 0 ? null : state.selectedTextId,
       };
+    }
     case 'selectText':
       return {
         ...state,
-        selectedTextId: action.textId,
+        ...textSelection(action.textId ? [action.textId] : []),
         ...(action.textId ? clipSelection([]) : {}),
       };
+    case 'selectTexts': {
+      const existingTexts = allTextIds(state);
+      return {
+        ...state,
+        ...textSelection(action.textIds.filter((id) => existingTexts.has(id))),
+      };
+    }
     case 'setUiLayout': {
       const patch: Partial<EditorDocument> = {};
       if (action.workspacePdfSplit !== undefined) {

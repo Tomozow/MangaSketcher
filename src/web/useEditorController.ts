@@ -12,8 +12,8 @@ import {
   type ExtractPackCursor,
 } from '@/src/domain/pdfExtractPack';
 import { brushRadius } from '@/src/domain/pointers';
-import { pageLocalFromWorld, screenToWorld, buildStripFrames, stripLayoutFromDoc } from '@/src/domain/stripGeometry';
-import { defaultTextBox, findText, isTextContentEmpty, clampTextBoxOrigin } from '@/src/domain/text';
+import { pageLocalFromWorld, screenToWorld, buildStripFrames, stripLayoutFromDoc, type StripFrame } from '@/src/domain/stripGeometry';
+import { defaultTextBox, findText, isTextContentEmpty, clampTextBoxOrigin, rectsOverlap } from '@/src/domain/text';
 import type { StrokePoint } from '@/src/domain/stroke';
 import { AutosaveManager, type AutosaveStatus } from '@/src/storage/autosave';
 import { getAutosaveDelays } from '@/src/storage/appSettings';
@@ -47,7 +47,7 @@ import {
   mergeTextLive,
   sanitizeTextBox,
 } from '@/src/web/text/textLiveTransform';
-import { clipTouchesWorldRect, clipInsertTarget, pageLocalRectToWorld, selectedClipIdsOf } from './clip/clipGeometry';
+import { clipTouchesWorldRect, clipInsertTarget, pageLocalRectToWorld, selectedClipIdsOf, worldRectToPageLocalRect } from './clip/clipGeometry';
 import { CLIP_DUPLICATE_OFFSET, MIN_MARQUEE_RASTER_PX } from './clip/constants';
 import { clipRasterId } from '@/src/storage/rasterIds';
 import {
@@ -60,8 +60,8 @@ import {
   repaintInkDisplay,
   scheduleInkDisplay,
 } from '@/src/web/ink';
-import type { PageId } from '@/src/domain/types';
-import { textBoxForOwnerMove } from '@/src/web/gestures/elementInteraction';
+import { selectTargetFlagsOf, type ClipId, type PageId, type Rect, type TextId } from '@/src/domain/types';
+import { pageBoxToWorld, textBoxForOwnerMove, textPoseAfterWorldMove, textWorldBox } from '@/src/web/gestures/elementInteraction';
 import type { PdfExtractPayload } from '@/src/web/pdf/PdfPageViewer';
 
 import type { TextEditSelection } from '@/src/web/TextEditBar';
@@ -80,6 +80,38 @@ export type MarqueePreview = {
   pageId: PageId | null;
   rect: { x: number; y: number; width: number; height: number };
 };
+
+function collectTextIdsInWorldRect(
+  present: EditorDocument,
+  frames: StripFrame[],
+  worldRect: Rect,
+): TextId[] {
+  const ids: TextId[] = [];
+  const frameByPage = new Map<PageId, StripFrame>();
+  for (const frame of frames) {
+    if (frame.slot.kind === 'page') {
+      frameByPage.set(frame.slot.pageId, frame);
+    }
+  }
+  for (const [pageId, page] of Object.entries(present.pages)) {
+    const frame = frameByPage.get(pageId);
+    if (!frame) {
+      continue;
+    }
+    for (const text of page.texts) {
+      const world = pageBoxToWorld(frame, text.box, present.rasterWidth, present.rasterHeight);
+      if (rectsOverlap(world, worldRect)) {
+        ids.push(text.id);
+      }
+    }
+  }
+  for (const text of present.pasteboardTexts) {
+    if (rectsOverlap(text.box, worldRect)) {
+      ids.push(text.id);
+    }
+  }
+  return ids;
+}
 
 export type { ClipLiveTransform, TextLiveTransform };
 
@@ -198,7 +230,11 @@ function isClipLiveEffect(effect: WorkspaceEffect): boolean {
   return (
     effect.type === 'clipTransformLive' ||
     effect.type === 'commitClipTransform' ||
-    effect.type === 'cancelClipTransform'
+    effect.type === 'cancelClipTransform' ||
+    effect.type === 'beginSelectionMove' ||
+    effect.type === 'selectionMoveLive' ||
+    effect.type === 'commitSelectionMove' ||
+    effect.type === 'cancelSelectionMove'
   );
 }
 
@@ -291,6 +327,21 @@ export function useEditorController(projectId: string): EditorController {
   const marqueeRafRef = useRef(0);
   const pendingMarqueeRef = useRef<MarqueePreview | null>(null);
   const clipLiveRef = useRef<Map<string, ClipLiveTransform>>(new Map());
+  const selectionMoveRef = useRef<{
+    clips: Array<{ clipId: ClipId; x: number; y: number }>;
+    texts: Array<{
+      textId: TextId;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      fontSize: number;
+      where: 'page' | 'pasteboard';
+      pageId?: PageId;
+      worldX: number;
+      worldY: number;
+    }>;
+  } | null>(null);
   const [clipLiveTransforms, setClipLiveTransforms] = useState<Record<string, ClipLiveTransform>>({});
   const clipDragRafRef = useRef(0);
   const textLiveRef = useRef<Map<string, TextLiveTransform>>(new Map());
@@ -753,64 +804,93 @@ export function useEditorController(projectId: string): EditorController {
           ) {
             continue;
           }
-          if (effect.pageId === null) {
-            const ids = present.pasteboardClips
-              .filter((clip) => {
-                const pose = effectiveClipPose(clip, clipLiveRef.current.get(clip.id));
-                return clipTouchesWorldRect(
-                  { ...clip, ...pose },
-                  api.engine.getRasterDimensions(clip.rasterId),
-                  present.rasterWidth,
-                  present.rasterHeight,
-                  effect.rect,
-                );
-              })
-              .map((clip) => clip.id);
-            dispatch({ type: 'selectClips', clipIds: ids });
-            continue;
+          const targets = selectTargetFlagsOf(present.tools);
+          const worldRect = effect.rect;
+          const textIdsInRect = targets.text
+            ? collectTextIdsInWorldRect(present, frames, worldRect)
+            : [];
+          const clipIdsInRect = targets.clip
+            ? present.pasteboardClips
+                .filter((clip) => {
+                  const pose = effectiveClipPose(clip, clipLiveRef.current.get(clip.id));
+                  return clipTouchesWorldRect(
+                    { ...clip, ...pose },
+                    api.engine.getRasterDimensions(clip.rasterId),
+                    present.rasterWidth,
+                    present.rasterHeight,
+                    worldRect,
+                  );
+                })
+                .map((clip) => clip.id)
+            : [];
+          const cutClipIds: string[] = [];
+          if (targets.ink) {
+            for (const frame of frames) {
+              if (frame.slot.kind !== 'page') {
+                continue;
+              }
+              const page = present.pages[frame.slot.pageId];
+              if (!page) {
+                continue;
+              }
+              const localRect = worldRectToPageLocalRect(
+                frame,
+                worldRect,
+                present.rasterWidth,
+                present.rasterHeight,
+              );
+              if (
+                !localRect ||
+                localRect.width < MIN_MARQUEE_RASTER_PX ||
+                localRect.height < MIN_MARQUEE_RASTER_PX
+              ) {
+                continue;
+              }
+              const clipId = randomId();
+              const rasterId = `${present.projectId}:clip:${clipId}`;
+              const cut = api.engine.marqueeCut(page.rasterId, rasterId, localRect);
+              if (!cut.trim) {
+                continue;
+              }
+              const trimmedRect = {
+                x: localRect.x + cut.trim.x,
+                y: localRect.y + cut.trim.y,
+                width: cut.trim.width,
+                height: cut.trim.height,
+              };
+              const world = pageLocalRectToWorld(
+                frame.x,
+                frame.y,
+                frame.width,
+                frame.height,
+                trimmedRect,
+                present.rasterWidth,
+                present.rasterHeight,
+              );
+              const pageUndo = cut.pageUndo;
+              if (pageUndo.byteLength > 0) {
+                inkUndoRef.current.set(page.rasterId, pageUndo.slice(0));
+              }
+              dispatch({
+                type: 'commitMarqueeCut',
+                pageId: frame.slot.pageId,
+                clipId,
+                rasterId,
+                workspaceX: world.x,
+                workspaceY: world.y,
+              });
+              cutClipIds.push(clipId);
+            }
+            if (cutClipIds.length > 0) {
+              bumpInkFrame();
+            }
           }
-          const page = present.pages[effect.pageId];
-          if (!page) {
-            continue;
+          if (targets.clip || cutClipIds.length > 0) {
+            dispatch({ type: 'selectClips', clipIds: [...clipIdsInRect, ...cutClipIds] });
           }
-          const frame = frameForPage(present.workspaceOrder, effect.pageId, frames);
-          if (!frame) {
-            continue;
+          if (targets.text) {
+            dispatch({ type: 'selectTexts', textIds: textIdsInRect });
           }
-          const clipId = randomId();
-          const rasterId = `${present.projectId}:clip:${clipId}`;
-          const cut = api.engine.marqueeCut(page.rasterId, rasterId, effect.rect);
-          if (!cut.trim) {
-            continue;
-          }
-          const trimmedRect = {
-            x: effect.rect.x + cut.trim.x,
-            y: effect.rect.y + cut.trim.y,
-            width: cut.trim.width,
-            height: cut.trim.height,
-          };
-          const world = pageLocalRectToWorld(
-            frame.x,
-            frame.y,
-            frame.width,
-            frame.height,
-            trimmedRect,
-            present.rasterWidth,
-            present.rasterHeight,
-          );
-          const pageUndo = cut.pageUndo;
-          if (pageUndo.byteLength > 0) {
-            inkUndoRef.current.set(page.rasterId, pageUndo.slice(0));
-          }
-          dispatch({
-            type: 'commitMarqueeCut',
-            pageId: effect.pageId,
-            clipId,
-            rasterId,
-            workspaceX: world.x,
-            workspaceY: world.y,
-          });
-          bumpInkFrame();
           continue;
         }
         if (effect.type === 'dropClipOnPage') {
@@ -856,12 +936,187 @@ export function useEditorController(projectId: string): EditorController {
           clipLiveRef.current.delete(effect.clipId);
           changed = true;
         }
+        if (effect.type === 'beginSelectionMove') {
+          const frames = buildStripFrames(present.workspaceOrder, stripLayoutFromDoc(present)).frames;
+          selectionMoveRef.current = {
+            clips: effect.clipIds.flatMap((clipId) => {
+              const clip = present.pasteboardClips.find((item) => item.id === clipId);
+              return clip ? [{ clipId, x: clip.x, y: clip.y }] : [];
+            }),
+            texts: effect.textIds.flatMap((textId) => {
+              const found = findText(present, textId);
+              if (!found) {
+                return [];
+              }
+              const world = textWorldBox({
+                where: found.where,
+                pageId: found.pageId,
+                box: found.node.box,
+                frames,
+                rasterWidth: present.rasterWidth,
+                rasterHeight: present.rasterHeight,
+              });
+              return [
+                {
+                  textId,
+                  x: found.node.box.x,
+                  y: found.node.box.y,
+                  width: found.node.box.width,
+                  height: found.node.box.height,
+                  fontSize: found.node.fontSize,
+                  where: found.where,
+                  pageId: found.pageId,
+                  worldX: world.x,
+                  worldY: world.y,
+                },
+              ];
+            }),
+          };
+          changed = true;
+          continue;
+        }
+        if (effect.type === 'selectionMoveLive') {
+          const snapshot = selectionMoveRef.current;
+          if (!snapshot) {
+            continue;
+          }
+          const frames = buildStripFrames(present.workspaceOrder, stripLayoutFromDoc(present)).frames;
+          for (const clipStart of snapshot.clips) {
+            const clip = present.pasteboardClips.find((item) => item.id === clipStart.clipId);
+            if (!clip) {
+              continue;
+            }
+            clipLiveRef.current.set(
+              clipStart.clipId,
+              mergeClipLive(clip, clipLiveRef.current.get(clipStart.clipId), {
+                x: clipStart.x + effect.dx,
+                y: clipStart.y + effect.dy,
+              }),
+            );
+          }
+          for (const textStart of snapshot.texts) {
+            const found = findText(present, textStart.textId);
+            if (!found) {
+              continue;
+            }
+            const pose = textPoseAfterWorldMove({
+              sourceWhere: textStart.where,
+              sourcePageId: textStart.pageId,
+              sourceBox: {
+                x: textStart.x,
+                y: textStart.y,
+                width: textStart.width,
+                height: textStart.height,
+              },
+              sourceFontSize: textStart.fontSize,
+              worldX: textStart.worldX + effect.dx,
+              worldY: textStart.worldY + effect.dy,
+              frames,
+              rasterWidth: present.rasterWidth,
+              rasterHeight: present.rasterHeight,
+            });
+            const box =
+              pose.attachment.kind === 'page'
+                ? {
+                    ...pose.box,
+                    ...clampTextBoxOrigin(
+                      pose.box.x,
+                      pose.box.y,
+                      pose.box.width,
+                      pose.box.height,
+                      present.rasterWidth,
+                      present.rasterHeight,
+                    ),
+                  }
+                : pose.box;
+            textLiveRef.current.set(
+              textStart.textId,
+              mergeTextLive(found.node.box, textLiveRef.current.get(textStart.textId), {
+                x: box.x,
+                y: box.y,
+                width: box.width,
+                height: box.height,
+                where: pose.attachment.kind === 'pasteboard' ? 'pasteboard' : 'page',
+                pageId: pose.attachment.kind === 'page' ? pose.attachment.pageId : undefined,
+              }),
+            );
+          }
+          changed = true;
+          continue;
+        }
+        if (effect.type === 'commitSelectionMove') {
+          const snapshot = selectionMoveRef.current;
+          selectionMoveRef.current = null;
+          const clips: Array<{ clipId: ClipId; x: number; y: number }> = [];
+          const texts: Array<{
+            textId: TextId;
+            x: number;
+            y: number;
+            width?: number;
+            height?: number;
+            fontSize?: number;
+            attachment?: { kind: 'page'; pageId: PageId } | { kind: 'pasteboard' };
+          }> = [];
+          if (snapshot) {
+            for (const clipStart of snapshot.clips) {
+              const live = clipLiveRef.current.get(clipStart.clipId);
+              clipLiveRef.current.delete(clipStart.clipId);
+              if (live) {
+                clips.push({ clipId: clipStart.clipId, x: live.x, y: live.y });
+              }
+            }
+            for (const textStart of snapshot.texts) {
+              const live = textLiveRef.current.get(textStart.textId);
+              textLiveRef.current.delete(textStart.textId);
+              if (!live) {
+                continue;
+              }
+              const liveWidth = live.width ?? textStart.width;
+              const liveHeight = live.height ?? textStart.height;
+              const where = live.where ?? textStart.where;
+              const pageId = live.pageId ?? textStart.pageId;
+              texts.push({
+                textId: textStart.textId,
+                x: live.x,
+                y: live.y,
+                width: liveWidth,
+                height: liveHeight,
+                fontSize: textStart.fontSize * (liveWidth / Math.max(1, textStart.width)),
+                attachment:
+                  where === 'pasteboard'
+                    ? { kind: 'pasteboard' }
+                    : pageId
+                      ? { kind: 'page', pageId }
+                      : undefined,
+              });
+            }
+          }
+          if (clips.length > 0 || texts.length > 0) {
+            dispatch({ type: 'moveSelection', clips, texts });
+          }
+          changed = true;
+          continue;
+        }
+        if (effect.type === 'cancelSelectionMove') {
+          const snapshot = selectionMoveRef.current;
+          selectionMoveRef.current = null;
+          if (snapshot) {
+            for (const clipStart of snapshot.clips) {
+              clipLiveRef.current.delete(clipStart.clipId);
+            }
+            for (const textStart of snapshot.texts) {
+              textLiveRef.current.delete(textStart.textId);
+            }
+          }
+          changed = true;
+        }
       }
       if (changed) {
         bumpClipDragFrame();
+        bumpTextDragFrame();
       }
     },
-    [bumpClipDragFrame, dispatch],
+    [bumpClipDragFrame, bumpTextDragFrame, dispatch],
   );
 
   const applyTextLiveEffects = useCallback(

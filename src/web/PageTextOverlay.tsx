@@ -148,6 +148,7 @@ type PageTextsOnFrameProps = {
   rasterWidth: number;
   rasterHeight: number;
   selectedTextId: TextId | null;
+  selectedTextIds?: TextId[];
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
   liveTextContent?: LiveTextContent | null;
 };
@@ -159,17 +160,20 @@ export function PageTextsOnFrame({
   rasterWidth,
   rasterHeight,
   selectedTextId,
+  selectedTextIds,
   textLiveTransforms,
   liveTextContent,
 }: PageTextsOnFrameProps) {
   const rw = rasterSize(rasterWidth, DEFAULT_RASTER_WIDTH);
   const rh = rasterSize(rasterHeight, DEFAULT_RASTER_HEIGHT);
   const scaleX = PAGE_DISPLAY_W / rw;
+  const selectedIdSet = new Set(selectedTextIds ?? (selectedTextId ? [selectedTextId] : []));
 
   return (
     <>
       {texts.map((text) => {
-        const selected = selectedTextId === text.id;
+        const selected = selectedIdSet.has(text.id);
+        const primary = selectedTextId === text.id;
         const box = effectiveTextBox(sanitizeTextBox(text.box), textLiveTransforms[text.id]);
         const fontSize = Number.isFinite(text.fontSize) ? text.fontSize : 12;
         const resizeScale = box.width / Math.max(1, sanitizeTextBox(text.box).width);
@@ -200,7 +204,7 @@ export function PageTextsOnFrame({
             >
               {liveTextContent?.id === text.id ? liveTextContent.content : text.content}
             </div>
-            {selected ? <span className={styles.textResizeHandle} aria-hidden="true" /> : null}
+            {primary ? <span className={styles.textResizeHandle} aria-hidden="true" /> : null}
           </div>
         );
       })}
@@ -215,6 +219,7 @@ type PasteboardTextsLayerProps = {
   rasterWidth: number;
   rasterHeight: number;
   selectedTextId: TextId | null;
+  selectedTextIds?: TextId[];
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
   liveTextContent?: LiveTextContent | null;
 };
@@ -281,6 +286,7 @@ export function PasteboardTextsLayer({
   rasterWidth,
   rasterHeight,
   selectedTextId,
+  selectedTextIds,
   textLiveTransforms,
   liveTextContent,
 }: PasteboardTextsLayerProps) {
@@ -292,11 +298,13 @@ export function PasteboardTextsLayer({
     rasterHeight,
     textLiveTransforms,
   });
+  const selectedIdSet = new Set(selectedTextIds ?? (selectedTextId ? [selectedTextId] : []));
 
   return (
     <>
       {items.map(({ text, box, fontSize }) => {
-        const selected = selectedTextId === text.id;
+        const selected = selectedIdSet.has(text.id);
+        const primary = selectedTextId === text.id;
         return (
           <div
             key={text.id}
@@ -313,7 +321,7 @@ export function PasteboardTextsLayer({
             >
               {liveTextContent?.id === text.id ? liveTextContent.content : text.content}
             </div>
-            {selected ? <span className={styles.textResizeHandle} aria-hidden="true" /> : null}
+            {primary ? <span className={styles.textResizeHandle} aria-hidden="true" /> : null}
           </div>
         );
       })}

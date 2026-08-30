@@ -5,7 +5,13 @@ import initSqlJs, { type Database, type SqlJsStatic } from 'sql.js';
 import { beforeAll, describe, expect, test } from 'vitest';
 import { convertWrapToExplicitNewlines } from '../../../../domain/textWrap';
 import type { Rect } from '../../../../domain/types';
-import { buildPageClip, clipFontSizePt, pageTextToClipSpec } from '../buildPageClip';
+import {
+  buildPageClip,
+  clipFontSizePt,
+  pageTextToClipSpec,
+  type ClipPageTextInput,
+} from '../buildPageClip';
+import { decodeRgbaPng } from '../canvasPreview';
 import { getOffscreenExternalId } from '../clipDb';
 import { computeExtaHeaderOffsets, parseClip, type ParsedClip } from '../container';
 import {
@@ -189,6 +195,55 @@ describe('buildPageClip', () => {
     const decoded = decodeColorOffscreen(inkBody, CLIP_CANVAS_WIDTH, CLIP_CANVAS_HEIGHT);
     expect(decoded[px + 3]).toBe(255);
     expect(decoded[px]).toBe(0);
+  });
+
+  test('writes CanvasPreview compositing page_template and line art', () => {
+    const rgba = new Uint8Array(CLIP_CANVAS_WIDTH * CLIP_CANVAS_HEIGHT * 4);
+    const px = (100 * CLIP_CANVAS_WIDTH + 100) * 4;
+    rgba[px + 3] = 255;
+
+    const out = parseClip(
+      buildPageClip({
+        sql,
+        template,
+        texts: [],
+        rasterWidth: RASTER_W,
+        rasterHeight: RASTER_H,
+        lineartRgba: rgba,
+      }),
+    );
+    const db = openDb(out);
+    try {
+      const row = db.exec(
+        'SELECT ImageType, ImageWidth, ImageHeight, ImageData FROM CanvasPreview WHERE MainId = 1',
+      )[0]!.values[0]!;
+      expect(row[0]).toBe(1);
+      expect(row[1]).toBe(CLIP_CANVAS_WIDTH);
+      expect(row[2]).toBe(CLIP_CANVAS_HEIGHT);
+      const png = row[3] as Uint8Array;
+      const preview = decodeRgbaPng(png);
+      expect(preview.rgba[px + 3]).toBe(255);
+      expect(preview.rgba[px]).toBe(0);
+    } finally {
+      db.close();
+    }
+  });
+
+  test('mints a new document UUID so CSP does not reuse the template thumbnail cache', () => {
+    const opts = {
+      sql,
+      template,
+      texts: [] as ClipPageTextInput[],
+      rasterWidth: RASTER_W,
+      rasterHeight: RASTER_H,
+      lineartRgba: null,
+    };
+    const a = parseClip(buildPageClip(opts));
+    const b = parseClip(buildPageClip(opts));
+    expect([...a.head.documentUuid]).not.toEqual([...template.head.documentUuid]);
+    expect([...b.head.documentUuid]).not.toEqual([...template.head.documentUuid]);
+    expect([...a.head.documentUuid]).not.toEqual([...b.head.documentUuid]);
+    expect(a.head.documentUuid).toHaveLength(16);
   });
 
   test('does not mutate the shared template bytes', () => {

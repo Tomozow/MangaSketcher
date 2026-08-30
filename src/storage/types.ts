@@ -62,6 +62,9 @@ export const DEFAULT_TOOL_PROPERTIES: ToolProperties = {
   textColor: '#1A1A1A',
   textFontSize: 36,
   pressureEnabled: true,
+  selectText: true,
+  selectInk: true,
+  selectClip: true,
 };
 
 export const DEFAULT_UI_LAYOUT = {

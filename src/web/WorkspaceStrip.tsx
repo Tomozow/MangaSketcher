@@ -12,10 +12,12 @@ import {
 import { PAGE_INK_FRAME_ATTR, PAGE_INK_PLANE_ATTR, PAGE_NUMBER_BAND_ATTR, APPEND_SLOT_ATTR, pageInkLocalFromClient, pageInkLocalFromFrameRect, pageFrameMapRect } from '@/src/web/gestures/pageInkDom';
 import {
   TEMPLATE_PAGE_NUMBER_COVER,
+  selectTargetFlagsOf,
   type ClipId,
   type ClipMeta,
   type PageId,
   type PasteboardText,
+  type SelectTargetFlags,
   type TextId,
   type ToolId,
 } from '@/src/domain/types';
@@ -53,6 +55,8 @@ type WorkspaceStripProps = {
   selectedClipId: ClipId | null;
   selectedClipIds?: ClipId[];
   selectedTextId: TextId | null;
+  selectedTextIds?: TextId[];
+  selectTargets?: SelectTargetFlags;
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
   liveTextContent?: LiveTextContent | null;
   onDeleteText: (textId: TextId) => void;
@@ -89,6 +93,8 @@ export function WorkspaceStrip({
   selectedClipId,
   selectedClipIds = [],
   selectedTextId,
+  selectedTextIds,
+  selectTargets,
   textLiveTransforms,
   liveTextContent,
   onDeleteText,
@@ -121,7 +127,16 @@ export function WorkspaceStrip({
   const [grabbedPageId, setGrabbedPageId] = useState<PageId | null>(null);
   const [dragPointer, setDragPointer] = useState<{ x: number; y: number } | null>(null);
   const layout = stripLayoutFromDoc(stripLayout ?? {});
-  const visibleSelectedTextId = tool === 'text' ? selectedTextId : null;
+  const resolvedSelectTargets = selectTargets ?? selectTargetFlagsOf(undefined);
+  const showTextSelection = tool === 'text' || (tool === 'select' && resolvedSelectTargets.text);
+  const visibleSelectedTextIds = showTextSelection
+    ? selectedTextIds && selectedTextIds.length > 0
+      ? selectedTextIds
+      : selectedTextId
+        ? [selectedTextId]
+        : []
+    : [];
+  const visibleSelectedTextId = visibleSelectedTextIds[visibleSelectedTextIds.length - 1] ?? null;
   const { frames, dividers, contentWidth, contentHeight } = useMemo(
     () => buildStripFrames(workspaceOrder, layout),
     [workspaceOrder, layout.pagesPerColumn, layout.pairGap, layout.showPairDivider, layout.columnGap],
@@ -153,6 +168,8 @@ export function WorkspaceStrip({
     selectedClipId,
     selectedClipIds,
     selectedTextId,
+    selectedTextIds,
+    selectTargets: resolvedSelectTargets,
     tool,
     panX,
     panY,
@@ -172,6 +189,8 @@ export function WorkspaceStrip({
     selectedClipId,
     selectedClipIds,
     selectedTextId,
+    selectedTextIds,
+    selectTargets: resolvedSelectTargets,
     tool,
     panX,
     panY,
@@ -198,8 +217,17 @@ export function WorkspaceStrip({
       get selectedClipId() {
         return ctxRef.current.selectedClipId;
       },
+      get selectedClipIds() {
+        return ctxRef.current.selectedClipIds;
+      },
       get selectedTextId() {
         return ctxRef.current.selectedTextId;
+      },
+      get selectedTextIds() {
+        return ctxRef.current.selectedTextIds;
+      },
+      get selectTargets() {
+        return ctxRef.current.selectTargets;
       },
       get panX() {
         return ctxRef.current.panX;
@@ -239,6 +267,7 @@ export function WorkspaceStrip({
           ...ctxRef.current,
           pasteboardClips: clips,
           tool: ctxRef.current.tool,
+          selectTargets: ctxRef.current.selectTargets,
         });
       },
       resolveDropHit: (clientX, clientY, surfaceRect) => {
@@ -502,6 +531,7 @@ export function WorkspaceStrip({
                   rasterWidth={rasterWidth}
                   rasterHeight={rasterHeight}
                   selectedTextId={visibleSelectedTextId}
+                  selectedTextIds={visibleSelectedTextIds}
                   textLiveTransforms={textLiveTransforms}
                   liveTextContent={liveTextContent}
                 />
@@ -530,6 +560,7 @@ export function WorkspaceStrip({
           rasterWidth={rasterWidth}
           rasterHeight={rasterHeight}
           selectedTextId={visibleSelectedTextId}
+          selectedTextIds={visibleSelectedTextIds}
           textLiveTransforms={textLiveTransforms}
           liveTextContent={liveTextContent}
         />

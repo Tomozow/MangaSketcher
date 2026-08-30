@@ -5,6 +5,7 @@ import type { MouseEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { mainPaneFlex, nextSplitFromDrag, sidebarPaneFlex } from '@/src/domain/uiLayout';
 import type { PageId } from '@/src/domain/types';
+import { selectTargetFlagsOf } from '@/src/domain/types';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
 import type { EditorDocument, EditorHistory } from '@/src/storage/types';
 import type { AutosaveStatus } from '@/src/storage/autosave';
@@ -370,6 +371,8 @@ export function EditorLayout({
               applyWorkspaceEffects={handleWorkspaceEffects}
               getPageThumb={getPageThumb}
               selectedTextId={doc.selectedTextId}
+              selectedTextIds={doc.selectedTextIds}
+              selectTargets={selectTargetFlagsOf(doc.tools)}
               textLiveTransforms={textLiveTransforms}
               liveTextContent={
                 doc.tool === 'text' && textSelection && liveTextDraft !== null

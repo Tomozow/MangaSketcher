@@ -185,6 +185,29 @@ export function isVerticalWriting(): true {
   return true;
 }
 
+export function selectedTextIdsOf(doc: {
+  selectedTextId: TextId | null;
+  selectedTextIds?: readonly TextId[] | null;
+}): TextId[] {
+  if (Array.isArray(doc.selectedTextIds)) {
+    return [...doc.selectedTextIds];
+  }
+  return doc.selectedTextId ? [doc.selectedTextId] : [];
+}
+
+export function rectsOverlap(a: Rect, b: Rect): boolean {
+  return (
+    a.width > 0 &&
+    b.width > 0 &&
+    a.height > 0 &&
+    b.height > 0 &&
+    a.x < b.x + b.width &&
+    b.x < a.x + a.width &&
+    a.y < b.y + b.height &&
+    b.y < a.y + a.height
+  );
+}
+
 /** 空枠（未入力）判定。空白・改行のみも空とみなす。 */
 export function isTextContentEmpty(content: string): boolean {
   return content.trim().length === 0;

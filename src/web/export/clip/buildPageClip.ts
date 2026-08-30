@@ -7,8 +7,13 @@ import type { SqlJsStatic } from 'sql.js';
 import { convertWrapToExplicitNewlines } from '../../../domain/textWrap';
 import type { Rect } from '../../../domain/types';
 import { sortPageTexts } from '../sortPageTexts';
-import { rebuildClip, type ParsedClip } from './container';
+import {
+  rasterizeCanvasPreviewPng,
+  readPageTemplateRgba,
+  writeCanvasPreview,
+} from './canvasPreview';
 import { rebuildExternalChunk, replaceOffscreenRgba } from './clipDb';
+import { randomDocumentUuid, rebuildClip, type ParsedClip } from './container';
 import {
   CLIP_CANVAS_HEIGHT,
   CLIP_CANVAS_WIDTH,
@@ -95,6 +100,13 @@ export interface BuildPageClipInput {
   rasterHeight: number;
   /** CLIP_CANVAS_WIDTH x CLIP_CANVAS_HEIGHT RGBA, or null to keep the transparent template line art. */
   lineartRgba?: Uint8Array | null;
+  /**
+   * Decoded page_template pixels (1518×2150 RGBA). When omitted, decoded from
+   * the template once per page. Pass a cached copy from the export job.
+   */
+  templatePreviewRgba?: Uint8Array;
+  /** Skip compositing and write this PNG into CanvasPreview as-is. */
+  previewPng?: Uint8Array;
 }
 
 export function buildPageClip(input: BuildPageClipInput): Uint8Array {
@@ -129,6 +141,17 @@ export function buildPageClip(input: BuildPageClipInput): Uint8Array {
       );
     }
 
+    const previewPng =
+      input.previewPng ??
+      rasterizeCanvasPreviewPng({
+        templateRgba: input.templatePreviewRgba ?? readPageTemplateRgba(db, extas),
+        lineartRgba: input.lineartRgba ?? null,
+        texts: input.texts,
+        rasterWidth: input.rasterWidth,
+        rasterHeight: input.rasterHeight,
+      });
+    writeCanvasPreview(db, previewPng);
+
     setCanvasCurrentLayer(db, CLIP_LINEART_LAYER_ID);
     setLayerSelect(db, CLIP_LINEART_LAYER_ID);
     rebuildExternalChunk(db, extas);
@@ -136,7 +159,18 @@ export function buildPageClip(input: BuildPageClipInput): Uint8Array {
     // (deleted strings) out of the emitted database.
     db.run('VACUUM');
     const sqliteBytes = db.export();
-    return rebuildClip({ ...input.template, extas }, sqliteBytes);
+    // Mint a fresh CHNKHead UUID per file. Reusing the template id makes CSP /
+    // Explorer reuse the template's thumbnail cache, so the exported file
+    // appears to have no thumbnail (ClipMerger clip_io.py; confirmed against
+    // app_export_p001.clip vs usersave2).
+    return rebuildClip(
+      {
+        ...input.template,
+        extas,
+        head: { ...input.template.head, documentUuid: randomDocumentUuid() },
+      },
+      sqliteBytes,
+    );
   } finally {
     db.close();
   }

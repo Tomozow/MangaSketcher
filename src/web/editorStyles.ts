@@ -74,6 +74,8 @@ export const styles = {
   sidebarColumn: 'ms-sidebarColumn',
   sidebarCompact: 'ms-sidebarCompact',
   sidebarNormal: 'ms-sidebarNormal',
+  selectFilterRow: 'ms-selectFilterRow',
+  selectFilterButton: 'ms-selectFilterButton',
   sliderBlock: 'ms-sliderBlock',
   sliderInput: 'ms-sliderInput',
   sliderLabel: 'ms-sliderLabel',

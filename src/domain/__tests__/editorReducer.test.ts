@@ -345,3 +345,243 @@ describe('trash', () => {
     expect(history.present.stockPane).toBe('trash');
   });
 });
+
+describe('select texts and bulk font size', () => {
+  test('selectTexts keeps multiple ids and setTextsFontSize scales all boxes', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId },
+        box: { x: 10, y: 20, width: 10, height: 20 },
+        content: 'あ',
+      },
+      ids,
+    );
+    const a = doc.selectedTextId!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId },
+        box: { x: 40, y: 20, width: 10, height: 20 },
+        content: 'い',
+      },
+      ids,
+    );
+    const b = doc.selectedTextId!;
+    doc = reduceEditorDocument(doc, { type: 'selectTexts', textIds: [a, b] }, ids);
+    expect(doc.selectedTextIds).toEqual([a, b]);
+    expect(doc.selectedTextId).toBe(b);
+
+    const beforeA = doc.pages[pageId]!.texts.find((t) => t.id === a)!;
+    const startSize = beforeA.fontSize;
+    doc = reduceEditorDocument(doc, { type: 'setTextsFontSize', textIds: [a, b], fontSize: startSize * 2 }, ids);
+    const afterA = doc.pages[pageId]!.texts.find((t) => t.id === a)!;
+    const afterB = doc.pages[pageId]!.texts.find((t) => t.id === b)!;
+    expect(afterA.fontSize).toBe(startSize * 2);
+    expect(afterB.fontSize).toBe(startSize * 2);
+    expect(afterA.box.width).toBe(20);
+    expect(afterB.box.height).toBe(40);
+  });
+
+  test('selectClips from a marquee does not clear text selection', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId },
+        box: { x: 10, y: 20, width: 10, height: 20 },
+      },
+      ids,
+    );
+    const textId = doc.selectedTextId!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'commitMarqueeCut',
+        pageId,
+        clipId: 'c1',
+        rasterId: 'p1:clip:c1',
+        workspaceX: 0,
+        workspaceY: 0,
+      },
+      ids,
+    );
+    doc = reduceEditorDocument(doc, { type: 'selectTexts', textIds: [textId] }, ids);
+    doc = reduceEditorDocument(doc, { type: 'selectClips', clipIds: ['c1'] }, ids);
+    expect(doc.selectedTextIds).toEqual([textId]);
+    expect(doc.selectedClipIds).toEqual(['c1']);
+  });
+
+  test('moveSelection offsets clips and texts in one action', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId },
+        box: { x: 10, y: 20, width: 10, height: 20 },
+      },
+      ids,
+    );
+    const textId = doc.selectedTextId!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'commitMarqueeCut',
+        pageId,
+        clipId: 'c1',
+        rasterId: 'p1:clip:c1',
+        workspaceX: 5,
+        workspaceY: 7,
+      },
+      ids,
+    );
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'moveSelection',
+        clips: [{ clipId: 'c1', x: 25, y: 27 }],
+        texts: [{ textId, x: 40, y: 50 }],
+      },
+      ids,
+    );
+    expect(doc.pasteboardClips[0]).toMatchObject({ id: 'c1', x: 25, y: 27 });
+    expect(doc.pages[pageId]!.texts[0]).toMatchObject({ id: textId, box: { x: 40, y: 50, width: 10, height: 20 } });
+  });
+
+  test('moveSelection reattaches each text to pasteboard or another page in one action', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 2,
+      ids: sequentialIds('page'),
+    });
+    const pageA = doc.workspaceOrder[0]!;
+    const pageB = doc.workspaceOrder[1]!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId: pageA },
+        box: { x: 10, y: 20, width: 10, height: 20 },
+        content: 'A',
+      },
+      ids,
+    );
+    const toPasteboard = doc.selectedTextId!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId: pageA },
+        box: { x: 40, y: 20, width: 12, height: 24 },
+        content: 'B',
+      },
+      ids,
+    );
+    const toOtherPage = doc.selectedTextId!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'pasteboard' },
+        box: { x: 8, y: 9, width: 18, height: 36 },
+        content: 'C',
+      },
+      ids,
+    );
+    const toPage = doc.selectedTextId!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'commitMarqueeCut',
+        pageId: pageA,
+        clipId: 'c1',
+        rasterId: 'p1:clip:c1',
+        workspaceX: 5,
+        workspaceY: 7,
+      },
+      ids,
+    );
+
+    let history = createEditorHistory(doc);
+    history = reduceEditorHistory(
+      history,
+      {
+        type: 'moveSelection',
+        clips: [{ clipId: 'c1', x: 30, y: 40 }],
+        texts: [
+          {
+            textId: toPasteboard,
+            x: 80,
+            y: 90,
+            width: 18,
+            height: 36,
+            fontSize: 14,
+            attachment: { kind: 'pasteboard' },
+          },
+          {
+            textId: toOtherPage,
+            x: 6,
+            y: 8,
+            attachment: { kind: 'page', pageId: pageB },
+          },
+          {
+            textId: toPage,
+            x: 15,
+            y: 16,
+            width: 100,
+            height: 200,
+            fontSize: 80,
+            attachment: { kind: 'page', pageId: pageA },
+          },
+        ],
+      },
+      ids,
+    );
+    doc = history.present;
+    expect(doc.pasteboardClips[0]).toMatchObject({ id: 'c1', x: 30, y: 40 });
+    expect(doc.pages[pageA]!.texts.map((t) => t.id)).toEqual([toPage]);
+    expect(doc.pages[pageA]!.texts[0]).toMatchObject({
+      id: toPage,
+      fontSize: 80,
+      box: { x: 15, y: 16, width: 100, height: 200 },
+    });
+    expect(doc.pages[pageB]!.texts).toMatchObject([{ id: toOtherPage, box: { x: 6, y: 8, width: 12, height: 24 } }]);
+    expect(doc.pasteboardTexts).toMatchObject([
+      { id: toPasteboard, fontSize: 14, box: { x: 80, y: 90, width: 18, height: 36 } },
+    ]);
+
+    history = reduceEditorHistory(history, { type: 'undo' }, ids);
+    expect(history.present.pages[pageA]!.texts.map((t) => t.id).sort()).toEqual([toOtherPage, toPasteboard].sort());
+    expect(history.present.pages[pageB]!.texts).toEqual([]);
+    expect(history.present.pasteboardTexts.map((t) => t.id)).toEqual([toPage]);
+    expect(history.present.pasteboardClips[0]).toMatchObject({ id: 'c1', x: 5, y: 7 });
+  });
+});

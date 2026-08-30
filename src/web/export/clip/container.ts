@@ -130,6 +130,13 @@ export function parseHeadPayload(payload: Uint8Array): ClipHeadFields {
   };
 }
 
+/** 16-byte document id stored at the end of CHNKHead. */
+export function randomDocumentUuid(): Uint8Array {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return bytes;
+}
+
 export function buildHeadPayload(fields: ClipHeadFields): Uint8Array {
   const out = new Uint8Array(HEAD_PAYLOAD_SIZE);
   const view = new DataView(out.buffer);

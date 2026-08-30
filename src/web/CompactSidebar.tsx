@@ -2,7 +2,8 @@
 
 import { useMemo, useState } from 'react';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
-import type { ToolId } from '@/src/domain/types';
+import { selectTargetFlagsOf, type ToolId } from '@/src/domain/types';
+import { findText, selectedTextIdsOf } from '@/src/domain/text';
 import { inkPalette } from '@/src/theme/tokens';
 import type { EditorDocument, EditorHistory } from '@/src/storage/types';
 import { historyControlsDisabled } from './historyControls';
@@ -14,6 +15,12 @@ const TOOLS: { id: ToolId; label: string }[] = [
   { id: 'eraser', label: '消' },
   { id: 'text', label: '文' },
   { id: 'select', label: '選' },
+];
+
+const SELECT_FILTERS: { key: 'selectText' | 'selectInk' | 'selectClip'; label: string }[] = [
+  { key: 'selectText', label: 'テキスト' },
+  { key: 'selectInk', label: '線画' },
+  { key: 'selectClip', label: 'クリップ' },
 ];
 
 type CompactSidebarProps = {
@@ -37,17 +44,34 @@ export function CompactSidebar({
 }: CompactSidebarProps) {
   const [paletteOpen, setPaletteOpen] = useState(false);
 
+  const selectTargets = selectTargetFlagsOf(doc.tools);
+  const selectedTextIds = selectedTextIdsOf(doc);
+  const primarySelectedText =
+    doc.tool === 'select' && selectedTextIds.length > 0
+      ? findText(doc, selectedTextIds[selectedTextIds.length - 1]!)
+      : null;
+  const showSelectTextSize = Boolean(primarySelectedText);
+  const showSize = doc.tool !== 'select' || showSelectTextSize;
+  const showColor = doc.tool === 'pen' || doc.tool === 'text';
+
   const activeColor = useMemo(() => {
     if (doc.tool === 'text') {
       return doc.tools.textColor;
     }
-    if (doc.tool === 'eraser') {
+    if (doc.tool === 'eraser' || doc.tool === 'select') {
       return '#FFFFFF';
     }
     return doc.tools.penColor;
   }, [doc.tool, doc.tools.penColor, doc.tools.textColor]);
 
-  const sizeValue = doc.tool === 'eraser' ? doc.tools.eraserSize : doc.tool === 'text' ? doc.tools.textFontSize : doc.tools.penSize;
+  const sizeValue =
+    doc.tool === 'eraser'
+      ? doc.tools.eraserSize
+      : doc.tool === 'text'
+        ? doc.tools.textFontSize
+        : doc.tool === 'select' && primarySelectedText
+          ? primarySelectedText.node.fontSize
+          : doc.tools.penSize;
   const opacityValue = doc.tool === 'eraser' ? doc.tools.eraserOpacity : doc.tools.penOpacity;
   const showOpacity = doc.tool === 'pen' || doc.tool === 'eraser';
 
@@ -58,6 +82,10 @@ export function CompactSidebar({
     }
     if (doc.tool === 'text') {
       dispatch({ type: 'setToolProperties', patch: { textFontSize: value } });
+      return;
+    }
+    if (doc.tool === 'select' && selectedTextIds.length > 0) {
+      dispatch({ type: 'setTextsFontSize', textIds: selectedTextIds, fontSize: value });
       return;
     }
     dispatch({ type: 'setToolProperties', patch: { penSize: value } });
@@ -96,14 +124,41 @@ export function CompactSidebar({
         ))}
       </div>
 
+      {doc.tool === 'select' ? (
+        <div className={styles.selectFilterRow} role="group" aria-label="選択対象">
+          {SELECT_FILTERS.map((filter) => {
+            const on =
+              filter.key === 'selectText'
+                ? selectTargets.text
+                : filter.key === 'selectInk'
+                  ? selectTargets.ink
+                  : selectTargets.clip;
+            return (
+              <button
+                key={filter.key}
+                type="button"
+                className={`${styles.selectFilterButton} ${on ? styles.toolButtonActive : ''}`}
+                aria-pressed={on}
+                aria-label={filter.label}
+                onClick={() => dispatch({ type: 'setToolProperties', patch: { [filter.key]: !on } })}
+              >
+                {filter.label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+
+      {showSize ? (
       <ValueSlider
-        label={doc.tool === 'text' ? 'サイズ' : doc.tool === 'eraser' ? '消し' : '筆'}
-        min={doc.tool === 'text' ? 12 : 1}
-        max={doc.tool === 'text' ? 96 : doc.tool === 'eraser' ? ERASER_SIZE_MAX : 64}
+        label={doc.tool === 'text' || doc.tool === 'select' ? 'サイズ' : doc.tool === 'eraser' ? '消し' : '筆'}
+        min={doc.tool === 'text' || doc.tool === 'select' ? 12 : 1}
+        max={doc.tool === 'text' || doc.tool === 'select' ? 96 : doc.tool === 'eraser' ? ERASER_SIZE_MAX : 64}
         step={1}
         value={sizeValue}
         onChange={handleSizeChange}
       />
+      ) : null}
 
       {showOpacity ? (
         <ValueSlider label="不透明度" min={0.05} max={1} step={0.05} value={opacityValue} onChange={handleOpacityChange} />
@@ -126,17 +181,19 @@ export function CompactSidebar({
         </button>
       ) : null}
 
-      <div className={styles.colorRow}>
-        <button
-          type="button"
-          className={styles.colorSwatch}
-          style={{ background: activeColor }}
-          onClick={() => setPaletteOpen((open) => !open)}
-          aria-label="カラーパレット"
-        />
-      </div>
+      {showColor ? (
+        <div className={styles.colorRow}>
+          <button
+            type="button"
+            className={styles.colorSwatch}
+            style={{ background: activeColor }}
+            onClick={() => setPaletteOpen((open) => !open)}
+            aria-label="カラーパレット"
+          />
+        </div>
+      ) : null}
 
-      {paletteOpen ? (
+      {showColor && paletteOpen ? (
         <div className={styles.palettePopover}>
           {inkPalette.map((color) => (
             <button

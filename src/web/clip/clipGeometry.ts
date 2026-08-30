@@ -121,6 +121,57 @@ export function hitClipAt(
   return null;
 }
 
+export function intersectRects(a: Rect, b: Rect): Rect | null {
+  const x = Math.max(a.x, b.x);
+  const y = Math.max(a.y, b.y);
+  const right = Math.min(a.x + a.width, b.x + b.width);
+  const bottom = Math.min(a.y + a.height, b.y + b.height);
+  if (right - x <= 0 || bottom - y <= 0) {
+    return null;
+  }
+  return { x, y, width: right - x, height: bottom - y };
+}
+
+export function worldRectToPageLocalRect(
+  frame: { x: number; y: number; width: number; height: number },
+  worldRect: Rect,
+  rasterWidth: number,
+  rasterHeight: number,
+): Rect | null {
+  const hit = intersectRects(worldRect, {
+    x: frame.x,
+    y: frame.y,
+    width: frame.width,
+    height: frame.height,
+  });
+  if (!hit) {
+    return null;
+  }
+  return {
+    x: ((hit.x - frame.x) / frame.width) * rasterWidth,
+    y: ((hit.y - frame.y) / frame.height) * rasterHeight,
+    width: (hit.width / frame.width) * rasterWidth,
+    height: (hit.height / frame.height) * rasterHeight,
+  };
+}
+
+export function pageLocalRectToWorldRect(
+  frameX: number,
+  frameY: number,
+  frameW: number,
+  frameH: number,
+  rect: Rect,
+  rasterWidth: number,
+  rasterHeight: number,
+): Rect {
+  return {
+    x: frameX + (rect.x / rasterWidth) * frameW,
+    y: frameY + (rect.y / rasterHeight) * frameH,
+    width: (rect.width / rasterWidth) * frameW,
+    height: (rect.height / rasterHeight) * frameH,
+  };
+}
+
 export function pageLocalRectToWorld(
   frameX: number,
   frameY: number,

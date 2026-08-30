@@ -12,6 +12,7 @@ export const CLIP_CANVAS_HEIGHT = 2150;
 export const CLIP_TEXT_FOLDER_ID = 9;
 export const CLIP_LINEART_LAYER_ID = 8;
 export const CLIP_LINEART_OFFSCREEN_ID = 48;
+export const CLIP_PAGE_TEMPLATE_OFFSCREEN_ID = 5;
 
 /** Static assets served from public/. */
 export const CLIP_TEMPLATE_URL = '/clip-export-template.clip';

@@ -8,11 +8,15 @@ export const MM_PER_PT = 2.8346457;
 /** L5 @ 8pt vertical column width and line pitch (px); scales linearly with font size. */
 export const COLUMN_WIDTH_8PT_PX = 33;
 export const LINE_PITCH_8PT_PX = 33;
-/** Inter-column pitch @ 8pt (L7: (204−33)/3 = 57). Distinct from glyph column width 33px. */
+/**
+ * Prototype L7 行間 at 8pt ((204−33)/3). Tighter than CSP's default after a
+ * font-size change; bbox width uses 2× glyph column instead (see
+ * verticalTextMetrics). Kept for documentation / sample comparison.
+ */
 export const INTER_COLUMN_PITCH_8PT_PX = 57;
-/** L6 two-line width correction: 91 = 33 + 57 + 1 @ 8pt. */
+/** L6 two-line width correction: +1px (was 91 = 33 + 57 + 1 @ 8pt). */
 export const TWO_LINE_WIDTH_ADJ_8PT_PX = 1;
-/** Multi-line bbox height padding @ 8pt (L6/L7: height = maxLine×pitch + 2). */
+/** Multi-line bbox height padding (not scaled; L6/L7 and CSP usersave use +2). */
 export const MULTI_LINE_HEIGHT_PAD_8PT_PX = 2;
 export const BASE_FONT_SIZE_PT = 8;
 
@@ -259,6 +263,7 @@ export function encodeRenderSize(size: RenderSize): Uint8Array {
 /**
  * L5-style centi-px rect: [-w×100, 0, 0, 0, 0, h×100, -w×100, h×100].
  * L6/L7 use 100 at indices 2 and 4; pass variant='offset' for those layers.
+ * Multi-line callers pass width−1 (prototype L6 −9000 for 91px).
  */
 export function encodeRenderRectCentiPx(
   width: number,
@@ -338,7 +343,10 @@ export function verticalTextMetrics(text: string, fontSizeValue: number): Vertic
   const scale = fontSizePt / BASE_FONT_SIZE_PT;
   const glyphColumnWidth = Math.round(COLUMN_WIDTH_8PT_PX * scale);
   const linePitchPx = Math.round(LINE_PITCH_8PT_PX * scale);
-  const interColumnPitchPx = Math.round(INTER_COLUMN_PITCH_8PT_PX * scale);
+  // After font-size change, CSP lays out columns at ~1 em = 2× glyph box
+  // (iPad usersave 2026-08-30: 5.82pt 3-col width 120 = 24+2×48, not 106 from
+  // scaled prototype 57px). Scaled 57px clips the rightmost column.
+  const interColumnPitchPx = glyphColumnWidth * 2;
   const lineCount = explicitLineCount(text);
   const maxLineChars = maxLineUtf16CharCount(text);
   const multiLine = lineCount > 1;
@@ -350,7 +358,7 @@ export function verticalTextMetrics(text: string, fontSizeValue: number): Vertic
     width = glyphColumnWidth + (lineCount - 1) * interColumnPitchPx + twoLineAdj;
   }
 
-  const heightPad = multiLine ? Math.round(MULTI_LINE_HEIGHT_PAD_8PT_PX * scale) : 0;
+  const heightPad = multiLine ? MULTI_LINE_HEIGHT_PAD_8PT_PX : 0;
   const height = maxLineChars * linePitchPx + heightPad;
 
   return {
@@ -498,7 +506,10 @@ function applyBBoxToEntries(
   const size = bboxToSize(bbox);
   const bboxPayload = encodeCanvasBBox(bbox);
   const sizePayload = encodeRenderSize(size);
-  const centiPayload = encodeRenderRectCentiPx(size.width, size.height, centiVariant);
+  // Multi-line prototypes / CSP usersave: id=64 uses width−1 (L6 −9000 for
+  // 91px, usersave −11900 for 120px). id=72 already stores width−1.
+  const centiWidth = multiLine ? Math.max(0, size.width - 1) : size.width;
+  const centiPayload = encodeRenderRectCentiPx(centiWidth, size.height, centiVariant);
   const hintPayload = encodeCacheWidthHint(size.width, multiLine);
 
   syncScalarPair(attrEntries, addEntries, 42, bboxPayload);

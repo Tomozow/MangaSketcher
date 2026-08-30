@@ -9,7 +9,7 @@ import {
   screenToWorld,
   type StripFrame,
 } from '../../domain/stripGeometry';
-import type { ClipId, ClipMeta, PageId, PageText, PasteboardText, TextId, ToolId } from '../../domain/types';
+import type { ClipId, ClipMeta, PageId, PageText, PasteboardText, SelectTargetFlags, TextId, ToolId } from '../../domain/types';
 import { hitClipAt } from '../clip/clipGeometry';
 import { pageInkLocalFromClient, resolveAppendDomHit, resolvePageDomHit } from './pageInkDom';
 import {
@@ -42,6 +42,7 @@ export type ResolveWorkspaceHitInput = {
   getClipRasterSize: (clipId: ClipId) => { width: number; height: number };
   /** When set, pen/eraser resolve the page under the pointer (not pasteboard clips). */
   tool?: ToolId;
+  selectTargets?: SelectTargetFlags;
 };
 
 function hitRenderedTextFromDomStack(
@@ -229,82 +230,89 @@ export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceH
     return resolvePageWorkspaceHit(input, worldX, worldY, frames) ?? { kind: 'empty' };
   }
 
-  const renderedTextHit = hitRenderedTextFromDomStack(input, rect, frames, worldX, worldY);
-  if (renderedTextHit) {
-    return renderedTextHit;
-  }
+  const selectText = input.tool !== 'select' || input.selectTargets?.text !== false;
+  const selectClip = input.tool !== 'select' || input.selectTargets?.clip !== false;
 
-  const domTextHit = hitPageTextFromDom(input);
-  if (domTextHit) {
-    return domTextHit;
-  }
-
-  const textElements = buildTextInteractionElements({ ...input, frames });
-  const textHit = hitTextInteraction(
-    textElements,
-    worldX,
-    worldY,
-    input.selectedTextId ?? null,
-    14 / Math.max(0.1, input.zoom),
-  );
-  if (textHit?.handle === 'se') {
-    return {
-      kind: 'resizeHandle',
-      textId: textHit.element.id,
-      owner: textHit.element.owner.kind,
-      pageId: textHit.element.owner.kind === 'page' ? textHit.element.owner.pageId : undefined,
-      worldBox: textHit.element.worldBox,
-    };
-  }
-
-  if (textHit) {
-    const offsetX = worldX - textHit.element.worldBox.x;
-    const offsetY = worldY - textHit.element.worldBox.y;
-    if (textHit.element.owner.kind === 'pasteboard') {
-      return {
-        kind: 'pasteboardText',
-        textId: textHit.element.id,
-        grabOffsetX: offsetX,
-        grabOffsetY: offsetY,
-      };
+  if (selectText) {
+    const renderedTextHit = hitRenderedTextFromDomStack(input, rect, frames, worldX, worldY);
+    if (renderedTextHit) {
+      return renderedTextHit;
     }
-    const pageId = textHit.element.owner.pageId;
-    const frame = frames.find(
-      (candidate) => candidate.slot.kind === 'page' && candidate.slot.pageId === pageId,
+
+    const domTextHit = hitPageTextFromDom(input);
+    if (domTextHit) {
+      return domTextHit;
+    }
+
+    const textElements = buildTextInteractionElements({ ...input, frames });
+    const textHit = hitTextInteraction(
+      textElements,
+      worldX,
+      worldY,
+      input.selectedTextId ?? null,
+      14 / Math.max(0.1, input.zoom),
     );
-    if (frame) {
-      const local = pageLocalFromWorld(
-        frame,
-        worldX,
-        worldY,
-        input.rasterWidth,
-        input.rasterHeight,
-      );
+    if (textHit?.handle === 'se') {
       return {
-        kind: 'pageText',
+        kind: 'resizeHandle',
         textId: textHit.element.id,
-        pageId,
-        localX: local.x,
-        localY: local.y,
-        grabOffsetX: offsetX,
-        grabOffsetY: offsetY,
-        readingIndex: input.workspaceOrder.indexOf(pageId),
-        insertIndex: frame.insertIndex,
+        owner: textHit.element.owner.kind,
+        pageId: textHit.element.owner.kind === 'page' ? textHit.element.owner.pageId : undefined,
+        worldBox: textHit.element.worldBox,
       };
+    }
+
+    if (textHit) {
+      const offsetX = worldX - textHit.element.worldBox.x;
+      const offsetY = worldY - textHit.element.worldBox.y;
+      if (textHit.element.owner.kind === 'pasteboard') {
+        return {
+          kind: 'pasteboardText',
+          textId: textHit.element.id,
+          grabOffsetX: offsetX,
+          grabOffsetY: offsetY,
+        };
+      }
+      const pageId = textHit.element.owner.pageId;
+      const frame = frames.find(
+        (candidate) => candidate.slot.kind === 'page' && candidate.slot.pageId === pageId,
+      );
+      if (frame) {
+        const local = pageLocalFromWorld(
+          frame,
+          worldX,
+          worldY,
+          input.rasterWidth,
+          input.rasterHeight,
+        );
+        return {
+          kind: 'pageText',
+          textId: textHit.element.id,
+          pageId,
+          localX: local.x,
+          localY: local.y,
+          grabOffsetX: offsetX,
+          grabOffsetY: offsetY,
+          readingIndex: input.workspaceOrder.indexOf(pageId),
+          insertIndex: frame.insertIndex,
+        };
+      }
     }
   }
 
-  const clipHit = hitPasteboardClips(
-    input.pasteboardClips,
-    input.selectedClipIds ?? (input.selectedClipId ? [input.selectedClipId] : []),
-    worldX,
-    worldY,
-    input.rasterWidth,
-    input.rasterHeight,
-    input.getClipRasterSize,
-  );
-  if (clipHit) {
-    return clipHit;
+  if (selectClip) {
+    const clipHit = hitPasteboardClips(
+      input.pasteboardClips,
+      input.selectedClipIds ?? (input.selectedClipId ? [input.selectedClipId] : []),
+      worldX,
+      worldY,
+      input.rasterWidth,
+      input.rasterHeight,
+      input.getClipRasterSize,
+    );
+    if (clipHit) {
+      return clipHit;
+    }
   }
 
   return resolvePageWorkspaceHit(input, worldX, worldY, frames) ?? { kind: 'empty' };

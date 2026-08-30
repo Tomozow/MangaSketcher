@@ -1,5 +1,10 @@
 import type { PageId, PageText, PasteboardText, Rect, TextId } from '../../domain/types';
-import { buildStripFrames, type StripFrame } from '../../domain/stripGeometry';
+import {
+  buildStripFrames,
+  pageInkFrameAtWorld,
+  pageLocalFromWorld,
+  type StripFrame,
+} from '../../domain/stripGeometry';
 import { MIN_TEXT_HIT_CSS } from './textHit';
 
 export type TextInteractionElement = {
@@ -83,6 +88,84 @@ export function textBoxForOwnerMove(input: {
     }
   }
   return { ...safeBox, x: input.x, y: input.y };
+}
+
+export type TextOwnerTarget = { kind: 'page'; pageId: PageId } | { kind: 'pasteboard' };
+
+export function textWorldBox(input: {
+  where: 'page' | 'pasteboard';
+  pageId?: PageId;
+  box: Rect;
+  frames: StripFrame[];
+  rasterWidth: number;
+  rasterHeight: number;
+}): Rect {
+  if (input.where === 'page' && input.pageId) {
+    const frame = input.frames.find((item) => item.slot.kind === 'page' && item.slot.pageId === input.pageId);
+    if (frame) {
+      return pageBoxToWorld(frame, input.box, input.rasterWidth, input.rasterHeight);
+    }
+  }
+  return {
+    x: finiteOr(input.box.x),
+    y: finiteOr(input.box.y),
+    width: Math.max(4, finiteOr(input.box.width, 4)),
+    height: Math.max(4, finiteOr(input.box.height, 4)),
+  };
+}
+
+export function textOwnerAtWorld(frames: StripFrame[], worldX: number, worldY: number): TextOwnerTarget {
+  const frame = pageInkFrameAtWorld(frames, worldX, worldY);
+  if (frame && frame.slot.kind === 'page') {
+    return { kind: 'page', pageId: frame.slot.pageId };
+  }
+  return { kind: 'pasteboard' };
+}
+
+/** Convert a world-space origin into the landing owner (page vs pasteboard) and its local box. */
+export function textPoseAfterWorldMove(input: {
+  sourceWhere: 'page' | 'pasteboard';
+  sourcePageId?: PageId;
+  sourceBox: Rect;
+  sourceFontSize: number;
+  worldX: number;
+  worldY: number;
+  frames: StripFrame[];
+  rasterWidth: number;
+  rasterHeight: number;
+}): { attachment: TextOwnerTarget; box: Rect; fontSize: number } {
+  const attachment = textOwnerAtWorld(input.frames, input.worldX, input.worldY);
+  const frameForPageId = (pageId: PageId) =>
+    input.frames.find((item) => item.slot.kind === 'page' && item.slot.pageId === pageId) ?? null;
+  let x = input.worldX;
+  let y = input.worldY;
+  let targetPageId: PageId | undefined;
+  let targetPasteboard = false;
+  if (attachment.kind === 'page') {
+    targetPageId = attachment.pageId;
+    const frame = frameForPageId(targetPageId);
+    if (frame) {
+      const local = pageLocalFromWorld(frame, input.worldX, input.worldY, input.rasterWidth, input.rasterHeight);
+      x = local.x;
+      y = local.y;
+    }
+  } else {
+    targetPasteboard = true;
+  }
+  const box = textBoxForOwnerMove({
+    sourceWhere: input.sourceWhere,
+    sourcePageId: input.sourcePageId,
+    sourceBox: input.sourceBox,
+    x,
+    y,
+    targetPasteboard,
+    targetPageId,
+    frameForPageId,
+    rasterWidth: input.rasterWidth,
+    rasterHeight: input.rasterHeight,
+  });
+  const sourceWidth = Math.max(4, finiteOr(input.sourceBox.width, 4));
+  return { attachment, box, fontSize: input.sourceFontSize * (box.width / sourceWidth) };
 }
 
 export function buildTextInteractionElements(input: {
