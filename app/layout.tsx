@@ -15,9 +15,24 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   title: 'MangaSketcher',
   description: 'iPad manga name editor',
+  applicationName: 'MangaSketcher',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
+    title: 'MangaSketcher',
+  },
+  other: {
+    'apple-mobile-web-app-capable': 'yes',
+  },
+  icons: {
+    apple: [
+      { url: '/icons/icon-180.png', sizes: '180x180' },
+      { url: '/icons/icon-192.png', sizes: '192x192' },
+    ],
+    icon: [
+      { url: '/icons/icon-192.png', sizes: '192x192' },
+      { url: '/icons/icon-512.png', sizes: '512x512' },
+    ],
   },
 };
 

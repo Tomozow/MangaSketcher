@@ -1,6 +1,5 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
 import type { MouseEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { mainPaneFlex, nextSplitFromDrag, sidebarPaneFlex } from '@/src/domain/uiLayout';
@@ -25,6 +24,7 @@ import type { PdfExtractPayload } from '@/src/web/pdf/PdfPageViewer';
 import { WorkspacePaneActions } from './WorkspacePaneActions';
 import { WorkspaceStrip } from './WorkspaceStrip';
 import { navigateHomeAfterCheckpoint } from './editorNavigate';
+import { hardNavigate } from './hardNavigate';
 import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 
 // #region agent log
@@ -108,7 +108,6 @@ export function EditorLayout({
   onNavigateHome,
   onTextDraftChange,
 }: EditorLayoutProps) {
-  const router = useRouter();
   const mainFlex = mainPaneFlex(doc);
   const sideFlex = sidebarPaneFlex(doc);
   const sidebarClass = doc.sidebarCompact ? styles.sidebarCompact : styles.sidebarNormal;
@@ -214,9 +213,9 @@ export function EditorLayout({
   const handleNavigateHome = useCallback(
     (event: MouseEvent<HTMLAnchorElement>) => {
       event.preventDefault();
-      void navigateHomeAfterCheckpoint(onNavigateHome, (path) => router.push(path));
+      void navigateHomeAfterCheckpoint(onNavigateHome, (path) => hardNavigate(path));
     },
-    [onNavigateHome, router],
+    [onNavigateHome],
   );
 
   const liveTextDraftRef = useRef(liveTextDraft);

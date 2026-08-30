@@ -42,3 +42,11 @@ export type ClipWorkerResponse =
   | { type: 'progress'; current: number; total: number }
   | { type: 'done'; blob: Blob }
   | { type: 'error'; message: string };
+
+/** Structural Worker interface so tests can inject a fake. */
+export type ClipWorkerLike = {
+  postMessage(message: ClipWorkerRequest, transfer?: Transferable[]): void;
+  terminate(): void;
+  onmessage: ((event: { data: ClipWorkerResponse }) => void) | null;
+  onerror: ((event: unknown) => void) | null;
+};

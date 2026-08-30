@@ -6,6 +6,8 @@ node_modules/
 # Next.js
 .next/
 out/
+.static-export-park/
+certs/
 
 # Expo (legacy)
 .expo/

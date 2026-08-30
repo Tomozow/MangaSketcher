@@ -8,6 +8,7 @@ import { cloneEditorDocument } from './editorDocument';
 import { collectRasterIds } from './rasterIds';
 import type { StorageDatabase } from './idb';
 import { getDefaultStorageDatabase } from './idb';
+import { requestPersistentStorage } from './persistentStorage';
 
 export type AutosaveStatus = {
   unsaved: boolean;
@@ -193,6 +194,7 @@ export class AutosaveManager {
       };
       await this.db.putDocument(job.doc);
       await this.db.putMeta(meta);
+      void requestPersistentStorage();
       if (job.saveGen === this.saveGen) {
         this.setUnsaved(false);
       }

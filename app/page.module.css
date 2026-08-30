@@ -24,6 +24,41 @@
   color: #6f675c;
 }
 
+.installHint {
+  border: 1px solid #c9c0b0;
+  border-radius: 12px;
+  background: #fff8ee;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.installHintTitle {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.installHintSteps {
+  margin: 0;
+  padding-left: 1.25rem;
+  color: #2b2620;
+  font-size: 0.875rem;
+  line-height: 1.55;
+}
+
+.installHintSteps li + li {
+  margin-top: 6px;
+}
+
+.installHintNote {
+  margin: 0;
+  color: #6f675c;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
 .list {
   flex: 1;
   overflow-y: auto;

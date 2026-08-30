@@ -1,8 +1,6 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import {
   createProject,
   deleteProject,
@@ -18,6 +16,8 @@ import {
   saveAppSettings,
   type AutosavePresetId,
 } from '@/src/storage/appSettings';
+import { projectHref } from '@/src/web/projectRoutes';
+import { hardNavigate } from '@/src/web/hardNavigate';
 import styles from '@/app/page.module.css';
 
 const DEFAULT_PROJECT_NAME = '無題';
@@ -64,7 +64,6 @@ function promptRename(currentName: string): string | null {
 }
 
 export function ProjectList() {
-  const router = useRouter();
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -112,7 +111,7 @@ export function ProjectList() {
     setBusyId('__create__');
     try {
       const { meta } = await createProject(DEFAULT_PROJECT_NAME, pageCount);
-      router.push(`/p/${meta.id}`);
+      hardNavigate(projectHref(meta.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'プロジェクトの作成に失敗しました。');
       setBusyId(null);
@@ -188,12 +187,12 @@ export function ProjectList() {
               const rowBusy = busyId === project.id;
               return (
                 <li key={project.id} className={styles.projectRow}>
-                  <Link href={`/p/${project.id}`} className={styles.projectOpen}>
+                  <a href={projectHref(project.id)} className={styles.projectOpen}>
                     <span className={styles.projectName}>{project.name}</span>
                     <span className={styles.projectMeta}>
                       {project.pageCount} ページ · {formatUpdatedAt(project.updatedAt)}
                     </span>
-                  </Link>
+                  </a>
                   <div className={styles.projectActions}>
                     <button
                       type="button"

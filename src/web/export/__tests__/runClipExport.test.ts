@@ -236,4 +236,32 @@ describe('runClipExport', () => {
     await expect(pending).rejects.toBeInstanceOf(WorkspaceExportAbortedError);
     expect(worker.terminated).toBe(true);
   });
+
+  test('worker onerror becomes WorkspaceExportError when a test worker is injected', async () => {
+    const doc = makeDoc(1);
+    const pngs = new Map<string, ArrayBuffer | undefined>(
+      doc.workspaceOrder.map((id) => [doc.pages[id]!.rasterId, new ArrayBuffer(0)]),
+    );
+    const worker = {
+      onmessage: null as ClipWorkerLike['onmessage'],
+      onerror: null as ClipWorkerLike['onerror'],
+      terminated: false,
+      postMessage() {
+        queueMicrotask(() => worker.onerror?.(new Event('error')));
+      },
+      terminate() {
+        worker.terminated = true;
+      },
+    };
+
+    await expect(
+      runClipExport({
+        doc,
+        inkEngine: makeInk(pngs),
+        mode: 'zip',
+        createWorker: () => worker,
+      }),
+    ).rejects.toBeInstanceOf(WorkspaceExportError);
+    expect(worker.terminated).toBe(true);
+  });
 });

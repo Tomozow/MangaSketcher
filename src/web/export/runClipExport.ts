@@ -2,6 +2,10 @@
  * Main-thread orchestrator for ".clip export": snapshots the document, waits
  * for ink encodes, then drives the export Web Worker (pull-based ink feed,
  * progress, cancellation). See clip/clipExportProtocol.ts for the message flow.
+ *
+ * next dev compiles the worker with eval-source-map, which iOS Safari rejects.
+ * Development therefore runs ClipExportJob on the page thread. Production still
+ * uses a Worker, with a one-shot main-thread fallback if the worker crashes.
  */
 import { cloneEditorDocument } from '../../domain/document';
 import type { EditorDocument, PageId } from '../../domain/types';
@@ -9,7 +13,7 @@ import { isPngBuffer } from '../ink/fakeCanvas';
 import type {
   ClipExportMode,
   ClipExportStartMessage,
-  ClipWorkerRequest,
+  ClipWorkerLike,
   ClipWorkerResponse,
 } from './clip/clipExportProtocol';
 import { MAX_WORKSPACE_EXPORT_PAGES, padPageIndex } from './constants';
@@ -18,15 +22,14 @@ import type { ExportProgress, InkExportSource } from './exportWorkspace';
 import { formatExportTimestamp, sanitizeExportStem } from './sanitizeExportName';
 import { waitForInkEncodes, type EncodeWaitClock } from './waitForInkEncode';
 
-export type { ClipExportMode } from './clip/clipExportProtocol';
+export type { ClipExportMode, ClipWorkerLike } from './clip/clipExportProtocol';
 
-/** Structural Worker interface so tests can inject a fake. */
-export type ClipWorkerLike = {
-  postMessage(message: ClipWorkerRequest, transfer?: Transferable[]): void;
-  terminate(): void;
-  onmessage: ((event: { data: ClipWorkerResponse }) => void) | null;
-  onerror: ((event: unknown) => void) | null;
-};
+class ClipWorkerCrashedError extends Error {
+  constructor() {
+    super('clip worker crashed');
+    this.name = 'ClipWorkerCrashedError';
+  }
+}
 
 export function buildClipExportNames(
   stem: string,
@@ -44,10 +47,19 @@ export function buildClipExportNames(
   return { fileName: `${folderName}.zip`, folderName };
 }
 
-function createDefaultClipWorker(): ClipWorkerLike {
-  return new Worker(
-    new URL('./clip/clipExport.worker.ts', import.meta.url),
-  ) as unknown as ClipWorkerLike;
+async function createDefaultClipWorker(): Promise<ClipWorkerLike> {
+  if (process.env.NODE_ENV !== 'production') {
+    const { createMainThreadClipWorker } = await import('./clip/mainThreadClipWorker');
+    return createMainThreadClipWorker();
+  }
+  try {
+    return new Worker(new URL('./clip/clipExport.worker.ts', import.meta.url), {
+      name: 'clip-export',
+    }) as unknown as ClipWorkerLike;
+  } catch {
+    const { createMainThreadClipWorker } = await import('./clip/mainThreadClipWorker');
+    return createMainThreadClipWorker();
+  }
 }
 
 export type RunClipExportInput = {
@@ -126,58 +138,32 @@ export async function runClipExport(input: RunClipExportInput): Promise<File> {
     })),
   };
 
-  const worker = (input.createWorker ?? createDefaultClipWorker)();
+  let worker = input.createWorker ? input.createWorker() : await createDefaultClipWorker();
+  const allowMainThreadFallback = !input.createWorker;
   try {
-    const blob = await new Promise<Blob>((resolve, reject) => {
-      if (input.signal) {
-        if (input.signal.aborted) {
-          reject(new WorkspaceExportAbortedError());
-          return;
-        }
-        input.signal.addEventListener(
-          'abort',
-          () => reject(new WorkspaceExportAbortedError()),
-          { once: true },
-        );
+    const blob = await driveClipWorker(worker, start, {
+      pageIds,
+      snapshot,
+      inkEngine: input.inkEngine,
+      signal: input.signal,
+      onProgress: input.onProgress,
+    }).catch(async (err) => {
+      if (err instanceof ClipWorkerCrashedError && allowMainThreadFallback) {
+        worker.terminate();
+        const { createMainThreadClipWorker } = await import('./clip/mainThreadClipWorker');
+        worker = createMainThreadClipWorker();
+        return driveClipWorker(worker, start, {
+          pageIds,
+          snapshot,
+          inkEngine: input.inkEngine,
+          signal: input.signal,
+          onProgress: input.onProgress,
+        });
       }
-      worker.onerror = () => reject(new WorkspaceExportError());
-      worker.onmessage = (event) => {
-        const msg = event.data;
-        switch (msg.type) {
-          case 'need-ink': {
-            const pageId = pageIds[msg.index];
-            const page = pageId ? snapshot.pages[pageId] : undefined;
-            if (!page) {
-              reject(new WorkspaceExportError());
-              return;
-            }
-            const captured = input.inkEngine.captureRasterPng(page.rasterId);
-            if (captured === undefined) {
-              reject(new WorkspaceExportError());
-              return;
-            }
-            if (captured.byteLength > 0 && !isPngBuffer(captured)) {
-              reject(new WorkspaceExportError());
-              return;
-            }
-            const png = captured.byteLength > 0 ? captured : null;
-            worker.postMessage({ type: 'ink', index: msg.index, png }, png ? [png] : []);
-            break;
-          }
-          case 'progress':
-            if (!input.signal?.aborted) {
-              input.onProgress?.({ current: msg.current, total: msg.total });
-            }
-            break;
-          case 'done':
-            resolve(msg.blob);
-            break;
-          case 'error':
-            reject(new WorkspaceExportError(msg.message));
-            break;
-        }
-      };
-      worker.postMessage(start);
+      if (err instanceof ClipWorkerCrashedError) {
+        throw new WorkspaceExportError();
+      }
+      throw err;
     });
 
     const type = input.mode === 'zip' ? 'application/zip' : 'application/octet-stream';
@@ -185,4 +171,68 @@ export async function runClipExport(input: RunClipExportInput): Promise<File> {
   } finally {
     worker.terminate();
   }
+}
+
+function driveClipWorker(
+  worker: ClipWorkerLike,
+  start: ClipExportStartMessage,
+  ctx: {
+    pageIds: PageId[];
+    snapshot: EditorDocument;
+    inkEngine: InkExportSource;
+    signal?: AbortSignal;
+    onProgress?: (progress: ExportProgress) => void;
+  },
+): Promise<Blob> {
+  return new Promise<Blob>((resolve, reject) => {
+    if (ctx.signal) {
+      if (ctx.signal.aborted) {
+        reject(new WorkspaceExportAbortedError());
+        return;
+      }
+      ctx.signal.addEventListener(
+        'abort',
+        () => reject(new WorkspaceExportAbortedError()),
+        { once: true },
+      );
+    }
+    worker.onerror = () => reject(new ClipWorkerCrashedError());
+    worker.onmessage = (event) => {
+      const msg: ClipWorkerResponse = event.data;
+      switch (msg.type) {
+        case 'need-ink': {
+          const pageId = ctx.pageIds[msg.index];
+          const page = pageId ? ctx.snapshot.pages[pageId] : undefined;
+          if (!page) {
+            reject(new WorkspaceExportError());
+            return;
+          }
+          const captured = ctx.inkEngine.captureRasterPng(page.rasterId);
+          if (captured === undefined) {
+            reject(new WorkspaceExportError());
+            return;
+          }
+          if (captured.byteLength > 0 && !isPngBuffer(captured)) {
+            reject(new WorkspaceExportError());
+            return;
+          }
+          const png = captured.byteLength > 0 ? captured : null;
+          worker.postMessage({ type: 'ink', index: msg.index, png }, png ? [png] : []);
+          break;
+        }
+        case 'progress':
+          if (!ctx.signal?.aborted) {
+            ctx.onProgress?.({ current: msg.current, total: msg.total });
+          }
+          break;
+        case 'done':
+          resolve(msg.blob);
+          break;
+        case 'error':
+          reject(new WorkspaceExportError(msg.message));
+          break;
+      }
+    };
+    worker.postMessage(start);
+  });
 }

@@ -8,7 +8,11 @@
   "scripts": {
     "dev": "next dev --hostname 0.0.0.0 --port 3000",
     "build": "next build",
+    "build:static": "node scripts/build-static.mjs",
     "start": "next start",
+    "start:static": "npx --yes serve out -l tcp://0.0.0.0:3001 -n --no-port-switching",
+    "start:static:https": "npx --yes cloudflared tunnel --url http://127.0.0.1:3001",
+    "start:https-lan": "node scripts/start-https-lan.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",

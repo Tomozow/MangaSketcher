@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { reduceEditorDocument, type EditorDocumentAction } from '@/src/domain/editorReducer';
 import {
   nextExtractPack,
@@ -27,6 +26,7 @@ import {
   undoEditorHistory,
 } from '@/src/storage/history';
 import { copySharedTransparentPng } from '@/src/storage/transparentPng';
+import { hardNavigate } from '@/src/web/hardNavigate';
 import {
   DEFAULT_RASTER_HEIGHT,
   DEFAULT_RASTER_WIDTH,
@@ -319,7 +319,6 @@ type PendingCreate = {
 };
 
 export function useEditorController(projectId: string): EditorController {
-  const router = useRouter();
   const [ready, setReady] = useState(false);
   const [missing, setMissing] = useState(false);
   const [history, setHistory] = useState<EditorHistory | null>(null);
@@ -548,7 +547,7 @@ export function useEditorController(projectId: string): EditorController {
       }
       if (!boot) {
         setMissing(true);
-        router.replace('/');
+        hardNavigate('/', 'replace');
         return;
       }
 
@@ -595,7 +594,7 @@ export function useEditorController(projectId: string): EditorController {
       }
       autosaveRef.current = null;
     };
-  }, [projectId, router]);
+  }, [projectId]);
 
   useEffect(() => {
     const flushHidden = () => {

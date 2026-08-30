@@ -1,13 +1,14 @@
 # MangaSketcher
 
-iPad 向けのマンガ制作支援アプリ（Expo + TypeScript）。
+iPad 向けのマンガネーム編集アプリ（Next.js + TypeScript）。
 
-iPhone / Android 対応は後回しにし、**iPad の画面サイズと操作性**を優先しています。
+iPhone / Android 対応は後回しにし、**iPad の画面サイズと操作性**を優先しています。保存は端末内の IndexedDB / OPFS のみです。
 
 ## 対象環境
 
-- iPad（タブレット専用: `ios.isTabletOnly`）
-- 開発: Node.js 20 以上、**Expo SDK 54**（App Store の Expo Go 向け）
+- iPadOS 17 以降の Safari（Apple Pencil）
+- 日常利用: Safari の「ホーム画面に追加」（PWA）。App Store には出しません
+- 開発: Node.js 20 以上
 
 ## 画面構成
 
@@ -18,44 +19,61 @@ iPhone / Android 対応は後回しにし、**iPad の画面サイズと操作�
 | ツールパレット & プロパティ | 編集ツールと選択中オブジェクトの設定 |
 | ネームストック | ネーム／ストック一覧 |
 | ワークスペース | 作業中スロット |
-| PDF | 参照 PDF（いまはプレースホルダ） |
+| PDF | 参照 PDF |
+
+## 出張先・PC なしで使う
+
+プロジェクトデータは iPad 上に残ります。必要なのは **一度 HTTPS（または iPad 自身の localhost）で開いてホーム画面に追加する** ことです。以後はオフラインでもシェルが Service Worker から起きます。
+
+1. 静的ファイルを用意する（PC があるとき一度だけ）:
+
+```bash
+npm install
+npm run build:static
+```
+
+2. `out/` を HTTPS で公開する（GitHub Pages など）。ルート直下に置く（`/_next/` が必要です）。GitHub Pages 用に `out/.nojekyll` を書き出します。
+3. iPad の Safari でその URL を開く → 共有 → **ホーム画面に追加**
+4. 追加したアイコンから起動して作業する。Wi-Fi がなくても、一覧と開いたことのあるエディタ画面は動きます
+
+PC がある場で HTTPS を試す（証明書のインストール不要）:
+
+```bash
+npm run build:static
+npm run start:static
+```
+
+別ターミナルで:
+
+```bash
+npm run start:static:https
+```
+
+表示された `https://….trycloudflare.com` を iPad の Safari で開き、共有 → ホーム画面に追加します。PC と iPad は同じ Wi-Fi である必要はありませんが、トンネル中は PC の電源とネットが必要です。ホーム画面に入れたあとは、オフラインでもシェルは端末内に残ります。
+
+開発中の `http://<PCのLAN IP>:3000` はセキュアコンテキストではないため、OPFS と Service Worker が使えません。
 
 ## 開発
 
 ```bash
 npm install
-npm start
+npm run dev
 ```
 
-iPad の Expo Go では、ターミナルの QR が崩れて読めないことがあります。その場合は **Expo Go 内で URL を入力**します。
+同じ Wi-Fi の iPad Safari から `http://<PCのIPv4>:3000` を開きます。Windows ファイアウォールで 3000/tcp の受信を許可してください。
 
-- Tunnel（`npm start`）: `exp://....exp.direct:80` のような行
-- LAN（`npm run start:lan`）: `exp://192.168.x.x:8081`
-
-同じ Wi-Fi でも **リクエストがタイムアウト** する場合は、PC と iPad の間で LAN が通っていません。`npm start` は Tunnel（インターネット経由）です。
-
-Windows では `@expo/ngrok` の `ngrok.exe` が欠けると、次のエラーになります。
-
-`The "file" argument must be of type string. Received null`
-
-このリポジトリでは `ngrok.exe` を開発依存として入れるようにしてあります。欠けている場合は `npm install` 後に `node_modules/@expo/ngrok-bin-win32-x64/ngrok.exe` があるか確認してください。
-
-同じ LAN だけで試す場合:
-
-```bash
-npm run start:lan
-```
-
-iPad シミュレータ（Mac のみ）:
-
-```bash
-npm run ios
-```
-
-型チェック:
+型チェックとテスト:
 
 ```bash
 npm run typecheck
+npm test
+```
+
+Node サーバーとして配信する場合:
+
+```bash
+npm run build
+npm start
 ```
 
 ## GitHub

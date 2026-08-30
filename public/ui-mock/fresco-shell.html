@@ -1,0 +1,1512 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>MangaSketcher UI mock — Fresco-inspired</title>
+  <style>
+    :root {
+      --paper: #f4f1ea;
+      --paper-2: #e8e2d6;
+      --ink: #1a1a1a;
+      --ink-soft: #6f675c;
+      --desk: #5e5850;
+      --desk-2: #4a453f;
+      --chrome: rgba(18, 18, 22, 0.78);
+      --chrome-solid: #1c1c22;
+      --hair: rgba(255, 255, 255, 0.14);
+      --hair-2: rgba(255, 255, 255, 0.08);
+      --fg: #f6f3ec;
+      --muted: rgba(246, 243, 236, 0.55);
+      --accent: #8bb4d9;
+      --accent-2: #3d5a80;
+      --warn: #c45c26;
+      --teal: #2a9d8f;
+      --shadow: 0 18px 40px rgba(0, 0, 0, 0.28);
+      --radius-pill: 22px;
+      --touch: 44px;
+      --on-tool-bg: #f6f3ec;
+      --on-tool-fg: #1a1a1a;
+      --chrome-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+      --seg-track: rgba(255, 255, 255, 0.06);
+      --plus: rgba(246, 243, 236, 0.55);
+      --plus-border: rgba(246, 243, 236, 0.35);
+      font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Yu Gothic UI", sans-serif;
+    }
+
+    .bezel[data-theme="dark"] {
+      --desk: #6b645c;
+      --desk-2: #4e4943;
+      --chrome: rgba(18, 18, 22, 0.78);
+      --hair: rgba(255, 255, 255, 0.14);
+      --hair-2: rgba(255, 255, 255, 0.08);
+      --fg: #f6f3ec;
+      --muted: rgba(246, 243, 236, 0.55);
+      --accent: #8bb4d9;
+      --on-tool-bg: #f6f3ec;
+      --on-tool-fg: #1a1a1a;
+      --chrome-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+      --seg-track: rgba(255, 255, 255, 0.06);
+      --plus: rgba(246, 243, 236, 0.55);
+      --plus-border: rgba(246, 243, 236, 0.35);
+      --list-fg: #2b2620;
+    }
+
+    .bezel[data-theme="light"] {
+      --desk: #d5cec3;
+      --desk-2: #c2b9ad;
+      --chrome: rgba(252, 249, 243, 0.86);
+      --hair: rgba(43, 38, 32, 0.14);
+      --hair-2: rgba(43, 38, 32, 0.08);
+      --fg: #2b2620;
+      --muted: rgba(43, 38, 32, 0.55);
+      --accent: #3d5a80;
+      --on-tool-bg: #1c1c22;
+      --on-tool-fg: #f6f3ec;
+      --chrome-shadow: 0 10px 24px rgba(43, 38, 32, 0.14);
+      --seg-track: rgba(43, 38, 32, 0.06);
+      --plus: rgba(43, 38, 32, 0.45);
+      --plus-border: rgba(43, 38, 32, 0.28);
+      --list-fg: #2b2620;
+    }
+
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      background: #151518;
+      color: #ece8e0;
+      min-height: 100dvh;
+    }
+
+    .studio {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 20px;
+      padding: 20px 20px 28px;
+      max-width: 1480px;
+      margin: 0 auto;
+    }
+
+    .studio-head {
+      grid-column: 1 / -1;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 12px 24px;
+    }
+
+    .studio-kicker {
+      margin: 0 0 4px;
+      font-size: 11px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: #9a9388;
+    }
+
+    .studio-head h1 {
+      margin: 0;
+      font-size: 22px;
+      font-weight: 620;
+      letter-spacing: -0.02em;
+    }
+
+    .studio-head p {
+      margin: 6px 0 0;
+      color: #9a9388;
+      font-size: 13px;
+      line-height: 1.45;
+      max-width: 52em;
+    }
+
+    .seg {
+      display: inline-flex;
+      background: #222228;
+      border: 1px solid #33333a;
+      border-radius: 999px;
+      padding: 3px;
+      gap: 2px;
+    }
+
+    .seg button {
+      appearance: none;
+      border: 0;
+      background: transparent;
+      color: #b8b1a6;
+      min-height: 36px;
+      padding: 0 14px;
+      border-radius: 999px;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .seg button[aria-pressed="true"] {
+      background: #ece8e0;
+      color: #1a1a1a;
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .device-wrap {
+      display: flex;
+      justify-content: center;
+    }
+
+    .device {
+      width: min(100%, 1040px);
+      aspect-ratio: 1194 / 834;
+      background: #0e0e10;
+      border-radius: 28px;
+      padding: 10px;
+      box-shadow: var(--shadow);
+      border: 1px solid #2a2a32;
+    }
+
+    .bezel {
+      height: 100%;
+      border-radius: 20px;
+      overflow: hidden;
+      position: relative;
+      background: var(--paper);
+      isolation: isolate;
+    }
+
+    /* ── current: project list ── */
+    .list-current {
+      height: 100%;
+      padding: 28px 32px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      background: var(--paper);
+      color: #2b2620;
+    }
+
+    .list-current h2 { margin: 0; font-size: 28px; }
+    .list-current .sub { margin: 0; color: var(--ink-soft); font-size: 14px; }
+    .list-current .row-actions { display: flex; gap: 8px; align-items: center; }
+    .list-current select, .list-current .ghost {
+      min-height: var(--touch);
+      border-radius: 10px;
+      border: 1px solid #c9c0b0;
+      background: #fff;
+      font: inherit;
+      padding: 0 12px;
+    }
+    .list-current .primary {
+      min-height: var(--touch);
+      border: 0;
+      border-radius: 10px;
+      background: var(--accent-2);
+      color: #fff;
+      font: inherit;
+      padding: 0 16px;
+    }
+    .box {
+      flex: 1;
+      background: #fff;
+      border: 1px solid #c9c0b0;
+      border-radius: 12px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .proj-row {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      padding: 10px 12px;
+      background: #faf8f4;
+      border: 1px solid #e8e2d6;
+      border-radius: 10px;
+    }
+    .proj-row strong { display: block; font-size: 15px; }
+    .proj-row small { color: var(--ink-soft); }
+    .grow { flex: 1; min-width: 0; }
+    .tiny {
+      min-height: 36px;
+      border: 1px solid #c9c0b0;
+      background: #fff;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 12px;
+      padding: 0 10px;
+    }
+
+    /* ── proposed: project list ── */
+    .list-proposed {
+      height: 100%;
+      background:
+        radial-gradient(1200px 400px at 10% -10%, rgba(61, 90, 128, 0.10), transparent 50%),
+        var(--paper);
+      color: var(--list-fg, #2b2620);
+      padding: 22px 24px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .bezel[data-theme="dark"] .list-proposed {
+      background:
+        radial-gradient(1200px 400px at 10% -10%, rgba(61, 90, 128, 0.22), transparent 50%),
+        #1c1c22;
+      color: #f6f3ec;
+    }
+
+    .bezel[data-theme="dark"] .lp-brand span,
+    .bezel[data-theme="dark"] .card-meta small,
+    .bezel[data-theme="dark"] .card.new {
+      color: rgba(246, 243, 236, 0.55);
+    }
+
+    .bezel[data-theme="dark"] .chip {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: rgba(255, 255, 255, 0.14);
+      color: #f6f3ec;
+    }
+
+    .bezel[data-theme="dark"] .lp-new {
+      background: #f6f3ec;
+      color: #1c1c22;
+    }
+
+    .bezel[data-theme="dark"] .card {
+      background: rgba(40, 40, 46, 0.78);
+      border-color: rgba(255, 255, 255, 0.12);
+    }
+
+    .bezel[data-theme="dark"] .card.new {
+      background: transparent;
+    }
+
+    .lp-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .lp-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .lp-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: #1c1c22;
+      color: var(--paper);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .lp-brand h2 { margin: 0; font-size: 20px; letter-spacing: -0.03em; }
+    .lp-brand span { display: block; font-size: 11px; color: var(--ink-soft); }
+
+    .lp-tools { display: flex; gap: 8px; align-items: center; }
+    .chip {
+      min-height: 40px;
+      border-radius: 999px;
+      border: 1px solid #d7cfc2;
+      background: rgba(255,255,255,0.72);
+      padding: 0 14px;
+      font: inherit;
+      font-size: 13px;
+      color: #2b2620;
+    }
+
+    .lp-new {
+      min-height: 40px;
+      border: 0;
+      border-radius: 999px;
+      background: #1c1c22;
+      color: var(--paper);
+      font: inherit;
+      font-size: 13px;
+      padding: 0 16px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .lp-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+      min-height: 0;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.7);
+      border: 1px solid rgba(201, 192, 176, 0.7);
+      border-radius: 16px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .card.new {
+      border-style: dashed;
+      background: transparent;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      color: var(--ink-soft);
+      font-size: 13px;
+    }
+
+    .card-thumb {
+      height: 58%;
+      background: var(--desk);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px;
+    }
+
+    .mini-page {
+      width: 42%;
+      aspect-ratio: 3 / 4.2;
+      background: var(--paper);
+      border-radius: 3px;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.22);
+      position: relative;
+    }
+
+    .card-meta { padding: 12px 14px 14px; }
+    .card-meta strong { display: block; font-size: 14px; }
+    .card-meta small { color: var(--ink-soft); font-size: 11px; }
+
+    /* ── current editor ── */
+    .ed-current {
+      height: 100%;
+      display: flex;
+      background: var(--paper);
+      color: #2b2620;
+    }
+
+    .cur-side {
+      width: 28%;
+      min-width: 220px;
+      border-right: 1px solid #c9c0b0;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .cur-nav {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-bottom: 1px solid #c9c0b0;
+      min-height: 52px;
+    }
+
+    .cur-nav a {
+      color: var(--accent-2);
+      font-size: 13px;
+      text-decoration: none;
+    }
+
+    .cur-nav h3 {
+      margin: 0;
+      flex: 1;
+      font-size: 14px;
+      font-weight: 650;
+    }
+
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: #c45c26; }
+
+    .cur-split { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+    .pane {
+      position: relative;
+      flex: 1;
+      min-height: 0;
+      background: var(--paper);
+      overflow: hidden;
+    }
+    .pane-label {
+      position: absolute;
+      top: 6px;
+      left: 8px;
+      font-size: 11px;
+      color: var(--ink-soft);
+      z-index: 2;
+    }
+    .handle-v { height: 16px; background: #c9c0b0; position: relative; }
+    .handle-v::after, .handle-h::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      background: #6f675c;
+      opacity: 0.45;
+      border-radius: 2px;
+    }
+    .handle-v::after { width: 32px; height: 4px; }
+    .handle-h { width: 16px; background: #c9c0b0; position: relative; }
+    .handle-h::after { width: 4px; height: 32px; }
+
+    .tools-cur {
+      padding: 28px 10px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .tool-row { display: flex; gap: 6px; }
+    .tbtn {
+      flex: 1;
+      min-height: var(--touch);
+      border: 1px solid #c9c0b0;
+      background: #fff;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 13px;
+    }
+    .tbtn.on { background: var(--accent-2); color: #fff; border-color: var(--accent-2); }
+    .slider-fake { font-size: 11px; color: var(--ink-soft); }
+    .slider-fake input { width: 100%; }
+    .swatch {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 0 0 1px #c9c0b0;
+      background: #1a1a1a;
+    }
+    .icon-row { display: flex; flex-wrap: wrap; gap: 6px; }
+    .ib {
+      min-height: 36px;
+      padding: 0 8px;
+      border: 1px solid #c9c0b0;
+      background: #fff;
+      border-radius: 8px;
+      font: inherit;
+      font-size: 12px;
+    }
+
+    .stock-cur {
+      padding: 24px 8px 8px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .thumb {
+      background: #fff;
+      border: 1px solid #c9c0b0;
+      border-radius: 6px;
+      aspect-ratio: 3 / 4.2;
+    }
+
+    .cur-main { flex: 1; display: flex; min-width: 0; }
+    .ws {
+      flex: 1;
+      position: relative;
+      background: var(--paper);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+    }
+
+    .ws-actions {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      display: flex;
+      gap: 6px;
+      z-index: 3;
+    }
+
+    .spread { display: flex; gap: 14px; align-items: flex-end; }
+
+    .page {
+      width: 168px;
+      height: 236px;
+      background: #fbf9f4;
+      border-radius: 2px;
+      box-shadow: 0 10px 24px rgba(43, 38, 32, 0.18);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .page::before {
+      content: "";
+      position: absolute;
+      inset: 10px 12px 28px;
+      border: 1.5px solid #2b2620;
+      opacity: 0.85;
+    }
+
+    .page .pn {
+      position: absolute;
+      bottom: 6px;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 11px;
+      color: var(--ink-soft);
+    }
+
+    .ink-line {
+      position: absolute;
+      left: 28px;
+      right: 28px;
+      top: 48px;
+      height: 90px;
+      border-left: 2px solid #1a1a1a;
+      border-bottom: 2px solid #1a1a1a;
+      border-radius: 0 0 0 40px;
+      opacity: 0.7;
+    }
+
+    .bubble {
+      position: absolute;
+      top: 22px;
+      right: 22px;
+      width: 54px;
+      height: 70px;
+      border: 1.5px solid #1a1a1a;
+      border-radius: 40% 40% 40% 40% / 42% 42% 38% 38%;
+      background: #fff;
+    }
+
+    .vtext {
+      position: absolute;
+      top: 28px;
+      right: 38px;
+      writing-mode: vertical-rl;
+      font-size: 9px;
+      letter-spacing: 0.12em;
+    }
+
+    .plus-page {
+      width: 72px;
+      height: 100px;
+      border: 1.5px dashed #c9c0b0;
+      border-radius: 4px;
+      color: var(--ink-soft);
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      margin-bottom: 18px;
+    }
+
+    .pdf-cur {
+      width: 34%;
+      background: #fff;
+      position: relative;
+    }
+
+    .pdf-page {
+      margin: 28px 16px 16px;
+      height: calc(100% - 44px);
+      background: #fafafa;
+      border: 1px solid #ddd;
+      padding: 12px 14px;
+      font-size: 9px;
+      line-height: 1.7;
+      color: #333;
+      overflow: hidden;
+    }
+
+    /* ── proposed editor ── */
+    .ed-proposed {
+      height: 100%;
+      background:
+        radial-gradient(ellipse at 50% 40%, var(--desk), var(--desk-2) 70%);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .desk {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 22px;
+      padding: 56px 88px 48px 92px;
+    }
+
+    .page.hero { width: 210px; height: 294px; }
+    .page.hero .ink-line { top: 64px; height: 120px; }
+    .page.hero .bubble { width: 68px; height: 88px; top: 28px; right: 26px; }
+    .page.hero .vtext { font-size: 11px; top: 36px; right: 46px; }
+
+    .glass {
+      background: var(--chrome);
+      backdrop-filter: blur(22px) saturate(1.2);
+      -webkit-backdrop-filter: blur(22px) saturate(1.2);
+      border: 1px solid var(--hair);
+      color: var(--fg);
+      box-shadow: var(--chrome-shadow);
+    }
+
+    .topbar {
+      position: absolute;
+      top: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px;
+      border-radius: var(--radius-pill);
+      z-index: 8;
+      min-height: 52px;
+    }
+
+    .icon {
+      width: var(--touch);
+      height: var(--touch);
+      border-radius: 14px;
+      border: 0;
+      background: transparent;
+      color: var(--fg);
+      display: grid;
+      place-items: center;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .icon:hover, .icon[aria-pressed="true"] {
+      background: var(--hair-2);
+    }
+
+    .icon[aria-pressed="true"] {
+      background: rgba(139, 180, 217, 0.22);
+      color: var(--accent);
+    }
+
+    .icon svg {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .bezel[data-theme="dark"] .theme-moon { display: none; }
+    .bezel[data-theme="light"] .theme-sun { display: none; }
+
+    .title-block {
+      padding: 0 8px 0 4px;
+      min-width: 160px;
+    }
+
+    .title-block strong { display: block; font-size: 13px; font-weight: 620; }
+    .title-block span {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 10px;
+      color: var(--muted);
+    }
+    .live { width: 6px; height: 6px; border-radius: 50%; background: var(--teal); }
+
+    .rail {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding: 8px 6px;
+      border-radius: 28px;
+      z-index: 8;
+    }
+
+    .rail .icon { border-radius: 16px; }
+    .rail .icon.active {
+      background: var(--on-tool-bg);
+      color: var(--on-tool-fg);
+    }
+
+    .rail hr {
+      border: 0;
+      height: 1px;
+      background: var(--hair);
+      margin: 4px 8px;
+    }
+
+    .flyout {
+      position: absolute;
+      left: 76px;
+      top: 50%;
+      transform: translateY(-42%);
+      width: 196px;
+      border-radius: 18px;
+      padding: 12px;
+      z-index: 8;
+    }
+
+    .flyout h4 {
+      margin: 0 0 10px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--muted);
+    }
+
+    .flyout label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+
+    .flyout input[type="range"] { width: 100%; accent-color: var(--accent); margin-bottom: 10px; }
+
+    .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+    .filters button {
+      border: 1px solid var(--hair);
+      background: transparent;
+      color: var(--fg);
+      border-radius: 999px;
+      min-height: 32px;
+      padding: 0 10px;
+      font: inherit;
+      font-size: 11px;
+    }
+    .filters button.on { background: var(--on-tool-bg); color: var(--on-tool-fg); }
+
+    .colors { display: flex; gap: 8px; flex-wrap: wrap; }
+    .colors button {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      padding: 0;
+      cursor: pointer;
+    }
+    .colors button.on { border-color: var(--fg); box-shadow: 0 0 0 2px var(--on-tool-bg); }
+
+    .press {
+      width: 100%;
+      min-height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--hair);
+      background: transparent;
+      color: var(--fg);
+      font: inherit;
+      font-size: 12px;
+      margin-top: 4px;
+    }
+    .press.on { background: rgba(139, 180, 217, 0.2); border-color: var(--accent); }
+
+    .drawer {
+      position: absolute;
+      z-index: 6;
+      background: var(--chrome);
+      backdrop-filter: blur(22px);
+      border: 1px solid var(--hair);
+      color: var(--fg);
+    }
+
+    /* 左レールと重ならないよう、レール右端から下辺シート */
+    .stock-drawer {
+      left: 84px;
+      right: 12px;
+      bottom: 12px;
+      width: auto;
+      height: 168px;
+      border-radius: 18px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .ed-proposed.pdf-open .stock-drawer {
+      right: calc(32% + 24px);
+    }
+
+    .drawer-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .drawer-head strong { font-size: 13px; }
+    .seg.mini button { min-height: 30px; padding: 0 10px; font-size: 11px; color: var(--muted); }
+    .seg.mini { background: var(--seg-track); border-color: var(--hair); }
+    .seg.mini button[aria-pressed="true"] { background: var(--on-tool-bg); color: var(--on-tool-fg); }
+
+    .stock-grid {
+      flex: 1;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      min-height: 0;
+    }
+
+    .stock-grid .thumb {
+      background: var(--paper);
+      border: 0;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+    }
+
+    .pdf-drawer {
+      top: 68px;
+      right: 12px;
+      bottom: 16px;
+      width: 32%;
+      border-radius: 18px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .pdf-drawer .pdf-page {
+      margin: 0;
+      flex: 1;
+      border-radius: 10px;
+      height: auto;
+    }
+
+    .layout-pop {
+      position: absolute;
+      top: 64px;
+      right: 24%;
+      width: 240px;
+      border-radius: 16px;
+      padding: 12px;
+      z-index: 9;
+      font-size: 12px;
+    }
+
+    .layout-pop label { display: block; color: var(--muted); margin: 8px 0 4px; }
+    .layout-pop input { width: 100%; accent-color: var(--accent); }
+
+    .page-with-edit {
+      position: relative;
+    }
+
+    /* 現行 TextEditBar: 選択枠の直下・白 textarea・完了ボタンなし */
+    .textbar {
+      position: absolute;
+      top: 124px;
+      left: 116px;
+      width: 240px;
+      z-index: 12;
+      padding: 0;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+    }
+
+    .textbar textarea {
+      display: block;
+      width: 100%;
+      min-height: 44px;
+      margin: 0;
+      padding: 8px 10px;
+      border: 1px solid #c9c0b0;
+      border-radius: 8px;
+      background: #fff;
+      color: #2b2620;
+      font: inherit;
+      font-size: 14px;
+      line-height: 1.4;
+      resize: none;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+      outline: none;
+    }
+
+    .plus-float {
+      width: 56px;
+      height: 80px;
+      border: 1.5px dashed var(--plus-border);
+      color: var(--plus);
+      border-radius: 6px;
+      display: grid;
+      place-items: center;
+      font-size: 22px;
+      margin-bottom: 24px;
+    }
+
+    /* visibility */
+    .show-current-list .list-current,
+    .show-proposed-list .list-proposed,
+    .show-current-editor .ed-current,
+    .show-proposed-editor .ed-proposed { display: flex; }
+
+    .list-current, .list-proposed, .ed-current, .ed-proposed { display: none; }
+    .show-current-editor .ed-current { display: flex; }
+    .show-proposed-editor .ed-proposed { display: block; }
+    .show-current-list .list-current,
+    .show-proposed-list .list-proposed { display: flex; }
+
+    .hidden { display: none !important; }
+
+    .notes {
+      background: #1c1c22;
+      border: 1px solid #2e2e36;
+      border-radius: 16px;
+      padding: 16px 16px 18px;
+      height: fit-content;
+      position: sticky;
+      top: 16px;
+    }
+
+    .notes h2 {
+      margin: 0 0 10px;
+      font-size: 13px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #9a9388;
+      font-weight: 650;
+    }
+
+    .notes ol {
+      margin: 0;
+      padding-left: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: #d9d3c8;
+    }
+
+    .notes li::marker { color: var(--accent); }
+    .notes .keep {
+      margin: 16px 0 0;
+      padding-top: 14px;
+      border-top: 1px solid #2e2e36;
+      font-size: 12px;
+      color: #9a9388;
+      line-height: 1.5;
+    }
+
+    .call {
+      position: absolute;
+      z-index: 10;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      background: #8bb4d9;
+      color: #111;
+      font-size: 11px;
+      font-weight: 700;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      pointer-events: none;
+    }
+
+    @media (max-width: 1100px) {
+      .studio { grid-template-columns: 1fr; }
+      .notes { position: static; }
+    }
+  </style>
+</head>
+<body>
+  <div class="studio">
+    <header class="studio-head">
+      <div>
+        <p class="studio-kicker">修正例モック · 実装前</p>
+        <h1>Adobe Fresco ライクなシェル</h1>
+        <p>機能（4領域・ペン/消/文/選・ストック・PDF・下部テキストバー）は維持し、箱型ペインをやめてキャンバス全面＋フローティング操作に再配置した例です。クリックで状態を切り替えられます。</p>
+      </div>
+      <div class="controls">
+        <div class="seg" role="group" aria-label="案">
+          <button type="button" data-set="view" data-value="current">現行</button>
+          <button type="button" data-set="view" data-value="proposed" aria-pressed="true">提案</button>
+        </div>
+        <div class="seg" role="group" aria-label="画面">
+          <button type="button" data-set="screen" data-value="list">一覧</button>
+          <button type="button" data-set="screen" data-value="editor" aria-pressed="true">エディタ</button>
+        </div>
+        <div class="seg" role="group" aria-label="注釈">
+          <button type="button" data-set="notes" data-value="on" aria-pressed="true">注釈</button>
+          <button type="button" data-set="notes" data-value="off">オフ</button>
+        </div>
+        <div class="seg" role="group" aria-label="提案UIの明るさ">
+          <button type="button" data-set="theme" data-value="light">明るい</button>
+          <button type="button" data-set="theme" data-value="dark" aria-pressed="true">暗い</button>
+        </div>
+      </div>
+    </header>
+
+    <div class="device-wrap">
+      <div class="device">
+        <div class="bezel" id="bezel" data-view="proposed" data-screen="editor" data-theme="dark">
+          <!-- CURRENT LIST -->
+          <section class="list-current">
+            <div>
+              <h2>MangaSketcher</h2>
+              <p class="sub">端末内のネーム。自動保存されます。</p>
+            </div>
+            <div class="row-actions">
+              <button class="primary" type="button">新規</button>
+              <label>自動保存 <select><option>標準</option></select></label>
+            </div>
+            <div class="box">
+              <div class="proj-row">
+                <div class="grow"><strong>海辺の話</strong><small>2026/08/30 18:02 · 12ページ</small></div>
+                <button class="tiny" type="button">開く</button>
+                <button class="tiny" type="button">改名</button>
+                <button class="tiny" type="button">削除</button>
+              </div>
+              <div class="proj-row">
+                <div class="grow"><strong>無題</strong><small>2026/08/29 21:11 · 4ページ</small></div>
+                <button class="tiny" type="button">開く</button>
+                <button class="tiny" type="button">改名</button>
+                <button class="tiny" type="button">削除</button>
+              </div>
+            </div>
+          </section>
+
+          <!-- PROPOSED LIST -->
+          <section class="list-proposed">
+            <div class="lp-top">
+              <div class="lp-brand">
+                <div class="lp-mark">MS</div>
+                <div>
+                  <h2>MangaSketcher</h2>
+                  <span>端末内 · 自動保存</span>
+                </div>
+              </div>
+              <div class="lp-tools">
+                <span class="chip">自動保存 標準</span>
+                <button class="lp-new" type="button">＋ 新規ネーム</button>
+              </div>
+            </div>
+            <div class="lp-grid">
+              <article class="card">
+                <div class="card-thumb"><div class="mini-page"></div><div class="mini-page"></div></div>
+                <div class="card-meta"><strong>海辺の話</strong><small>12ページ · きょう 18:02</small></div>
+              </article>
+              <article class="card">
+                <div class="card-thumb"><div class="mini-page"></div><div class="mini-page"></div></div>
+                <div class="card-meta"><strong>無題</strong><small>4ページ · きのう 21:11</small></div>
+              </article>
+              <article class="card new">＋<div>新規プロジェクト</div></article>
+            </div>
+            <div class="call" data-note style="top: 18px; right: 168px;">1</div>
+            <div class="call" data-note style="top: 42%; left: 8%;">2</div>
+          </section>
+
+          <!-- CURRENT EDITOR -->
+          <section class="ed-current">
+            <aside class="cur-side">
+              <div class="cur-nav">
+                <a href="#">一覧へ</a>
+                <h3>海辺の話</h3>
+                <span class="dot"></span>
+              </div>
+              <div class="cur-split">
+                <div class="pane" style="flex: 1.1">
+                  <span class="pane-label">ツール</span>
+                  <div class="tools-cur">
+                    <div class="tool-row">
+                      <button class="tbtn on" type="button">ペン</button>
+                      <button class="tbtn" type="button">消</button>
+                      <button class="tbtn" type="button">文</button>
+                      <button class="tbtn" type="button">選</button>
+                    </div>
+                    <div class="slider-fake">筆 <input type="range" min="1" max="64" value="8"></div>
+                    <div class="slider-fake">不透明度 <input type="range" min="0" max="1" step="0.05" value="1"></div>
+                    <div class="swatch"></div>
+                    <div class="icon-row">
+                      <button class="ib" type="button">↶</button>
+                      <button class="ib" type="button">↷</button>
+                      <button class="ib" type="button">PDF</button>
+                      <button class="ib" type="button">ゴミ箱</button>
+                      <button class="ib" type="button">狭</button>
+                      <button class="ib" type="button">自由</button>
+                    </div>
+                  </div>
+                </div>
+                <div class="handle-v"></div>
+                <div class="pane" style="flex: 0.9">
+                  <span class="pane-label">ストック</span>
+                  <div class="stock-cur">
+                    <div class="thumb"></div>
+                    <div class="thumb"></div>
+                    <div class="thumb"></div>
+                  </div>
+                </div>
+              </div>
+            </aside>
+            <div class="cur-main">
+              <div class="pane ws">
+                <span class="pane-label">ワークスペース</span>
+                <div class="ws-actions">
+                  <button class="ib" type="button">配置</button>
+                  <button class="ib" type="button">書き出し</button>
+                </div>
+                <div class="plus-page">+</div>
+                <div class="spread">
+                  <article class="page"><div class="ink-line"></div><div class="pn">2</div></article>
+                  <article class="page"><div class="bubble"></div><div class="vtext">……海だ</div><div class="pn">1</div></article>
+                </div>
+              </div>
+              <div class="handle-h" id="curPdfHandle"></div>
+              <div class="pdf-cur" id="curPdf">
+                <span class="pane-label">PDF</span>
+                <div class="pdf-page">
+                  彼女は岸壁に立っていた。潮の匂いが強く、言葉はまだ名前を持たない。<br /><br />
+                  夜が近い。灯台の光だけが規則正しく海を撫でる。
+                </div>
+              </div>
+            </div>
+            <div class="call" data-note style="top: 70px; left: 18%;">1</div>
+            <div class="call" data-note style="top: 22px; left: 46%;">2</div>
+            <div class="call" data-note style="top: 58%; left: 8%;">3</div>
+          </section>
+
+          <!-- PROPOSED EDITOR -->
+          <section class="ed-proposed">
+            <div class="desk">
+              <div class="plus-float">+</div>
+              <article class="page hero"><div class="ink-line"></div><div class="pn">2</div></article>
+              <div class="page-with-edit">
+                <article class="page hero" id="page1">
+                  <div class="bubble"></div>
+                  <div class="vtext">……海だ</div>
+                  <div class="pn">1</div>
+                </article>
+                <div class="textbar hidden" id="textBar">
+                  <textarea aria-label="テキスト編集">……海だ</textarea>
+                </div>
+              </div>
+            </div>
+
+            <div class="topbar glass">
+              <button class="icon" type="button" title="一覧へ" data-set="screen" data-value="list">
+                <svg viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></svg>
+              </button>
+              <div class="title-block">
+                <strong>海辺の話</strong>
+                <span><i class="live"></i>保存済み</span>
+              </div>
+              <button class="icon" type="button" id="btnLayout" title="配置">
+                <svg viewBox="0 0 24 24"><rect x="4" y="5" width="7" height="14" rx="1"/><rect x="13" y="5" width="7" height="14" rx="1"/></svg>
+              </button>
+              <button class="icon" type="button" id="btnStock" title="ストック">
+                <svg viewBox="0 0 24 24"><rect x="4" y="5" width="7" height="7" rx="1"/><rect x="13" y="5" width="7" height="7" rx="1"/><rect x="4" y="14" width="7" height="5" rx="1"/><rect x="13" y="14" width="7" height="5" rx="1"/></svg>
+              </button>
+              <button class="icon" type="button" id="btnPdf" title="PDF">
+                <svg viewBox="0 0 24 24"><path d="M7 3h7l5 5v13H7z"/><path d="M14 3v5h5"/></svg>
+              </button>
+              <button class="icon" type="button" title="書き出し">
+                <svg viewBox="0 0 24 24"><path d="M12 4v10"/><path d="M8 8l4-4 4 4"/><path d="M5 16v3h14v-3"/></svg>
+              </button>
+              <button class="icon" type="button" id="btnTheme" title="明るい／暗いUI">
+                <svg class="theme-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.2 6.2l1.4 1.4M16.4 16.4l1.4 1.4M6.2 17.8l1.4-1.4M16.4 7.6l1.4-1.4"/></svg>
+                <svg class="theme-moon" viewBox="0 0 24 24"><path d="M16 4.5A8 8 0 1 0 19.5 16 6.5 6.5 0 0 1 16 4.5z"/></svg>
+              </button>
+            </div>
+
+            <div class="rail glass" role="toolbar" aria-label="ツール">
+              <button class="icon active" type="button" data-tool="pen" title="ペン">
+                <svg viewBox="0 0 24 24"><path d="M14 5l5 5-10 10H4v-5z"/><path d="M12 7l5 5"/></svg>
+              </button>
+              <button class="icon" type="button" data-tool="eraser" title="消しゴム">
+                <svg viewBox="0 0 24 24"><path d="M5 15l7-7 7 7-4 4H9z"/><path d="M8 18h8"/></svg>
+              </button>
+              <button class="icon" type="button" data-tool="text" title="テキスト">
+                <svg viewBox="0 0 24 24"><path d="M6 6h12"/><path d="M12 6v14"/></svg>
+              </button>
+              <button class="icon" type="button" data-tool="select" title="選択">
+                <svg viewBox="0 0 24 24"><rect x="5" y="5" width="14" height="14" rx="1" stroke-dasharray="3 2"/></svg>
+              </button>
+              <hr />
+              <button class="icon" type="button" title="元に戻す">
+                <svg viewBox="0 0 24 24"><path d="M9 8H5V4"/><path d="M5 8a8 8 0 1 1-1 5"/></svg>
+              </button>
+              <button class="icon" type="button" title="やり直す">
+                <svg viewBox="0 0 24 24"><path d="M15 8h4V4"/><path d="M19 8a8 8 0 1 0 1 5"/></svg>
+              </button>
+            </div>
+
+            <aside class="flyout glass" id="flyout">
+              <h4 id="flyTitle">ペン</h4>
+              <div id="selectFilters" class="filters hidden">
+                <button type="button" class="on" data-filter="text">テキスト</button>
+                <button type="button" class="on" data-filter="ink">線画</button>
+                <button type="button" class="on" data-filter="clip">クリップ</button>
+              </div>
+              <div id="sizeBlock">
+                <label>サイズ <span id="sizeVal">8</span></label>
+                <input id="size" type="range" min="1" max="64" value="8" />
+              </div>
+              <div id="opacityBlock">
+                <label>不透明度 <span id="opVal">100%</span></label>
+                <input id="opacity" type="range" min="5" max="100" step="5" value="100" />
+              </div>
+              <button type="button" class="press on" id="pressure">筆圧オン</button>
+              <div id="colorBlock" style="margin-top:10px">
+                <label>色</label>
+                <div class="colors" id="colors">
+                  <button type="button" class="on" style="background:#1A1A1A" data-color="#1A1A1A"></button>
+                  <button type="button" style="background:#6F675C" data-color="#6F675C"></button>
+                  <button type="button" style="background:#FFFFFF; box-shadow:inset 0 0 0 1px #ccc" data-color="#FFFFFF"></button>
+                  <button type="button" style="background:#C45C26" data-color="#C45C26"></button>
+                  <button type="button" style="background:#3D5A80" data-color="#3D5A80"></button>
+                  <button type="button" style="background:#2A9D8F" data-color="#2A9D8F"></button>
+                </div>
+              </div>
+            </aside>
+
+            <aside class="drawer stock-drawer hidden" id="stockDrawer">
+              <div class="drawer-head">
+                <strong id="stockTitle">ストック</strong>
+                <div class="seg mini">
+                  <button type="button" aria-pressed="true" id="stockGrid">整列</button>
+                  <button type="button" id="stockFree">自由</button>
+                  <button type="button" id="stockTrash">ゴミ箱</button>
+                </div>
+              </div>
+              <div class="stock-grid">
+                <div class="thumb"></div>
+                <div class="thumb"></div>
+                <div class="thumb"></div>
+                <div class="thumb"></div>
+              </div>
+            </aside>
+
+            <aside class="drawer pdf-drawer hidden" id="pdfDrawer">
+              <div class="drawer-head"><strong>原稿 PDF</strong><span style="font-size:11px;color:var(--muted)">抽出は範囲ドラッグ</span></div>
+              <div class="pdf-page">
+                彼女は岸壁に立っていた。潮の匂いが強く、言葉はまだ名前を持たない。<br /><br />
+                夜が近い。灯台の光だけが規則正しく海を撫でる。白い波が、何度でも同じ場所へ戻る。<br /><br />
+                「まだ、書かなくていい」
+              </div>
+            </aside>
+
+            <div class="layout-pop glass hidden" id="layoutPop">
+              <strong>ページレイアウト</strong>
+              <label>1列のページ数 2</label>
+              <input type="range" min="1" max="4" value="2" />
+              <label>見開きの間の余白</label>
+              <input type="range" min="0" max="80" value="24" />
+              <label>列の縦余白</label>
+              <input type="range" min="0" max="80" value="16" />
+            </div>
+
+            <div class="call" data-note style="top: 18px; left: 46%;">1</div>
+            <div class="call" data-note style="top: 38%; left: 18px;">2</div>
+            <div class="call" data-note style="top: 42%; left: 78px;">3</div>
+            <div class="call" data-note style="bottom: 36px; left: 38%;">4</div>
+          </section>
+        </div>
+      </div>
+    </div>
+
+    <aside class="notes" id="notes">
+      <h2 id="notesTitle">提案 · エディタ</h2>
+      <ol id="notesList"></ol>
+      <p class="keep" id="notesKeep"></p>
+    </aside>
+  </div>
+
+  <script>
+    const NOTES = {
+      "proposed:editor": {
+        title: "提案 · エディタ",
+        items: [
+          "トップバーを1本のフローティングピルに集約（戻る・タイトル・保存・配置・PDF・書き出し）。キャンバス上の「ワークスペース」ラベルは置かない。",
+          "ツールは左のアイコンレール。選択中だけ白く浮かぶ。Undo/Redo も同じレールに置き、手がキャンバスから離れない。",
+          "サイズ・不透明度・色・筆圧は、選んだツールの横にだけ出す（Fresco のコンテキストプロパティ）。",
+          "ストックは左レールと分け、下辺のシート（レール右から）。開閉はトップバー。PDF もトップバーのみ。テキスト編集は現行どおり選択枠の直下の白 textarea。明るい／暗いクロームは切り替え可能。",
+        ],
+        keep: "変えないもの: Pencil=描画 / 指=パン、RTLストリップ、テキストバー位置（枠の下・完了ボタンなし）、タッチ44px、セッション undo。",
+      },
+      "proposed:list": {
+        title: "提案 · 一覧",
+        items: [
+          "ヘッダーをコンパクトにし、新規を暗いピルボタンで主アクションにする。",
+          "行リストではなく見開きプレビューのカードグリッド。開く・改名・削除はカードの長押し／メニュー想定（モックでは省略）。",
+        ],
+        keep: "プロジェクトの新規・開く・改名・削除・自動保存プリセットは現行と同じ。",
+      },
+      "current:editor": {
+        title: "現行 · 課題",
+        items: [
+          "左列が常時 28vw。描画面が狭く、iPad 横でもネームより UI が目立つ。",
+          "ペインラベルと 16px スプリッタが視線を切る。ツールは「ペン」「消」などの文字ボタンで密度が高い。",
+          "ストックが常時下半分を占有し、描いている最中もサムネが張り付く。",
+        ],
+        keep: "機能自体は足りている。問題は情報の出し方と、キャンバスが主役になっていないこと。",
+      },
+      "current:list": {
+        title: "現行 · 一覧",
+        items: [
+          "タイトル＋説明＋新規＋自動保存＋枠付き行リスト。機能は揃っているがギャラリー感がない。",
+          "「開く / 改名 / 削除」が常時並び、プレビューがないので作品を目で選べない。",
+        ],
+        keep: "データモデルはそのまま。カード化するだけでも Fresco / Procreate のホームに近づく。",
+      },
+    };
+
+    const state = {
+      view: "proposed",
+      screen: "editor",
+      notes: true,
+      theme: "dark",
+      tool: "pen",
+      pdf: false,
+      stock: false,
+      layout: false,
+      trash: false,
+    };
+
+    const bezel = document.getElementById("bezel");
+    const flyTitle = document.getElementById("flyTitle");
+    const sizeBlock = document.getElementById("sizeBlock");
+    const opacityBlock = document.getElementById("opacityBlock");
+    const colorBlock = document.getElementById("colorBlock");
+    const pressure = document.getElementById("pressure");
+    const selectFilters = document.getElementById("selectFilters");
+    const textBar = document.getElementById("textBar");
+    const stockDrawer = document.getElementById("stockDrawer");
+    const pdfDrawer = document.getElementById("pdfDrawer");
+    const layoutPop = document.getElementById("layoutPop");
+    const curPdf = document.getElementById("curPdf");
+    const curPdfHandle = document.getElementById("curPdfHandle");
+
+    function syncChrome() {
+      const key = `${state.view}:${state.screen}`;
+      bezel.className = `bezel show-${state.view}-${state.screen}`;
+      bezel.dataset.theme = state.theme;
+      try { localStorage.setItem("ms-ui-mock-theme", state.theme); } catch (_) {}
+      document.querySelectorAll("[data-set]").forEach((btn) => {
+        const field = btn.getAttribute("data-set");
+        const value = btn.getAttribute("data-value");
+        if (field === "notes") {
+          btn.setAttribute("aria-pressed", String((value === "on") === state.notes));
+        } else {
+          btn.setAttribute("aria-pressed", String(state[field] === value));
+        }
+      });
+      document.querySelectorAll("[data-note]").forEach((el) => {
+        el.classList.toggle("hidden", !state.notes);
+      });
+      const note = NOTES[key];
+      document.getElementById("notesTitle").textContent = note.title;
+      document.getElementById("notesList").innerHTML = note.items.map((t) => `<li>${t}</li>`).join("");
+      document.getElementById("notesKeep").textContent = note.keep;
+
+      curPdf.classList.toggle("hidden", !state.pdf);
+      curPdfHandle.classList.toggle("hidden", !state.pdf);
+      pdfDrawer.classList.toggle("hidden", !state.pdf);
+      stockDrawer.classList.toggle("hidden", !state.stock);
+      layoutPop.classList.toggle("hidden", !state.layout);
+      document.getElementById("btnPdf").setAttribute("aria-pressed", String(state.pdf));
+      document.getElementById("btnStock").setAttribute("aria-pressed", String(state.stock));
+      document.querySelector(".ed-proposed").classList.toggle("pdf-open", state.pdf);
+    }
+
+    function setTool(tool) {
+      state.tool = tool;
+      document.querySelectorAll("[data-tool]").forEach((btn) => {
+        btn.classList.toggle("active", btn.getAttribute("data-tool") === tool);
+      });
+      const titles = { pen: "ペン", eraser: "消しゴム", text: "テキスト", select: "選択" };
+      flyTitle.textContent = titles[tool];
+      selectFilters.classList.toggle("hidden", tool !== "select");
+      colorBlock.classList.toggle("hidden", tool !== "pen" && tool !== "text");
+      opacityBlock.classList.toggle("hidden", tool !== "pen" && tool !== "eraser");
+      pressure.classList.toggle("hidden", tool !== "pen" && tool !== "eraser");
+      sizeBlock.classList.toggle("hidden", false);
+      if (tool !== "text") textBar.classList.add("hidden");
+    }
+
+    document.querySelectorAll("[data-set]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const field = btn.getAttribute("data-set");
+        const value = btn.getAttribute("data-value");
+        if (field === "notes") state.notes = value === "on";
+        else state[field] = value;
+        syncChrome();
+      });
+    });
+
+    document.querySelectorAll("[data-tool]").forEach((btn) => {
+      btn.addEventListener("click", () => setTool(btn.getAttribute("data-tool")));
+    });
+
+    document.getElementById("size").addEventListener("input", (e) => {
+      document.getElementById("sizeVal").textContent = e.target.value;
+    });
+    document.getElementById("opacity").addEventListener("input", (e) => {
+      document.getElementById("opVal").textContent = `${e.target.value}%`;
+    });
+    pressure.addEventListener("click", () => {
+      pressure.classList.toggle("on");
+      pressure.textContent = pressure.classList.contains("on") ? "筆圧オン" : "筆圧オフ";
+    });
+    document.getElementById("colors").addEventListener("click", (e) => {
+      const t = e.target.closest("[data-color]");
+      if (!t) return;
+      document.querySelectorAll("#colors button").forEach((b) => b.classList.remove("on"));
+      t.classList.add("on");
+    });
+    selectFilters.addEventListener("click", (e) => {
+      const t = e.target.closest("button");
+      if (t) t.classList.toggle("on");
+    });
+
+    document.getElementById("btnPdf").addEventListener("click", () => { state.pdf = !state.pdf; syncChrome(); });
+    document.getElementById("btnStock").addEventListener("click", () => { state.stock = !state.stock; syncChrome(); });
+    document.getElementById("btnLayout").addEventListener("click", () => { state.layout = !state.layout; syncChrome(); });
+    document.getElementById("btnTheme").addEventListener("click", () => {
+      state.theme = state.theme === "dark" ? "light" : "dark";
+      syncChrome();
+    });
+
+    document.getElementById("stockTrash").addEventListener("click", () => {
+      state.trash = !state.trash;
+      document.getElementById("stockTitle").textContent = state.trash ? "ゴミ箱" : "ストック";
+      document.getElementById("stockTrash").setAttribute("aria-pressed", String(state.trash));
+    });
+    document.getElementById("stockGrid").addEventListener("click", () => {
+      document.getElementById("stockGrid").setAttribute("aria-pressed", "true");
+      document.getElementById("stockFree").setAttribute("aria-pressed", "false");
+    });
+    document.getElementById("stockFree").addEventListener("click", () => {
+      document.getElementById("stockGrid").setAttribute("aria-pressed", "false");
+      document.getElementById("stockFree").setAttribute("aria-pressed", "true");
+    });
+
+    document.getElementById("page1").addEventListener("click", () => {
+      if (state.tool === "text") textBar.classList.remove("hidden");
+    });
+
+    try {
+      const saved = localStorage.getItem("ms-ui-mock-theme");
+      if (saved === "light" || saved === "dark") state.theme = saved;
+    } catch (_) {}
+    setTool("pen");
+    syncChrome();
+  </script>
+</body>
+</html>

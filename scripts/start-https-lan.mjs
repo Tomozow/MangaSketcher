@@ -1,0 +1,225 @@
+import { createServer } from 'node:http';
+import { spawn, spawnSync } from 'node:child_process';
+import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { networkInterfaces } from 'node:os';
+import { join, resolve } from 'node:path';
+import { pipeline } from 'node:stream/promises';
+
+const root = process.cwd();
+const certDir = join(root, 'certs');
+const caDir = join(certDir, 'ca');
+const mkcertPath = join(certDir, 'mkcert.exe');
+const certFile = join(certDir, 'lan.pem');
+const keyFile = join(certDir, 'lan-key.pem');
+const caPem = join(caDir, 'rootCA.pem');
+const profilePath = join(certDir, 'public', 'MangaSketcher-LAN.mobileconfig');
+const MKCERT_URL =
+  'https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-windows-amd64.exe';
+const HTTPS_PORT = 3443;
+const CA_PORT = 3002;
+
+function lanIPv4() {
+  const nets = networkInterfaces();
+  for (const list of Object.values(nets)) {
+    for (const net of list ?? []) {
+      if (net.family === 'IPv4' && !net.internal) {
+        return net.address;
+      }
+    }
+  }
+  return '192.168.0.2';
+}
+
+async function ensureMkcert() {
+  if (existsSync(mkcertPath)) {
+    return;
+  }
+  mkdirSync(certDir, { recursive: true });
+  const res = await fetch(MKCERT_URL, { redirect: 'follow' });
+  if (!res.ok || !res.body) {
+    throw new Error(`mkcert download failed: ${res.status}`);
+  }
+  await pipeline(res.body, createWriteStream(mkcertPath));
+}
+
+function runMkcert(args) {
+  const result = spawnSync(mkcertPath, args, {
+    cwd: root,
+    env: { ...process.env, CAROOT: caDir },
+    encoding: 'utf8',
+    windowsHide: true,
+  });
+  if (result.status !== 0) {
+    throw new Error(result.stderr || result.stdout || `mkcert ${args.join(' ')} failed`);
+  }
+}
+
+function pemToMobileconfig(pem, displayName) {
+  const derB64 = pem
+    .replace(/-----BEGIN CERTIFICATE-----/g, '')
+    .replace(/-----END CERTIFICATE-----/g, '')
+    .replace(/\s+/g, '');
+  const uuid1 = crypto.randomUUID().toUpperCase();
+  const uuid2 = crypto.randomUUID().toUpperCase();
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>PayloadContent</key>
+  <array>
+    <dict>
+      <key>PayloadCertificateFileName</key>
+      <string>${displayName}.cer</string>
+      <key>PayloadContent</key>
+      <data>${derB64}</data>
+      <key>PayloadDescription</key>
+      <string>MangaSketcher の LAN HTTPS 用ルート証明書</string>
+      <key>PayloadDisplayName</key>
+      <string>${displayName}</string>
+      <key>PayloadIdentifier</key>
+      <string>dev.mangasketcher.lan-ca</string>
+      <key>PayloadType</key>
+      <string>com.apple.security.root</string>
+      <key>PayloadUUID</key>
+      <string>${uuid1}</string>
+      <key>PayloadVersion</key>
+      <integer>1</integer>
+    </dict>
+  </array>
+  <key>PayloadDescription</key>
+  <string>iPad で MangaSketcher をホーム画面に追加するための証明書です。</string>
+  <key>PayloadDisplayName</key>
+  <string>${displayName}</string>
+  <key>PayloadIdentifier</key>
+  <string>dev.mangasketcher.lan</string>
+  <key>PayloadOrganization</key>
+  <string>MangaSketcher</string>
+  <key>PayloadRemovalDisallowed</key>
+  <false/>
+  <key>PayloadType</key>
+  <string>Configuration</string>
+  <key>PayloadUUID</key>
+  <string>${uuid2}</string>
+  <key>PayloadVersion</key>
+  <integer>1</integer>
+</dict>
+</plist>
+`;
+}
+
+function caPage(ip) {
+  return `<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>MangaSketcher 証明書</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 40rem; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #2b2620; }
+    .download {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 48px;
+      margin: 1rem 0 1.5rem;
+      padding: 0 20px;
+      border-radius: 12px;
+      background: #3d5a80;
+      color: #fff;
+      font-weight: 600;
+      text-decoration: none;
+    }
+    a { color: #3d5a80; }
+    ol { padding-left: 1.25rem; }
+    strong { background: #fff3c4; }
+  </style>
+</head>
+<body>
+  <h1>証明書プロファイル</h1>
+  <a class="download" href="/MangaSketcher-LAN.mobileconfig" download="MangaSketcher-LAN.mobileconfig">
+    プロファイルをダウンロード
+  </a>
+  <p>タップすると設定に「プロファイルがダウンロード済み」と出ます。そこからインストールしてください。</p>
+  <h2>警告を消す</h2>
+  <p>プロファイルを入れただけでは足りません。</p>
+  <ol>
+    <li>設定 → 一般 → 情報 → <strong>証明書信頼設定</strong></li>
+    <li><strong>mkcert</strong> で始まる項目をオンにする</li>
+    <li>Safari で <a href="https://${ip}:${HTTPS_PORT}/">https://${ip}:${HTTPS_PORT}/</a> を開き直す</li>
+    <li>警告が消えたら、ホーム画面のアイコンを削除して入れ直す</li>
+  </ol>
+</body>
+</html>`;
+}
+
+async function main() {
+  const ip = lanIPv4();
+  mkdirSync(join(certDir, 'public'), { recursive: true });
+  mkdirSync(caDir, { recursive: true });
+  await ensureMkcert();
+  try {
+    runMkcert(['-install']);
+  } catch {
+    // Windows の信頼ストアへ入れられなくても、iPad は mobileconfig で信頼できる。
+  }
+  runMkcert(['-cert-file', certFile, '-key-file', keyFile, ip, '127.0.0.1', 'localhost']);
+  const pem = readFileSync(caPem, 'utf8');
+  writeFileSync(profilePath, pemToMobileconfig(pem, 'MangaSketcher LAN CA'));
+  writeFileSync(join(certDir, 'public', 'index.html'), caPage(ip));
+  writeFileSync(join(certDir, 'public', 'ca.pem'), pem);
+
+  const publicDir = join(certDir, 'public');
+  const caServer = createServer((req, res) => {
+    const url = new URL(req.url ?? '/', `http://${ip}`);
+    let file = 'index.html';
+    if (url.pathname.endsWith('.mobileconfig')) {
+      file = 'MangaSketcher-LAN.mobileconfig';
+    } else if (url.pathname.endsWith('ca.pem')) {
+      file = 'ca.pem';
+    }
+    const full = resolve(publicDir, file);
+    if (!full.startsWith(resolve(publicDir)) || !existsSync(full)) {
+      res.writeHead(404);
+      res.end('not found');
+      return;
+    }
+    const type = file.endsWith('.mobileconfig')
+      ? 'application/x-apple-aspen-config'
+      : file.endsWith('.pem')
+        ? 'application/x-pem-file'
+        : 'text/html; charset=utf-8';
+    res.writeHead(200, { 'Content-Type': type });
+    res.end(readFileSync(full));
+  });
+
+  await new Promise((resolve) => caServer.listen(CA_PORT, '0.0.0.0', resolve));
+  console.log(`CA page:  http://${ip}:${CA_PORT}/`);
+  console.log(`App HTTPS: https://${ip}:${HTTPS_PORT}/`);
+
+  const child = spawn(
+    'npx',
+    [
+      '--yes',
+      'serve',
+      'out',
+      '-l',
+      `tcp://0.0.0.0:${HTTPS_PORT}`,
+      '-n',
+      '--no-port-switching',
+      '--ssl-cert',
+      certFile,
+      '--ssl-key',
+      keyFile,
+    ],
+    { cwd: root, stdio: 'inherit', shell: true },
+  );
+  child.on('exit', (code) => {
+    caServer.close();
+    process.exit(code ?? 1);
+  });
+}
+
+main().catch((err) => {
+  console.error(err instanceof Error ? err.message : err);
+  process.exit(1);
+});
