@@ -60,6 +60,7 @@ type WorkspaceStripProps = {
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
   liveTextContent?: LiveTextContent | null;
   onDeleteText: (textId: TextId) => void;
+  onDuplicateText: (textId: TextId) => void;
   tool: ToolId;
   zoom: number;
   panX: number;
@@ -98,6 +99,7 @@ export function WorkspaceStrip({
   textLiveTransforms,
   liveTextContent,
   onDeleteText,
+  onDuplicateText,
   tool,
   zoom,
   panX,
@@ -485,7 +487,7 @@ export function WorkspaceStrip({
                 width: live.width ?? text.box.width,
                 height: live.height ?? text.box.height,
               },
-              fontSize: text.fontSize * (rasterWidth / frame.width),
+              fontSize: text.fontSize,
             });
           }
 
@@ -574,6 +576,7 @@ export function WorkspaceStrip({
           panY={panY}
           layoutKey={textLiveTransforms}
           onDeleteText={onDeleteText}
+          onDuplicateText={onDuplicateText}
         />
       ) : null}
     </div>

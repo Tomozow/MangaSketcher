@@ -108,6 +108,33 @@ describe('ストックの自由配置と列への復帰', () => {
     expect(doc.stock).toHaveLength(0);
     expect(layoutWorkspace(doc.workspaceOrder).pageNumbers).toEqual([1, 2, 3]);
   });
+
+  test('ワークスペースまたはストックのページをゴミ箱へドロップできる', () => {
+    const ids = sequentialIds('s');
+    let doc = docN(2);
+    const [a, b] = doc.workspaceOrder;
+    for (const action of dropActions(
+      { type: 'workspacePage', pageId: b, fromIndex: 1 },
+      { zone: 'trash' },
+      doc.rasterWidth,
+      doc.rasterHeight,
+    )) {
+      doc = reduceTestDocument(doc, action, ids);
+    }
+    expect(doc.workspaceOrder).toEqual([a]);
+    expect(doc.trash).toEqual([b]);
+    doc = reduceTestDocument(doc, { type: 'movePageToStock', pageId: a, x: 0, y: 0 }, ids);
+    for (const action of dropActions(
+      { type: 'stockPage', pageId: a },
+      { zone: 'trash' },
+      doc.rasterWidth,
+      doc.rasterHeight,
+    )) {
+      doc = reduceTestDocument(doc, action, ids);
+    }
+    expect(doc.stock).toHaveLength(0);
+    expect(doc.trash).toEqual([b, a]);
+  });
 });
 
 describe('指の長押し並べ替え（Pencil では掴まない）', () => {

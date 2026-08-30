@@ -260,15 +260,11 @@ export function TextEditBar({
           event.clientY <= rect.bottom
         );
       };
-      const chrome = Array.from(document.querySelectorAll<HTMLElement>(`[${PAGE_TEXT_CHROME_ATTR}]`));
-      if (chrome.some(pointHits)) {
+      const copyButtons = Array.from(document.querySelectorAll<HTMLElement>(`[${PAGE_TEXT_COPY_ATTR}]`));
+      if (copyButtons.some(pointHits)) {
         suppressBlurRef.current = true;
         event.preventDefault();
         event.stopImmediatePropagation();
-        return;
-      }
-      const copyButtons = Array.from(document.querySelectorAll<HTMLElement>(`[${PAGE_TEXT_COPY_ATTR}]`));
-      if (copyButtons.some(pointHits)) {
         commitDraft(selection.id, selection.content, true);
         onDuplicateText(selection.id);
         onEditingChange(true);
@@ -280,6 +276,13 @@ export function TextEditBar({
       const buttons = Array.from(document.querySelectorAll<HTMLElement>(`[${PAGE_TEXT_DELETE_ATTR}]`));
       if (buttons.some(pointHits)) {
         onDeleteText(selection.id);
+        return;
+      }
+      const chrome = Array.from(document.querySelectorAll<HTMLElement>(`[${PAGE_TEXT_CHROME_ATTR}]`));
+      if (chrome.some(pointHits)) {
+        suppressBlurRef.current = true;
+        event.preventDefault();
+        event.stopImmediatePropagation();
         return;
       }
       textareaRef.current?.blur();

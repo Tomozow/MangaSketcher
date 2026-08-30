@@ -83,12 +83,22 @@ export function startExtractPack(
   size: { width: number; height: number },
 ): { box: Rect; cursor: ExtractPackCursor } {
   const margin = EXTRACT_MARGIN_CSS / Math.max(0.01, viewport.zoom);
-  const originRight = viewport.right - margin;
-  const originTop = viewport.top + margin;
+  const viewW = viewport.right - viewport.left;
+  const viewH = viewport.bottom - viewport.top;
+  let x = viewport.left + (viewW - size.width) / 2;
+  let y = viewport.top + (viewH - size.height) / 2;
+  if (size.width + margin * 2 <= viewW) {
+    x = Math.min(Math.max(x, viewport.left + margin), viewport.right - margin - size.width);
+  }
+  if (size.height + margin * 2 <= viewH) {
+    y = Math.min(Math.max(y, viewport.top + margin), viewport.bottom - margin - size.height);
+  }
+  const originRight = x + size.width;
+  const originTop = y;
   const rowLeftLimit = viewport.left + margin;
   const box: Rect = {
-    x: originRight - size.width,
-    y: originTop,
+    x,
+    y,
     width: size.width,
     height: size.height,
   };

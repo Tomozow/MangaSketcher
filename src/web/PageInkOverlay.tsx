@@ -73,12 +73,12 @@ function ClipBoxChrome({
       >
         <svg viewBox="0 0 12 12" width={icon} height={icon} aria-hidden="true" focusable="false">
           <path
-            d="M2.5 2.5h7v7h-7z"
+            d="M3 3l6 6M9 3l-6 6"
             fill="none"
             stroke="currentColor"
             strokeWidth="1.6"
+            strokeLinecap="round"
           />
-          <path d="M4 4h4M4 8h4" stroke="currentColor" strokeWidth="1.6" />
         </svg>
       </div>
       <div

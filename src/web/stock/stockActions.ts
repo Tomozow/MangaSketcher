@@ -46,6 +46,19 @@ export function returnTrashPageToWorkspace(
   ) as EditorDocumentAction[];
 }
 
+export function dropWorkspacePageToTrash(pageId: PageId): EditorDocumentAction[] {
+  return dropActions(
+    { type: 'workspacePage', pageId, fromIndex: 0 },
+    { zone: 'trash' },
+    1,
+    1,
+  ) as EditorDocumentAction[];
+}
+
+export function dropStockPageToTrash(pageId: PageId): EditorDocumentAction[] {
+  return dropActions({ type: 'stockPage', pageId }, { zone: 'trash' }, 1, 1) as EditorDocumentAction[];
+}
+
 export function placeStockPage(
   pageId: PageId,
   x: number,

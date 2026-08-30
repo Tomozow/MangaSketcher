@@ -79,9 +79,7 @@ export function useInkEngine(options: UseInkEngineOptions): InkEngineApi {
     engine.setCallbacks({
       onHotPixelsReady: (rasterId) => {
         scheduleInkDisplay(rasterId);
-        if (rasterId.includes(':clip:')) {
-          setRasterLayoutGen((n) => n + 1);
-        }
+        setRasterLayoutGen((n) => n + 1);
       },
     });
   }, [engine]);

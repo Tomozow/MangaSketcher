@@ -164,8 +164,7 @@ export function textPoseAfterWorldMove(input: {
     rasterWidth: input.rasterWidth,
     rasterHeight: input.rasterHeight,
   });
-  const sourceWidth = Math.max(4, finiteOr(input.sourceBox.width, 4));
-  return { attachment, box, fontSize: input.sourceFontSize * (box.width / sourceWidth) };
+  return { attachment, box, fontSize: input.sourceFontSize };
 }
 
 export function buildTextInteractionElements(input: {

@@ -18,6 +18,9 @@ import {
 } from '@/src/storage/appSettings';
 import { projectHref } from '@/src/web/projectRoutes';
 import { hardNavigate } from '@/src/web/hardNavigate';
+import { HomeScreenInstallHint } from '@/src/web/HomeScreenInstallHint';
+import { IconMoon, IconSun } from '@/src/web/chromeIcons';
+import { useChromeTheme } from '@/src/web/useChromeTheme';
 import styles from '@/app/page.module.css';
 
 const DEFAULT_PROJECT_NAME = '無題';
@@ -64,10 +67,12 @@ function promptRename(currentName: string): string | null {
 }
 
 export function ProjectList() {
+  const { theme, toggleTheme } = useChromeTheme();
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [menuId, setMenuId] = useState<string | null>(null);
   const [autosavePreset, setAutosavePreset] = useState<AutosavePresetId>(
     () => loadAppSettings().autosavePreset,
   );
@@ -102,6 +107,20 @@ export function ProjectList() {
     };
   }, []);
 
+  useEffect(() => {
+    if (!menuId) {
+      return;
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest('[data-project-card-menu]')) {
+        return;
+      }
+      setMenuId(null);
+    };
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [menuId]);
+
   const handleCreate = async () => {
     const pageCount = promptPageCount();
     if (pageCount === null) {
@@ -119,6 +138,7 @@ export function ProjectList() {
   };
 
   const handleRename = async (project: ProjectMeta) => {
+    setMenuId(null);
     const name = promptRename(project.name);
     if (name === null || name === project.name) {
       return;
@@ -141,6 +161,7 @@ export function ProjectList() {
   };
 
   const handleDelete = async (project: ProjectMeta) => {
+    setMenuId(null);
     const confirmed = window.confirm(`「${project.name}」を削除しますか？`);
     if (!confirmed) {
       return;
@@ -170,89 +191,136 @@ export function ProjectList() {
   };
 
   const creating = busyId === '__create__';
+  const presetLabel =
+    AUTOSAVE_PRESET_OPTIONS.find((preset) => preset.id === autosavePreset)?.label ?? autosavePreset;
 
   return (
-    <>
-      <section className={styles.list} style={{ touchAction: 'pan-y' }}>
+    <div className={styles.home} data-ms-theme={theme}>
+      <header className={styles.top}>
+        <div className={styles.brand}>
+          <div className={styles.mark} aria-hidden>
+            MS
+          </div>
+          <div>
+            <h1 className={styles.title}>MangaSketcher</h1>
+            <span className={styles.subtitle}>端末内 · 自動保存</span>
+          </div>
+        </div>
+        <div className={styles.tools}>
+          <label className={styles.chip} htmlFor="autosave-preset">
+            自動保存
+            <select
+              id="autosave-preset"
+              className={styles.chipSelect}
+              value={autosavePreset}
+              onChange={(event) => handleAutosavePreset(event.target.value)}
+              aria-label="自動保存の間隔"
+            >
+              {AUTOSAVE_PRESET_OPTIONS.map((preset) => (
+                <option key={preset.id} value={preset.id}>
+                  {preset.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            type="button"
+            className={styles.themeButton}
+            aria-label="明るい／暗いUI"
+            title="明るい／暗いUI"
+            onClick={toggleTheme}
+          >
+            {theme === 'dark' ? <IconSun /> : <IconMoon />}
+          </button>
+          <button
+            type="button"
+            className={styles.newButton}
+            disabled={loading || creating}
+            onClick={() => void handleCreate()}
+          >
+            ＋ 新規ネーム
+          </button>
+        </div>
+      </header>
+
+      <HomeScreenInstallHint />
+
+      <section className={styles.list} style={{ touchAction: 'pan-y' }} aria-label="プロジェクト">
         {loading ? (
           <p className={styles.empty}>読み込み中…</p>
-        ) : projects.length === 0 ? (
-          <>
-            <p className={styles.empty}>保存済みプロジェクトはまだありません。</p>
-            <p className={styles.hint}>「新規プロジェクト」で白紙のネームを作成できます。</p>
-          </>
         ) : (
-          <ul className={styles.projectRows}>
+          <div className={styles.grid}>
             {projects.map((project) => {
               const rowBusy = busyId === project.id;
               return (
-                <li key={project.id} className={styles.projectRow}>
-                  <a href={projectHref(project.id)} className={styles.projectOpen}>
-                    <span className={styles.projectName}>{project.name}</span>
-                    <span className={styles.projectMeta}>
-                      {project.pageCount} ページ · {formatUpdatedAt(project.updatedAt)}
-                    </span>
+                <article key={project.id} className={styles.card} data-project-card-menu>
+                  <a href={projectHref(project.id)} className={styles.cardOpen}>
+                    <div className={styles.cardThumb} aria-hidden>
+                      <span className={styles.miniPage} />
+                      {project.pageCount > 1 ? <span className={styles.miniPage} /> : null}
+                    </div>
+                    <div className={styles.cardMeta}>
+                      <strong className={styles.projectName}>{project.name}</strong>
+                      <small className={styles.projectMeta}>
+                        {project.pageCount} ページ · {formatUpdatedAt(project.updatedAt)}
+                      </small>
+                    </div>
                   </a>
-                  <div className={styles.projectActions}>
-                    <button
-                      type="button"
-                      className={styles.secondaryButton}
-                      disabled={rowBusy || creating}
-                      onClick={() => void handleRename(project)}
-                    >
-                      改名
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.dangerButton}
-                      disabled={rowBusy || creating}
-                      onClick={() => void handleDelete(project)}
-                    >
-                      削除
-                    </button>
-                  </div>
-                </li>
+                  <button
+                    type="button"
+                    className={styles.cardMenuButton}
+                    aria-label={`${project.name}のメニュー`}
+                    aria-expanded={menuId === project.id}
+                    disabled={rowBusy || creating}
+                    onClick={() => setMenuId((current) => (current === project.id ? null : project.id))}
+                  >
+                    ⋯
+                  </button>
+                  {menuId === project.id ? (
+                    <div className={styles.cardMenu} role="menu">
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={styles.secondaryButton}
+                        disabled={rowBusy || creating}
+                        onClick={() => void handleRename(project)}
+                      >
+                        改名
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={styles.dangerButton}
+                        disabled={rowBusy || creating}
+                        onClick={() => void handleDelete(project)}
+                      >
+                        削除
+                      </button>
+                    </div>
+                  ) : null}
+                </article>
               );
             })}
-          </ul>
+            <button
+              type="button"
+              className={`${styles.card} ${styles.cardNew}`}
+              disabled={loading || creating}
+              onClick={() => void handleCreate()}
+            >
+              ＋
+              <span>新規プロジェクト</span>
+            </button>
+          </div>
         )}
+        {projects.length === 0 && !loading ? (
+          <p className={styles.hint}>「新規ネーム」で白紙のネームを作成できます。</p>
+        ) : null}
         {error ? <p className={styles.error}>{error}</p> : null}
       </section>
-      <section className={styles.settings} aria-labelledby="app-settings-heading">
-        <h2 id="app-settings-heading" className={styles.settingsTitle}>
-          オプション
-        </h2>
-        <div className={styles.settingsRow}>
-          <label className={styles.settingsLabel} htmlFor="autosave-preset">
-            自動保存の間隔
-          </label>
-          <select
-            id="autosave-preset"
-            className={styles.settingsSelect}
-            value={autosavePreset}
-            onChange={(event) => handleAutosavePreset(event.target.value)}
-          >
-            {AUTOSAVE_PRESET_OPTIONS.map((preset) => (
-              <option key={preset.id} value={preset.id}>
-                {preset.label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <p className={styles.settingsHint}>
-          間隔を長くすると描画中の保存負荷が下がります。タブを閉じる・バックグラウンドにするときはすぐ保存します。
-        </p>
-      </section>
-      <footer className={styles.footer}>
-        <button
-          type="button"
-          className={styles.primaryButton}
-          disabled={loading || creating}
-          onClick={() => void handleCreate()}
-        >
-          新規プロジェクト
-        </button>
-      </footer>
-    </>
+
+      <p className={styles.settingsHint}>
+        自動保存は {presetLabel}。間隔を長くすると描画中の保存負荷が下がります。タブを閉じる・バックグラウンドにするときはすぐ保存します。
+      </p>
+    </div>
   );
 }

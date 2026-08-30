@@ -24,6 +24,7 @@ body {
   padding-right: env(safe-area-inset-right);
   padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
+  background: #4a453f;
 }
 
 #editor-root [data-ms-shell='header'] {
@@ -39,21 +40,22 @@ body {
 
 #editor-root [data-ms-shell='body'] {
   flex: 1 1 0%;
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
+  position: relative;
+  display: block;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
 }
 
 #editor-main-split {
-  flex: 1 1 0%;
+  position: absolute;
+  inset: 0;
   display: flex;
   flex-direction: column;
   min-width: 0;
   min-height: 0;
   overflow: hidden;
+  z-index: 0;
 }
 
 #editor-root [data-ms-shell='split-row'] {
@@ -64,74 +66,7 @@ body {
   min-height: 0;
   overflow: hidden;
   width: 100%;
-}
-
-#editor-sidebar-split {
-  display: flex;
-  flex-direction: column;
-  flex: 0 0 auto;
-  align-self: stretch;
-  min-height: 0;
-  overflow: hidden;
-  border-right: 1px solid var(--ms-border);
-  background: var(--ms-surface);
-}
-
-#editor-sidebar-split[data-ms-sidebar='normal'] {
-  width: clamp(280px, 28vw, 360px);
-}
-
-#editor-sidebar-split[data-ms-sidebar='compact'] {
-  width: 112px;
-}
-
-#editor-sidebar-split .ms-navRow {
-  display: flex;
-  flex-direction: row;
-  flex-wrap: nowrap;
-  align-items: center;
-  justify-content: flex-start;
-  gap: 8px;
-  padding: 8px 10px;
-  border-bottom: 1px solid var(--ms-border);
-  background: var(--ms-surface);
-  flex-shrink: 0;
-  min-width: 0;
-  min-height: 52px;
-  box-sizing: border-box;
-}
-
-#editor-sidebar-split .ms-navRow .ms-headerTitle {
-  flex: 1 1 0%;
-  min-width: 0;
-}
-
-#editor-sidebar-split[data-ms-sidebar='compact'] .ms-navRow {
-  padding: 8px 6px;
-  gap: 4px;
-}
-
-#editor-sidebar-split[data-ms-sidebar='compact'] .ms-headerTitle {
-  font-size: 12px;
-}
-
-#editor-sidebar-split[data-ms-sidebar='compact'] .ms-linkButton {
-  flex: 0 0 auto;
-  min-height: 36px;
-  font-size: 12px;
-  padding: 0 2px;
-}
-
-#editor-sidebar-split[data-ms-sidebar='compact'] .ms-saveStatusRow {
-  min-width: 8px;
-}
-
-#editor-sidebar-split[data-ms-sidebar='compact'] .ms-saveStatusLabel {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip: rect(0, 0, 0, 0);
+  height: 100%;
 }
 
 #editor-root [data-ms-shell='split-col'] {
@@ -151,17 +86,10 @@ body {
   min-height: 0;
   overflow: hidden;
   position: relative;
-  background: var(--ms-background);
 }
 
-#editor-root [data-ms-shell='pane-label'] {
-  position: absolute;
-  top: 6px;
-  left: 8px;
-  z-index: 2;
-  font-size: 11px;
-  color: var(--ms-text-muted);
-  pointer-events: none;
+#editor-workspace-pane {
+  background: transparent;
 }
 
 #editor-root [role='separator'][aria-orientation='vertical'] {
@@ -230,6 +158,7 @@ body {
   padding-right: env(safe-area-inset-right);
   padding-bottom: env(safe-area-inset-bottom);
   padding-left: env(safe-area-inset-left);
+  background: #4a453f;
 }
 
 .ms-header {
@@ -272,11 +201,39 @@ body {
 .ms-body {
   flex: 1 1 0%;
   display: flex;
-  flex-direction: row;
-  align-items: stretch;
+  position: relative;
   min-height: 0;
   min-width: 0;
   overflow: hidden;
+  --ms-desk: #d5cec3;
+  --ms-desk-2: #c2b9ad;
+  --ms-chrome: rgba(252, 249, 243, 0.86);
+  --ms-chrome-hair: rgba(43, 38, 32, 0.14);
+  --ms-chrome-hair-2: rgba(43, 38, 32, 0.08);
+  --ms-chrome-fg: #2b2620;
+  --ms-chrome-muted: rgba(43, 38, 32, 0.55);
+  --ms-chrome-accent: #3d5a80;
+  --ms-on-tool-bg: #1c1c22;
+  --ms-on-tool-fg: #f6f3ec;
+  --ms-chrome-shadow: 0 10px 24px rgba(43, 38, 32, 0.14);
+  --ms-seg-track: rgba(43, 38, 32, 0.06);
+  background:
+    radial-gradient(ellipse at 50% 40%, var(--ms-desk), var(--ms-desk-2) 70%);
+}
+
+.ms-body[data-ms-theme='dark'] {
+  --ms-desk: #5e5850;
+  --ms-desk-2: #4a453f;
+  --ms-chrome: rgba(18, 18, 22, 0.78);
+  --ms-chrome-hair: rgba(255, 255, 255, 0.14);
+  --ms-chrome-hair-2: rgba(255, 255, 255, 0.08);
+  --ms-chrome-fg: #f6f3ec;
+  --ms-chrome-muted: rgba(246, 243, 236, 0.55);
+  --ms-chrome-accent: #8bb4d9;
+  --ms-on-tool-bg: #f6f3ec;
+  --ms-on-tool-fg: #1a1a1a;
+  --ms-chrome-shadow: 0 10px 28px rgba(0, 0, 0, 0.28);
+  --ms-seg-track: rgba(255, 255, 255, 0.06);
 }
 
 .ms-mainColumn {
@@ -314,23 +271,10 @@ body {
   min-height: 0;
   overflow: hidden;
   position: relative;
-  background: var(--ms-background);
-}
-
-.ms-paneLabel {
-  position: absolute;
-  top: 6px;
-  left: 8px;
-  z-index: 2;
-  font-size: 11px;
-  color: var(--ms-text-muted);
-  pointer-events: none;
 }
 
 .ms-workspacePaneActions {
-  position: absolute;
-  top: 4px;
-  right: 8px;
+  position: relative;
   z-index: 4;
   display: flex;
   flex-direction: column;
@@ -349,12 +293,72 @@ body {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  position: relative;
 }
 
 .ms-workspaceExportControls {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
+  position: relative;
+}
+
+.ms-exportMenu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 9;
+  min-width: 228px;
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-radius: 16px;
+  border: 1px solid var(--ms-chrome-hair);
+  background: var(--ms-chrome);
+  color: var(--ms-chrome-fg);
+  box-shadow: var(--ms-chrome-shadow);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+}
+
+.ms-exportMenu[hidden],
+.ms-isHidden {
+  display: none !important;
+}
+
+.ms-exportMenuItem {
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--ms-chrome-fg);
+  text-align: left;
+  padding: 0 12px;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ms-exportMenuItem:hover:not(:disabled) {
+  background: var(--ms-chrome-hair-2);
+}
+
+.ms-exportMenuItem:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.ms-exportMenu .ms-clipExportButtons {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 0;
+  padding: 0;
+  flex-wrap: nowrap;
 }
 
 .ms-workspaceExportStatus {
@@ -387,13 +391,20 @@ body {
 }
 
 .ms-workspaceLayoutPanel {
-  margin-top: 4px;
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 9;
+  margin-top: 0;
   width: min(280px, calc(100vw - 48px));
-  padding: 8px 10px 10px;
-  border: 1px solid var(--ms-border);
-  border-radius: 8px;
-  background: var(--ms-surface);
-  box-shadow: 0 8px 24px rgba(43, 38, 32, 0.16);
+  padding: 12px;
+  border: 1px solid var(--ms-chrome-hair);
+  border-radius: 16px;
+  background: var(--ms-chrome);
+  color: var(--ms-chrome-fg);
+  box-shadow: var(--ms-chrome-shadow);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
 }
 
 .ms-workspaceLayoutCheck {
@@ -402,7 +413,7 @@ body {
   gap: 8px;
   min-height: 44px;
   font-size: 12px;
-  color: var(--ms-text);
+  color: var(--ms-chrome-fg);
   padding: 0 8px;
   cursor: pointer;
   touch-action: manipulation;
@@ -836,27 +847,43 @@ body {
 }
 
 .ms-stockGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--ms-stock-thumb-min, 112px), 1fr));
-  grid-auto-rows: max-content;
-  align-items: start;
-  justify-items: stretch;
-  align-content: start;
-  gap: 8px;
-  padding: 8px;
-  overflow: auto;
+  display: flex;
+  flex-flow: row nowrap;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
   height: 100%;
   touch-action: none;
 }
 
 .ms-stockThumb {
   position: relative;
-  width: 100%;
-  height: 0;
-  padding-bottom: calc(100% * var(--ms-page-aspect, 1.41667));
+  flex: 0 0 auto;
+  box-sizing: border-box;
+  height: var(--ms-stock-sheet-h, 220px);
+  width: calc(var(--ms-stock-sheet-h, 220px) / var(--ms-page-aspect, 1.41667));
   overflow: hidden;
   background-color: #fff;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
   box-shadow: inset 0 0 0 1px var(--ms-border);
+}
+
+.ms-stockThumbInkHost {
+  position: absolute;
+  inset: 0;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}
+
+.ms-stockPageInk {
+  position: absolute;
+  left: 0;
+  top: 0;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .ms-stockTransform {
@@ -875,6 +902,8 @@ body {
   height: 204px;
   overflow: hidden;
   background-color: #fff;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
   box-shadow: inset 0 0 0 1px var(--ms-border);
 }
 
@@ -1107,6 +1136,8 @@ body {
   pointer-events: none;
   overflow: visible;
   z-index: 3;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 .ms-textResizeHandle {
@@ -1321,4 +1352,399 @@ body {
 .ms-clipHandleCorner {
   right: -6px;
   bottom: -6px;
+}
+
+.ms-chromeIcon {
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: 14px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  color: var(--ms-chrome-fg);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  touch-action: manipulation;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.ms-chromeIcon:hover,
+.ms-chromeIcon[aria-pressed='true'],
+.ms-chromeIconPressed {
+  background: var(--ms-chrome-hair-2);
+}
+
+.ms-chromeIcon[aria-pressed='true'],
+.ms-chromeIconPressed {
+  background: rgba(139, 180, 217, 0.22);
+  color: var(--ms-chrome-accent);
+}
+
+.ms-chromeIcon:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.ms-topbar {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 22px;
+  z-index: 8;
+  min-height: 52px;
+  max-width: calc(100% - 24px);
+  background: var(--ms-chrome);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  border: 1px solid var(--ms-chrome-hair);
+  color: var(--ms-chrome-fg);
+  box-shadow: var(--ms-chrome-shadow);
+}
+
+.ms-topbar .ms-headerTitle {
+  font-size: 13px;
+  font-weight: 620;
+  color: var(--ms-chrome-fg);
+  max-width: 28vw;
+}
+
+.ms-topbarTitle {
+  padding: 0 8px 0 4px;
+  min-width: 0;
+}
+
+.ms-topbarTitleMeta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--ms-chrome-muted);
+}
+
+.ms-saveStatusIdle {
+  background: #2a9d8f;
+}
+
+.ms-topbar .ms-workspacePaneActionRow {
+  align-items: center;
+}
+
+.ms-topbar .ms-workspaceExportStatus {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 9;
+  padding: 8px;
+  border-radius: 12px;
+  background: var(--ms-chrome);
+  border: 1px solid var(--ms-chrome-hair);
+  color: var(--ms-chrome-fg);
+  box-shadow: var(--ms-chrome-shadow);
+}
+
+.ms-topbar .ms-clipExportButtons {
+  position: static;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+}
+
+.ms-topbar .ms-exportMenuItem {
+  color: var(--ms-chrome-fg);
+}
+
+.ms-topbar .ms-sliderLabel {
+  color: var(--ms-chrome-muted);
+}
+
+#editor-root .ms-toolsOverlay {
+  position: absolute;
+  inset: 0;
+  display: block;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 8;
+}
+
+.ms-toolRail,
+.ms-toolFlyout {
+  pointer-events: auto;
+}
+
+.ms-toolRail {
+  position: absolute;
+  left: 12px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 6px;
+  border-radius: 28px;
+  background: var(--ms-chrome);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  border: 1px solid var(--ms-chrome-hair);
+  color: var(--ms-chrome-fg);
+  box-shadow: var(--ms-chrome-shadow);
+}
+
+.ms-toolRail .ms-chromeIcon {
+  border-radius: 16px;
+}
+
+.ms-toolRailActive {
+  background: var(--ms-on-tool-bg) !important;
+  color: var(--ms-on-tool-fg) !important;
+}
+
+.ms-toolRailRule {
+  border: 0;
+  height: 1px;
+  background: var(--ms-chrome-hair);
+  margin: 4px 8px;
+}
+
+.ms-toolFlyout {
+  position: absolute;
+  left: 76px;
+  top: 50%;
+  transform: translateY(-42%);
+  width: 196px;
+  border-radius: 18px;
+  padding: 12px;
+  background: var(--ms-chrome);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  border: 1px solid var(--ms-chrome-hair);
+  color: var(--ms-chrome-fg);
+  box-shadow: var(--ms-chrome-shadow);
+}
+
+.ms-toolFlyoutTitle {
+  margin: 0 0 10px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ms-chrome-muted);
+}
+
+.ms-toolFlyout .ms-selectFilterRow {
+  padding: 0 0 10px;
+  justify-content: flex-start;
+}
+
+.ms-toolFlyout .ms-selectFilterButton {
+  min-height: 32px;
+  min-width: 0;
+  padding: 0 10px;
+  border-radius: 999px;
+  border: 1px solid var(--ms-chrome-hair);
+  background: transparent;
+  color: var(--ms-chrome-fg);
+  font-size: 11px;
+}
+
+.ms-toolFlyout .ms-selectFilterButton.ms-toolButtonActive {
+  background: var(--ms-on-tool-bg);
+  color: var(--ms-on-tool-fg);
+  border-color: transparent;
+}
+
+.ms-toolFlyout .ms-sliderBlock {
+  padding: 0 0 8px;
+}
+
+.ms-toolFlyout .ms-sliderLabel {
+  color: var(--ms-chrome-muted);
+}
+
+.ms-toolFlyout .ms-sliderInput {
+  min-height: 32px;
+  accent-color: var(--ms-chrome-accent);
+}
+
+.ms-toolFlyout .ms-palettePopover {
+  justify-content: flex-start;
+  padding: 8px 0 0;
+  border-top: 0;
+  gap: 8px;
+}
+
+.ms-paletteChipOn {
+  box-shadow: 0 0 0 2px var(--ms-on-tool-bg);
+  border-color: var(--ms-chrome-fg);
+}
+
+.ms-pressureToggle {
+  width: 100%;
+  min-height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--ms-chrome-hair);
+  background: transparent;
+  color: var(--ms-chrome-fg);
+  font: inherit;
+  font-size: 12px;
+  margin-top: 4px;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+.ms-pressureToggleOn {
+  background: rgba(139, 180, 217, 0.2);
+  border-color: var(--ms-chrome-accent);
+}
+
+#editor-root .ms-stockSheet {
+  --ms-stock-sheet-h: min(220px, 38vh);
+  position: absolute;
+  left: 84px;
+  right: 12px;
+  bottom: 12px;
+  width: auto;
+  height: var(--ms-stock-sheet-h);
+  z-index: 6;
+  display: block;
+  padding: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--ms-chrome);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  border: 1px solid var(--ms-chrome-hair);
+  color: var(--ms-chrome-fg);
+  box-shadow: var(--ms-chrome-shadow);
+}
+
+#editor-root .ms-body[data-ms-pdf='open'] .ms-stockSheet {
+  right: calc(32% + 24px);
+}
+
+.ms-stockDrawerHead {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  right: 8px;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.ms-stockDrawerHead > * {
+  pointer-events: auto;
+}
+
+.ms-stockDrawerHead strong {
+  font-size: 13px;
+  font-weight: 620;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--ms-chrome);
+  backdrop-filter: blur(18px) saturate(1.2);
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  border: 1px solid var(--ms-chrome-hair);
+  box-shadow: var(--ms-chrome-shadow);
+}
+
+.ms-stockSeg {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  background: var(--ms-seg-track);
+  border: 1px solid var(--ms-chrome-hair);
+}
+
+.ms-stockSegButton {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--ms-chrome-muted);
+  font: inherit;
+  font-size: 11px;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+.ms-stockSegButton[aria-pressed='true'],
+.ms-stockSegButton.ms-chromeIconPressed {
+  background: var(--ms-on-tool-bg);
+  color: var(--ms-on-tool-fg);
+}
+
+.ms-stockSegButton[data-drop-hover] {
+  background: rgba(196, 80, 80, 0.28);
+  color: var(--ms-chrome-fg);
+  box-shadow: 0 0 0 2px rgba(196, 80, 80, 0.7);
+}
+
+.ms-stockSheet .ms-stockGrid,
+.ms-stockSheet .ms-stockSurface {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+
+#editor-root .ms-pdfDrawer {
+  position: absolute;
+  top: 68px;
+  right: 12px;
+  bottom: 16px;
+  width: 32%;
+  min-width: 220px;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--ms-chrome);
+  backdrop-filter: blur(22px) saturate(1.2);
+  -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  border: 1px solid var(--ms-chrome-hair);
+  color: var(--ms-chrome-fg);
+  box-shadow: var(--ms-chrome-shadow);
+}
+
+.ms-pdfDrawerHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-shrink: 0;
+  font-size: 13px;
+}
+
+.ms-pdfDrawerHead span {
+  font-size: 11px;
+  color: var(--ms-chrome-muted);
+}
+
+.ms-pdfDrawer .ms-pdfPaneInner,
+.ms-pdfDrawer .ms-pdfPlaceholder {
+  flex: 1 1 0%;
+  min-height: 0;
+  color: var(--ms-chrome-fg);
 }

@@ -202,10 +202,21 @@ function collectRasterIds(doc: EditorDocument): string[] {
 
 function visiblePageRasterIds(doc: EditorDocument): string[] {
   const ids: string[] = [];
-  for (const pageId of doc.workspaceOrder) {
+  const pushPage = (pageId: PageId) => {
     const rasterId = doc.pages[pageId]?.rasterId;
     if (rasterId) {
       ids.push(rasterId);
+    }
+  };
+  for (const pageId of doc.workspaceOrder) {
+    pushPage(pageId);
+  }
+  for (const item of doc.stock) {
+    pushPage(item.pageId);
+  }
+  if (doc.stockPane === 'trash') {
+    for (const pageId of doc.trash) {
+      pushPage(pageId);
     }
   }
   for (const clip of doc.pasteboardClips) {
@@ -227,9 +238,12 @@ function documentRasterIdsKey(doc: EditorDocument): string {
 }
 
 function workspaceVisibleRasterIdsKey(doc: EditorDocument): string {
-  const pages = doc.workspaceOrder.map((pageId) => doc.pages[pageId]?.rasterId ?? '');
+  const workspace = doc.workspaceOrder.map((pageId) => doc.pages[pageId]?.rasterId ?? '');
+  const stock = doc.stock.map((item) => doc.pages[item.pageId]?.rasterId ?? '');
+  const trash =
+    doc.stockPane === 'trash' ? doc.trash.map((pageId) => doc.pages[pageId]?.rasterId ?? '') : [];
   const clips = doc.pasteboardClips.map((clip) => clip.rasterId);
-  return `${pages.join('\0')}|${clips.join('\0')}`;
+  return `${workspace.join('\0')}|${stock.join('\0')}|${trash.join('\0')}|${clips.join('\0')}`;
 }
 
 function isClipLiveEffect(effect: WorkspaceEffect): boolean {
@@ -1089,13 +1103,16 @@ export function useEditorController(projectId: string): EditorController {
               const liveHeight = live.height ?? textStart.height;
               const where = live.where ?? textStart.where;
               const pageId = live.pageId ?? textStart.pageId;
+              const crossed = where !== textStart.where;
               texts.push({
                 textId: textStart.textId,
                 x: live.x,
                 y: live.y,
                 width: liveWidth,
                 height: liveHeight,
-                fontSize: textStart.fontSize * (liveWidth / Math.max(1, textStart.width)),
+                fontSize: crossed
+                  ? textStart.fontSize
+                  : textStart.fontSize * (liveWidth / Math.max(1, textStart.width)),
                 attachment:
                   where === 'pasteboard'
                     ? { kind: 'pasteboard' }
@@ -1230,14 +1247,11 @@ export function useEditorController(projectId: string): EditorController {
             });
             const clamped = clampOnPage(targetPageId, targetBox);
             if (effect.pasteboard && found.where === 'page' && found.pageId) {
-              const frame = frameForPage(present.workspaceOrder, found.pageId, frames);
               dispatch({
                 type: 'detachTextToPasteboard',
                 textId: effect.textId,
                 workspaceBox: clamped,
-                fontSize: frame
-                  ? found.node.fontSize * (frame.width / present.rasterWidth)
-                  : found.node.fontSize,
+                fontSize: found.node.fontSize,
               });
             } else if (
               effect.pageId &&
@@ -1253,15 +1267,12 @@ export function useEditorController(projectId: string): EditorController {
                 y: clamped.y,
               });
             } else if (effect.pageId && found.where === 'pasteboard') {
-              const frame = frameForPage(present.workspaceOrder, effect.pageId, frames);
               dispatch({
                 type: 'attachTextToPage',
                 textId: effect.textId,
                 pageId: effect.pageId,
                 pageBox: clamped,
-                fontSize: frame
-                  ? found.node.fontSize * (present.rasterWidth / frame.width)
-                  : found.node.fontSize,
+                fontSize: found.node.fontSize,
               });
             } else {
               dispatch({ type: 'moveText', textId: effect.textId, x: clamped.x, y: clamped.y });
@@ -1695,9 +1706,9 @@ export function useEditorController(projectId: string): EditorController {
         bottom: bottomRight.y,
         zoom,
       };
-      const fontSize = workspaceFontSizeFromTool(present.tools.textFontSize, present.rasterWidth);
+      const cssFont = workspaceFontSizeFromTool(present.tools.textFontSize, present.rasterWidth);
       const content = wrapExtractedText(payload.preview);
-      const size = extractedTextBoxSize(content, fontSize);
+      const size = extractedTextBoxSize(content, cssFont);
       const packed = extractPackRef.current
         ? nextExtractPack(extractPackRef.current, size)
         : startExtractPack(viewport, size);
@@ -1710,7 +1721,7 @@ export function useEditorController(projectId: string): EditorController {
         box: packed.box,
         content,
         glyphs: payload.glyphs,
-        fontSize,
+        fontSize: present.tools.textFontSize,
       });
     },
     [dispatch],

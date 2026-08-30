@@ -92,7 +92,6 @@ export default function Editor({ projectId }: EditorProps) {
       className={styles.editorRoot}
       style={{
         height: rootHeight != null ? `${rootHeight}px` : '100dvh',
-        background: colors.background,
         ['--ms-background' as string]: colors.background,
         ['--ms-surface' as string]: colors.surface,
         ['--ms-surface-muted' as string]: colors.surfaceMuted,
@@ -125,6 +124,7 @@ export default function Editor({ projectId }: EditorProps) {
         onExtractPdfText={onExtractPdfText}
         inkEngine={ink?.engine ?? null}
         inkFrame={inkFrame}
+        rasterLayoutGen={ink?.rasterLayoutGen ?? 0}
         marqueePreview={marqueePreview}
         clipLiveTransforms={clipLiveTransforms}
         textLiveTransforms={textLiveTransforms}

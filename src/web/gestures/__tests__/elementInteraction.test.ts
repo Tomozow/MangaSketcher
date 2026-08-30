@@ -135,7 +135,7 @@ describe('workspace element interaction geometry', () => {
     expect(offPage.attachment).toEqual({ kind: 'pasteboard' });
     expect(offPage.box.x).toBeCloseTo(page1.x + page1.width + 12);
     expect(offPage.box.width).toBeCloseTo(world.width);
-    expect(offPage.fontSize).toBeCloseTo(24 * (world.width / sourceBox.width));
+    expect(offPage.fontSize).toBeCloseTo(24);
 
     const otherPage = textPoseAfterWorldMove({
       sourceWhere: 'page',

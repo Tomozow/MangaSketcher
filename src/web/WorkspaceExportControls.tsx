@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { EditorDocument } from '@/src/storage/types';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
 import { styles } from './editorStyles';
+import { IconExport } from './chromeIcons';
 import {
   canShareExportFile,
   EXPORT_BUTTON_LABEL,
@@ -41,9 +42,12 @@ export function WorkspaceExportControls({
   const [progress, setProgress] = useState<ExportProgress | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [canShare, setCanShare] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [clipHost, setClipHost] = useState<HTMLElement | null>(null);
   const objectUrlRef = useRef<ObjectUrlTracker | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   const updatePhase = useCallback((next: ExportUiPhase) => {
     setPhase(next);
@@ -52,6 +56,26 @@ export function WorkspaceExportControls({
   useEffect(() => {
     onPhaseChange?.(mergeExportPhases(phase, clipPhase));
   }, [phase, clipPhase, onPhaseChange]);
+
+  useEffect(() => {
+    if (phase !== 'idle' || clipPhase !== 'idle') {
+      setMenuOpen(false);
+    }
+  }, [phase, clipPhase]);
+
+  useEffect(() => {
+    if (!menuOpen) {
+      return undefined;
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      const root = rootRef.current;
+      if (root && event.target instanceof Node && !root.contains(event.target)) {
+        setMenuOpen(false);
+      }
+    };
+    window.addEventListener('pointerdown', onPointerDown);
+    return () => window.removeEventListener('pointerdown', onPointerDown);
+  }, [menuOpen]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -144,18 +168,49 @@ export function WorkspaceExportControls({
   }, [file]);
 
   return (
-    <div className={styles.workspaceExportControls}>
+    <div ref={rootRef} className={styles.workspaceExportControls}>
       <button
         type="button"
-        className={styles.iconButton}
+        className={`${styles.chromeIcon} ${phase === 'generating' || menuOpen ? styles.chromeIconPressed : ''}`}
         aria-label={EXPORT_BUTTON_LABEL}
+        aria-expanded={menuOpen}
+        aria-haspopup="menu"
+        title={EXPORT_BUTTON_LABEL}
         disabled={phase === 'generating'}
         onClick={() => {
-          void handleExport();
+          setMenuOpen((open) => !open);
         }}
       >
-        {EXPORT_BUTTON_LABEL}
+        <IconExport />
       </button>
+      <div
+        className={`${styles.exportMenu} ${menuOpen && phase === 'idle' && clipPhase === 'idle' ? '' : styles.isHidden}`}
+        role="menu"
+        aria-label="書き出し"
+        hidden={!(menuOpen && phase === 'idle' && clipPhase === 'idle')}
+      >
+          <button
+            type="button"
+            role="menuitem"
+            className={styles.exportMenuItem}
+            onClick={() => {
+              setMenuOpen(false);
+              void handleExport();
+            }}
+          >
+            {EXPORT_BUTTON_LABEL}
+          </button>
+          <div ref={setClipHost} />
+      </div>
+      <ClipExportControls
+        doc={doc}
+        inkEngine={inkEngine}
+        onPhaseChange={setClipPhase}
+        onBeforeExport={onBeforeExport}
+        triggerHost={clipHost}
+        itemClassName={styles.exportMenuItem}
+        onPick={() => setMenuOpen(false)}
+      />
       {phase === 'generating' && progress ? (
         <div className={styles.workspaceExportStatus} aria-live="polite">
           {formatExportProgress(progress.current, progress.total)}
@@ -180,12 +235,6 @@ export function WorkspaceExportControls({
           {EXPORT_FAILED_MESSAGE}
         </div>
       ) : null}
-      <ClipExportControls
-        doc={doc}
-        inkEngine={inkEngine}
-        onPhaseChange={setClipPhase}
-        onBeforeExport={onBeforeExport}
-      />
     </div>
   );
 }

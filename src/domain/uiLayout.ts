@@ -27,7 +27,7 @@ export type UiLayout = {
 export const DEFAULT_UI_LAYOUT: UiLayout = {
   workspacePdfSplit: DEFAULT_WORKSPACE_PDF_SPLIT,
   paletteStockSplit: DEFAULT_PALETTE_STOCK_SPLIT,
-  pdfViewerVisible: true,
+  pdfViewerVisible: false,
   sidebarCompact: false,
   stockLayout: 'free',
   stockPane: 'stock',

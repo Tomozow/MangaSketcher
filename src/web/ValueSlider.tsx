@@ -6,14 +6,16 @@ type ValueSliderProps = {
   max: number;
   step: number;
   value: number;
+  formatValue?: (value: number) => string;
   onChange: (value: number) => void;
 };
 
-export function ValueSlider({ label, min, max, step, value, onChange }: ValueSliderProps) {
+export function ValueSlider({ label, min, max, step, value, formatValue, onChange }: ValueSliderProps) {
+  const display = formatValue ? formatValue(value) : String(Math.round(value));
   return (
     <div className={styles.sliderBlock}>
       <label className={styles.sliderLabel}>
-        {label} {Math.round(value)}
+        {label} {display}
       </label>
       <input
         className={styles.sliderInput}

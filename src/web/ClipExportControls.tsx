@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import type { EditorDocument } from '@/src/storage/types';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
 import { styles } from './editorStyles';
@@ -44,6 +45,9 @@ type ClipExportControlsProps = {
   inkEngine: InkEngine | null;
   onPhaseChange?: (phase: ExportUiPhase) => void;
   onBeforeExport?: () => Promise<void>;
+  triggerHost?: HTMLElement | null;
+  itemClassName?: string;
+  onPick?: () => void;
 };
 
 export function ClipExportControls({
@@ -51,6 +55,9 @@ export function ClipExportControls({
   inkEngine,
   onPhaseChange,
   onBeforeExport,
+  triggerHost,
+  itemClassName,
+  onPick,
 }: ClipExportControlsProps) {
   const [phase, setPhase] = useState<ExportUiPhase>('idle');
   const [progress, setProgress] = useState<ExportProgress | null>(null);
@@ -175,15 +182,17 @@ export function ClipExportControls({
     doc.selectedPageId != null && doc.workspaceOrder.includes(doc.selectedPageId);
   const busy = phase === 'generating';
 
-  return (
-    <>
+  const itemClass = itemClassName ?? styles.iconButton;
+  const triggers = (
       <div className={styles.clipExportButtons}>
         <button
           type="button"
-          className={styles.iconButton}
+          role={itemClassName ? 'menuitem' : undefined}
+          className={itemClass}
           aria-label={CLIP_EXPORT_ALL_LABEL}
           disabled={busy || !inkEngine}
           onClick={() => {
+            onPick?.();
             void handleExport('zip');
           }}
         >
@@ -191,16 +200,23 @@ export function ClipExportControls({
         </button>
         <button
           type="button"
-          className={styles.iconButton}
+          role={itemClassName ? 'menuitem' : undefined}
+          className={itemClass}
           aria-label={CLIP_EXPORT_PAGE_LABEL}
           disabled={busy || !inkEngine || !selectedPageInWorkspace}
           onClick={() => {
+            onPick?.();
             void handleExport('single');
           }}
         >
           {CLIP_EXPORT_PAGE_LABEL}
         </button>
       </div>
+  );
+
+  return (
+    <>
+      {triggerHost ? createPortal(triggers, triggerHost) : null}
       {phase === 'generating' ? (
         <div className={styles.workspaceExportStatus} aria-live="polite">
           {progress

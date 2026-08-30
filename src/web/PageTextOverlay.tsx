@@ -76,12 +76,14 @@ function TextBoxChrome({
   gapPx,
   style,
   onDeleteText,
+  onDuplicateText,
 }: {
   textId: TextId;
   buttonPx: number;
   gapPx: number;
   style?: { left: number; top: number };
   onDeleteText: (textId: TextId) => void;
+  onDuplicateText: (textId: TextId) => void;
 }) {
   const size = { width: buttonPx, height: buttonPx };
   const icon = Math.max(6, buttonPx * 0.6);
@@ -107,12 +109,12 @@ function TextBoxChrome({
       >
         <svg viewBox="0 0 12 12" width={icon} height={icon} aria-hidden="true" focusable="false">
           <path
-            d="M2.5 2.5h7v7h-7z"
+            d="M3 3l6 6M9 3l-6 6"
             fill="none"
             stroke="currentColor"
             strokeWidth="1.6"
+            strokeLinecap="round"
           />
-          <path d="M4 4h4M4 8h4" stroke="currentColor" strokeWidth="1.6" />
         </svg>
       </div>
       <div
@@ -126,6 +128,7 @@ function TextBoxChrome({
         }}
         onClick={(event) => {
           event.stopPropagation();
+          onDuplicateText(textId);
         }}
       >
         <svg viewBox="0 0 12 12" width={icon} height={icon} aria-hidden="true" focusable="false">
@@ -250,7 +253,11 @@ function pasteboardWorldItems(input: {
     items.push({
       text,
       box,
-      fontSize: text.fontSize * (box.width / Math.max(1, text.box.width)),
+      fontSize: displayTextFontSize(
+        (Number.isFinite(text.fontSize) ? text.fontSize : 12) *
+          (box.width / Math.max(1, sanitizeTextBox(text.box).width)),
+        PAGE_DISPLAY_W / Math.max(1, input.rasterWidth),
+      ),
     });
   }
 
@@ -337,6 +344,7 @@ type TextChromeOverlayProps = {
   panY: number;
   layoutKey: unknown;
   onDeleteText: (textId: TextId) => void;
+  onDuplicateText: (textId: TextId) => void;
 };
 
 /** Screen-space chrome. Kept outside `transform: scale` so iPad does not inflate or trap it. */
@@ -348,6 +356,7 @@ export function TextChromeOverlay({
   panY,
   layoutKey,
   onDeleteText,
+  onDuplicateText,
 }: TextChromeOverlayProps) {
   const [pose, setPose] = useState<{ left: number; top: number; button: number; gap: number } | null>(null);
 
@@ -392,6 +401,7 @@ export function TextChromeOverlay({
         gapPx={pose.gap}
         style={{ left: pose.left, top: pose.top }}
         onDeleteText={onDeleteText}
+        onDuplicateText={onDuplicateText}
       />
     </div>
   );

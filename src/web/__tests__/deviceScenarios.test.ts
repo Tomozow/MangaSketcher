@@ -174,10 +174,15 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
   });
 
   test('5. 縦横同じ 4 ペインツリー（狭い縦向きは仕様）', () => {
-    expect(editorLayoutSrc).toContain('ワークスペース');
-    expect(editorLayoutSrc).toContain('PDF');
-    expect(editorLayoutSrc).toContain('ツール');
-    expect(editorLayoutSrc).toContain('ストック');
+    expect(editorLayoutSrc).toContain('data-ms-region="workspace"');
+    expect(editorLayoutSrc).toContain('data-ms-region="pdf"');
+    expect(editorLayoutSrc).toContain('data-ms-region="tools"');
+    expect(editorLayoutSrc).toContain('data-ms-region="stock"');
+    expect(editorLayoutSrc).toContain('aria-label="ワークスペース"');
+    expect(editorLayoutSrc).toContain('aria-label="ツール"');
+    expect(editorLayoutSrc).toContain('aria-label="ストック"');
+    expect(editorLayoutSrc).toContain('aria-label="PDF"');
+    expect(editorLayoutSrc).not.toContain('data-ms-shell="pane-label"');
     expect(editorCss).toMatch(/\.ms-body\s*\{[^}]*display:\s*flex/);
     expect(editorCss).not.toMatch(/@media[^{]+\{[^}]*\.ms-pane[^}]*display:\s*none/);
   });

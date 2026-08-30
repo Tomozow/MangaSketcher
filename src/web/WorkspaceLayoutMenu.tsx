@@ -11,6 +11,7 @@ import {
 } from '@/src/domain/stripGeometry';
 import type { EditorDocument } from '@/src/storage/types';
 import { styles } from './editorStyles';
+import { IconLayout } from './chromeIcons';
 
 type WorkspaceLayoutMenuProps = {
   doc: EditorDocument;
@@ -53,12 +54,13 @@ export function WorkspaceLayoutMenu({ doc, dispatch, open, onOpenChange }: Works
     <div ref={rootRef} className={styles.workspaceLayoutMenu} data-ms-shell="workspace-layout">
       <button
         type="button"
-        className={`${styles.iconButton} ${open ? styles.iconButtonActive : ''}`}
+        className={`${styles.chromeIcon} ${panelOpen ? styles.chromeIconPressed : ''}`}
         aria-label="ページレイアウト"
         aria-expanded={panelOpen}
+        title="配置"
         onClick={() => setPanelOpen(!panelOpen)}
       >
-        配置
+        <IconLayout />
       </button>
       {panelOpen ? (
         <div className={styles.workspaceLayoutPanel} role="dialog" aria-label="ページレイアウト">

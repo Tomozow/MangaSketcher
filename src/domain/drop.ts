@@ -13,6 +13,7 @@ export type DragPayload =
 export type DropTarget =
   | { zone: 'workspaceInsert'; readingIndex: number }
   | { zone: 'stock'; x: number; y: number }
+  | { zone: 'trash' }
   | { zone: 'page'; pageId: PageId; localX: number; localY: number }
   | { zone: 'pasteboard'; x: number; y: number };
 
@@ -57,6 +58,9 @@ export function dropActions(
   }
 
   if (payload.type === 'workspacePage') {
+    if (target.zone === 'trash') {
+      return [{ type: 'deleteWorkspacePage', pageId: payload.pageId }];
+    }
     if (target.zone === 'stock') {
       return [{ type: 'movePageToStock', pageId: payload.pageId, x: target.x, y: target.y }];
     }
@@ -71,6 +75,9 @@ export function dropActions(
   }
 
   if (payload.type === 'stockPage') {
+    if (target.zone === 'trash') {
+      return [{ type: 'deleteStockPage', pageId: payload.pageId }];
+    }
     if (target.zone === 'workspaceInsert') {
       return [
         { type: 'returnStockToWorkspace', pageId: payload.pageId, readingIndex: target.readingIndex },

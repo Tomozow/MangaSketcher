@@ -3,6 +3,8 @@ import { createDocument, sequentialIds } from '../../../domain/document';
 import { layoutWorkspace } from '../../../domain/layout';
 import { reduceTestDocument, type DocumentAction } from '../../../domain/reducer';
 import {
+  dropStockPageToTrash,
+  dropWorkspacePageToTrash,
   moveWorkspacePageToStock,
   returnStockPageToWorkspace,
 } from '../stockActions';
@@ -18,7 +20,10 @@ function blankDoc(pageCount: number) {
   });
 }
 
-function apply(doc: ReturnType<typeof blankDoc>, actions: ReturnType<typeof moveWorkspacePageToStock>) {
+function apply(
+  doc: ReturnType<typeof blankDoc>,
+  actions: ReturnType<typeof moveWorkspacePageToStock> | ReturnType<typeof dropWorkspacePageToTrash>,
+) {
   let next = doc;
   const ids = sequentialIds('a');
   for (const action of actions) {
@@ -47,6 +52,18 @@ describe('stock MOVE adapters', () => {
     expect(doc.workspaceOrder[0]).toBe(page2);
     expect(doc.stock).toHaveLength(0);
     expect(layoutWorkspace(doc.workspaceOrder).pageNumbers).toEqual([1, 2, 3]);
+  });
+
+  test('workspace or stock drop onto trash moves the page', () => {
+    let doc = blankDoc(2);
+    const [a, b] = doc.workspaceOrder;
+    doc = apply(doc, dropWorkspacePageToTrash(b));
+    expect(doc.workspaceOrder).toEqual([a]);
+    expect(doc.trash).toEqual([b]);
+    doc = apply(doc, moveWorkspacePageToStock(a, 0, 0, 0, doc.rasterWidth, doc.rasterHeight));
+    doc = apply(doc, dropStockPageToTrash(a));
+    expect(doc.stock).toHaveLength(0);
+    expect(doc.trash).toEqual([b, a]);
   });
 
   test('pasteboard world coordinates stay fixed across stock moves', () => {

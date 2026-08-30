@@ -58,20 +58,21 @@ describe('extractedTextBoxSize', () => {
 });
 
 describe('extract pack RTL', () => {
-  test('1件目は右上、隣は左、行末なら一段下の右へ', () => {
+  test('1件目は画面中央、隣は左、行末なら一段下の右へ', () => {
     const viewport = { left: 0, top: 0, right: 400, bottom: 800, zoom: 1 };
     const narrow = { width: 36, height: EXTRACT_TEXT_HEIGHT };
     const first = startExtractPack(viewport, narrow);
-    expect(first.box.x + first.box.width).toBe(400 - 16);
-    expect(first.box.y).toBe(16);
+    expect(first.box.x).toBe((400 - 36) / 2);
+    expect(first.box.y).toBe((800 - EXTRACT_TEXT_HEIGHT) / 2);
 
     const left = nextExtractPack(first.cursor, narrow);
     expect(left.box.x).toBe(first.box.x - EXTRACT_GAP - narrow.width);
     expect(left.box.y).toBe(first.box.y);
 
     const wide = { width: 300, height: EXTRACT_TEXT_HEIGHT };
-    const wrapped = nextExtractPack(startExtractPack(viewport, wide).cursor, { width: 80, height: EXTRACT_TEXT_HEIGHT });
-    expect(wrapped.box.y).toBe(16 + EXTRACT_TEXT_HEIGHT + EXTRACT_GAP);
-    expect(wrapped.box.x + wrapped.box.width).toBe(400 - 16);
+    const started = startExtractPack(viewport, wide);
+    const wrapped = nextExtractPack(started.cursor, { width: 80, height: EXTRACT_TEXT_HEIGHT });
+    expect(wrapped.box.y).toBe(started.box.y + EXTRACT_TEXT_HEIGHT + EXTRACT_GAP);
+    expect(wrapped.box.x + wrapped.box.width).toBe(started.box.x + started.box.width);
   });
 });

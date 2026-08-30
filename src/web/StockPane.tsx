@@ -1,14 +1,18 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
 import { PAGE_DISPLAY_H, PAGE_DISPLAY_W } from '@/src/domain/stripGeometry';
+import type { PageId, PageText } from '@/src/domain/types';
 import type { EditorDocument } from '@/src/storage/types';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
+import { drawPageTextsOnThumb } from '@/src/web/ink/drawPageTextsOnThumb';
 import { PageDragThumbnail } from '@/src/web/PageDragThumbnail';
 import { PageChromeButtons } from '@/src/web/PageDeleteButton';
-import { PageThumbLayers } from '@/src/web/PageThumbLayers';
+import { PAGE_TEMPLATE_URL } from '@/src/web/PageThumbLayers';
 import {
+  dropStockPageToTrash,
+  dropWorkspacePageToTrash,
   moveWorkspacePageToStock,
   placeStockPage,
   returnStockPageToWorkspace,
@@ -26,6 +30,13 @@ import { styles } from './editorStyles';
 
 const GRID_THUMB_BASE_PX = 112;
 const GRID_THUMB_MIN_PX = 36;
+const EMPTY_TEXTS: readonly PageText[] = [];
+
+export const STOCK_TRASH_DROP_ATTR = 'data-stock-trash-drop';
+
+function setTrashDropHover(on: boolean): void {
+  document.querySelector(`[${STOCK_TRASH_DROP_ATTR}]`)?.toggleAttribute('data-drop-hover', on);
+}
 
 export type WorkspaceGrab = {
   pageId: PageId;
@@ -37,75 +48,114 @@ export type StockPaneProps = {
   dispatch: (action: EditorDocumentAction) => void;
   workspaceGrab: WorkspaceGrab | null;
   onWorkspaceGrabEnd: () => void;
+  onDroppedToTrash?: () => void;
   getPageThumb?: (pageId: PageId) => ImageBitmap | undefined;
   inkEngine?: InkEngine | null;
-  inkFrame?: number;
+  rasterLayoutGen?: number;
   deletePageId?: PageId | null;
   onShowPageDelete?: (pageId: PageId | null) => void;
   onDeletePage?: (pageId: PageId) => void;
 };
 
-function StockPageThumb({
-  pageId,
-  rasterId,
-  texts,
-  rasterWidth,
-  rasterHeight,
-  inkEngine,
-  getPageThumb,
-  inkFrame,
-}: {
+type StockPageThumbProps = {
   pageId: PageId;
   rasterId?: string;
   texts: readonly PageText[];
   rasterWidth: number;
   rasterHeight: number;
   inkEngine?: InkEngine | null;
-  getPageThumb?: (pageId: PageId) => ImageBitmap | undefined;
-  inkFrame: number;
-}) {
-  const [thumb, setThumb] = useState<ImageBitmap | undefined>(() => getPageThumb?.(pageId));
+  rasterLayoutGen: number;
+};
 
-  useEffect(() => {
-    const existing = getPageThumb?.(pageId);
-    if (existing) {
-      setThumb(existing);
+const StockPageThumb = memo(function StockPageThumb({
+  pageId,
+  rasterId,
+  texts,
+  rasterWidth,
+  rasterHeight,
+  inkEngine,
+  rasterLayoutGen,
+}: StockPageThumbProps) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useLayoutEffect(() => {
+    const host = hostRef.current;
+    const canvas = canvasRef.current;
+    if (!host || !canvas || !inkEngine || !rasterId) {
       return;
     }
-    if (!rasterId || !inkEngine) {
-      setThumb(undefined);
-      return;
-    }
-    let cancelled = false;
-    void inkEngine.generateThumb(rasterId).then((bitmap) => {
-      if (!cancelled) {
-        setThumb(bitmap ?? getPageThumb?.(pageId));
+
+    const paint = () => {
+      const cssW = Math.max(1, Math.round(host.clientWidth));
+      const cssH = Math.max(1, Math.round(host.clientHeight));
+      const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+      const pixelW = Math.max(1, Math.round(cssW * dpr));
+      const pixelH = Math.max(1, Math.round(cssH * dpr));
+      if (canvas.width !== pixelW || canvas.height !== pixelH) {
+        canvas.width = pixelW;
+        canvas.height = pixelH;
       }
-    });
-    return () => {
-      cancelled = true;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        return;
+      }
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'medium';
+      canvas.style.width = `${cssW}px`;
+      canvas.style.height = `${cssH}px`;
+      inkEngine.paintDisplay(ctx, rasterId, cssW, cssH);
+      if (texts.length > 0 && rasterWidth > 0 && rasterHeight > 0) {
+        drawPageTextsOnThumb(ctx, texts, rasterWidth, rasterHeight, cssW, cssH);
+      }
+      try {
+        host.style.backgroundImage = `url(${canvas.toDataURL('image/png')})`;
+        host.style.backgroundSize = '100% 100%';
+        host.style.backgroundRepeat = 'no-repeat';
+      } catch {
+        /* toDataURL can throw if the canvas is tainted or empty */
+      }
     };
-  }, [pageId, rasterId, inkEngine, getPageThumb, inkFrame]);
+
+    paint();
+    const frame = requestAnimationFrame(paint);
+    const observer = new ResizeObserver(paint);
+    observer.observe(host);
+    return () => {
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [inkEngine, rasterId, rasterWidth, rasterHeight, pageId, texts, rasterLayoutGen]);
+
+  if (!inkEngine || !rasterId) {
+    return null;
+  }
 
   return (
-    <PageThumbLayers
-      pageId={pageId}
-      thumb={thumb}
-      texts={texts}
-      rasterWidth={rasterWidth}
-      rasterHeight={rasterHeight}
-    />
+    <div ref={hostRef} className={styles.stockThumbInkHost}>
+      <canvas ref={canvasRef} className={styles.stockPageInk} aria-hidden />
+    </div>
   );
-}
+}, (prev, next) => (
+  prev.pageId === next.pageId &&
+  prev.rasterId === next.rasterId &&
+  prev.texts === next.texts &&
+  prev.rasterWidth === next.rasterWidth &&
+  prev.rasterHeight === next.rasterHeight &&
+  prev.inkEngine === next.inkEngine &&
+  prev.rasterLayoutGen === next.rasterLayoutGen
+));
 
 export function StockPane({
   doc,
   dispatch,
   workspaceGrab,
   onWorkspaceGrabEnd,
+  onDroppedToTrash,
   getPageThumb,
   inkEngine,
-  inkFrame = 0,
+  rasterLayoutGen = 0,
   deletePageId = null,
   onShowPageDelete,
   onDeletePage,
@@ -126,6 +176,8 @@ export function StockPane({
 
   const onWorkspaceGrabEndRef = useRef(onWorkspaceGrabEnd);
   onWorkspaceGrabEndRef.current = onWorkspaceGrabEnd;
+  const onDroppedToTrashRef = useRef(onDroppedToTrash);
+  onDroppedToTrashRef.current = onDroppedToTrash;
   const onShowPageDeleteRef = useRef(onShowPageDelete);
   onShowPageDeleteRef.current = onShowPageDelete;
   const trashPane = doc.stockPane === 'trash';
@@ -261,9 +313,39 @@ export function StockPane({
     const present = docRef.current;
     const stockSurface = surfaceRef.current;
     const workspaceSurface = document.querySelector(`.${styles.workspaceSurface}`) as HTMLElement | null;
+    const trashDrop = document.querySelector<HTMLElement>(`[${STOCK_TRASH_DROP_ATTR}]`);
 
     const stockDragId = pipelineRef.current ? getStockDragPageId(pipelineRef.current.store) : null;
     const grab = workspaceGrabRef.current;
+    const overTrashButton = trashDrop ? pointInRect(clientX, clientY, trashDrop.getBoundingClientRect()) : false;
+    const overTrashPane =
+      present.stockPane === 'trash' &&
+      stockSurface != null &&
+      pointInRect(clientX, clientY, stockSurface.getBoundingClientRect());
+    const overTrash = overTrashButton || overTrashPane;
+
+    if (overTrash && grab) {
+      for (const action of dropWorkspacePageToTrash(grab.pageId)) {
+        dispatchRef.current(action);
+      }
+      dispatchRef.current({ type: 'setUiLayout', stockPane: 'trash' });
+      onDroppedToTrashRef.current?.();
+      onWorkspaceGrabEndRef.current();
+      setTrashDropHover(false);
+      return;
+    }
+
+    if (overTrash && stockDragId && present.stockPane !== 'trash') {
+      for (const action of dropStockPageToTrash(stockDragId)) {
+        dispatchRef.current(action);
+      }
+      dispatchRef.current({ type: 'setUiLayout', stockPane: 'trash' });
+      onDroppedToTrashRef.current?.();
+      setDraggedStockPageId(null);
+      setDragPointer(null);
+      setTrashDropHover(false);
+      return;
+    }
 
     if (grab && stockSurface && present.stockPane !== 'trash') {
       const stockRect = stockSurface.getBoundingClientRect();
@@ -360,15 +442,29 @@ export function StockPane({
   }, []);
 
   useEffect(() => {
-    if (!workspaceGrab) {
+    if (!workspaceGrab && !draggedStockPageId) {
+      setTrashDropHover(false);
       return;
     }
     const onMove = (event: PointerEvent) => {
       setDragPointer({ x: event.clientX, y: event.clientY });
+      const trashDrop = document.querySelector<HTMLElement>(`[${STOCK_TRASH_DROP_ATTR}]`);
+      const overButton = trashDrop
+        ? pointInRect(event.clientX, event.clientY, trashDrop.getBoundingClientRect())
+        : false;
+      const surface = surfaceRef.current;
+      const overPane =
+        docRef.current.stockPane === 'trash' &&
+        surface != null &&
+        pointInRect(event.clientX, event.clientY, surface.getBoundingClientRect());
+      setTrashDropHover(overButton || overPane);
     };
     document.addEventListener('pointermove', onMove);
-    return () => document.removeEventListener('pointermove', onMove);
-  }, [workspaceGrab]);
+    return () => {
+      document.removeEventListener('pointermove', onMove);
+      setTrashDropHover(false);
+    };
+  }, [workspaceGrab, draggedStockPageId]);
 
   useEffect(() => {
     if (!workspaceGrab && !draggedStockPageId) {
@@ -408,17 +504,17 @@ export function StockPane({
             key={item.pageId}
             data-stock-page-id={item.pageId}
             className={`${styles.stockThumb} ${draggedStockPageId === item.pageId ? styles.stockThumbDragging : ''}`}
+            style={{ backgroundImage: `url(${PAGE_TEMPLATE_URL})` }}
             title={`${trashPane ? 'ゴミ箱' : 'ストック'} ${item.pageId.slice(0, 8)}`}
           >
             <StockPageThumb
               pageId={item.pageId}
               rasterId={doc.pages[item.pageId]?.rasterId}
-              texts={doc.pages[item.pageId]?.texts ?? []}
+              texts={doc.pages[item.pageId]?.texts ?? EMPTY_TEXTS}
               rasterWidth={doc.rasterWidth}
               rasterHeight={doc.rasterHeight}
               inkEngine={inkEngine}
-              getPageThumb={getPageThumb}
-              inkFrame={inkFrame}
+              rasterLayoutGen={rasterLayoutGen}
             />
             {deletePageId === item.pageId && onDeletePage ? (
               <PageChromeButtons onDelete={() => onDeletePage(item.pageId)} />
@@ -431,7 +527,7 @@ export function StockPane({
             clientX={dragPointer.x}
             clientY={dragPointer.y}
             thumb={getPageThumb?.(dragPageId)}
-            texts={doc.pages[dragPageId]?.texts ?? []}
+            texts={doc.pages[dragPageId]?.texts ?? EMPTY_TEXTS}
             rasterWidth={doc.rasterWidth}
             rasterHeight={doc.rasterHeight}
           />
@@ -460,18 +556,18 @@ export function StockPane({
             style={{
               left: item.x,
               top: item.y,
+              backgroundImage: `url(${PAGE_TEMPLATE_URL})`,
             }}
             title={`ストック ${item.pageId.slice(0, 8)}`}
           >
             <StockPageThumb
               pageId={item.pageId}
               rasterId={doc.pages[item.pageId]?.rasterId}
-              texts={doc.pages[item.pageId]?.texts ?? []}
+              texts={doc.pages[item.pageId]?.texts ?? EMPTY_TEXTS}
               rasterWidth={doc.rasterWidth}
               rasterHeight={doc.rasterHeight}
               inkEngine={inkEngine}
-              getPageThumb={getPageThumb}
-              inkFrame={inkFrame}
+              rasterLayoutGen={rasterLayoutGen}
             />
             {deletePageId === item.pageId && onDeletePage ? (
               <PageChromeButtons onDelete={() => onDeletePage(item.pageId)} />
@@ -485,7 +581,7 @@ export function StockPane({
           clientX={dragPointer.x}
           clientY={dragPointer.y}
           thumb={getPageThumb?.(dragPageId)}
-          texts={doc.pages[dragPageId]?.texts ?? []}
+          texts={doc.pages[dragPageId]?.texts ?? EMPTY_TEXTS}
           rasterWidth={doc.rasterWidth}
           rasterHeight={doc.rasterHeight}
         />

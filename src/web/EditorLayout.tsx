@@ -2,7 +2,6 @@
 
 import type { MouseEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { mainPaneFlex, nextSplitFromDrag, sidebarPaneFlex } from '@/src/domain/uiLayout';
 import type { PageId } from '@/src/domain/types';
 import { selectTargetFlagsOf } from '@/src/domain/types';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
@@ -15,17 +14,19 @@ import { colors } from '@/src/theme/tokens';
 import { styles } from './editorStyles';
 import { CompactSidebar } from './CompactSidebar';
 import { PdfPanePlaceholder } from './PdfPanePlaceholder';
-import { SplitHandle } from './SplitHandle';
-import { StockPane, type WorkspaceGrab } from './StockPane';
+import { StockPane, STOCK_TRASH_DROP_ATTR, type WorkspaceGrab } from './StockPane';
 import { PageInkOverlay } from './PageInkOverlay';
 import { TextEditBar } from './TextEditBar';
 import type { TextEditSelection } from '@/src/web/TextEditBar';
 import type { PdfExtractPayload } from '@/src/web/pdf/PdfPageViewer';
-import { WorkspacePaneActions } from './WorkspacePaneActions';
+import { WorkspaceExportControls } from './WorkspaceExportControls';
+import { WorkspaceLayoutMenu } from './WorkspaceLayoutMenu';
 import { WorkspaceStrip } from './WorkspaceStrip';
 import { navigateHomeAfterCheckpoint } from './editorNavigate';
 import { hardNavigate } from './hardNavigate';
 import { ipadDebugLog } from '@/src/web/ipadDebugLog';
+import { IconBack, IconMoon, IconPdf, IconStock, IconSun } from './chromeIcons';
+import { useChromeTheme } from './useChromeTheme';
 
 // #region agent log
 const AGENT_DEBUG_INGEST = 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426';
@@ -64,6 +65,7 @@ type EditorLayoutProps = {
   onExtractPdfText: (payload: PdfExtractPayload) => void;
   inkEngine: InkEngine | null;
   inkFrame: number;
+  rasterLayoutGen: number;
   marqueePreview: MarqueePreview | null;
   clipLiveTransforms: Readonly<Record<string, ClipLiveTransform>>;
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
@@ -74,6 +76,16 @@ type EditorLayoutProps = {
   onNavigateHome: () => Promise<void>;
   onTextDraftChange: (draft: string | null) => void;
 };
+
+function saveStatusLabel(status: AutosaveStatus): string {
+  if (status.encodingCount > 0) {
+    return 'エンコード中';
+  }
+  if (status.unsaved) {
+    return '未保存';
+  }
+  return '保存済み';
+}
 
 export function EditorLayout({
   doc,
@@ -98,6 +110,7 @@ export function EditorLayout({
   onExtractPdfText,
   inkEngine,
   inkFrame,
+  rasterLayoutGen,
   marqueePreview,
   clipLiveTransforms,
   textLiveTransforms,
@@ -108,11 +121,11 @@ export function EditorLayout({
   onNavigateHome,
   onTextDraftChange,
 }: EditorLayoutProps) {
-  const mainFlex = mainPaneFlex(doc);
-  const sideFlex = sidebarPaneFlex(doc);
-  const sidebarClass = doc.sidebarCompact ? styles.sidebarCompact : styles.sidebarNormal;
+  const { theme, toggleTheme } = useChromeTheme();
   const [workspaceGrab, setWorkspaceGrab] = useState<WorkspaceGrab | null>(null);
+  const suppressTrashToggleRef = useRef(false);
   const [liveTextDraft, setLiveTextDraft] = useState<string | null>(null);
+  const [stockOpen, setStockOpen] = useState(false);
   const [pageDelete, setPageDelete] = useState<{ pageId: PageId; source: 'workspace' | 'stock' } | null>(
     null,
   );
@@ -172,6 +185,12 @@ export function EditorLayout({
     return () => document.removeEventListener('pointerdown', onPointerDown, true);
   }, [pageDelete]);
 
+  useEffect(() => {
+    if (workspaceGrab) {
+      setStockOpen(true);
+    }
+  }, [workspaceGrab]);
+
   const handleWorkspaceEffects = useCallback(
     (
       effects: WorkspaceEffect[],
@@ -194,21 +213,6 @@ export function EditorLayout({
     },
     [applyWorkspaceEffects],
   );
-
-  const handleWorkspacePdfDrag = (deltaPx: number) => {
-    const mainEl = document.getElementById('editor-main-split');
-    const total = mainEl?.clientWidth ?? 1;
-    const next = nextSplitFromDrag(doc.workspacePdfSplit, deltaPx, total);
-    dispatch({ type: 'setUiLayout', workspacePdfSplit: next });
-  };
-
-  const handlePaletteStockDrag = (deltaPx: number) => {
-    const sideEl = document.getElementById('editor-sidebar-split');
-    const splitCol = sideEl?.querySelector('[data-ms-shell="split-col"]');
-    const total = (splitCol instanceof HTMLElement ? splitCol.clientHeight : sideEl?.clientHeight) ?? 1;
-    const next = nextSplitFromDrag(doc.paletteStockSplit, deltaPx, total);
-    dispatch({ type: 'setUiLayout', paletteStockSplit: next });
-  };
 
   const handleNavigateHome = useCallback(
     (event: MouseEvent<HTMLAnchorElement>) => {
@@ -249,107 +253,30 @@ export function EditorLayout({
     [onTextDraftChange],
   );
 
-  return (
-    <div className={styles.body} data-ms-shell="body" style={{ ['--ms-background' as string]: colors.background }}>
-      <div
-        id="editor-sidebar-split"
-        className={`${styles.sidebarColumn} ${sidebarClass}`}
-        data-ms-sidebar={doc.sidebarCompact ? 'compact' : 'normal'}
-      >
-        <div className={styles.navRow} data-ms-shell="nav">
-          <a href="/" className={styles.linkButton} onClick={handleNavigateHome}>
-            一覧へ
-          </a>
-          <h1 className={styles.headerTitle}>{doc.name}</h1>
-          <div
-            className={styles.saveStatusRow}
-            data-ms-save={
-              autosaveStatus.encodingCount > 0
-                ? 'encoding'
-                : autosaveStatus.unsaved
-                  ? 'unsaved'
-                  : 'idle'
-            }
-            aria-live="polite"
-            aria-hidden={
-              !autosaveStatus.unsaved && autosaveStatus.encodingCount === 0
-            }
-          >
-            <span
-              className={`${styles.saveStatusDot} ${
-                autosaveStatus.encodingCount > 0
-                  ? styles.saveStatusEncoding
-                  : styles.saveStatusUnsaved
-              }`}
-              aria-hidden
-            />
-            <span className={styles.saveStatusLabel}>
-              {autosaveStatus.encodingCount > 0 ? 'エンコード中' : '未保存'}
-            </span>
-          </div>
-        </div>
-        <div className={styles.splitCol} data-ms-shell="split-col">
-          <div
-            className={styles.pane}
-            data-ms-shell="pane"
-            style={{ flexGrow: sideFlex.palette, flexShrink: 1, flexBasis: 0 }}
-          >
-            <span className={styles.paneLabel} data-ms-shell="pane-label">ツール</span>
-            <CompactSidebar
-              doc={doc}
-              history={history}
-              textEditing={textEditing}
-              dispatch={dispatch}
-              onUndo={onUndo}
-              onRedo={onRedo}
-            />
-          </div>
-          <SplitHandle orientation="vertical" onDrag={handlePaletteStockDrag} />
-          <div
-            className={styles.pane}
-            data-ms-shell="pane"
-            style={{ flexGrow: sideFlex.stock, flexShrink: 1, flexBasis: 0 }}
-          >
-            <span className={styles.paneLabel} data-ms-shell="pane-label">
-              {doc.stockPane === 'trash' ? 'ゴミ箱' : 'ストック'}
-            </span>
-            <StockPane
-              doc={doc}
-              dispatch={dispatch}
-              workspaceGrab={workspaceGrab}
-              onWorkspaceGrabEnd={() => setWorkspaceGrab(null)}
-              getPageThumb={getPageThumb}
-              inkEngine={inkEngine}
-              inkFrame={inkFrame}
-              deletePageId={pageDelete?.source === 'stock' ? pageDelete.pageId : null}
-              onShowPageDelete={(pageId) => {
-                if (!pageId) {
-                  setPageDelete(null);
-                  return;
-                }
-                setPageDelete({ pageId, source: 'stock' });
-              }}
-              onDeletePage={(pageId) => confirmPageDelete(pageId, 'stock')}
-            />
-          </div>
-        </div>
-      </div>
+  const stockVisible = stockOpen || Boolean(workspaceGrab);
+  const pdfVisible = doc.pdfViewerVisible;
+  const saveKind =
+    autosaveStatus.encodingCount > 0 ? 'encoding' : autosaveStatus.unsaved ? 'unsaved' : 'idle';
 
+  return (
+    <div
+      className={styles.body}
+      data-ms-shell="body"
+      data-ms-theme={theme}
+      data-ms-pdf={pdfVisible ? 'open' : 'closed'}
+      data-ms-stock={stockVisible ? 'open' : 'closed'}
+      style={{ ['--ms-background' as string]: colors.background }}
+    >
       <div id="editor-main-split" className={styles.mainColumn}>
         <div className={styles.splitRow} data-ms-shell="split-row">
           <div
             id="editor-workspace-pane"
             className={styles.pane}
             data-ms-shell="pane"
-            style={{ flexGrow: mainFlex.workspace, flexShrink: 1, flexBasis: 0 }}
+            data-ms-region="workspace"
+            aria-label="ワークスペース"
+            style={{ flexGrow: 1, flexShrink: 1, flexBasis: 0 }}
           >
-            <span className={styles.paneLabel} data-ms-shell="pane-label">ワークスペース</span>
-            <WorkspacePaneActions
-              doc={doc}
-              dispatch={dispatch}
-              inkEngine={inkEngine}
-              onBeforeExport={onNavigateHome}
-            />
             <WorkspaceStrip
               workspaceOrder={doc.workspaceOrder}
               pages={doc.pages}
@@ -379,6 +306,7 @@ export function EditorLayout({
                   : null
               }
               onDeleteText={deleteText}
+              onDuplicateText={duplicateText}
               inkEngine={inkEngine}
               inkFrame={inkFrame}
               deletePageId={pageDelete?.source === 'workspace' ? pageDelete.pageId : null}
@@ -399,53 +327,205 @@ export function EditorLayout({
               />
             ) : null}
           </div>
-
-          {doc.pdfViewerVisible ? (
-            <>
-              <SplitHandle orientation="horizontal" onDrag={handleWorkspacePdfDrag} />
-              <div
-                className={styles.pane}
-                data-ms-shell="pane"
-                style={{ flexGrow: mainFlex.pdf, flexShrink: 1, flexBasis: 0 }}
-              >
-                <span className={styles.paneLabel} data-ms-shell="pane-label">PDF</span>
-                <PdfPanePlaceholder
-                  visible
-                  hasPdf={Boolean(doc.pdf)}
-                  pdfMissing={pdfMissing}
-                  pdfBytes={pdfBytes}
-                  pdf={
-                    doc.pdf
-                      ? {
-                          opfsPath: doc.pdf.opfsPath,
-                          generation: doc.pdf.generation,
-                          currentPage: doc.pdf.currentPage,
-                          pageCount: doc.pdf.pageCount,
-                          zoom: doc.pdf.zoom,
-                          panX: doc.pdf.panX,
-                          panY: doc.pdf.panY,
-                          sourceTextByPage: doc.pdf.sourceTextByPage,
-                          extractedGlyphs: doc.pdf.extractedGlyphs,
-                          extractMarkersVisible: doc.pdf.extractMarkersVisible,
-                          extractSanitizePunctuation: doc.pdf.extractSanitizePunctuation,
-                        }
-                      : null
-                  }
-                  onViewChange={onPdfViewChange}
-                  onPickPdf={onPickPdf}
-                  onExtractText={onExtractPdfText}
-                  onToggleExtractMarkers={(visible) =>
-                    dispatch({ type: 'setPdfExtractMarkersVisible', visible })
-                  }
-                  onToggleExtractSanitizePunctuation={(enabled) =>
-                    dispatch({ type: 'setPdfExtractSanitizePunctuation', enabled })
-                  }
-                />
-              </div>
-            </>
-          ) : null}
         </div>
       </div>
+
+      <header className={styles.topbar} data-ms-shell="nav">
+        <a href="/" className={styles.chromeIcon} onClick={handleNavigateHome} aria-label="一覧へ" title="一覧へ">
+          <IconBack />
+        </a>
+        <div className={styles.topbarTitle}>
+          <h1 className={styles.headerTitle}>{doc.name}</h1>
+          <div
+            className={styles.topbarTitleMeta}
+            data-ms-save={saveKind}
+            aria-live="polite"
+          >
+            <span
+              className={`${styles.saveStatusDot} ${
+                autosaveStatus.encodingCount > 0
+                  ? styles.saveStatusEncoding
+                  : autosaveStatus.unsaved
+                    ? styles.saveStatusUnsaved
+                    : styles.saveStatusIdle
+              }`}
+              aria-hidden
+            />
+            <span className={styles.saveStatusLabel}>{saveStatusLabel(autosaveStatus)}</span>
+          </div>
+        </div>
+        <WorkspaceLayoutMenu doc={doc} dispatch={dispatch} />
+        <button
+          type="button"
+          className={`${styles.chromeIcon} ${stockVisible ? styles.chromeIconPressed : ''}`}
+          aria-label="ストック"
+          aria-pressed={stockVisible}
+          title="ストック"
+          onClick={() => setStockOpen((open) => !open)}
+        >
+          <IconStock />
+        </button>
+        <button
+          type="button"
+          className={`${styles.chromeIcon} ${pdfVisible ? styles.chromeIconPressed : ''}`}
+          aria-label="PDF 表示切替"
+          aria-pressed={pdfVisible}
+          title="PDF"
+          onClick={() => dispatch({ type: 'setUiLayout', pdfViewerVisible: !doc.pdfViewerVisible })}
+        >
+          <IconPdf />
+        </button>
+        <WorkspaceExportControls
+          doc={doc}
+          inkEngine={inkEngine}
+          onBeforeExport={onNavigateHome}
+        />
+        <button
+          type="button"
+          className={styles.chromeIcon}
+          aria-label="明るい／暗いUI"
+          title="明るい／暗いUI"
+          onClick={toggleTheme}
+        >
+          {theme === 'dark' ? <IconSun /> : <IconMoon />}
+        </button>
+      </header>
+
+      <div className={styles.toolsOverlay} data-ms-shell="pane" data-ms-region="tools" aria-label="ツール">
+        <CompactSidebar
+          doc={doc}
+          history={history}
+          textEditing={textEditing}
+          dispatch={dispatch}
+          onUndo={onUndo}
+          onRedo={onRedo}
+        />
+      </div>
+
+      {stockVisible ? (
+        <aside
+          id="editor-sidebar-split"
+          className={styles.stockSheet}
+          data-ms-shell="pane"
+          data-ms-region="stock"
+          aria-label="ストック"
+        >
+          <div className={styles.stockDrawerHead}>
+            <strong>{doc.stockPane === 'trash' ? 'ゴミ箱' : 'ストック'}</strong>
+            <div className={styles.stockSeg} role="group" aria-label="ストック表示">
+              {doc.stockPane !== 'trash' ? (
+                <>
+                  <button
+                    type="button"
+                    className={`${styles.stockSegButton} ${doc.stockLayout === 'grid' ? styles.chromeIconPressed : ''}`}
+                    aria-pressed={doc.stockLayout === 'grid'}
+                    aria-label="ストックを整列"
+                    onClick={() => dispatch({ type: 'setUiLayout', stockLayout: 'grid' })}
+                  >
+                    整列
+                  </button>
+                  <button
+                    type="button"
+                    className={`${styles.stockSegButton} ${doc.stockLayout === 'free' ? styles.chromeIconPressed : ''}`}
+                    aria-pressed={doc.stockLayout === 'free'}
+                    aria-label="ストックを自由配置"
+                    onClick={() => dispatch({ type: 'setUiLayout', stockLayout: 'free' })}
+                  >
+                    自由
+                  </button>
+                </>
+              ) : null}
+              <button
+                type="button"
+                className={`${styles.stockSegButton} ${doc.stockPane === 'trash' ? styles.chromeIconPressed : ''}`}
+                aria-pressed={doc.stockPane === 'trash'}
+                aria-label="ゴミ箱"
+                {...{ [STOCK_TRASH_DROP_ATTR]: '' }}
+                onClick={() => {
+                  if (suppressTrashToggleRef.current) {
+                    suppressTrashToggleRef.current = false;
+                    return;
+                  }
+                  dispatch({
+                    type: 'setUiLayout',
+                    stockPane: doc.stockPane === 'trash' ? 'stock' : 'trash',
+                  });
+                }}
+              >
+                ゴミ箱
+              </button>
+            </div>
+          </div>
+          <StockPane
+            doc={doc}
+            dispatch={dispatch}
+            workspaceGrab={workspaceGrab}
+            onWorkspaceGrabEnd={() => setWorkspaceGrab(null)}
+            onDroppedToTrash={() => {
+              suppressTrashToggleRef.current = true;
+            }}
+            getPageThumb={getPageThumb}
+            inkEngine={inkEngine}
+            rasterLayoutGen={rasterLayoutGen}
+            deletePageId={pageDelete?.source === 'stock' ? pageDelete.pageId : null}
+            onShowPageDelete={(pageId) => {
+              if (!pageId) {
+                setPageDelete(null);
+                return;
+              }
+              setPageDelete({ pageId, source: 'stock' });
+            }}
+            onDeletePage={(pageId) => confirmPageDelete(pageId, 'stock')}
+          />
+        </aside>
+      ) : null}
+
+      {pdfVisible ? (
+        <aside
+          className={styles.pdfDrawer}
+          data-ms-shell="pane"
+          data-ms-region="pdf"
+          aria-label="PDF"
+        >
+          <div className={styles.pdfDrawerHead}>
+            <strong>原稿 PDF</strong>
+            <span>抽出は範囲ドラッグ</span>
+          </div>
+          <PdfPanePlaceholder
+            visible
+            hasPdf={Boolean(doc.pdf)}
+            pdfMissing={pdfMissing}
+            pdfBytes={pdfBytes}
+            pdf={
+              doc.pdf
+                ? {
+                    opfsPath: doc.pdf.opfsPath,
+                    generation: doc.pdf.generation,
+                    currentPage: doc.pdf.currentPage,
+                    pageCount: doc.pdf.pageCount,
+                    zoom: doc.pdf.zoom,
+                    panX: doc.pdf.panX,
+                    panY: doc.pdf.panY,
+                    sourceTextByPage: doc.pdf.sourceTextByPage,
+                    extractedGlyphs: doc.pdf.extractedGlyphs,
+                    extractMarkersVisible: doc.pdf.extractMarkersVisible,
+                    extractSanitizePunctuation: doc.pdf.extractSanitizePunctuation,
+                  }
+                : null
+            }
+            onViewChange={onPdfViewChange}
+            onPickPdf={onPickPdf}
+            onExtractText={onExtractPdfText}
+            onToggleExtractMarkers={(visible) =>
+              dispatch({ type: 'setPdfExtractMarkersVisible', visible })
+            }
+            onToggleExtractSanitizePunctuation={(enabled) =>
+              dispatch({ type: 'setPdfExtractSanitizePunctuation', enabled })
+            }
+          />
+        </aside>
+      ) : null}
+
       <TextEditBar
         selection={doc.tool === 'text' ? textSelection : null}
         layoutKey={`${doc.workspaceZoom}:${doc.workspacePanX}:${doc.workspacePanY}:${
