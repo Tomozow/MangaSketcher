@@ -1,7 +1,7 @@
 import { reduceEditorDocument } from '@/src/domain/editorReducer';
 import { randomId } from '@/src/storage/randomId';
 import { pushEditorHistory } from '@/src/storage/history';
-import type { EditorDocument, EditorHistory, InkUndoPixels } from '@/src/storage/types';
+import { INK_IDLE_AUTOSAVE_MS, type EditorDocument, type EditorHistory, type InkUndoPixels } from '@/src/storage/types';
 import { waitForInkEncodes } from '@/src/web/export/waitForInkEncode';
 
 export type PendingInkHistoryItem = { rasterId: string; canvas: InkUndoPixels };
@@ -69,5 +69,69 @@ export async function runEditorCheckpoint(deps: EditorCheckpointDeps): Promise<v
   await waitForInkEncodes((rasterId) => ink.isEncoding(rasterId), dirtyRasterIds, deps.encodeWait);
   deps.mergeEncodedPng(ink.encodedPng);
   deps.scheduleSave(present, dirtyRasterIds);
+  await deps.flushRouteLeave();
+}
+
+export type InkIdleAutosaveScheduler = {
+  schedule(): void;
+  cancel(): void;
+};
+
+export function createInkIdleAutosaveScheduler(
+  run: () => void,
+  delayMs = INK_IDLE_AUTOSAVE_MS,
+): InkIdleAutosaveScheduler {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  return {
+    schedule() {
+      if (timer !== null) {
+        clearTimeout(timer);
+      }
+      timer = setTimeout(() => {
+        timer = null;
+        run();
+      }, delayMs);
+    },
+    cancel() {
+      if (timer !== null) {
+        clearTimeout(timer);
+        timer = null;
+      }
+    },
+  };
+}
+
+/**
+ * After drawing goes idle: commit pending strokes, encode dirty rasters, write IndexedDB.
+ * Does not throw if the editor is mid-teardown. Encode timeout still persists whatever PNG is ready.
+ */
+export async function runIdleInkAutosave(deps: EditorCheckpointDeps): Promise<void> {
+  const ink = deps.ink;
+  const prev = deps.getHistory();
+  if (!ink || !prev) {
+    return;
+  }
+
+  const drained = ink.drainPendingBakeWork(Number.POSITIVE_INFINITY, { encode: false });
+  deps.pendingInkHistory.push(...drained);
+
+  const pending = deps.pendingInkHistory.slice();
+  deps.clearPendingInkHistory();
+  if (pending.length === 0) {
+    return;
+  }
+
+  const history = consumePendingInkHistory(prev, pending);
+  deps.setHistory(history);
+
+  const dirtyRasterIds = [...new Set(pending.map((item) => item.rasterId))];
+  ink.flushPendingEncodes();
+  try {
+    await waitForInkEncodes((rasterId) => ink.isEncoding(rasterId), dirtyRasterIds, deps.encodeWait);
+  } catch {
+    // Idle save must not surface export errors; write the latest encoded PNG we have.
+  }
+  deps.mergeEncodedPng(ink.encodedPng);
+  deps.scheduleSave(history.present, dirtyRasterIds);
   await deps.flushRouteLeave();
 }

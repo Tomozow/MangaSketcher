@@ -65,7 +65,13 @@ import { pageBoxToWorld, textBoxForOwnerMove, textPoseAfterWorldMove, textWorldB
 import type { PdfExtractPayload } from '@/src/web/pdf/PdfPageViewer';
 
 import type { TextEditSelection } from '@/src/web/TextEditBar';
-import { consumePendingInkHistory, runEditorCheckpoint, type PendingInkHistoryItem } from '@/src/web/editorCheckpoint';
+import {
+  consumePendingInkHistory,
+  createInkIdleAutosaveScheduler,
+  runEditorCheckpoint,
+  runIdleInkAutosave,
+  type PendingInkHistoryItem,
+} from '@/src/web/editorCheckpoint';
 import { importProjectPdf } from '@/src/web/pdfImport';
 
 function takePendingInkUndo(
@@ -355,6 +361,13 @@ export function useEditorController(projectId: string): EditorController {
   const autosaveRef = useRef<AutosaveManager | null>(null);
   const inkUndoRef = useRef<Map<string, InkUndoPixels>>(new Map());
   const pendingInkHistoryRef = useRef<PendingInkHistoryItem[]>([]);
+  const idleInkFlushRef = useRef<() => Promise<void>>(async () => {});
+  const inkIdleScheduler = useMemo(
+    () => createInkIdleAutosaveScheduler(() => {
+      void idleInkFlushRef.current();
+    }),
+    [],
+  );
   const historyRef = useRef<EditorHistory | null>(null);
   const textEditingRef = useRef(false);
   const textSelectionRef = useRef<TextEditSelection | null>(null);
@@ -442,6 +455,7 @@ export function useEditorController(projectId: string): EditorController {
 
   useEffect(() => {
     return () => {
+      inkIdleScheduler.cancel();
       if (inkFrameRafRef.current) {
         cancelAnimationFrame(inkFrameRafRef.current);
       }
@@ -452,7 +466,7 @@ export function useEditorController(projectId: string): EditorController {
         cancelAnimationFrame(clipDragRafRef.current);
       }
     };
-  }, []);
+  }, [inkIdleScheduler]);
 
   const emptyPng = useMemo(() => copySharedTransparentPng(), []);
 
@@ -585,6 +599,7 @@ export function useEditorController(projectId: string): EditorController {
 
   useEffect(() => {
     const flushHidden = () => {
+      inkIdleScheduler.cancel();
       inkApiRef.current?.engine.flushPendingEncodes();
       const engine = inkApiRef.current?.engine;
       if (engine) {
@@ -634,7 +649,7 @@ export function useEditorController(projectId: string): EditorController {
       window.removeEventListener('beforeunload', flushHidden);
       document.removeEventListener('visibilitychange', onVisibilityChange);
     };
-  }, []);
+  }, [inkIdleScheduler]);
 
   const persist = useCallback((nextHistory: EditorHistory, viewOnly: boolean, flushNow = false) => {
     const dirty = viewOnly ? [] : collectRasterIds(nextHistory.present);
@@ -1321,6 +1336,7 @@ export function useEditorController(projectId: string): EditorController {
 
         switch (effect.type) {
           case 'beginPenOverlay': {
+            inkIdleScheduler.cancel();
             const ctx = api.beginPenOverlay(rasterId);
             const point: StrokePoint = { x: effect.x, y: effect.y, pressure: effect.pressure };
             const last = appendLiveBrushStroke(ctx, null, [point], (p) => ({
@@ -1360,10 +1376,13 @@ export function useEditorController(projectId: string): EditorController {
             for (const item of drained) {
               pendingInkHistoryRef.current.push(item);
             }
+            autosaveRef.current?.markUnsaved();
+            inkIdleScheduler.schedule();
             visualBump = true;
             break;
           }
           case 'beginEraseDirect': {
+            inkIdleScheduler.cancel();
             lastLiveInkRef.current.delete(rasterId);
             api.beginEraseDirect(rasterId);
             visualBump = true;
@@ -1391,6 +1410,7 @@ export function useEditorController(projectId: string): EditorController {
             lastLiveInkRef.current.delete(rasterId);
             const undoPng = api.finishEraseDirect(rasterId);
             commitInkBake(rasterId, undoPng);
+            inkIdleScheduler.schedule();
             visualBump = true;
             break;
           }
@@ -1429,7 +1449,7 @@ export function useEditorController(projectId: string): EditorController {
         }
       }
     },
-    [bumpInkFrame, commitInkBake],
+    [bumpInkFrame, commitInkBake, inkIdleScheduler],
   );
 
   const deleteText = useCallback(
@@ -1558,6 +1578,7 @@ export function useEditorController(projectId: string): EditorController {
   }, []);
 
   const checkpointBeforeHeavyWork = useCallback(async (): Promise<void> => {
+    inkIdleScheduler.cancel();
     commitPendingTextEditSync();
     const autosave = autosaveRef.current;
     const api = inkApiRef.current;
@@ -1588,9 +1609,45 @@ export function useEditorController(projectId: string): EditorController {
       flushRouteLeave: () => autosave.flushRouteLeave(),
       collectRasterIds,
     });
-  }, [commitPendingTextEditSync]);
+  }, [commitPendingTextEditSync, inkIdleScheduler]);
 
   checkpointBeforeHeavyWorkRef.current = checkpointBeforeHeavyWork;
+
+  idleInkFlushRef.current = async () => {
+    const autosave = autosaveRef.current;
+    const api = inkApiRef.current;
+    if (!autosave) {
+      return;
+    }
+    try {
+      await runIdleInkAutosave({
+        getHistory: () => historyRef.current,
+        setHistory: (next) => {
+          historyRef.current = next;
+          setHistory(next);
+        },
+        pendingInkHistory: pendingInkHistoryRef.current,
+        clearPendingInkHistory: () => {
+          pendingInkHistoryRef.current = [];
+        },
+        ink: api?.engine ?? null,
+        mergeEncodedPng: (encoded) => {
+          for (const [rasterId, png] of encoded) {
+            if (png.byteLength > 0) {
+              encodedPngRef.current.set(rasterId, png);
+            }
+          }
+        },
+        scheduleSave: (present, dirtyRasterIds) => {
+          autosave.scheduleSave(present, dirtyRasterIds, false);
+        },
+        flushRouteLeave: () => autosave.flushRouteLeave(),
+        collectRasterIds,
+      });
+    } catch {
+      // Idle autosave is best-effort; checkpoint / pagehide still flush.
+    }
+  };
 
   const onPdfViewChange = useCallback(
     (patch: { currentPage?: number; zoom?: number; panX?: number; panY?: number }) => {

@@ -92,6 +92,17 @@ describe('AutosaveManager', () => {
     manager.dispose();
   });
 
+  test('markUnsaved shows unsaved before the idle write', () => {
+    const manager = new AutosaveManager({
+      db: new MemoryStorageDatabase(),
+      getEncodedPng: () => new Map(),
+    });
+    expect(manager.getStatus().unsaved).toBe(false);
+    manager.markUnsaved();
+    expect(manager.getStatus()).toEqual({ unsaved: true, encodingCount: 0 });
+    manager.dispose();
+  });
+
   test('flushHidden puts existing encoded PNG without debounce', async () => {
     const db = new MemoryStorageDatabase();
     const encoded = new Map<string, ArrayBuffer>([['p1:page:a', new ArrayBuffer(9)]]);

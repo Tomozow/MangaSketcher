@@ -18,7 +18,6 @@ import {
   saveAppSettings,
   type AutosavePresetId,
 } from '@/src/storage/appSettings';
-import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 import styles from '@/app/page.module.css';
 
 const DEFAULT_PROJECT_NAME = '無題';
@@ -91,20 +90,6 @@ export function ProjectList() {
         }
       } catch (err) {
         if (!cancelled) {
-          // #region agent log
-          ipadDebugLog({
-            sessionId: '092972',
-            ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-            hypothesisId: 'C',
-            location: 'ProjectList.tsx:boot',
-            message: 'list/GC failed',
-            data: {
-              name: err instanceof Error ? err.name : '',
-              message: err instanceof Error ? err.message : String(err),
-            },
-            timestamp: Date.now(),
-          });
-          // #endregion
           setError(err instanceof Error ? err.message : '一覧の読み込みに失敗しました。');
         }
       } finally {
@@ -167,21 +152,6 @@ export function ProjectList() {
       await deleteProject(project.id);
       await refresh();
     } catch (err) {
-      // #region agent log
-      ipadDebugLog({
-        sessionId: '092972',
-        ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-        hypothesisId: 'A',
-        location: 'ProjectList.tsx:handleDelete',
-        message: 'UI delete failed',
-        data: {
-          projectId: project.id,
-          name: err instanceof Error ? err.name : '',
-          message: err instanceof Error ? err.message : String(err),
-        },
-        timestamp: Date.now(),
-      });
-      // #endregion
       setError(
         err instanceof Error
           ? `${err.message}（一覧に残っている場合は再度削除できます）`

@@ -29,6 +29,8 @@ export const DEFAULT_RASTER_HEIGHT = 1700;
 
 export const DOCUMENT_SAVE_DEBOUNCE_MS = 800;
 export const VIEW_ONLY_SAVE_DEBOUNCE_MS = 1500;
+/** Idle after the last ink stroke before encode + IndexedDB write. */
+export const INK_IDLE_AUTOSAVE_MS = 1000;
 export const HISTORY_DEPTH = 50;
 
 export const OPFS_PDF_DIR = 'pdfs';

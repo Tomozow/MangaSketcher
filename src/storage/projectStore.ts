@@ -1,4 +1,3 @@
-import { ipadDebugLog } from '../web/ipadDebugLog';
 import { assertStorableDocument, cloneEditorDocument, createEditorDocument } from './editorDocument';
 import type { StorageDatabase } from './idb';
 import { getDefaultStorageDatabase } from './idb';
@@ -43,48 +42,18 @@ export async function createProject(
   deps?: ProjectStoreDeps,
 ): Promise<{ meta: ProjectMeta; document: EditorDocument }> {
   const { db, now } = resolveDeps(deps);
-  // #region agent log
-  ipadDebugLog({
-    sessionId: '092972',
-    ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-    hypothesisId: 'H',
-    location: 'projectStore.ts:createProject:start',
-    message: 'createProject start',
-    data: { pageCount },
-    timestamp: Date.now(),
-  });
-  // #endregion
-  try {
-    await ensureSharedTransparentPng();
-    const document = createEditorDocument({ name, pageCount });
-    assertStorableDocument(document);
-    const transparent = copySharedTransparentPng();
-    for (const rasterId of collectRasterIds(document)) {
-      await db.putRaster(rasterId, transparent.slice(0));
-    }
-    const updatedAt = now();
-    const meta = toMeta(document, updatedAt);
-    await db.putDocument(document);
-    await db.putMeta(meta);
-    return { meta, document };
-  } catch (err) {
-    // #region agent log
-    ipadDebugLog({
-      sessionId: '092972',
-      ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-      hypothesisId: 'H',
-      location: 'projectStore.ts:createProject:catch',
-      message: 'createProject failed',
-      data: {
-        pageCount,
-        name: err instanceof Error ? err.name : '',
-        message: err instanceof Error ? err.message : String(err),
-      },
-      timestamp: Date.now(),
-    });
-    // #endregion
-    throw err;
+  await ensureSharedTransparentPng();
+  const document = createEditorDocument({ name, pageCount });
+  assertStorableDocument(document);
+  const transparent = copySharedTransparentPng();
+  for (const rasterId of collectRasterIds(document)) {
+    await db.putRaster(rasterId, transparent.slice(0));
   }
+  const updatedAt = now();
+  const meta = toMeta(document, updatedAt);
+  await db.putDocument(document);
+  await db.putMeta(meta);
+  return { meta, document };
 }
 
 export async function loadDocument(
@@ -155,38 +124,8 @@ export async function renameProject(
  */
 export async function deleteProject(projectId: string, deps?: ProjectStoreDeps): Promise<void> {
   const { db, opfs } = resolveDeps(deps);
-  // #region agent log
-  ipadDebugLog({
-    sessionId: '092972',
-    ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-    hypothesisId: 'A',
-    location: 'projectStore.ts:deleteProject',
-    message: 'deleteProject start',
-    data: { projectId },
-    timestamp: Date.now(),
-  });
-  // #endregion
-  try {
-    await opfs.deletePdf(projectId);
-    await db.deleteProjectRecords(projectId);
-  } catch (err) {
-    // #region agent log
-    ipadDebugLog({
-      sessionId: '092972',
-      ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-      hypothesisId: 'A',
-      location: 'projectStore.ts:deleteProject:catch',
-      message: 'deleteProject failed',
-      data: {
-        projectId,
-        name: err instanceof Error ? err.name : '',
-        message: err instanceof Error ? err.message : String(err),
-      },
-      timestamp: Date.now(),
-    });
-    // #endregion
-    throw err;
-  }
+  await opfs.deletePdf(projectId);
+  await db.deleteProjectRecords(projectId);
 }
 
 export async function writeProjectPdf(
@@ -203,17 +142,6 @@ export async function runStartupGc(deps?: ProjectStoreDeps): Promise<void> {
   const { db, opfs } = resolveDeps(deps);
   const meta = await db.listMeta();
   const liveIds = new Set(meta.map((item) => item.id));
-  // #region agent log
-  ipadDebugLog({
-    sessionId: '092972',
-    ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-    hypothesisId: 'C',
-    location: 'projectStore.ts:runStartupGc:start',
-    message: 'startup GC start',
-    data: { metaCount: meta.length },
-    timestamp: Date.now(),
-  });
-  // #endregion
 
   const pdfIds = await opfs.listPdfProjectIds();
   for (const projectId of pdfIds) {
@@ -234,54 +162,19 @@ export async function runStartupGc(deps?: ProjectStoreDeps): Promise<void> {
   }
 
   const rasterIds = await db.listRasterIds();
-  let deleted = 0;
-  try {
-    for (const rasterId of rasterIds) {
-      if (referenced.has(rasterId)) {
-        continue;
-      }
-      const owner = rasterId.split(':')[0];
-      if (!owner || !liveIds.has(owner)) {
-        await db.deleteRaster(rasterId);
-        deleted += 1;
-        continue;
-      }
-      if (!rasterBelongsToProject(rasterId, owner)) {
-        await db.deleteRaster(rasterId);
-        deleted += 1;
-      }
+  for (const rasterId of rasterIds) {
+    if (referenced.has(rasterId)) {
+      continue;
     }
-  } catch (err) {
-    // #region agent log
-    ipadDebugLog({
-      sessionId: '092972',
-      ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-      hypothesisId: 'C',
-      location: 'projectStore.ts:runStartupGc:catch',
-      message: 'startup GC delete failed',
-      data: {
-        rasterCount: rasterIds.length,
-        referenced: referenced.size,
-        deleted,
-        name: err instanceof Error ? err.name : '',
-        message: err instanceof Error ? err.message : String(err),
-      },
-      timestamp: Date.now(),
-    });
-    // #endregion
-    throw err;
+    const owner = rasterId.split(':')[0];
+    if (!owner || !liveIds.has(owner)) {
+      await db.deleteRaster(rasterId);
+      continue;
+    }
+    if (!rasterBelongsToProject(rasterId, owner)) {
+      await db.deleteRaster(rasterId);
+    }
   }
-  // #region agent log
-  ipadDebugLog({
-    sessionId: '092972',
-    ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-    hypothesisId: 'C',
-    location: 'projectStore.ts:runStartupGc:done',
-    message: 'startup GC done',
-    data: { rasterCount: rasterIds.length, referenced: referenced.size, deleted },
-    timestamp: Date.now(),
-  });
-  // #endregion
 }
 
 export function projectHasPdf(document: EditorDocument): boolean {
