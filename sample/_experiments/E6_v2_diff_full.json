@@ -1,0 +1,4303 @@
+{
+  "left": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E6_v2.clip",
+  "right": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E6_v2_resolved.clip",
+  "sha256": {
+    "left": "99153d7dced1b36cb833f092ebbc79e0d3662ccd4bd5855ca304ca821c7d4db4",
+    "right": "c621f4ee1c90cc6a695c739689836110931a03d9cd543585a5ebaafad27a0bb6"
+  },
+  "size": {
+    "left": 885096,
+    "right": 885096
+  },
+  "container": {
+    "left": {
+      "file_size_field": 885096,
+      "first_chunk_off": 24,
+      "chunks": [
+        {
+          "name": "CHNKHead",
+          "header_offset": 24,
+          "data_offset": 40,
+          "data_length": 40,
+          "sha256": "d141406c3a5aabb1d13442bc96d2a626635c8d83cd16e9ac492b21eb2e5b26bc"
+        },
+        {
+          "name": "CHNKExta",
+          "header_offset": 80,
+          "data_offset": 96,
+          "data_length": 584,
+          "sha256": "80ff7a4af35ba709d2bc8cfdbedc34acd2b941f16051ce90e64376df1ffefac7",
+          "exta_id": "extrnlid5ABB6410003A40949E51DF48E83BB456",
+          "exta_body_len": 528
+        },
+        {
+          "name": "CHNKExta",
+          "header_offset": 680,
+          "data_offset": 696,
+          "data_length": 247160,
+          "sha256": "eb2b35e51ccbb4ba81e7d3b38002fc52b7687a819665f90e9718f4205b6d2219",
+          "exta_id": "extrnlidB67B525BAB4B455EBE254C917AD141AA",
+          "exta_body_len": 247104
+        },
+        {
+          "name": "CHNKExta",
+          "header_offset": 247856,
+          "data_offset": 247872,
+          "data_length": 5530,
+          "sha256": "52a0bc7ea89bfdb63cec9e17bb1b6eadba33559efe10e527f342703271fc50db",
+          "exta_id": "extrnlidE5A9E645332242E1831F2CEEA9A7C9E7",
+          "exta_body_len": 5474
+        },
+        {
+          "name": "CHNKExta",
+          "header_offset": 253402,
+          "data_offset": 253418,
+          "data_length": 60728,
+          "sha256": "5ac44aece3a56571a50881fc22aa967a52469aa458e8c2c1da3fc508e36365c0",
+          "exta_id": "extrnlidC39752E934E847509B647C0EE8262DD8",
+          "exta_body_len": 60672
+        },
+        {
+          "name": "CHNKExta",
+          "header_offset": 314146,
+          "data_offset": 314162,
+          "data_length": 7716,
+          "sha256": "3424101b6aa346429e05225a854df72fbf916fc3866e9e4d934bf605df902c23",
+          "exta_id": "extrnlid99AF81789A6841B3950D67A7B2A7CA5A",
+          "exta_body_len": 7660
+        },
+        {
+          "name": "CHNKExta",
+          "header_offset": 321878,
+          "data_offset": 321894,
+          "data_length": 584,
+          "sha256": "72509bbbaacece4f2485e67b3761b657effc96aef877d62bcc163afa39ee7555",
+          "exta_id": "extrnlidD046B341A6B44296897C35F3FE3055D8",
+          "exta_body_len": 528
+        },
+        {
+          "name": "CHNKExta",
+          "header_offset": 322478,
+          "data_offset": 322494,
+          "data_length": 5514,
+          "sha256": "f05ad621b69b7a43ecd56754b806f3e2275b54080c1485cd920a3f94df1ba938",
+          "exta_id": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D",
+          "exta_body_len": 5458
+        },
+        {
+          "name": "CHNKSQLi",
+          "header_offset": 328008,
+          "data_offset": 328024,
+          "data_length": 557056,
+          "sha256": "dc28db69d286c7c723f2dc0f0cbf0e3149a7df6a2c410d8fcdd8f94a7afb95c3"
+        },
+        {
+          "name": "CHNKFoot",
+          "header_offset": 885080,
+          "data_offset": 885096,
+          "data_length": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    },
+    "right": {
+      "file_size_field": 885096,
+      "first_chunk_off": 24,
+      "chunks": [
+        {
+          "name": "CHNKHead",
+          "header_offset": 24,
+          "data_offset": 40,
+          "data_length": 40,
+          "sha256": "7b31a097c0673a68b10b424150ea83eb4093d75ca125e7a388453621927e71ce"
+        },
+        {
+          "name": "CHNKExta",
+          "header_offset": 80,
+          "data_offset": 96,
+          "data_length": 584,
+          "sha256": "80ff7a4af35ba709d2bc8cfdbedc34acd2b941f16051ce90e64376df1ffefac7",
+          "exta_id": "extrnlid5ABB6410003A40949E51DF48E83BB456",
+          "exta_body_len": 528
+        },
+        {
+          "name": "CHNKExta",
+          "header_offset": 680,
+          "data_offset": 696,
+          "data_length": 247160,
+          "sha256": "eb2b35e51ccbb4ba81e7d3b38002fc52b7687a819665f90e9718f4205b6d2219",
+          "exta_id": "extrnlidB67B525BAB4B455EBE254C917AD141AA",
+          "exta_body_len": 247104
+        },
+        {
+          "name": "CHNKExta",
+          "header_offset": 247856,
+          "data_offset": 247872,
+          "data_length": 5530,
+          "sha256": "52a0bc7ea89bfdb63cec9e17bb1b6eadba33559efe10e527f342703271fc50db",
+          "exta_id": "extrnlidE5A9E645332242E1831F2CEEA9A7C9E7",
+          "exta_body_len": 5474
+        },
+        {
+          "name": "CHNKExta",
+          "header_offset": 253402,
+          "data_offset": 253418,
+          "data_length": 60728,
+          "sha256": "5ac44aece3a56571a50881fc22aa967a52469aa458e8c2c1da3fc508e36365c0",
+          "exta_id": "extrnlidC39752E934E847509B647C0EE8262DD8",
+          "exta_body_len": 60672
+        },
+        {
+          "name": "CHNKExta",
+          "header_offset": 314146,
+          "data_offset": 314162,
+          "data_length": 7716,
+          "sha256": "3424101b6aa346429e05225a854df72fbf916fc3866e9e4d934bf605df902c23",
+          "exta_id": "extrnlid99AF81789A6841B3950D67A7B2A7CA5A",
+          "exta_body_len": 7660
+        },
+        {
+          "name": "CHNKExta",
+          "header_offset": 321878,
+          "data_offset": 321894,
+          "data_length": 584,
+          "sha256": "72509bbbaacece4f2485e67b3761b657effc96aef877d62bcc163afa39ee7555",
+          "exta_id": "extrnlidD046B341A6B44296897C35F3FE3055D8",
+          "exta_body_len": 528
+        },
+        {
+          "name": "CHNKExta",
+          "header_offset": 322478,
+          "data_offset": 322494,
+          "data_length": 5514,
+          "sha256": "f05ad621b69b7a43ecd56754b806f3e2275b54080c1485cd920a3f94df1ba938",
+          "exta_id": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D",
+          "exta_body_len": 5458
+        },
+        {
+          "name": "CHNKSQLi",
+          "header_offset": 328008,
+          "data_offset": 328024,
+          "data_length": 557056,
+          "sha256": "9c0c5493a04fed65d48adca4405c44b4c2db7be69e9f04d7cbadc5cbe8c3c756"
+        },
+        {
+          "name": "CHNKFoot",
+          "header_offset": 885080,
+          "data_offset": 885096,
+          "data_length": 0,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      ]
+    }
+  },
+  "chunk_map_identical": true,
+  "chunk_body_diffs": [
+    {
+      "name": "CHNKHead",
+      "header_offset": 24,
+      "data_length": 40,
+      "exta_id": null
+    },
+    {
+      "name": "CHNKSQLi",
+      "header_offset": 328008,
+      "data_length": 557056,
+      "exta_id": null
+    }
+  ],
+  "sqlite_header": {
+    "left": {
+      "page_size": 4096,
+      "file_change_counter": 156,
+      "page_count": 136,
+      "freelist_trunk": 0,
+      "freelist_count": 0,
+      "schema_cookie": 220,
+      "schema_format": 4,
+      "default_cache": 0,
+      "largest_root_autovac": 0,
+      "text_encoding": 1,
+      "user_version": 0,
+      "incremental_vacuum": 0,
+      "application_id": 0,
+      "version_valid_for": 156,
+      "sqlite_version_number": 3049001
+    },
+    "right": {
+      "page_size": 4096,
+      "file_change_counter": 173,
+      "page_count": 136,
+      "freelist_trunk": 0,
+      "freelist_count": 0,
+      "schema_cookie": 222,
+      "schema_format": 4,
+      "default_cache": 0,
+      "largest_root_autovac": 0,
+      "text_encoding": 1,
+      "user_version": 0,
+      "incremental_vacuum": 0,
+      "application_id": 0,
+      "version_valid_for": 173,
+      "sqlite_version_number": 3030001
+    }
+  },
+  "byte_diff_ranges": [
+    {
+      "start": 64,
+      "end": 80,
+      "len": 16,
+      "chunk": "CHNKHead",
+      "chunk_rel": 24
+    },
+    {
+      "start": 328051,
+      "end": 328068,
+      "len": 17,
+      "chunk": "CHNKSQLi",
+      "chunk_rel": 27,
+      "pages": [
+        1
+      ]
+    },
+    {
+      "start": 328119,
+      "end": 328124,
+      "len": 5,
+      "chunk": "CHNKSQLi",
+      "chunk_rel": 95,
+      "pages": [
+        1
+      ]
+    },
+    {
+      "start": 831836,
+      "end": 831839,
+      "len": 3,
+      "chunk": "CHNKSQLi",
+      "chunk_rel": 503812,
+      "pages": [
+        124
+      ]
+    },
+    {
+      "start": 831872,
+      "end": 831876,
+      "len": 4,
+      "chunk": "CHNKSQLi",
+      "chunk_rel": 503848,
+      "pages": [
+        124
+      ]
+    },
+    {
+      "start": 833002,
+      "end": 833427,
+      "len": 425,
+      "chunk": "CHNKSQLi",
+      "chunk_rel": 504978,
+      "pages": [
+        124
+      ]
+    }
+  ],
+  "byte_diff_total": 470,
+  "diff_pages": {
+    "1": {
+      "left": "sqlite_master",
+      "right": "sqlite_master"
+    },
+    "124": {
+      "left": "sqlite_master",
+      "right": "sqlite_master"
+    }
+  },
+  "tables": {
+    "AnimationCutBank": {
+      "rows": [
+        1,
+        1
+      ]
+    },
+    "Canvas": {
+      "rows": [
+        1,
+        1
+      ]
+    },
+    "CanvasItem": {
+      "rows": [
+        0,
+        0
+      ]
+    },
+    "CanvasItemBank": {
+      "rows": [
+        1,
+        1
+      ]
+    },
+    "CanvasPreview": {
+      "rows": [
+        1,
+        1
+      ]
+    },
+    "ElemScheme": {
+      "rows": [
+        63,
+        63
+      ]
+    },
+    "ExternalChunk": {
+      "rows": [
+        7,
+        7
+      ]
+    },
+    "ExternalTableAndColumnName": {
+      "rows": [
+        10,
+        10
+      ]
+    },
+    "Layer": {
+      "rows": [
+        9,
+        9
+      ]
+    },
+    "LayerComp": {
+      "rows": [
+        1,
+        1
+      ]
+    },
+    "LayerCompManager": {
+      "rows": [
+        1,
+        1
+      ]
+    },
+    "LayerThumbnail": {
+      "rows": [
+        9,
+        9
+      ]
+    },
+    "Mipmap": {
+      "rows": [
+        9,
+        9
+      ]
+    },
+    "MipmapInfo": {
+      "rows": [
+        54,
+        54
+      ]
+    },
+    "Offscreen": {
+      "rows": [
+        63,
+        63
+      ]
+    },
+    "ParamScheme": {
+      "rows": [
+        1250,
+        1250
+      ]
+    },
+    "Project": {
+      "rows": [
+        1,
+        1
+      ]
+    },
+    "RemovedExternal": {
+      "rows": [
+        0,
+        0
+      ]
+    },
+    "sqlite_sequence": {
+      "rows": [
+        14,
+        14
+      ]
+    }
+  },
+  "text_layers": [
+    {
+      "mainId": 5,
+      "layerName": "あいうえお",
+      "text": "あいうえお",
+      "byte_identical": {
+        "TextLayerString": true,
+        "TextLayerAttributes": true,
+        "TextLayerAddAttributesV01": true,
+        "LayerOffset": true,
+        "RenderOffscrOffset": true
+      },
+      "key_fields_left": {
+        "bbox_id42": [
+          918,
+          509,
+          951,
+          674
+        ],
+        "size_id63": [
+          33,
+          165
+        ],
+        "rect_id64": [
+          -3300,
+          0,
+          0,
+          0,
+          0,
+          16500,
+          -3300,
+          16500
+        ],
+        "cachew_id72": [
+          33,
+          0
+        ],
+        "fontsize_id32": 397,
+        "charcount_id39": [
+          5,
+          0
+        ],
+        "floatcache_id50": 0,
+        "run11_vtype": 5
+      },
+      "key_fields_right": {
+        "bbox_id42": [
+          918,
+          509,
+          951,
+          674
+        ],
+        "size_id63": [
+          33,
+          165
+        ],
+        "rect_id64": [
+          -3300,
+          0,
+          0,
+          0,
+          0,
+          16500,
+          -3300,
+          16500
+        ],
+        "cachew_id72": [
+          33,
+          0
+        ],
+        "fontsize_id32": 397,
+        "charcount_id39": [
+          5,
+          0
+        ],
+        "floatcache_id50": 0,
+        "run11_vtype": 5
+      }
+    },
+    {
+      "mainId": 10,
+      "layerName": "クローン一号",
+      "text": "クローン一号",
+      "byte_identical": {
+        "TextLayerString": true,
+        "TextLayerAttributes": true,
+        "TextLayerAddAttributesV01": true,
+        "LayerOffset": true,
+        "RenderOffscrOffset": true
+      },
+      "key_fields_left": {
+        "bbox_id42": [
+          1167,
+          300,
+          1200,
+          498
+        ],
+        "size_id63": [
+          33,
+          198
+        ],
+        "rect_id64": [
+          -3300,
+          0,
+          0,
+          0,
+          0,
+          19800,
+          -3300,
+          19800
+        ],
+        "cachew_id72": [
+          33,
+          0
+        ],
+        "fontsize_id32": 397,
+        "charcount_id39": [
+          6,
+          0
+        ],
+        "floatcache_id50": 0,
+        "run11_vtype": 6
+      },
+      "key_fields_right": {
+        "bbox_id42": [
+          1167,
+          300,
+          1200,
+          498
+        ],
+        "size_id63": [
+          33,
+          198
+        ],
+        "rect_id64": [
+          -3300,
+          0,
+          0,
+          0,
+          0,
+          19800,
+          -3300,
+          19800
+        ],
+        "cachew_id72": [
+          33,
+          0
+        ],
+        "fontsize_id32": 397,
+        "charcount_id39": [
+          6,
+          0
+        ],
+        "floatcache_id50": 0,
+        "run11_vtype": 6
+      }
+    },
+    {
+      "mainId": 11,
+      "layerName": "二行目も ある長文テキスト",
+      "text": "二行目も\r\nある長文テキスト",
+      "byte_identical": {
+        "TextLayerString": true,
+        "TextLayerAttributes": true,
+        "TextLayerAddAttributesV01": true,
+        "LayerOffset": true,
+        "RenderOffscrOffset": true
+      },
+      "key_fields_left": {
+        "bbox_id42": [
+          609,
+          800,
+          700,
+          1066
+        ],
+        "size_id63": [
+          91,
+          266
+        ],
+        "rect_id64": [
+          -9100,
+          0,
+          100,
+          0,
+          100,
+          26600,
+          -9100,
+          26600
+        ],
+        "cachew_id72": [
+          90,
+          0
+        ],
+        "fontsize_id32": 397,
+        "charcount_id39": [
+          14,
+          0
+        ],
+        "floatcache_id50": 0,
+        "run11_vtype": 14
+      },
+      "key_fields_right": {
+        "bbox_id42": [
+          609,
+          800,
+          700,
+          1066
+        ],
+        "size_id63": [
+          91,
+          266
+        ],
+        "rect_id64": [
+          -9100,
+          0,
+          100,
+          0,
+          100,
+          26600,
+          -9100,
+          26600
+        ],
+        "cachew_id72": [
+          90,
+          0
+        ],
+        "fontsize_id32": 397,
+        "charcount_id39": [
+          14,
+          0
+        ],
+        "floatcache_id50": 0,
+        "run11_vtype": 14
+      }
+    },
+    {
+      "mainId": 12,
+      "layerName": "大きい字",
+      "text": "大きい字",
+      "byte_identical": {
+        "TextLayerString": true,
+        "TextLayerAttributes": true,
+        "TextLayerAddAttributesV01": true,
+        "LayerOffset": true,
+        "RenderOffscrOffset": true
+      },
+      "key_fields_left": {
+        "bbox_id42": [
+          334,
+          1400,
+          400,
+          1664
+        ],
+        "size_id63": [
+          66,
+          264
+        ],
+        "rect_id64": [
+          -6600,
+          0,
+          0,
+          0,
+          0,
+          26400,
+          -6600,
+          26400
+        ],
+        "cachew_id72": [
+          66,
+          0
+        ],
+        "fontsize_id32": 794,
+        "charcount_id39": [
+          4,
+          0
+        ],
+        "floatcache_id50": 0,
+        "run11_vtype": 4
+      },
+      "key_fields_right": {
+        "bbox_id42": [
+          334,
+          1400,
+          400,
+          1664
+        ],
+        "size_id63": [
+          66,
+          264
+        ],
+        "rect_id64": [
+          -6600,
+          0,
+          0,
+          0,
+          0,
+          26400,
+          -6600,
+          26400
+        ],
+        "cachew_id72": [
+          66,
+          0
+        ],
+        "fontsize_id32": 794,
+        "charcount_id39": [
+          4,
+          0
+        ],
+        "floatcache_id50": 0,
+        "run11_vtype": 4
+      }
+    },
+    {
+      "mainId": 13,
+      "layerName": "一行目 二行目 三行目",
+      "text": "一行目\r\n二行目\r\n三行目",
+      "byte_identical": {
+        "TextLayerString": true,
+        "TextLayerAttributes": true,
+        "TextLayerAddAttributesV01": true,
+        "LayerOffset": true,
+        "RenderOffscrOffset": true
+      },
+      "key_fields_left": {
+        "bbox_id42": [
+          753,
+          1100,
+          900,
+          1201
+        ],
+        "size_id63": [
+          147,
+          101
+        ],
+        "rect_id64": [
+          -14700,
+          0,
+          100,
+          0,
+          100,
+          10100,
+          -14700,
+          10100
+        ],
+        "cachew_id72": [
+          146,
+          0
+        ],
+        "fontsize_id32": 397,
+        "charcount_id39": [
+          13,
+          0
+        ],
+        "floatcache_id50": 0,
+        "run11_vtype": 13
+      },
+      "key_fields_right": {
+        "bbox_id42": [
+          753,
+          1100,
+          900,
+          1201
+        ],
+        "size_id63": [
+          147,
+          101
+        ],
+        "rect_id64": [
+          -14700,
+          0,
+          100,
+          0,
+          100,
+          10100,
+          -14700,
+          10100
+        ],
+        "cachew_id72": [
+          146,
+          0
+        ],
+        "fontsize_id32": 397,
+        "charcount_id39": [
+          13,
+          0
+        ],
+        "floatcache_id50": 0,
+        "run11_vtype": 13
+      }
+    }
+  ],
+  "caches": {
+    "left": {
+      "offscreen": [
+        {
+          "MainId": 3,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlid7207F0D0824747689647EC0638CD626F",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 4,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlid5ABB6410003A40949E51DF48E83BB456",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 5,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlidB67B525BAB4B455EBE254C917AD141AA",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 6,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlidE5A9E645332242E1831F2CEEA9A7C9E7",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 7,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlid05CAC68146AA4E21B857F25E534BD37A",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 8,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlid80D7A8B5DFE349A9B87EBF65B2E73866",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 9,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlidE0F15A938F8E45A9A361F2BE55627718",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 10,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlidE3DD936D21F24981BAA39CAA9D587303",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 11,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlid90BF72E2A09342CC9F11BF51E64498A8",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 12,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlidD94E091FB34045E58F950DB8AE44DF5B",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 13,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlid9C8309E549714C2598AA19F70A8159C5",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 14,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlidA91CF998CE334DD99A9B28624752FD4E",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 15,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlid753D2850B4304F56A33DABFA5C2DFC27",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 16,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlidA61A633D2FA447BE836E34BCC2710805",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 24,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 25,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 26,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlid8E1172744D36418D879F426C6BE5ED4B",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 27,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlidFFBD3511FE5644EAA69143F74D98EB3B",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 28,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlid4E5E8ECC7E224226A36CB9E8016915CC",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 29,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 30,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlid3D689D9AFD56438B9B0C372376BAA614",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 48,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlidC39752E934E847509B647C0EE8262DD8",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 49,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlid99AF81789A6841B3950D67A7B2A7CA5A",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 50,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlidBC18B4D795F94EFD868BC3858C709481",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 51,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlidA5AE2D35CBE44D80910FE48E4B79F5B2",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 52,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlidBFE192014ED540CD84E519DF82CC4A2D",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 53,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlid36EE3B08F99046B99785138412E0A64A",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 54,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlid6402C5922F404BCFB92A15C343BA330C",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 55,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlidA73300E5C60A441E8E281685C28431BE",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 56,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlidD046B341A6B44296897C35F3FE3055D8",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 57,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlid985FA4816F4745B6B6579C53CDF75467",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 58,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlid3EDA8E05DA6E4FF09B754C5C8E1B5359",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 59,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlid0A07CFFB1C9B4372AEA0AAC82DD96324",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 60,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlid8353B634B6A140AFA4AB68D394E825EA",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 61,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlidEDB48B26579E4BA9A24504A02406B28E",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 62,
+          "LayerId": 10,
+          "CanvasId": 2,
+          "externalId": "extrnlidA78B65E514F8A124B6CA",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 63,
+          "LayerId": 10,
+          "CanvasId": 2,
+          "externalId": "extrnlid1FC6D17B600443915A81",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 64,
+          "LayerId": 10,
+          "CanvasId": 2,
+          "externalId": "extrnlid13B1E25264098C5AF29A",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 65,
+          "LayerId": 10,
+          "CanvasId": 2,
+          "externalId": "extrnlid3C4C0355CCEA9A03DE19",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 66,
+          "LayerId": 10,
+          "CanvasId": 2,
+          "externalId": "extrnlid1854401556E1C721CB2E",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 67,
+          "LayerId": 10,
+          "CanvasId": 2,
+          "externalId": "extrnlid813170393AE054E1B705",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 68,
+          "LayerId": 10,
+          "CanvasId": 2,
+          "externalId": "extrnlidD1DA72B72C752C9580D6",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 69,
+          "LayerId": 11,
+          "CanvasId": 2,
+          "externalId": "extrnlid027ACF0236B966B423EB",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 70,
+          "LayerId": 11,
+          "CanvasId": 2,
+          "externalId": "extrnlidF459E5C1832580A8109B",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 71,
+          "LayerId": 11,
+          "CanvasId": 2,
+          "externalId": "extrnlidF51686CC79C69F389532",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 72,
+          "LayerId": 11,
+          "CanvasId": 2,
+          "externalId": "extrnlid70C05D37FED87C353ED6",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 73,
+          "LayerId": 11,
+          "CanvasId": 2,
+          "externalId": "extrnlidDDBF663ADB191070BFA7",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 74,
+          "LayerId": 11,
+          "CanvasId": 2,
+          "externalId": "extrnlidF500A122384888E5A22D",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 75,
+          "LayerId": 11,
+          "CanvasId": 2,
+          "externalId": "extrnlidBC028E4C1859340CCC88",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 76,
+          "LayerId": 12,
+          "CanvasId": 2,
+          "externalId": "extrnlid8160A88EEFEE9F7F5AC7",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 77,
+          "LayerId": 12,
+          "CanvasId": 2,
+          "externalId": "extrnlid1EE2F557D5A6FF22AB6B",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 78,
+          "LayerId": 12,
+          "CanvasId": 2,
+          "externalId": "extrnlid5D5A4246E581AE267DD6",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 79,
+          "LayerId": 12,
+          "CanvasId": 2,
+          "externalId": "extrnlidB296E054BCD160E61944",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 80,
+          "LayerId": 12,
+          "CanvasId": 2,
+          "externalId": "extrnlidAD440339BC1FE00FB495",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 81,
+          "LayerId": 12,
+          "CanvasId": 2,
+          "externalId": "extrnlid9F54E12FF2B429B1E868",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 82,
+          "LayerId": 12,
+          "CanvasId": 2,
+          "externalId": "extrnlid881DE52420E32C81CD9B",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 83,
+          "LayerId": 13,
+          "CanvasId": 2,
+          "externalId": "extrnlid433F5F3F207510AEFDD9",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 84,
+          "LayerId": 13,
+          "CanvasId": 2,
+          "externalId": "extrnlid8CA88AA1AE436BBD49A7",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 85,
+          "LayerId": 13,
+          "CanvasId": 2,
+          "externalId": "extrnlidA0EC648D2F70458CEA59",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 86,
+          "LayerId": 13,
+          "CanvasId": 2,
+          "externalId": "extrnlidC797F004D2B8D9FE365B",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 87,
+          "LayerId": 13,
+          "CanvasId": 2,
+          "externalId": "extrnlid964810E407E53F4F153C",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 88,
+          "LayerId": 13,
+          "CanvasId": 2,
+          "externalId": "extrnlid0D6B203FF64625DB66C3",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 89,
+          "LayerId": 13,
+          "CanvasId": 2,
+          "externalId": "extrnlid95C39609BEB70A9ADD0E",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        }
+      ],
+      "mipmap": [
+        {
+          "MainId": 2,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 2
+        },
+        {
+          "MainId": 3,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 3
+        },
+        {
+          "MainId": 5,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 20
+        },
+        {
+          "MainId": 8,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 38
+        },
+        {
+          "MainId": 9,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 44
+        },
+        {
+          "MainId": 10,
+          "LayerId": 10,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 50
+        },
+        {
+          "MainId": 11,
+          "LayerId": 11,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 56
+        },
+        {
+          "MainId": 12,
+          "LayerId": 12,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 62
+        },
+        {
+          "MainId": 13,
+          "LayerId": 13,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 68
+        }
+      ],
+      "mipmapinfo": [
+        {
+          "error": "no such column: Scale"
+        }
+      ],
+      "layerthumbnail": [
+        {
+          "MainId": 2,
+          "LayerId": 2,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 3,
+          "LayerId": 3,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 5,
+          "LayerId": 5,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 8,
+          "LayerId": 8,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 9,
+          "LayerId": 9,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 10,
+          "LayerId": 10,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 11,
+          "LayerId": 11,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 12,
+          "LayerId": 12,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 13,
+          "LayerId": 13,
+          "CanvasId": 2
+        }
+      ],
+      "externalchunk": [
+        {
+          "ExternalID": "extrnlid5ABB6410003A40949E51DF48E83BB456",
+          "Offset": 80
+        },
+        {
+          "ExternalID": "extrnlidB67B525BAB4B455EBE254C917AD141AA",
+          "Offset": 680
+        },
+        {
+          "ExternalID": "extrnlidE5A9E645332242E1831F2CEEA9A7C9E7",
+          "Offset": 247856
+        },
+        {
+          "ExternalID": "extrnlidC39752E934E847509B647C0EE8262DD8",
+          "Offset": 253402
+        },
+        {
+          "ExternalID": "extrnlid99AF81789A6841B3950D67A7B2A7CA5A",
+          "Offset": 314146
+        },
+        {
+          "ExternalID": "extrnlidD046B341A6B44296897C35F3FE3055D8",
+          "Offset": 321878
+        },
+        {
+          "ExternalID": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D",
+          "Offset": 322478
+        }
+      ]
+    },
+    "right": {
+      "offscreen": [
+        {
+          "MainId": 3,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlid7207F0D0824747689647EC0638CD626F",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 4,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlid5ABB6410003A40949E51DF48E83BB456",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 5,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlidB67B525BAB4B455EBE254C917AD141AA",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 6,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlidE5A9E645332242E1831F2CEEA9A7C9E7",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 7,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlid05CAC68146AA4E21B857F25E534BD37A",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 8,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlid80D7A8B5DFE349A9B87EBF65B2E73866",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 9,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlidE0F15A938F8E45A9A361F2BE55627718",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 10,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlidE3DD936D21F24981BAA39CAA9D587303",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 11,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlid90BF72E2A09342CC9F11BF51E64498A8",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 12,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlidD94E091FB34045E58F950DB8AE44DF5B",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 13,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlid9C8309E549714C2598AA19F70A8159C5",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 14,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlidA91CF998CE334DD99A9B28624752FD4E",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 15,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlid753D2850B4304F56A33DABFA5C2DFC27",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 16,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlidA61A633D2FA447BE836E34BCC2710805",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 24,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 25,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 26,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlid8E1172744D36418D879F426C6BE5ED4B",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 27,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlidFFBD3511FE5644EAA69143F74D98EB3B",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 28,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlid4E5E8ECC7E224226A36CB9E8016915CC",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 29,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 30,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlid3D689D9AFD56438B9B0C372376BAA614",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 48,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlidC39752E934E847509B647C0EE8262DD8",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 49,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlid99AF81789A6841B3950D67A7B2A7CA5A",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 50,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlidBC18B4D795F94EFD868BC3858C709481",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 51,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlidA5AE2D35CBE44D80910FE48E4B79F5B2",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 52,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlidBFE192014ED540CD84E519DF82CC4A2D",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 53,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlid36EE3B08F99046B99785138412E0A64A",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 54,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlid6402C5922F404BCFB92A15C343BA330C",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 55,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlidA73300E5C60A441E8E281685C28431BE",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 56,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlidD046B341A6B44296897C35F3FE3055D8",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 57,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlid985FA4816F4745B6B6579C53CDF75467",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 58,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlid3EDA8E05DA6E4FF09B754C5C8E1B5359",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 59,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlid0A07CFFB1C9B4372AEA0AAC82DD96324",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 60,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlid8353B634B6A140AFA4AB68D394E825EA",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 61,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlidEDB48B26579E4BA9A24504A02406B28E",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 62,
+          "LayerId": 10,
+          "CanvasId": 2,
+          "externalId": "extrnlidA78B65E514F8A124B6CA",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 63,
+          "LayerId": 10,
+          "CanvasId": 2,
+          "externalId": "extrnlid1FC6D17B600443915A81",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 64,
+          "LayerId": 10,
+          "CanvasId": 2,
+          "externalId": "extrnlid13B1E25264098C5AF29A",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 65,
+          "LayerId": 10,
+          "CanvasId": 2,
+          "externalId": "extrnlid3C4C0355CCEA9A03DE19",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 66,
+          "LayerId": 10,
+          "CanvasId": 2,
+          "externalId": "extrnlid1854401556E1C721CB2E",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 67,
+          "LayerId": 10,
+          "CanvasId": 2,
+          "externalId": "extrnlid813170393AE054E1B705",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 68,
+          "LayerId": 10,
+          "CanvasId": 2,
+          "externalId": "extrnlidD1DA72B72C752C9580D6",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 69,
+          "LayerId": 11,
+          "CanvasId": 2,
+          "externalId": "extrnlid027ACF0236B966B423EB",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 70,
+          "LayerId": 11,
+          "CanvasId": 2,
+          "externalId": "extrnlidF459E5C1832580A8109B",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 71,
+          "LayerId": 11,
+          "CanvasId": 2,
+          "externalId": "extrnlidF51686CC79C69F389532",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 72,
+          "LayerId": 11,
+          "CanvasId": 2,
+          "externalId": "extrnlid70C05D37FED87C353ED6",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 73,
+          "LayerId": 11,
+          "CanvasId": 2,
+          "externalId": "extrnlidDDBF663ADB191070BFA7",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 74,
+          "LayerId": 11,
+          "CanvasId": 2,
+          "externalId": "extrnlidF500A122384888E5A22D",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 75,
+          "LayerId": 11,
+          "CanvasId": 2,
+          "externalId": "extrnlidBC028E4C1859340CCC88",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 76,
+          "LayerId": 12,
+          "CanvasId": 2,
+          "externalId": "extrnlid8160A88EEFEE9F7F5AC7",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 77,
+          "LayerId": 12,
+          "CanvasId": 2,
+          "externalId": "extrnlid1EE2F557D5A6FF22AB6B",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 78,
+          "LayerId": 12,
+          "CanvasId": 2,
+          "externalId": "extrnlid5D5A4246E581AE267DD6",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 79,
+          "LayerId": 12,
+          "CanvasId": 2,
+          "externalId": "extrnlidB296E054BCD160E61944",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 80,
+          "LayerId": 12,
+          "CanvasId": 2,
+          "externalId": "extrnlidAD440339BC1FE00FB495",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 81,
+          "LayerId": 12,
+          "CanvasId": 2,
+          "externalId": "extrnlid9F54E12FF2B429B1E868",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 82,
+          "LayerId": 12,
+          "CanvasId": 2,
+          "externalId": "extrnlid881DE52420E32C81CD9B",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 83,
+          "LayerId": 13,
+          "CanvasId": 2,
+          "externalId": "extrnlid433F5F3F207510AEFDD9",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 84,
+          "LayerId": 13,
+          "CanvasId": 2,
+          "externalId": "extrnlid8CA88AA1AE436BBD49A7",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 85,
+          "LayerId": 13,
+          "CanvasId": 2,
+          "externalId": "extrnlidA0EC648D2F70458CEA59",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 86,
+          "LayerId": 13,
+          "CanvasId": 2,
+          "externalId": "extrnlidC797F004D2B8D9FE365B",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 87,
+          "LayerId": 13,
+          "CanvasId": 2,
+          "externalId": "extrnlid964810E407E53F4F153C",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 88,
+          "LayerId": 13,
+          "CanvasId": 2,
+          "externalId": "extrnlid0D6B203FF64625DB66C3",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 89,
+          "LayerId": 13,
+          "CanvasId": 2,
+          "externalId": "extrnlid95C39609BEB70A9ADD0E",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        }
+      ],
+      "mipmap": [
+        {
+          "MainId": 2,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 2
+        },
+        {
+          "MainId": 3,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 3
+        },
+        {
+          "MainId": 5,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 20
+        },
+        {
+          "MainId": 8,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 38
+        },
+        {
+          "MainId": 9,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 44
+        },
+        {
+          "MainId": 10,
+          "LayerId": 10,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 50
+        },
+        {
+          "MainId": 11,
+          "LayerId": 11,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 56
+        },
+        {
+          "MainId": 12,
+          "LayerId": 12,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 62
+        },
+        {
+          "MainId": 13,
+          "LayerId": 13,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 68
+        }
+      ],
+      "mipmapinfo": [
+        {
+          "error": "no such column: Scale"
+        }
+      ],
+      "layerthumbnail": [
+        {
+          "MainId": 2,
+          "LayerId": 2,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 3,
+          "LayerId": 3,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 5,
+          "LayerId": 5,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 8,
+          "LayerId": 8,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 9,
+          "LayerId": 9,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 10,
+          "LayerId": 10,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 11,
+          "LayerId": 11,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 12,
+          "LayerId": 12,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 13,
+          "LayerId": 13,
+          "CanvasId": 2
+        }
+      ],
+      "externalchunk": [
+        {
+          "ExternalID": "extrnlid5ABB6410003A40949E51DF48E83BB456",
+          "Offset": 80
+        },
+        {
+          "ExternalID": "extrnlidB67B525BAB4B455EBE254C917AD141AA",
+          "Offset": 680
+        },
+        {
+          "ExternalID": "extrnlidE5A9E645332242E1831F2CEEA9A7C9E7",
+          "Offset": 247856
+        },
+        {
+          "ExternalID": "extrnlidC39752E934E847509B647C0EE8262DD8",
+          "Offset": 253402
+        },
+        {
+          "ExternalID": "extrnlid99AF81789A6841B3950D67A7B2A7CA5A",
+          "Offset": 314146
+        },
+        {
+          "ExternalID": "extrnlidD046B341A6B44296897C35F3FE3055D8",
+          "Offset": 321878
+        },
+        {
+          "ExternalID": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D",
+          "Offset": 322478
+        }
+      ]
+    }
+  },
+  "original_reference": {
+    "exta_count": 12,
+    "caches": {
+      "offscreen": [
+        {
+          "MainId": 3,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlid7207F0D0824747689647EC0638CD626F",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 4,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlid5ABB6410003A40949E51DF48E83BB456",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 5,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlidB67B525BAB4B455EBE254C917AD141AA",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 6,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlidE5A9E645332242E1831F2CEEA9A7C9E7",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 7,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlid05CAC68146AA4E21B857F25E534BD37A",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 8,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlid80D7A8B5DFE349A9B87EBF65B2E73866",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 9,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlidE0F15A938F8E45A9A361F2BE55627718",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 10,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlidE3DD936D21F24981BAA39CAA9D587303",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 11,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "externalId": "extrnlid90BF72E2A09342CC9F11BF51E64498A8",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 12,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlidD94E091FB34045E58F950DB8AE44DF5B",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 13,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlid9C8309E549714C2598AA19F70A8159C5",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 14,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlidA91CF998CE334DD99A9B28624752FD4E",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 15,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlid753D2850B4304F56A33DABFA5C2DFC27",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 16,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "externalId": "extrnlidA61A633D2FA447BE836E34BCC2710805",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 24,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 25,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 26,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlid8E1172744D36418D879F426C6BE5ED4B",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 27,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlidFFBD3511FE5644EAA69143F74D98EB3B",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 28,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlid4E5E8ECC7E224226A36CB9E8016915CC",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 29,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 30,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlid3D689D9AFD56438B9B0C372376BAA614",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 31,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "externalId": "extrnlidA44814613CD6406EA6B5C53D079FC420",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 32,
+          "LayerId": 6,
+          "CanvasId": 2,
+          "externalId": "extrnlid928C67D383524C14BAE3805AC236B5C5",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 33,
+          "LayerId": 6,
+          "CanvasId": 2,
+          "externalId": "extrnlidC36AE644D5EC4F0AB27E97E89C60CBE4",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 34,
+          "LayerId": 6,
+          "CanvasId": 2,
+          "externalId": "extrnlidEB5B6202F25B481EB90DD91DCD3BC55A",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 35,
+          "LayerId": 6,
+          "CanvasId": 2,
+          "externalId": "extrnlidA49B5463D77E4B0D97F5920F82F2C15C",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 36,
+          "LayerId": 6,
+          "CanvasId": 2,
+          "externalId": "extrnlidE5D71B9D93E449899A49985C69039118",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 37,
+          "LayerId": 6,
+          "CanvasId": 2,
+          "externalId": "extrnlid397D9C4D0C5546F5AA5DA744F8273B39",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 38,
+          "LayerId": 6,
+          "CanvasId": 2,
+          "externalId": "extrnlid388F7DBB142640878997E8976B416D1E",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 39,
+          "LayerId": 6,
+          "CanvasId": 2,
+          "externalId": "extrnlid1C60B3BC68BD4236B94A0E1627F94036",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 40,
+          "LayerId": 7,
+          "CanvasId": 2,
+          "externalId": "extrnlidF7D1FD3FADAA4E89B759349B201C23E8",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 41,
+          "LayerId": 7,
+          "CanvasId": 2,
+          "externalId": "extrnlidA4F04453F9CA496D8EDEBF400643FE2B",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 42,
+          "LayerId": 7,
+          "CanvasId": 2,
+          "externalId": "extrnlid6B69C83526204054BEA044481F3FE0C7",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 43,
+          "LayerId": 7,
+          "CanvasId": 2,
+          "externalId": "extrnlid315C13D7E3334975A45B058DCC4E9FD1",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 44,
+          "LayerId": 7,
+          "CanvasId": 2,
+          "externalId": "extrnlidCE42DA2AE426496DAB1D781E760448A0",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 45,
+          "LayerId": 7,
+          "CanvasId": 2,
+          "externalId": "extrnlid1B8FC18ABF0D43FDAAF4347C8B68BF7A",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 46,
+          "LayerId": 7,
+          "CanvasId": 2,
+          "externalId": "extrnlid3048B5BD48BC4F3E84ADE263868C5FBF",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 47,
+          "LayerId": 7,
+          "CanvasId": 2,
+          "externalId": "extrnlid42616F27333A4431B32F940EC41CDC1D",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 48,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlidC39752E934E847509B647C0EE8262DD8",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 49,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlid99AF81789A6841B3950D67A7B2A7CA5A",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 50,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlidBC18B4D795F94EFD868BC3858C709481",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 51,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlidA5AE2D35CBE44D80910FE48E4B79F5B2",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 52,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlidBFE192014ED540CD84E519DF82CC4A2D",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 53,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlid36EE3B08F99046B99785138412E0A64A",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 54,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "externalId": "extrnlid6402C5922F404BCFB92A15C343BA330C",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 55,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlidA73300E5C60A441E8E281685C28431BE",
+          "attr_len": 410,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            250,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 56,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlidD046B341A6B44296897C35F3FE3055D8",
+          "attr_len": 210,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            50,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 57,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlid985FA4816F4745B6B6579C53CDF75467",
+          "attr_len": 254,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            94,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 58,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlid3EDA8E05DA6E4FF09B754C5C8E1B5359",
+          "attr_len": 218,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            58,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 59,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlid0A07CFFB1C9B4372AEA0AAC82DD96324",
+          "attr_len": 202,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            42,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 60,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlid8353B634B6A140AFA4AB68D394E825EA",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        },
+        {
+          "MainId": 61,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "externalId": "extrnlidEDB48B26579E4BA9A24504A02406B28E",
+          "attr_len": 198,
+          "attr_head_be": [
+            16,
+            102,
+            42,
+            38,
+            9,
+            5242977,
+            7471201,
+            7143525
+          ]
+        }
+      ],
+      "mipmap": [
+        {
+          "MainId": 2,
+          "LayerId": 2,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 2
+        },
+        {
+          "MainId": 3,
+          "LayerId": 3,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 3
+        },
+        {
+          "MainId": 5,
+          "LayerId": 5,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 20
+        },
+        {
+          "MainId": 6,
+          "LayerId": 6,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 26
+        },
+        {
+          "MainId": 7,
+          "LayerId": 7,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 32
+        },
+        {
+          "MainId": 8,
+          "LayerId": 8,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 38
+        },
+        {
+          "MainId": 9,
+          "LayerId": 9,
+          "CanvasId": 2,
+          "MipmapCount": 6,
+          "BaseMipmapInfo": 44
+        }
+      ],
+      "mipmapinfo": [
+        {
+          "error": "no such column: Scale"
+        }
+      ],
+      "layerthumbnail": [
+        {
+          "MainId": 2,
+          "LayerId": 2,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 3,
+          "LayerId": 3,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 5,
+          "LayerId": 5,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 6,
+          "LayerId": 6,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 7,
+          "LayerId": 7,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 8,
+          "LayerId": 8,
+          "CanvasId": 2
+        },
+        {
+          "MainId": 9,
+          "LayerId": 9,
+          "CanvasId": 2
+        }
+      ],
+      "externalchunk": [
+        {
+          "ExternalID": "extrnlid5ABB6410003A40949E51DF48E83BB456",
+          "Offset": 80
+        },
+        {
+          "ExternalID": "extrnlidB67B525BAB4B455EBE254C917AD141AA",
+          "Offset": 680
+        },
+        {
+          "ExternalID": "extrnlidE5A9E645332242E1831F2CEEA9A7C9E7",
+          "Offset": 247856
+        },
+        {
+          "ExternalID": "extrnlidC39752E934E847509B647C0EE8262DD8",
+          "Offset": 253402
+        },
+        {
+          "ExternalID": "extrnlid99AF81789A6841B3950D67A7B2A7CA5A",
+          "Offset": 314146
+        },
+        {
+          "ExternalID": "extrnlidD046B341A6B44296897C35F3FE3055D8",
+          "Offset": 321878
+        },
+        {
+          "ExternalID": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D",
+          "Offset": 322478
+        },
+        {
+          "ExternalID": "extrnlidA44814613CD6406EA6B5C53D079FC420",
+          "Offset": 328008
+        },
+        {
+          "ExternalID": "extrnlidC36AE644D5EC4F0AB27E97E89C60CBE4",
+          "Offset": 331093
+        },
+        {
+          "ExternalID": "extrnlid1C60B3BC68BD4236B94A0E1627F94036",
+          "Offset": 340068
+        },
+        {
+          "ExternalID": "extrnlidA4F04453F9CA496D8EDEBF400643FE2B",
+          "Offset": 344476
+        },
+        {
+          "ExternalID": "extrnlid42616F27333A4431B32F940EC41CDC1D",
+          "Offset": 354237
+        }
+      ]
+    }
+  }
+}

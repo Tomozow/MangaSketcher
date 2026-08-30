@@ -1,0 +1,57 @@
+{
+  "generatedAt": "2026-08-30T03:43:27.007Z",
+  "template": {
+    "path": "A:\\dev\\MangaSketcher\\public\\clip-export-template.clip",
+    "size": 853684,
+    "chunkBreakdown": {
+      "header": 24,
+      "CHNKHead": 56,
+      "CHNKExta": 194116,
+      "CHNKSQLi": 659472,
+      "CHNKFoot": 16,
+      "total": 853684
+    }
+  },
+  "prototypes": {
+    "path": "A:\\dev\\MangaSketcher\\src\\web\\export\\clip\\textPrototypes.gen.ts",
+    "size": 47336
+  },
+  "e7": {
+    "output": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E7_from_template.clip",
+    "clones": [
+      {
+        "newMainId": 10,
+        "layerName": "テンプレ検証",
+        "prototypeMainId": 5,
+        "content": "テンプレ検証"
+      },
+      {
+        "newMainId": 11,
+        "layerName": "二行の テスト",
+        "prototypeMainId": 6,
+        "content": "二行の\r\nテスト"
+      },
+      {
+        "newMainId": 12,
+        "layerName": "三行 ある はず",
+        "prototypeMainId": 7,
+        "content": "三行\r\nある\r\nはず"
+      }
+    ],
+    "fileSize": 571060,
+    "chunkBreakdown": {
+      "header": 24,
+      "CHNKHead": 56,
+      "CHNKExta": 194116,
+      "CHNKSQLi": 376848,
+      "CHNKFoot": 16,
+      "total": 571060
+    }
+  },
+  "validation": {
+    "validate_py": "Validated 2 file(s)\r\n  [PASS] clip-export-template.clip\r\n  [PASS] E7_from_template.clip\r\n",
+    "validate_integrity": "Integrity check: 2 file(s)\r\n  [PASS] clip-export-template.clip\r\n  [PASS] E7_from_template.clip\r\n",
+    "validate_tlv": "TLV validated 2 file(s)\r\n  [PASS] clip-export-template.clip\r\n  [PASS] E7_from_template.clip\r\n",
+    "validate_clean": "[PASS] clip-export-template.clip\r\n{\r\n  \"path\": \"A:\\\\dev\\\\MangaSketcher\\\\public\\\\clip-export-template.clip\",\r\n  \"file_size\": 853684,\r\n  \"chunk_breakdown\": {\r\n    \"header\": 24,\r\n    \"CHNKHead\": 56,\r\n    \"CHNKExta\": 194116,\r\n    \"CHNKSQLi\": 659472,\r\n    \"CHNKFoot\": 16,\r\n    \"total\": 853684\r\n  },\r\n  \"ok\": true,\r\n  \"forbidden_string_counts\": {\r\n    \"����������\": 0,\r\n    \"����ɂ���\": 0,\r\n    \"���悤�Ȃ�\": 0,\r\n    \"�Ă���\": 0,\r\n    \"�N���[��\": 0\r\n  },\r\n  \"decoded_extas\": [\r\n    {\r\n      \"external_id\": \"extrnlid5ABB6410003A40949E51DF48E83BB456\",\r\n      \"offscreen_main_id\": 4,\r\n      \"body_bytes\": 528,\r\n      \"png\": \"A:\\\\dev\\\\MangaSketcher\\\\sample\\\\_experiments\\\\template_review\\\\extrnlid5ABB6410003A40949E51DF48E83BB456.png\",\r\n      \"size\": [\r\n        512,\r\n        512\r\n      ]\r\n    },\r\n    {\r\n      \"external_id\": \"extrnlidB67B525BAB4B455EBE254C917AD141AA\",\r\n      \"offscreen_main_id\": 5,\r\n      \"body_bytes\": 167852,\r\n      \"png\": \"A:\\\\dev\\\\MangaSketcher\\\\sample\\\\_experiments\\\\template_review\\\\extrnlidB67B525BAB4B455EBE254C917AD141AA.png\",\r\n      \"size\": [\r\n        1518,\r\n        2150\r\n      ]\r\n    },\r\n    {\r\n      \"external_id\": \"extrnlidC39752E934E847509B647C0EE8262DD8\",\r\n      \"offscreen_main_id\": 48,\r\n      \"body_bytes\": 24920,\r\n      \"png\": \"A:\\\\dev\\\\MangaSketcher\\\\sample\\\\_experiments\\\\template_review\\\\extrnlidC39752E934E847509B647C0EE8262DD8.png\",\r\n      \"size\": [\r\n        1518,\r\n        2150\r\n      ]\r\n    },\r\n    {\r\n      \"external_id\": \"extrnlidD046B341A6B44296897C35F3FE3055D8\",\r\n      \"offscreen_main_id\": 56,\r\n      \"body_bytes\": 528,\r\n      \"png\": \"A:\\\\dev\\\\MangaSketcher\\\\sample\\\\_experiments\\\\template_review\\\\extrnlidD046B341A6B44296897C35F3FE3055D8.png\",\r\n      \"size\": [\r\n        512,\r\n        512\r\n      ]\r\n    }\r\n  ],\r\n  \"pixel_checks\": {\r\n    \"page_number_center\": {\r\n      \"xy\": [\r\n        776,\r\n        1908\r\n      ],\r\n      \"rgba\": [\r\n        255,\r\n        255,\r\n        255,\r\n        255\r\n      ],\r\n      \"ok\": true\r\n    },\r\n    \"page_number_ink\": {\r\n      \"xy\": [\r\n        775,\r\n        1907\r\n      ],\r\n      \"rgba\": [\r\n        255,\r\n        255,\r\n        255,\r\n        255\r\n      ],\r\n      \"ok\": true\r\n    },\r\n    \"page_number_rect_all_white\": {\r\n      \"rect\": {\r\n        \"left\": 760,\r\n        \"top\": 1884,\r\n        \"right\": 792,\r\n        \"bottom\": 1932\r\n      },\r\n      \"non_white\": 0,\r\n      \"ok\": true\r\n    },\r\n    \"inner_frame_preserved\": {\r\n      \"xy\": [\r\n        759,\r\n        1868\r\n      ],\r\n      \"rgba\": [\r\n        9,\r\n        9,\r\n        9,\r\n        255\r\n      ],\r\n      \"ok\": true\r\n    },\r\n    \"lineart_center\": {\r\n      \"xy\": [\r\n        759,\r\n        1075\r\n      ],\r\n      \"rgba\": [\r\n        0,\r\n        0,\r\n        0,\r\n        0\r\n      ],\r\n      \"ok\": true\r\n    }\r\n  }\r\n}\r\n"
+  }
+}

@@ -48,6 +48,7 @@ export class AutosaveManager {
   private pendingJob: PendingJob | null = null;
   private runningJob: PendingJob | null = null;
   private queuedAfterRun: PendingJob | null = null;
+  private serialTail: Promise<void> = Promise.resolve();
   private encoding = new Set<string>();
   private unsaved = false;
   private disposed = false;
@@ -158,6 +159,12 @@ export class AutosaveManager {
   }
 
   private async executeJob(job: PendingJob): Promise<void> {
+    const turn = this.serialTail;
+    let done!: () => void;
+    this.serialTail = new Promise<void>((resolve) => {
+      done = resolve;
+    });
+    await turn;
     this.runningJob = job;
     try {
       const encoded = this.getEncodedPng();
@@ -184,6 +191,7 @@ export class AutosaveManager {
       }
     } finally {
       this.runningJob = null;
+      done();
     }
   }
 
@@ -192,15 +200,21 @@ export class AutosaveManager {
       clearTimeout(this.debounceTimer);
       this.debounceTimer = null;
     }
-    if (this.pendingJob) {
-      const job = this.pendingJob;
-      this.pendingJob = null;
-      await this.executeJob(job);
-    }
-    if (this.queuedAfterRun) {
-      const job = this.queuedAfterRun;
+    for (;;) {
+      await this.serialTail;
+      if (!this.pendingJob && !this.queuedAfterRun) {
+        break;
+      }
+      if (this.pendingJob) {
+        await this.runLatestJob();
+        continue;
+      }
+      const next = this.queuedAfterRun;
       this.queuedAfterRun = null;
-      await this.executeJob(job);
+      const pendingSaveGen = this.getPendingJob()?.saveGen;
+      if (pendingSaveGen === undefined || next!.saveGen >= pendingSaveGen) {
+        await this.executeJob(next!);
+      }
     }
   }
 

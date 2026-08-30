@@ -42,6 +42,8 @@ export default function Editor({ projectId }: EditorProps) {
     getPageThumb,
     getClipRasterSize,
     clearPageInk,
+    checkpointBeforeHeavyWork,
+    setTextDraft,
   } = useEditorController(projectId);
   const [rootHeight, setRootHeight] = useState<number | null>(() =>
     typeof window === 'undefined' ? null : window.innerHeight,
@@ -130,6 +132,8 @@ export default function Editor({ projectId }: EditorProps) {
         getPageThumb={getPageThumb}
         getClipRasterSize={getClipRasterSize}
         clearPageInk={clearPageInk}
+        onNavigateHome={checkpointBeforeHeavyWork}
+        onTextDraftChange={setTextDraft}
       />
     </div>
   );

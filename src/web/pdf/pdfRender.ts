@@ -15,6 +15,15 @@ export type PdfRenderLayout = {
   maxEdge?: number;
 };
 
+function isPdfRenderCancelled(err: unknown): boolean {
+  if (err == null || typeof err !== 'object') {
+    return false;
+  }
+  const name = 'name' in err ? String((err as { name: unknown }).name) : '';
+  const message = 'message' in err ? String((err as { message: unknown }).message) : '';
+  return name === 'RenderingCancelledException' || message.startsWith('Rendering cancelled');
+}
+
 export async function renderPdfPageToCanvas(
   proxy: PdfDocumentProxy,
   pageNumber: number,
@@ -52,11 +61,23 @@ export async function renderPdfPageToCanvas(
   }
 
   const task = page.render({ canvasContext: ctx, viewport });
+  const promise = task.promise.catch((err: unknown) => {
+    if (isPdfRenderCancelled(err)) {
+      return;
+    }
+    throw err;
+  });
   return {
     cancel: () => {
-      task.cancel();
+      try {
+        task.cancel();
+      } catch (err) {
+        if (!isPdfRenderCancelled(err)) {
+          throw err;
+        }
+      }
     },
-    promise: task.promise,
+    promise,
   };
 }
 

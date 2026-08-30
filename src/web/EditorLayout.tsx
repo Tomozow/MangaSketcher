@@ -1,7 +1,8 @@
 'use client';
 
-import Link from 'next/link';
-import { useCallback, useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import type { MouseEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { mainPaneFlex, nextSplitFromDrag, sidebarPaneFlex } from '@/src/domain/uiLayout';
 import type { PageId } from '@/src/domain/types';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
@@ -22,6 +23,13 @@ import type { TextEditSelection } from '@/src/web/TextEditBar';
 import type { PdfExtractPayload } from '@/src/web/pdf/PdfPageViewer';
 import { WorkspacePaneActions } from './WorkspacePaneActions';
 import { WorkspaceStrip } from './WorkspaceStrip';
+import { navigateHomeAfterCheckpoint } from './editorNavigate';
+import { ipadDebugLog } from '@/src/web/ipadDebugLog';
+
+// #region agent log
+const AGENT_DEBUG_INGEST = 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426';
+let layoutLiveDebugCount = 0;
+// #endregion
 
 type EditorLayoutProps = {
   doc: EditorDocument;
@@ -62,6 +70,8 @@ type EditorLayoutProps = {
   getPageThumb: (pageId: PageId) => ImageBitmap | undefined;
   getClipRasterSize: (clipId: string) => { width: number; height: number };
   clearPageInk: (pageId: PageId) => void;
+  onNavigateHome: () => Promise<void>;
+  onTextDraftChange: (draft: string | null) => void;
 };
 
 export function EditorLayout({
@@ -94,7 +104,10 @@ export function EditorLayout({
   getPageThumb,
   getClipRasterSize,
   clearPageInk,
+  onNavigateHome,
+  onTextDraftChange,
 }: EditorLayoutProps) {
+  const router = useRouter();
   const mainFlex = mainPaneFlex(doc);
   const sideFlex = sidebarPaneFlex(doc);
   const sidebarClass = doc.sidebarCompact ? styles.sidebarCompact : styles.sidebarNormal;
@@ -197,6 +210,45 @@ export function EditorLayout({
     dispatch({ type: 'setUiLayout', paletteStockSplit: next });
   };
 
+  const handleNavigateHome = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>) => {
+      event.preventDefault();
+      void navigateHomeAfterCheckpoint(onNavigateHome, (path) => router.push(path));
+    },
+    [onNavigateHome, router],
+  );
+
+  const liveTextDraftRef = useRef(liveTextDraft);
+  liveTextDraftRef.current = liveTextDraft;
+  const handleLiveContent = useCallback(
+    (draft: string | null) => {
+      // #region agent log
+      if (layoutLiveDebugCount < 12) {
+        layoutLiveDebugCount += 1;
+        const prevDraft = liveTextDraftRef.current;
+        ipadDebugLog({
+          sessionId: '183625',
+          ingest: AGENT_DEBUG_INGEST,
+          runId: 'pre-fix',
+          hypothesisId: 'E',
+          location: 'EditorLayout.tsx:onLiveContent',
+          message: 'onLiveContent',
+          data: {
+            n: layoutLiveDebugCount,
+            next: draft === null ? 'null' : `len:${draft.length}`,
+            prev: prevDraft === null ? 'null' : `len:${prevDraft.length}`,
+            same: prevDraft === draft,
+          },
+          timestamp: Date.now(),
+        });
+      }
+      // #endregion
+      setLiveTextDraft(draft);
+      onTextDraftChange(draft);
+    },
+    [onTextDraftChange],
+  );
+
   return (
     <div className={styles.body} data-ms-shell="body" style={{ ['--ms-background' as string]: colors.background }}>
       <div
@@ -205,9 +257,9 @@ export function EditorLayout({
         data-ms-sidebar={doc.sidebarCompact ? 'compact' : 'normal'}
       >
         <div className={styles.navRow} data-ms-shell="nav">
-          <Link href="/" className={styles.linkButton}>
+          <a href="/" className={styles.linkButton} onClick={handleNavigateHome}>
             一覧へ
-          </Link>
+          </a>
           <h1 className={styles.headerTitle}>{doc.name}</h1>
           <div
             className={styles.saveStatusRow}
@@ -292,7 +344,12 @@ export function EditorLayout({
             style={{ flexGrow: mainFlex.workspace, flexShrink: 1, flexBasis: 0 }}
           >
             <span className={styles.paneLabel} data-ms-shell="pane-label">ワークスペース</span>
-            <WorkspacePaneActions doc={doc} dispatch={dispatch} inkEngine={inkEngine} />
+            <WorkspacePaneActions
+              doc={doc}
+              dispatch={dispatch}
+              inkEngine={inkEngine}
+              onBeforeExport={onNavigateHome}
+            />
             <WorkspaceStrip
               workspaceOrder={doc.workspaceOrder}
               pages={doc.pages}
@@ -396,7 +453,7 @@ export function EditorLayout({
         onDeleteText={deleteText}
         onDuplicateText={duplicateText}
         onEditingChange={onTextEditingChange}
-        onLiveContent={setLiveTextDraft}
+        onLiveContent={handleLiveContent}
       />
     </div>
   );

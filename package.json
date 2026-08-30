@@ -11,22 +11,35 @@
     "start": "next start",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "clip:experiments": "tsx tools/clip-experiments/run.ts all",
+    "clip:experiments:e0": "tsx tools/clip-experiments/run.ts e0",
+    "clip:experiments:e1": "tsx tools/clip-experiments/run.ts e1",
+    "clip:experiments:e2": "tsx tools/clip-experiments/run.ts e2",
+    "clip:experiments:e2v2": "tsx tools/clip-experiments/run.ts e2v2",
+    "clip:experiments:e5": "tsx tools/clip-experiments/run.ts e5",
+    "clip:experiments:e6": "tsx tools/clip-experiments/run.ts e6",
+    "clip:experiments:e6v2": "tsx tools/clip-experiments/run.ts e6v2",
+    "clip:template:build": "tsx tools/clip-template/build.ts",
+    "clip:wasm:copy": "node -e \"require('fs').copyFileSync(require.resolve('sql.js/dist/sql-wasm-browser.wasm'), 'public/sql-wasm-browser.wasm')\""
   },
   "dependencies": {
     "@rollup/rollup-win32-x64-msvc": "^4.63.0",
     "fflate": "^0.8.3",
     "next": "^15.5.24",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "sql.js": "^1.14.2"
   },
   "devDependencies": {
     "@types/node": "^26.4.0",
     "@types/react": "~19.1.10",
     "@types/react-dom": "~19.1.7",
+    "@types/sql.js": "^1.4.11",
     "autoprefixer": "^10.4.21",
     "pdfjs-dist": "^4.10.38",
     "postcss": "^8.5.3",
+    "tsx": "^4.23.13",
     "typescript": "~5.9.2",
     "vitest": "^3.2.4"
   }

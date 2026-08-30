@@ -18,6 +18,7 @@ import {
 } from '@/src/web/gestures/pageTextDom';
 import { styles } from '@/src/web/editorStyles';
 import { repaintAllInkDisplays } from '@/src/web/ink/PageInkCanvas';
+import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 
 export type TextEditSelection = {
   id: TextId;
@@ -39,6 +40,27 @@ function fitBarInput(input: HTMLTextAreaElement, viewHeight: number): void {
   const maxHeight = Math.max(TEXT_EDIT_MIN_HEIGHT_PX, Math.floor(viewHeight * 0.5));
   input.style.height = `${fitTextEditInputHeight(input.scrollHeight, TEXT_EDIT_MIN_HEIGHT_PX, maxHeight)}px`;
 }
+
+// #region agent log
+const AGENT_DEBUG_INGEST = 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426';
+let textEditBarDebugCount = 0;
+function textEditBarDebug(hypothesisId: string, location: string, message: string, data: Record<string, unknown>): void {
+  if (textEditBarDebugCount >= 12) {
+    return;
+  }
+  textEditBarDebugCount += 1;
+  ipadDebugLog({
+    sessionId: '183625',
+    ingest: AGENT_DEBUG_INGEST,
+    runId: 'pre-fix',
+    hypothesisId,
+    location,
+    message,
+    data: { n: textEditBarDebugCount, ...data },
+    timestamp: Date.now(),
+  });
+}
+// #endregion
 
 function visualViewRect(): { left: number; top: number; width: number; height: number } {
   const viewport = window.visualViewport;
@@ -72,6 +94,9 @@ export function TextEditBar({
   const selectionRef = useRef(selection);
   const draftRef = useRef(draft);
   const lastCommittedRef = useRef<{ id: TextId; content: string } | null>(null);
+  const prevLiveCbRef = useRef(onLiveContent);
+  const prevEditCbRef = useRef(onEditingChange);
+  const prevEditingIdRef = useRef<TextId | undefined>(undefined);
   selectionRef.current = selection;
   draftRef.current = draft;
 
@@ -90,6 +115,14 @@ export function TextEditBar({
       });
       if (plan.kind === 'commit') {
         lastCommittedRef.current = { id: textId, content: plan.content };
+        // #region agent log
+        textEditBarDebug('B', 'TextEditBar.tsx:commitDraft', 'commitDraft dispatch', {
+          textId,
+          draftLen: content.length,
+          savedLen: savedContent.length,
+          textareaLen: textareaRef.current?.value.length ?? -1,
+        });
+        // #endregion
         onCommit(textId, plan.content);
         return;
       }
@@ -103,6 +136,22 @@ export function TextEditBar({
   useEffect(() => {
     const editingId = selection?.id;
     const savedContent = selection?.content ?? '';
+    // #region agent log
+    const liveCbChanged = prevLiveCbRef.current !== onLiveContent;
+    const editCbChanged = prevEditCbRef.current !== onEditingChange;
+    prevLiveCbRef.current = onLiveContent;
+    prevEditCbRef.current = onEditingChange;
+    textEditBarDebug('A', 'TextEditBar.tsx:selection-effect', 'selection effect run', {
+      editingId: editingId ?? null,
+      prevEditingId: prevEditingIdRef.current ?? null,
+      idChanged: prevEditingIdRef.current !== editingId,
+      savedLen: savedContent.length,
+      liveCbChanged,
+      editCbChanged,
+      toolSelection: Boolean(selection),
+    });
+    prevEditingIdRef.current = editingId;
+    // #endregion
     setDraft(savedContent);
     pendingExplicitCommitRef.current = false;
     lastCommittedRef.current = editingId ? { id: editingId, content: savedContent } : null;
@@ -111,6 +160,11 @@ export function TextEditBar({
       return;
     }
     onLiveContent(savedContent);
+    // #region agent log
+    textEditBarDebug('C', 'TextEditBar.tsx:onEditingChange', 'onEditingChange(true)', {
+      editingId,
+    });
+    // #endregion
     onEditingChange(true);
     const frame = requestAnimationFrame(() => {
       textareaRef.current?.focus();

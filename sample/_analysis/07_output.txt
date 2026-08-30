@@ -1,0 +1,530 @@
+text layers: 3
+
+========================================================================
+Layer MainId=5  name='あいうえお'
+  TextLayerString utf-8 (15B): 'あいうえお'
+  UTF-16 units: 5
+  LayerOffset=(0,0)  RenderOffscr=(0,0)
+
+  -- TextLayerAttributes: total 1033 bytes
+  TLV count=60  parsed=1033B  trailing=0B
+  @   0  id=11  len=34    count=1 resv=0 vtype=5 inner_len=26 | UNCONSUMED=-8B | tail_hex= | default_style_size=26 pad=18B zeros=True
+  @  42  id=26  len=32    count=1 resv=0 vtype=5 inner_len=16 | scale%=(100,100)
+  @  82  id=17  len=0     (empty)
+  @  90  id=12  len=18    count=1 resv=0 vtype=5 inner_len=2 | u16=0
+  @ 116  id=13  len=34    count=1 resv=0 vtype=5 inner_len=18 | u16=0 f64=(2.8346457,100)
+  @ 158  id=14  len=0     (empty)
+  @ 166  id=27  len=0     (empty)
+  @ 174  id=28  len=0     (empty)
+  @ 182  id=29  len=18    count=1 resv=0 vtype=5 inner_len=2 | u16=1
+  @ 208  id=65  len=18    count=1 resv=0 vtype=5 inner_len=2 | u16=1
+  @ 234  id=30  len=20    count=1 resv=0 vtype=5 inner_len=4 | id30_runs bytes=4 char_count=5 |   [0]@0 tail=00000000 |   UNCONSUMED id30=4B
+  @ 262  id=15  len=0     (empty)
+  @ 270  id=19  len=0     (empty)
+  @ 278  id=16  len=0     (empty)
+  @ 286  id=20  len=0     (empty)
+  @ 294  id=18  len=18    count=1 resv=0 vtype=5 inner_len=2 | u16=0
+  @ 320  id=21  len=0     (empty)
+  @ 328  id=22  len=0     (empty)
+  @ 336  id=31  len=25    utf8='I-OTFアンチックStd B'
+  @ 369  id=32  len=4     u32=397 (~7.94pt? or 3.97)
+  @ 381  id=33  len=4     u32=16 f32=2.24208e-44
+  @ 393  id=34  len=12    RGBA=(0,0,0,0) all-zero black candidate
+  @ 413  id=35  len=4     u32=0 f32=0
+  @ 425  id=37  len=4     u32=283 (=2.83000 mm/pt)
+  @ 437  id=44  len=4     u32=8333 (=8.3330 px/pt@dpi)
+  @ 449  id=38  len=4     u32=4 f32=5.60519e-45
+  @ 461  id=43  len=4     u32=50 f32=7.00649e-44
+  @ 473  id=39  len=8     u64=(5,0) char_count=5
+  @ 489  id=40  len=0     (empty)
+  @ 497  id=41  len=0     (empty)
+  @ 505  id=42  len=16    bbox canvas=(918,509,951,674) size=(33x165)
+  @ 529  id=45  len=4     u32=0 f32=0
+  @ 541  id=46  len=4     u32=0 f32=0
+  @ 553  id=47  len=41    subst_font blob=090032000000000000001d00efbcadefbcb320efbcb0e382b4e382b7e38383e382af20e6a899e6ba96
+  @ 602  id=48  len=4     u32=1 f32=1.4013e-45
+  @ 614  id=53  len=4     u32=0 f32=0
+  @ 626  id=55  len=4     u32=0 f32=0
+  @ 638  id=52  len=4     u32=1 f32=1.4013e-45
+  @ 650  id=54  len=20    bytes20=00000000000000000000000000000000ffffffff
+  @ 678  id=56  len=24    bytes24=000000009001000002000000000000000000000000000000
+  @ 710  id=49  len=4     u32=1003 f32=1.4055e-42
+  @ 722  id=50  len=4     Offscreen.MainId=31
+  @ 734  id=51  len=4     u32=0 f32=0
+  @ 746  id=57  len=43    ver=1 display='I-OTFアンチックStd B' ps='IwaAntStd-Bd'
+  @ 797  id=58  len=4     u32=1800 f32=2.52234e-42
+  @ 809  id=59  len=4     u32=900 f32=1.26117e-42
+  @ 821  id=60  len=4     u32=900 f32=1.26117e-42
+  @ 833  id=61  len=4     u32=0 f32=0
+  @ 845  id=62  len=4     u32=0 f32=0
+  @ 857  id=63  len=8     size=(33,165)
+  @ 873  id=64  len=32    i32x8=(-3300, 0, 0, 0, 0, 16500, -3300, 16500) (w~33 h~165)
+  @ 913  id=66  len=4     u32=0 f32=0
+  @ 925  id=67  len=4     u32=1000 f32=1.4013e-42
+  @ 937  id=68  len=4     u32=0 f32=0
+  @ 949  id=69  len=4     u32=0 f32=0
+  @ 961  id=70  len=8     u32x2=(0, 0) f64=0
+  @ 977  id=71  len=8     u32x2=(8418880, 0) f64=4.15948e-317
+  @ 993  id=72  len=8     u32x2=(33,0)
+  @1009  id=73  len=4     u32=1 f32=1.4013e-45
+  @1021  id=74  len=4     u32=0 f32=0
+
+  -- TextLayerAddAttributesV01: total 908 bytes
+  header u32=904  (len-4=904, match=True)
+  TLV count=60  parsed=908B  trailing=0B
+  @   4  id=11  len=22    compact count=1 inner_len=14 | pad14=0000000000000000000000000000 | flags?=0x0
+  @  34  id=26  len=12    compact count=1 inner_len=4 | u32=0
+  @  54  id=17  len=0     (empty)
+  @  62  id=12  len=12    compact count=1 inner_len=4 | u32=0
+  @  82  id=13  len=12    compact count=1 inner_len=4 | u32=0
+  @ 102  id=14  len=0     (empty)
+  @ 110  id=27  len=0     (empty)
+  @ 118  id=28  len=0     (empty)
+  @ 126  id=29  len=12    compact count=1 inner_len=4 | u32=0
+  @ 146  id=65  len=12    compact count=1 inner_len=4 | u32=0
+  @ 166  id=30  len=12    id30_compact count=1 pairs=[(4, 0)]
+  @ 186  id=15  len=0     (empty)
+  @ 194  id=19  len=0     (empty)
+  @ 202  id=16  len=0     (empty)
+  @ 210  id=20  len=0     (empty)
+  @ 218  id=18  len=12    compact count=1 inner_len=4 | u32=0
+  @ 238  id=21  len=0     (empty)
+  @ 246  id=22  len=0     (empty)
+  @ 254  id=31  len=25    utf8='I-OTFアンチックStd B'
+  @ 287  id=32  len=4     u32=397 (~7.94pt? or 3.97)
+  @ 299  id=33  len=4     u32=16 f32=2.24208e-44
+  @ 311  id=34  len=12    RGBA=(0,0,0,0) all-zero black candidate
+  @ 331  id=35  len=4     u32=0 f32=0
+  @ 343  id=37  len=4     u32=283 (=2.83000 mm/pt)
+  @ 355  id=44  len=4     u32=8333 (=8.3330 px/pt@dpi)
+  @ 367  id=38  len=4     u32=4 f32=5.60519e-45
+  @ 379  id=43  len=4     u32=50 f32=7.00649e-44
+  @ 391  id=39  len=8     u64=(5,0) char_count=5
+  @ 407  id=40  len=0     (empty)
+  @ 415  id=41  len=0     (empty)
+  @ 423  id=42  len=16    bbox canvas=(918,509,951,674) size=(33x165)
+  @ 447  id=45  len=4     u32=0 f32=0
+  @ 459  id=46  len=4     u32=0 f32=0
+  @ 471  id=47  len=41    subst_font blob=090032000000000000001d00efbcadefbcb320efbcb0e382b4e382b7e38383e382af20e6a899e6ba96
+  @ 520  id=48  len=4     u32=1 f32=1.4013e-45
+  @ 532  id=53  len=4     u32=0 f32=0
+  @ 544  id=55  len=4     u32=0 f32=0
+  @ 556  id=52  len=4     u32=1 f32=1.4013e-45
+  @ 568  id=54  len=20    bytes20=00000000000000000000000000000000ffffffff
+  @ 596  id=56  len=24    bytes24=000000009001000002000000000000000000000000000000
+  @ 628  id=49  len=4     u32=1003 f32=1.4055e-42
+  @ 640  id=50  len=4     Offscreen.MainId=31
+  @ 652  id=51  len=4     u32=0 f32=0
+  @ 664  id=57  len=0     (empty)
+  @ 672  id=58  len=4     u32=1800 f32=2.52234e-42
+  @ 684  id=59  len=4     u32=900 f32=1.26117e-42
+  @ 696  id=60  len=4     u32=900 f32=1.26117e-42
+  @ 708  id=61  len=4     u32=0 f32=0
+  @ 720  id=62  len=4     u32=0 f32=0
+  @ 732  id=63  len=8     size=(33,165)
+  @ 748  id=64  len=32    i32x8=(-3300, 0, 0, 0, 0, 16500, -3300, 16500) (w~33 h~165)
+  @ 788  id=66  len=4     u32=0 f32=0
+  @ 800  id=67  len=4     u32=1000 f32=1.4013e-42
+  @ 812  id=68  len=4     u32=0 f32=0
+  @ 824  id=69  len=4     u32=0 f32=0
+  @ 836  id=70  len=8     u32x2=(0, 0) f64=0
+  @ 852  id=71  len=8     u32x2=(8418880, 0) f64=4.15948e-317
+  @ 868  id=72  len=8     u32x2=(33,0)
+  @ 884  id=73  len=4     u32=1 f32=1.4013e-45
+  @ 896  id=74  len=4     u32=0 f32=0
+
+========================================================================
+Layer MainId=6  name='こんにちは さようなら'
+  TextLayerString utf-8 (32B): 'こんにちは\r\nさようなら'
+  UTF-16 units: 12
+  LayerOffset=(-415,157)  RenderOffscr=(415,-157)
+
+  -- TextLayerAttributes: total 1033 bytes
+  TLV count=60  parsed=1033B  trailing=0B
+  @   0  id=11  len=34    count=1 resv=0 vtype=12 inner_len=26 | UNCONSUMED=-8B | tail_hex= | default_style_size=26 pad=18B zeros=True
+  @  42  id=26  len=32    count=1 resv=0 vtype=12 inner_len=16 | scale%=(100,100)
+  @  82  id=17  len=0     (empty)
+  @  90  id=12  len=18    count=1 resv=0 vtype=12 inner_len=2 | u16=0
+  @ 116  id=13  len=34    count=1 resv=0 vtype=12 inner_len=18 | u16=0 f64=(2.8346457,100)
+  @ 158  id=14  len=0     (empty)
+  @ 166  id=27  len=0     (empty)
+  @ 174  id=28  len=0     (empty)
+  @ 182  id=29  len=18    count=1 resv=0 vtype=12 inner_len=2 | u16=1
+  @ 208  id=65  len=18    count=1 resv=0 vtype=12 inner_len=2 | u16=1
+  @ 234  id=30  len=20    count=1 resv=0 vtype=12 inner_len=4 | id30_runs bytes=4 char_count=12 |   [0]@0 tail=00000000 |   UNCONSUMED id30=4B
+  @ 262  id=15  len=0     (empty)
+  @ 270  id=19  len=0     (empty)
+  @ 278  id=16  len=0     (empty)
+  @ 286  id=20  len=0     (empty)
+  @ 294  id=18  len=18    count=1 resv=0 vtype=12 inner_len=2 | u16=0
+  @ 320  id=21  len=0     (empty)
+  @ 328  id=22  len=0     (empty)
+  @ 336  id=31  len=25    utf8='I-OTFアンチックStd B'
+  @ 369  id=32  len=4     u32=397 (~7.94pt? or 3.97)
+  @ 381  id=33  len=4     u32=16 f32=2.24208e-44
+  @ 393  id=34  len=12    RGBA=(0,0,0,0) all-zero black candidate
+  @ 413  id=35  len=4     u32=0 f32=0
+  @ 425  id=37  len=4     u32=283 (=2.83000 mm/pt)
+  @ 437  id=44  len=4     u32=8333 (=8.3330 px/pt@dpi)
+  @ 449  id=38  len=4     u32=4 f32=5.60519e-45
+  @ 461  id=43  len=4     u32=50 f32=7.00649e-44
+  @ 473  id=39  len=8     u64=(12,0) char_count=12
+  @ 489  id=40  len=0     (empty)
+  @ 497  id=41  len=0     (empty)
+  @ 505  id=42  len=16    bbox canvas=(860,509,951,676) size=(91x167)
+  @ 529  id=45  len=4     u32=0 f32=0
+  @ 541  id=46  len=4     u32=0 f32=0
+  @ 553  id=47  len=41    subst_font blob=090032000000000000001d00efbcadefbcb320efbcb0e382b4e382b7e38383e382af20e6a899e6ba96
+  @ 602  id=48  len=4     u32=1 f32=1.4013e-45
+  @ 614  id=53  len=4     u32=0 f32=0
+  @ 626  id=55  len=4     u32=0 f32=0
+  @ 638  id=52  len=4     u32=1 f32=1.4013e-45
+  @ 650  id=54  len=20    bytes20=00000000000000000000000000000000ffffffff
+  @ 678  id=56  len=24    bytes24=000000009001000002000000000000000000000000000000
+  @ 710  id=49  len=4     u32=1003 f32=1.4055e-42
+  @ 722  id=50  len=4     Offscreen.MainId=39
+  @ 734  id=51  len=4     u32=0 f32=0
+  @ 746  id=57  len=43    ver=1 display='I-OTFアンチックStd B' ps='IwaAntStd-Bd'
+  @ 797  id=58  len=4     u32=1800 f32=2.52234e-42
+  @ 809  id=59  len=4     u32=900 f32=1.26117e-42
+  @ 821  id=60  len=4     u32=900 f32=1.26117e-42
+  @ 833  id=61  len=4     u32=0 f32=0
+  @ 845  id=62  len=4     u32=0 f32=0
+  @ 857  id=63  len=8     size=(91,167)
+  @ 873  id=64  len=32    i32x8=(-9000, 0, 100, 0, 100, 16700, -9000, 16700) (w~90 h~167)
+  @ 913  id=66  len=4     u32=0 f32=0
+  @ 925  id=67  len=4     u32=1000 f32=1.4013e-42
+  @ 937  id=68  len=4     u32=0 f32=0
+  @ 949  id=69  len=4     u32=0 f32=0
+  @ 961  id=70  len=8     u32x2=(0, 0) f64=0
+  @ 977  id=71  len=8     u32x2=(8418880, 0) f64=4.15948e-317
+  @ 993  id=72  len=8     u32x2=(90,0)
+  @1009  id=73  len=4     u32=1 f32=1.4013e-45
+  @1021  id=74  len=4     u32=0 f32=0
+
+  -- TextLayerAddAttributesV01: total 908 bytes
+  header u32=904  (len-4=904, match=True)
+  TLV count=60  parsed=908B  trailing=0B
+  @   4  id=11  len=22    compact count=1 inner_len=14 | pad14=0000000000000000000000000000 | flags?=0x0
+  @  34  id=26  len=12    compact count=1 inner_len=4 | u32=0
+  @  54  id=17  len=0     (empty)
+  @  62  id=12  len=12    compact count=1 inner_len=4 | u32=0
+  @  82  id=13  len=12    compact count=1 inner_len=4 | u32=0
+  @ 102  id=14  len=0     (empty)
+  @ 110  id=27  len=0     (empty)
+  @ 118  id=28  len=0     (empty)
+  @ 126  id=29  len=12    compact count=1 inner_len=4 | u32=0
+  @ 146  id=65  len=12    compact count=1 inner_len=4 | u32=0
+  @ 166  id=30  len=12    id30_compact count=1 pairs=[(4, 0)]
+  @ 186  id=15  len=0     (empty)
+  @ 194  id=19  len=0     (empty)
+  @ 202  id=16  len=0     (empty)
+  @ 210  id=20  len=0     (empty)
+  @ 218  id=18  len=12    compact count=1 inner_len=4 | u32=0
+  @ 238  id=21  len=0     (empty)
+  @ 246  id=22  len=0     (empty)
+  @ 254  id=31  len=25    utf8='I-OTFアンチックStd B'
+  @ 287  id=32  len=4     u32=397 (~7.94pt? or 3.97)
+  @ 299  id=33  len=4     u32=16 f32=2.24208e-44
+  @ 311  id=34  len=12    RGBA=(0,0,0,0) all-zero black candidate
+  @ 331  id=35  len=4     u32=0 f32=0
+  @ 343  id=37  len=4     u32=283 (=2.83000 mm/pt)
+  @ 355  id=44  len=4     u32=8333 (=8.3330 px/pt@dpi)
+  @ 367  id=38  len=4     u32=4 f32=5.60519e-45
+  @ 379  id=43  len=4     u32=50 f32=7.00649e-44
+  @ 391  id=39  len=8     u64=(12,0) char_count=12
+  @ 407  id=40  len=0     (empty)
+  @ 415  id=41  len=0     (empty)
+  @ 423  id=42  len=16    bbox canvas=(860,509,951,676) size=(91x167)
+  @ 447  id=45  len=4     u32=0 f32=0
+  @ 459  id=46  len=4     u32=0 f32=0
+  @ 471  id=47  len=41    subst_font blob=090032000000000000001d00efbcadefbcb320efbcb0e382b4e382b7e38383e382af20e6a899e6ba96
+  @ 520  id=48  len=4     u32=1 f32=1.4013e-45
+  @ 532  id=53  len=4     u32=0 f32=0
+  @ 544  id=55  len=4     u32=0 f32=0
+  @ 556  id=52  len=4     u32=1 f32=1.4013e-45
+  @ 568  id=54  len=20    bytes20=00000000000000000000000000000000ffffffff
+  @ 596  id=56  len=24    bytes24=000000009001000002000000000000000000000000000000
+  @ 628  id=49  len=4     u32=1003 f32=1.4055e-42
+  @ 640  id=50  len=4     Offscreen.MainId=39
+  @ 652  id=51  len=4     u32=0 f32=0
+  @ 664  id=57  len=0     (empty)
+  @ 672  id=58  len=4     u32=1800 f32=2.52234e-42
+  @ 684  id=59  len=4     u32=900 f32=1.26117e-42
+  @ 696  id=60  len=4     u32=900 f32=1.26117e-42
+  @ 708  id=61  len=4     u32=0 f32=0
+  @ 720  id=62  len=4     u32=0 f32=0
+  @ 732  id=63  len=8     size=(91,167)
+  @ 748  id=64  len=32    i32x8=(-9000, 0, 100, 0, 100, 16700, -9000, 16700) (w~90 h~167)
+  @ 788  id=66  len=4     u32=0 f32=0
+  @ 800  id=67  len=4     u32=1000 f32=1.4013e-42
+  @ 812  id=68  len=4     u32=0 f32=0
+  @ 824  id=69  len=4     u32=0 f32=0
+  @ 836  id=70  len=8     u32x2=(0, 0) f64=0
+  @ 852  id=71  len=8     u32x2=(8418880, 0) f64=4.15948e-317
+  @ 868  id=72  len=8     u32x2=(90,0)
+  @ 884  id=73  len=4     u32=1 f32=1.4013e-45
+  @ 896  id=74  len=4     u32=0 f32=0
+
+========================================================================
+Layer MainId=7  name='てすとてすとてすとてすと てすとてすとてすとてすと てすとてすとてすとてすと てすとてすとてすとてすと'
+  TextLayerString utf-8 (150B): 'てすとてすとてすとてすと\r\nてすとてすとてすとてすと\r\nてすとてすとてすとてすと\r\nてすとてすとてすとてすと'
+  UTF-16 units: 54
+  LayerOffset=(27,592)  RenderOffscr=(-27,-592)
+
+  -- TextLayerAttributes: total 1339 bytes
+  TLV count=60  parsed=1339B  trailing=0B
+  @   0  id=11  len=64    count=1 resv=0 vtype=54 inner_len=56 | UNCONSUMED=-8B | tail_hex= | default_style_size=56 pad=48B zeros=False
+  @  72  id=26  len=32    count=1 resv=0 vtype=54 inner_len=16 | scale%=(100,100)
+  @ 112  id=17  len=0     (empty)
+  @ 120  id=12  len=18    count=1 resv=0 vtype=54 inner_len=2 | u16=0
+  @ 146  id=13  len=34    count=1 resv=0 vtype=54 inner_len=18 | u16=0 f64=(2.8346457,100)
+  @ 188  id=14  len=0     (empty)
+  @ 196  id=27  len=0     (empty)
+  @ 204  id=28  len=0     (empty)
+  @ 212  id=29  len=18    count=1 resv=0 vtype=54 inner_len=2 | u16=1
+  @ 238  id=65  len=18    count=1 resv=0 vtype=54 inner_len=2 | u16=1
+  @ 264  id=30  len=260   count=16 resv=0 vtype=3 inner_len=4 | UNCONSUMED=240B | tail_hex=0300000003000000040000000000000006000000030000000400000000000000 | id30_runs bytes=4 char_count=3 |   [0]@0 tail=00000000 |   UNCONSUMED id30=4B
+  @ 532  id=15  len=0     (empty)
+  @ 540  id=19  len=0     (empty)
+  @ 548  id=16  len=18    raw[18]=010000000000000036000000020000000000
+  @ 574  id=20  len=18    raw[18]=010000000000000036000000020000000000
+  @ 600  id=18  len=18    count=1 resv=0 vtype=54 inner_len=2 | u16=0
+  @ 626  id=21  len=0     (empty)
+  @ 634  id=22  len=0     (empty)
+  @ 642  id=31  len=25    utf8='I-OTFアンチックStd B'
+  @ 675  id=32  len=4     u32=397 (~7.94pt? or 3.97)
+  @ 687  id=33  len=4     u32=16 f32=2.24208e-44
+  @ 699  id=34  len=12    RGBA=(0,0,0,0) all-zero black candidate
+  @ 719  id=35  len=4     u32=0 f32=0
+  @ 731  id=37  len=4     u32=283 (=2.83000 mm/pt)
+  @ 743  id=44  len=4     u32=8333 (=8.3330 px/pt@dpi)
+  @ 755  id=38  len=4     u32=4 f32=5.60519e-45
+  @ 767  id=43  len=4     u32=50 f32=7.00649e-44
+  @ 779  id=39  len=8     u64=(54,0) char_count=54
+  @ 795  id=40  len=0     (empty)
+  @ 803  id=41  len=0     (empty)
+  @ 811  id=42  len=16    bbox canvas=(747,509,951,907) size=(204x398)
+  @ 835  id=45  len=4     u32=0 f32=0
+  @ 847  id=46  len=4     u32=0 f32=0
+  @ 859  id=47  len=41    subst_font blob=090032000000000000001d00efbcadefbcb320efbcb0e382b4e382b7e38383e382af20e6a899e6ba96
+  @ 908  id=48  len=4     u32=1 f32=1.4013e-45
+  @ 920  id=53  len=4     u32=0 f32=0
+  @ 932  id=55  len=4     u32=0 f32=0
+  @ 944  id=52  len=4     u32=1 f32=1.4013e-45
+  @ 956  id=54  len=20    bytes20=00000000000000000000000000000000ffffffff
+  @ 984  id=56  len=24    bytes24=000000009001000002000000000000000000000000000000
+  @1016  id=49  len=4     u32=1003 f32=1.4055e-42
+  @1028  id=50  len=4     Offscreen.MainId=47
+  @1040  id=51  len=4     u32=0 f32=0
+  @1052  id=57  len=43    ver=1 display='I-OTFアンチックStd B' ps='IwaAntStd-Bd'
+  @1103  id=58  len=4     u32=1800 f32=2.52234e-42
+  @1115  id=59  len=4     u32=900 f32=1.26117e-42
+  @1127  id=60  len=4     u32=900 f32=1.26117e-42
+  @1139  id=61  len=4     u32=0 f32=0
+  @1151  id=62  len=4     u32=0 f32=0
+  @1163  id=63  len=8     size=(204,398)
+  @1179  id=64  len=32    i32x8=(-20300, 0, 100, 0, 100, 39800, -20300, 39800) (w~203 h~398)
+  @1219  id=66  len=4     u32=0 f32=0
+  @1231  id=67  len=4     u32=1000 f32=1.4013e-42
+  @1243  id=68  len=4     u32=0 f32=0
+  @1255  id=69  len=4     u32=0 f32=0
+  @1267  id=70  len=8     u32x2=(0, 0) f64=0
+  @1283  id=71  len=8     u32x2=(8418880, 0) f64=4.15948e-317
+  @1299  id=72  len=8     u32x2=(203,0)
+  @1315  id=73  len=4     u32=1 f32=1.4013e-45
+  @1327  id=74  len=4     u32=0 f32=0
+
+  -- TextLayerAddAttributesV01: total 1052 bytes
+  header u32=1048  (len-4=1048, match=True)
+  TLV count=60  parsed=1052B  trailing=0B
+  @   4  id=11  len=22    compact count=1 inner_len=14 | pad14=0003010000000000000000000000 | flags?=0x10300
+  @  34  id=26  len=12    compact count=1 inner_len=4 | u32=1
+  @  54  id=17  len=0     (empty)
+  @  62  id=12  len=12    compact count=1 inner_len=4 | u32=1
+  @  82  id=13  len=12    compact count=1 inner_len=4 | u32=1
+  @ 102  id=14  len=0     (empty)
+  @ 110  id=27  len=0     (empty)
+  @ 118  id=28  len=0     (empty)
+  @ 126  id=29  len=12    compact count=1 inner_len=4 | u32=1
+  @ 146  id=65  len=12    compact count=1 inner_len=4 | u32=1
+  @ 166  id=30  len=132   id30_compact count=16 pairs=[(4, 0), (4, 0), (4, 0), (4, 0), (4, 0), (4, 0), (4, 0), (4, 0)]...
+  @ 306  id=15  len=0     (empty)
+  @ 314  id=19  len=0     (empty)
+  @ 322  id=16  len=12    bytes12=010000000400000001000000
+  @ 342  id=20  len=12    bytes12=010000000400000001000000
+  @ 362  id=18  len=12    compact count=1 inner_len=4 | u32=1
+  @ 382  id=21  len=0     (empty)
+  @ 390  id=22  len=0     (empty)
+  @ 398  id=31  len=25    utf8='I-OTFアンチックStd B'
+  @ 431  id=32  len=4     u32=397 (~7.94pt? or 3.97)
+  @ 443  id=33  len=4     u32=16 f32=2.24208e-44
+  @ 455  id=34  len=12    RGBA=(0,0,0,0) all-zero black candidate
+  @ 475  id=35  len=4     u32=0 f32=0
+  @ 487  id=37  len=4     u32=283 (=2.83000 mm/pt)
+  @ 499  id=44  len=4     u32=8333 (=8.3330 px/pt@dpi)
+  @ 511  id=38  len=4     u32=4 f32=5.60519e-45
+  @ 523  id=43  len=4     u32=50 f32=7.00649e-44
+  @ 535  id=39  len=8     u64=(54,0) char_count=54
+  @ 551  id=40  len=0     (empty)
+  @ 559  id=41  len=0     (empty)
+  @ 567  id=42  len=16    bbox canvas=(747,509,951,907) size=(204x398)
+  @ 591  id=45  len=4     u32=0 f32=0
+  @ 603  id=46  len=4     u32=0 f32=0
+  @ 615  id=47  len=41    subst_font blob=090032000000000000001d00efbcadefbcb320efbcb0e382b4e382b7e38383e382af20e6a899e6ba96
+  @ 664  id=48  len=4     u32=1 f32=1.4013e-45
+  @ 676  id=53  len=4     u32=0 f32=0
+  @ 688  id=55  len=4     u32=0 f32=0
+  @ 700  id=52  len=4     u32=1 f32=1.4013e-45
+  @ 712  id=54  len=20    bytes20=00000000000000000000000000000000ffffffff
+  @ 740  id=56  len=24    bytes24=000000009001000002000000000000000000000000000000
+  @ 772  id=49  len=4     u32=1003 f32=1.4055e-42
+  @ 784  id=50  len=4     Offscreen.MainId=47
+  @ 796  id=51  len=4     u32=0 f32=0
+  @ 808  id=57  len=0     (empty)
+  @ 816  id=58  len=4     u32=1800 f32=2.52234e-42
+  @ 828  id=59  len=4     u32=900 f32=1.26117e-42
+  @ 840  id=60  len=4     u32=900 f32=1.26117e-42
+  @ 852  id=61  len=4     u32=0 f32=0
+  @ 864  id=62  len=4     u32=0 f32=0
+  @ 876  id=63  len=8     size=(204,398)
+  @ 892  id=64  len=32    i32x8=(-20300, 0, 100, 0, 100, 39800, -20300, 39800) (w~203 h~398)
+  @ 932  id=66  len=4     u32=0 f32=0
+  @ 944  id=67  len=4     u32=1000 f32=1.4013e-42
+  @ 956  id=68  len=4     u32=0 f32=0
+  @ 968  id=69  len=4     u32=0 f32=0
+  @ 980  id=70  len=8     u32x2=(0, 0) f64=0
+  @ 996  id=71  len=8     u32x2=(8418880, 0) f64=4.15948e-317
+  @1012  id=72  len=8     u32x2=(203,0)
+  @1028  id=73  len=4     u32=1 f32=1.4013e-45
+  @1040  id=74  len=4     u32=0 f32=0
+
+========================================================================
+COORDINATE / OFFSET CORRELATION
+========================================================================
+MainId=5 utf16=5 LayerOffset=(0,0) RenderOffscr=(0,0)
+  id42 canvas bbox (918,509,951,674)  size 33x165
+  bbox_left - LayerOffsetX = 918   bbox_top - LayerOffsetY = 509
+  id63 size=(33, 165)  (matches bbox size: True)
+  id50 -> Offscreen.MainId=31
+MainId=6 utf16=12 LayerOffset=(-415,157) RenderOffscr=(415,-157)
+  id42 canvas bbox (860,509,951,676)  size 91x167
+  bbox_left - LayerOffsetX = 1275   bbox_top - LayerOffsetY = 352
+  id63 size=(91, 167)  (matches bbox size: True)
+  id50 -> Offscreen.MainId=39
+MainId=7 utf16=54 LayerOffset=(27,592) RenderOffscr=(-27,-592)
+  id42 canvas bbox (747,509,951,907)  size 204x398
+  bbox_left - LayerOffsetX = 720   bbox_top - LayerOffsetY = -83
+  id63 size=(204, 398)  (matches bbox size: True)
+  id50 -> Offscreen.MainId=47
+
+========================================================================
+CROSS-LAYER DIFF SUMMARY
+========================================================================
+id=11:
+  L5: count=1 resv=0 vtype=5 inner_len=26
+  L6: count=1 resv=0 vtype=12 inner_len=26
+  L7: count=1 resv=0 vtype=54 inner_len=56
+id=12:
+  L5: count=1 resv=0 vtype=5 inner_len=2
+  L6: count=1 resv=0 vtype=12 inner_len=2
+  L7: count=1 resv=0 vtype=54 inner_len=2
+id=13:
+  L5: count=1 resv=0 vtype=5 inner_len=18
+  L6: count=1 resv=0 vtype=12 inner_len=18
+  L7: count=1 resv=0 vtype=54 inner_len=18
+id=16:
+  L5: (empty)
+  L6: (empty)
+  L7: raw[18]=010000000000000036000000020000000000
+id=18:
+  L5: count=1 resv=0 vtype=5 inner_len=2
+  L6: count=1 resv=0 vtype=12 inner_len=2
+  L7: count=1 resv=0 vtype=54 inner_len=2
+id=20:
+  L5: (empty)
+  L6: (empty)
+  L7: raw[18]=010000000000000036000000020000000000
+id=26:
+  L5: count=1 resv=0 vtype=5 inner_len=16
+  L6: count=1 resv=0 vtype=12 inner_len=16
+  L7: count=1 resv=0 vtype=54 inner_len=16
+id=29:
+  L5: count=1 resv=0 vtype=5 inner_len=2
+  L6: count=1 resv=0 vtype=12 inner_len=2
+  L7: count=1 resv=0 vtype=54 inner_len=2
+id=30:
+  L5: len=20
+  L6: len=20
+  L7: len=260
+id=39:
+  L5: u64=(5,0) char_count=5
+  L6: u64=(12,0) char_count=12
+  L7: u64=(54,0) char_count=54
+id=42:
+  L5: bbox canvas=(918,509,951,674) size=(33x165)
+  L6: bbox canvas=(860,509,951,676) size=(91x167)
+  L7: bbox canvas=(747,509,951,907) size=(204x398)
+id=50:
+  L5: Offscreen.MainId=31
+  L6: Offscreen.MainId=39
+  L7: Offscreen.MainId=47
+id=63:
+  L5: size=(33,165)
+  L6: size=(91,167)
+  L7: size=(204,398)
+id=64:
+  L5: i32x8=(-3300, 0, 0, 0, 0, 16500, -3300, 16500) (w~33 h~165)
+  L6: i32x8=(-9000, 0, 100, 0, 100, 16700, -9000, 16700) (w~90 h~167)
+  L7: i32x8=(-20300, 0, 100, 0, 100, 39800, -20300, 39800) (w~203 h~398)
+id=65:
+  L5: count=1 resv=0 vtype=5 inner_len=2
+  L6: count=1 resv=0 vtype=12 inner_len=2
+  L7: count=1 resv=0 vtype=54 inner_len=2
+id=72:
+  L5: u32x2=(33,0)
+  L6: u32x2=(90,0)
+  L7: u32x2=(203,0)
+
+AddAttributes compact diffs (run-array ids):
+  id=11:
+    L5: compact count=1 inner_len=14 | pad14=0000000000000000000000000000 | flags?=0x0
+    L6: compact count=1 inner_len=14 | pad14=0000000000000000000000000000 | flags?=0x0
+    L7: compact count=1 inner_len=14 | pad14=0003010000000000000000000000 | flags?=0x10300
+  id=12:
+    L5: compact count=1 inner_len=4 | u32=0
+    L6: compact count=1 inner_len=4 | u32=0
+    L7: compact count=1 inner_len=4 | u32=1
+  id=13:
+    L5: compact count=1 inner_len=4 | u32=0
+    L6: compact count=1 inner_len=4 | u32=0
+    L7: compact count=1 inner_len=4 | u32=1
+  id=18:
+    L5: compact count=1 inner_len=4 | u32=0
+    L6: compact count=1 inner_len=4 | u32=0
+    L7: compact count=1 inner_len=4 | u32=1
+  id=26:
+    L5: compact count=1 inner_len=4 | u32=0
+    L6: compact count=1 inner_len=4 | u32=0
+    L7: compact count=1 inner_len=4 | u32=1
+  id=29:
+    L5: compact count=1 inner_len=4 | u32=0
+    L6: compact count=1 inner_len=4 | u32=0
+    L7: compact count=1 inner_len=4 | u32=1
+  id=30:
+    L5: id30_compact count=1 pairs=[(4, 0)]
+    L6: id30_compact count=1 pairs=[(4, 0)]
+    L7: id30_compact count=16 pairs=[(4, 0), (4, 0), (4, 0), (4, 0), (4, 0), (4, 0), (4, 0), (4, 0)]...
+  id=65:
+    L5: compact count=1 inner_len=4 | u32=0
+    L6: compact count=1 inner_len=4 | u32=0
+    L7: compact count=1 inner_len=4 | u32=1
+========================================================================
+Attributes vs AddAttributes scalar identity (should match for L5)
+========================================================================
+  L5 id=57: MISMATCH attr_len=43 add_len=0
+  L6 id=57: MISMATCH attr_len=43 add_len=0
+  L7 id=16: MISMATCH attr_len=18 add_len=12
+  L7 id=20: MISMATCH attr_len=18 add_len=12
+  L7 id=57: MISMATCH attr_len=43 add_len=0
+  (5 expected mismatches: id57 empty in Add; L7 id16/id20 compact)

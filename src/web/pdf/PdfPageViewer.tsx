@@ -1,8 +1,14 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { pointerKindFromWeb, isPencilHover } from '@/src/input/pointerEvents';
-import { joinVerticalBody, sanitizeExtractedBody, sliceReadingRange, sortBodyReadingOrder } from '@/src/domain/pdfText';
+import {
+  joinVerticalBody,
+  sanitizeExtractedBody,
+  sliceReadingRange,
+  snapReadingRangeToLines,
+  sortBodyReadingOrder,
+} from '@/src/domain/pdfText';
 import {
   hitBodyReadingIndex,
   isExtractedGlyph,
@@ -19,6 +25,7 @@ import {
   createPdfGestureStore,
   stepPdfPointer,
   type PdfGestureStore,
+  type PdfPointerInput,
   type PdfSelection,
 } from './pdfGestureFsm';
 import { computeLetterbox } from './pdfLetterbox';
@@ -26,6 +33,10 @@ import { renderPdfPageToCanvas } from './pdfRender';
 import { getOrLoadPdfProxy } from './pdfSession';
 
 const TOUCH_HIT_SLOP_PX = 24;
+
+function isPdfAdjustMode(mode: string | null | undefined): boolean {
+  return mode === 'adjustStart' || mode === 'adjustEnd';
+}
 
 export type PdfExtractPayload = {
   pdfPage: number;
@@ -58,6 +69,7 @@ export type PdfPageViewerProps = {
   onExtractText?: (payload: PdfExtractPayload) => void;
   onToggleExtractMarkers?: (visible: boolean) => void;
   onToggleExtractSanitizePunctuation?: (enabled: boolean) => void;
+  navExtra?: ReactNode;
 };
 
 function canvasScreenPoint(
@@ -114,6 +126,7 @@ export function PdfPageViewer({
   onExtractText,
   onToggleExtractMarkers,
   onToggleExtractSanitizePunctuation,
+  navExtra,
 }: PdfPageViewerProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -183,6 +196,7 @@ export function PdfPageViewer({
       });
       if (cancelled) {
         task?.cancel();
+        await task?.promise;
         return;
       }
       renderTask = task;
@@ -233,6 +247,37 @@ export function PdfPageViewer({
       }
     },
     [],
+  );
+
+  const dispatchPdfPointer = useCallback(
+    (input: PdfPointerInput) => {
+      const modeBefore = gestureRef.current.session?.mode;
+      const effects = stepPdfPointer(gestureRef.current, input);
+      const modeAfter = gestureRef.current.session?.mode;
+      const adjusting = isPdfAdjustMode(modeBefore) || isPdfAdjustMode(modeAfter);
+      const sorted = sortBodyReadingOrder(sourceTextByPage[currentPage] ?? []);
+      const next = adjusting
+        ? effects
+        : effects.map((effect) => {
+            if (effect.type !== 'pdfSelectionChange' && effect.type !== 'pdfSelectionCommit') {
+              return effect;
+            }
+            const snapped = snapReadingRangeToLines(sorted, effect.startIndex, effect.endIndex);
+            return { ...effect, startIndex: snapped.startIndex, endIndex: snapped.endIndex };
+          });
+      if (!adjusting) {
+        for (const effect of next) {
+          if (effect.type === 'pdfSelectionChange' || effect.type === 'pdfSelectionCommit') {
+            gestureRef.current.selection = {
+              startIndex: effect.startIndex,
+              endIndex: effect.endIndex,
+            };
+          }
+        }
+      }
+      applyGestureEffects(next);
+    },
+    [applyGestureEffects, currentPage, sourceTextByPage],
   );
 
   const resolveHit = useCallback(
@@ -340,7 +385,7 @@ export function PdfPageViewer({
       }
 
       if (event.isPrimary) {
-        const effects = stepPdfPointer(gestureRef.current, {
+        dispatchPdfPointer({
           pointerId: event.pointerId,
           kind: pointerKindFromWeb({ pointerType: event.pointerType }),
           phase: 'down',
@@ -352,10 +397,9 @@ export function PdfPageViewer({
           hitIndex: hit.hitIndex,
           handle: hit.handle,
         });
-        applyGestureEffects(effects);
       }
     },
-    [zoom, applyGestureEffects, resolveHit],
+    [zoom, applyGestureEffects, dispatchPdfPointer, resolveHit],
   );
 
   const handlePointerMove = useCallback(
@@ -378,7 +422,7 @@ export function PdfPageViewer({
         return;
       }
 
-      const effects = stepPdfPointer(gestureRef.current, {
+      dispatchPdfPointer({
         pointerId: event.pointerId,
         kind: pointerKindFromWeb({ pointerType: event.pointerType }),
         phase: 'move',
@@ -390,9 +434,8 @@ export function PdfPageViewer({
         hitIndex: hit.hitIndex,
         handle: hit.handle,
       });
-      applyGestureEffects(effects);
     },
-    [applyGestureEffects, resolveHit, updatePinch],
+    [dispatchPdfPointer, resolveHit, updatePinch],
   );
 
   const handlePointerUp = useCallback(
@@ -410,7 +453,7 @@ export function PdfPageViewer({
       }
 
       const hit = resolveHit(event);
-      const effects = stepPdfPointer(gestureRef.current, {
+      dispatchPdfPointer({
         pointerId: event.pointerId,
         kind: pointerKindFromWeb({ pointerType: event.pointerType }),
         phase: 'up',
@@ -422,10 +465,9 @@ export function PdfPageViewer({
         hitIndex: hit.hitIndex,
         handle: hit.handle,
       });
-      applyGestureEffects(effects);
       onViewChange?.({ panX: livePanXRef.current, panY: livePanYRef.current });
     },
-    [applyGestureEffects, commitPinch, onViewChange, resolveHit],
+    [commitPinch, dispatchPdfPointer, onViewChange, resolveHit],
   );
 
   const handlePointerCancel = useCallback(
@@ -439,23 +481,21 @@ export function PdfPageViewer({
         return;
       }
       const hit = resolveHit(event);
-      applyGestureEffects(
-        stepPdfPointer(gestureRef.current, {
-          pointerId: event.pointerId,
-          kind: pointerKindFromWeb({ pointerType: event.pointerType }),
-          phase: 'cancel',
-          x: event.clientX,
-          y: event.clientY,
-          now: performance.now(),
-          panX: livePanXRef.current,
-          panY: livePanYRef.current,
-          hitIndex: hit.hitIndex,
-          handle: hit.handle,
-        }),
-      );
+      dispatchPdfPointer({
+        pointerId: event.pointerId,
+        kind: pointerKindFromWeb({ pointerType: event.pointerType }),
+        phase: 'cancel',
+        x: event.clientX,
+        y: event.clientY,
+        now: performance.now(),
+        panX: livePanXRef.current,
+        panY: livePanYRef.current,
+        hitIndex: hit.hitIndex,
+        handle: hit.handle,
+      });
       onViewChange?.({ panX: livePanXRef.current, panY: livePanYRef.current });
     },
-    [applyGestureEffects, commitPinch, onViewChange, resolveHit],
+    [commitPinch, dispatchPdfPointer, onViewChange, resolveHit],
   );
 
   useEffect(() => {
@@ -576,6 +616,7 @@ export function PdfPageViewer({
         >
           整形
         </button>
+        {navExtra}
       </div>
       <div
         ref={viewportRef}

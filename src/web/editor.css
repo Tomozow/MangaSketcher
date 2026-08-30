@@ -377,6 +377,15 @@ body {
   justify-content: flex-end;
 }
 
+.ms-clipExportButtons {
+  margin-top: 4px;
+  display: flex;
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
 .ms-workspaceLayoutPanel {
   margin-top: 4px;
   width: min(280px, calc(100vw - 48px));
@@ -678,6 +687,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 8px;
   flex-shrink: 0;
@@ -685,6 +695,9 @@ body {
 }
 
 .ms-pdfNavButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   min-width: 44px;
   min-height: 44px;
   padding: 0 12px;
@@ -693,6 +706,8 @@ body {
   background: var(--ms-surface);
   color: var(--ms-text);
   font-size: 14px;
+  cursor: pointer;
+  box-sizing: border-box;
 }
 
 .ms-pdfNavButton:disabled {

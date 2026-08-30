@@ -12,9 +12,10 @@ type WorkspacePaneActionsProps = {
   doc: EditorDocument;
   dispatch: (action: EditorDocumentAction) => void;
   inkEngine: InkEngine | null;
+  onBeforeExport?: () => Promise<void>;
 };
 
-export function WorkspacePaneActions({ doc, dispatch, inkEngine }: WorkspacePaneActionsProps) {
+export function WorkspacePaneActions({ doc, dispatch, inkEngine, onBeforeExport }: WorkspacePaneActionsProps) {
   const [layoutOpen, setLayoutOpen] = useState(false);
   const [exportPhase, setExportPhase] = useState<ExportUiPhase>('idle');
   const layoutLocked = exportPhase === 'generating' || exportPhase === 'ready';
@@ -39,7 +40,12 @@ export function WorkspacePaneActions({ doc, dispatch, inkEngine }: WorkspacePane
             setLayoutOpen(next);
           }}
         />
-        <WorkspaceExportControls doc={doc} inkEngine={inkEngine} onPhaseChange={setExportPhase} />
+        <WorkspaceExportControls
+          doc={doc}
+          inkEngine={inkEngine}
+          onPhaseChange={setExportPhase}
+          onBeforeExport={onBeforeExport}
+        />
       </div>
     </div>
   );

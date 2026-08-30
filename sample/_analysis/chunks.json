@@ -1,0 +1,155 @@
+[
+  {
+    "name": "CHNKHead",
+    "header_offset": 24,
+    "data_offset": 40,
+    "data_length": 40,
+    "end_offset": 80
+  },
+  {
+    "name": "CHNKExta",
+    "header_offset": 80,
+    "data_offset": 96,
+    "data_length": 584,
+    "end_offset": 680,
+    "exta_id_len": 40,
+    "exta_id": "extrnlid5ABB6410003A40949E51DF48E83BB456",
+    "exta_body_len": 528,
+    "exta_body_offset_in_file": 152
+  },
+  {
+    "name": "CHNKExta",
+    "header_offset": 680,
+    "data_offset": 696,
+    "data_length": 247160,
+    "end_offset": 247856,
+    "exta_id_len": 40,
+    "exta_id": "extrnlidB67B525BAB4B455EBE254C917AD141AA",
+    "exta_body_len": 247104,
+    "exta_body_offset_in_file": 752
+  },
+  {
+    "name": "CHNKExta",
+    "header_offset": 247856,
+    "data_offset": 247872,
+    "data_length": 5530,
+    "end_offset": 253402,
+    "exta_id_len": 40,
+    "exta_id": "extrnlidE5A9E645332242E1831F2CEEA9A7C9E7",
+    "exta_body_len": 5474,
+    "exta_body_offset_in_file": 247928
+  },
+  {
+    "name": "CHNKExta",
+    "header_offset": 253402,
+    "data_offset": 253418,
+    "data_length": 60728,
+    "end_offset": 314146,
+    "exta_id_len": 40,
+    "exta_id": "extrnlidC39752E934E847509B647C0EE8262DD8",
+    "exta_body_len": 60672,
+    "exta_body_offset_in_file": 253474
+  },
+  {
+    "name": "CHNKExta",
+    "header_offset": 314146,
+    "data_offset": 314162,
+    "data_length": 7716,
+    "end_offset": 321878,
+    "exta_id_len": 40,
+    "exta_id": "extrnlid99AF81789A6841B3950D67A7B2A7CA5A",
+    "exta_body_len": 7660,
+    "exta_body_offset_in_file": 314218
+  },
+  {
+    "name": "CHNKExta",
+    "header_offset": 321878,
+    "data_offset": 321894,
+    "data_length": 584,
+    "end_offset": 322478,
+    "exta_id_len": 40,
+    "exta_id": "extrnlidD046B341A6B44296897C35F3FE3055D8",
+    "exta_body_len": 528,
+    "exta_body_offset_in_file": 321950
+  },
+  {
+    "name": "CHNKExta",
+    "header_offset": 322478,
+    "data_offset": 322494,
+    "data_length": 5514,
+    "end_offset": 328008,
+    "exta_id_len": 40,
+    "exta_id": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D",
+    "exta_body_len": 5458,
+    "exta_body_offset_in_file": 322550
+  },
+  {
+    "name": "CHNKExta",
+    "header_offset": 328008,
+    "data_offset": 328024,
+    "data_length": 3069,
+    "end_offset": 331093,
+    "exta_id_len": 40,
+    "exta_id": "extrnlidA44814613CD6406EA6B5C53D079FC420",
+    "exta_body_len": 3013,
+    "exta_body_offset_in_file": 328080
+  },
+  {
+    "name": "CHNKExta",
+    "header_offset": 331093,
+    "data_offset": 331109,
+    "data_length": 8959,
+    "end_offset": 340068,
+    "exta_id_len": 40,
+    "exta_id": "extrnlidC36AE644D5EC4F0AB27E97E89C60CBE4",
+    "exta_body_len": 8903,
+    "exta_body_offset_in_file": 331165
+  },
+  {
+    "name": "CHNKExta",
+    "header_offset": 340068,
+    "data_offset": 340084,
+    "data_length": 4392,
+    "end_offset": 344476,
+    "exta_id_len": 40,
+    "exta_id": "extrnlid1C60B3BC68BD4236B94A0E1627F94036",
+    "exta_body_len": 4336,
+    "exta_body_offset_in_file": 340140
+  },
+  {
+    "name": "CHNKExta",
+    "header_offset": 344476,
+    "data_offset": 344492,
+    "data_length": 9745,
+    "end_offset": 354237,
+    "exta_id_len": 40,
+    "exta_id": "extrnlidA4F04453F9CA496D8EDEBF400643FE2B",
+    "exta_body_len": 9689,
+    "exta_body_offset_in_file": 344548
+  },
+  {
+    "name": "CHNKExta",
+    "header_offset": 354237,
+    "data_offset": 354253,
+    "data_length": 10800,
+    "end_offset": 365053,
+    "exta_id_len": 40,
+    "exta_id": "extrnlid42616F27333A4431B32F940EC41CDC1D",
+    "exta_body_len": 10744,
+    "exta_body_offset_in_file": 354309
+  },
+  {
+    "name": "CHNKSQLi",
+    "header_offset": 365053,
+    "data_offset": 365069,
+    "data_length": 544768,
+    "end_offset": 909837
+  },
+  {
+    "name": "CHNKFoot",
+    "header_offset": 909837,
+    "data_offset": 909853,
+    "data_length": 0,
+    "end_offset": 909853
+  }
+]

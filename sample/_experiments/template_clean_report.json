@@ -1,0 +1,126 @@
+{
+  "path": "A:\\dev\\MangaSketcher\\public\\clip-export-template.clip",
+  "file_size": 853684,
+  "chunk_breakdown": {
+    "header": 24,
+    "CHNKHead": 56,
+    "CHNKExta": 194116,
+    "CHNKSQLi": 659472,
+    "CHNKFoot": 16,
+    "total": 853684
+  },
+  "ok": true,
+  "forbidden_string_counts": {
+    "あいうえお": 0,
+    "こんにちは": 0,
+    "さようなら": 0,
+    "てすと": 0,
+    "クローン": 0
+  },
+  "decoded_extas": [
+    {
+      "external_id": "extrnlid5ABB6410003A40949E51DF48E83BB456",
+      "offscreen_main_id": 4,
+      "body_bytes": 528,
+      "png": "A:\\dev\\MangaSketcher\\sample\\_experiments\\template_review\\extrnlid5ABB6410003A40949E51DF48E83BB456.png",
+      "size": [
+        512,
+        512
+      ]
+    },
+    {
+      "external_id": "extrnlidB67B525BAB4B455EBE254C917AD141AA",
+      "offscreen_main_id": 5,
+      "body_bytes": 167852,
+      "png": "A:\\dev\\MangaSketcher\\sample\\_experiments\\template_review\\extrnlidB67B525BAB4B455EBE254C917AD141AA.png",
+      "size": [
+        1518,
+        2150
+      ]
+    },
+    {
+      "external_id": "extrnlidC39752E934E847509B647C0EE8262DD8",
+      "offscreen_main_id": 48,
+      "body_bytes": 24920,
+      "png": "A:\\dev\\MangaSketcher\\sample\\_experiments\\template_review\\extrnlidC39752E934E847509B647C0EE8262DD8.png",
+      "size": [
+        1518,
+        2150
+      ]
+    },
+    {
+      "external_id": "extrnlidD046B341A6B44296897C35F3FE3055D8",
+      "offscreen_main_id": 56,
+      "body_bytes": 528,
+      "png": "A:\\dev\\MangaSketcher\\sample\\_experiments\\template_review\\extrnlidD046B341A6B44296897C35F3FE3055D8.png",
+      "size": [
+        512,
+        512
+      ]
+    }
+  ],
+  "pixel_checks": {
+    "page_number_center": {
+      "xy": [
+        776,
+        1908
+      ],
+      "rgba": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "ok": true
+    },
+    "page_number_ink": {
+      "xy": [
+        775,
+        1907
+      ],
+      "rgba": [
+        255,
+        255,
+        255,
+        255
+      ],
+      "ok": true
+    },
+    "page_number_rect_all_white": {
+      "rect": {
+        "left": 760,
+        "top": 1884,
+        "right": 792,
+        "bottom": 1932
+      },
+      "non_white": 0,
+      "ok": true
+    },
+    "inner_frame_preserved": {
+      "xy": [
+        759,
+        1868
+      ],
+      "rgba": [
+        9,
+        9,
+        9,
+        255
+      ],
+      "ok": true
+    },
+    "lineart_center": {
+      "xy": [
+        759,
+        1075
+      ],
+      "rgba": [
+        0,
+        0,
+        0,
+        0
+      ],
+      "ok": true
+    }
+  }
+}

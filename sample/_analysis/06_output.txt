@@ -1,0 +1,30 @@
+=== version-like ASCII strings in whole .clip ===
+  @ 385540: '1.1.08'
+  @ 401167: 'sRGB IEC61966-2.1'
+  @ 401903: '.IEC 61966-2.1 Default RGB'
+  @ 401969: '.IEC 61966-2.1 Default RGB colour space - sRGB'
+  @ 402048: ',Reference Viewing Condition in IEC61966-2.1'
+  @ 593719: '6.1F'
+
+=== SQLite header PRAGMAs ===
+  user_version = 0
+  application_id = 0
+  page_size = 4096
+  encoding = UTF-8
+  schema_version = 220
+
+  sqlite writer version number (hdr offset 96): 3030001 -> 3.30.1
+
+=== CanvasPreview -> PNG export ===
+  ImageType=1 1518x2150 blob=300126B magic=89504e470d0a1a0a
+  written: canvas_preview.png
+
+=== TextLayerAddAttributesV01 header check ===
+  Layer 5: blob 908B, u32[0]=904 (== len-4: True)
+  Layer 6: blob 908B, u32[0]=904 (== len-4: True)
+  Layer 7: blob 1052B, u32[0]=1048 (== len-4: True)
+
+=== text cache offscreens vs TextLayerAttributes id=63 ===
+  floating Offscreen 31 (layer 5 'あいうえお'): 34x166
+  floating Offscreen 39 (layer 6 'こんにちは さようなら'): 92x168
+  floating Offscreen 47 (layer 7 'てすとてすとてすとてすと てすとてすとてすとてすと てすとてすとてすとてすと てすとてすとてすとてすと'): 205x399

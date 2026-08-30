@@ -3,8 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { reduceEditorDocument, type EditorDocumentAction } from '@/src/domain/editorReducer';
-import { extractPdfSourceText } from '@/src/domain/pdfExtract';
-import { pdfFileFingerprint } from '@/src/domain/pdfView';
 import {
   nextExtractPack,
   startExtractPack,
@@ -21,7 +19,6 @@ import { AutosaveManager, type AutosaveStatus } from '@/src/storage/autosave';
 import { getAutosaveDelays } from '@/src/storage/appSettings';
 import { editorHistoryFromBoot, loadEditorBoot } from '@/src/storage/editorBoot';
 import { applyPdfViewSession, loadPdfViewSession, savePdfViewSession } from '@/src/storage/pdfViewSession';
-import { writeProjectPdf } from '@/src/storage/projectStore';
 import { randomId } from '@/src/storage/randomId';
 import {
   isViewOnlyHistoryAction,
@@ -66,24 +63,10 @@ import {
 import type { PageId } from '@/src/domain/types';
 import { textBoxForOwnerMove } from '@/src/web/gestures/elementInteraction';
 import type { PdfExtractPayload } from '@/src/web/pdf/PdfPageViewer';
-import { dropPdfSession, getOrLoadPdfProxy } from '@/src/web/pdf/pdfSession';
 
 import type { TextEditSelection } from '@/src/web/TextEditBar';
-
-type PendingInkHistoryItem = { rasterId: string; canvas: OffscreenCanvas };
-
-function consumePendingInkHistory(
-  history: EditorHistory,
-  pending: PendingInkHistoryItem[],
-): EditorHistory {
-  let next = history;
-  for (const item of pending) {
-    const inkUndo = new Map<string, InkUndoPixels>([[item.rasterId, item.canvas]]);
-    const nextPresent = reduceEditorDocument(next.present, { type: 'commitInkBake', rasterId: item.rasterId }, randomId);
-    next = pushEditorHistory(next, nextPresent, inkUndo, false);
-  }
-  return next;
-}
+import { consumePendingInkHistory, runEditorCheckpoint, type PendingInkHistoryItem } from '@/src/web/editorCheckpoint';
+import { importProjectPdf } from '@/src/web/pdfImport';
 
 function takePendingInkUndo(
   inkUndo: Map<string, InkUndoPixels>,
@@ -140,6 +123,8 @@ type EditorController = {
   onPickPdf: (file: File) => Promise<void>;
   onExtractPdfText: (payload: PdfExtractPayload) => void;
   clearPageInk: (pageId: PageId) => void;
+  checkpointBeforeHeavyWork: () => Promise<void>;
+  setTextDraft: (draft: string | null) => void;
 };
 
 function selectedTextFromDocument(doc: EditorDocument): TextEditSelection | null {
@@ -320,6 +305,10 @@ export function useEditorController(projectId: string): EditorController {
   const inkUndoRef = useRef<Map<string, InkUndoPixels>>(new Map());
   const pendingInkHistoryRef = useRef<PendingInkHistoryItem[]>([]);
   const historyRef = useRef<EditorHistory | null>(null);
+  const textEditingRef = useRef(false);
+  const textSelectionRef = useRef<TextEditSelection | null>(null);
+  const textDraftRef = useRef<string | null>(null);
+  const checkpointBeforeHeavyWorkRef = useRef<(() => Promise<void>) | null>(null);
   const createTextAtPointer = useCallback((pending: PendingCreate) => {
     if (!Number.isFinite(pending.x) || !Number.isFinite(pending.y)) {
       return;
@@ -473,6 +462,8 @@ export function useEditorController(projectId: string): EditorController {
     (): TextEditSelection | null => (history ? selectedTextFromDocument(history.present) : null),
     [history?.present],
   );
+  textEditingRef.current = textEditing;
+  textSelectionRef.current = textSelection;
 
   useEffect(() => {
     const img = new Image();
@@ -527,9 +518,15 @@ export function useEditorController(projectId: string): EditorController {
       cancelled = true;
       const autosave = autosaveRef.current;
       if (autosave) {
-        void autosave.flushRouteLeave().finally(() => {
-          autosave.dispose();
-        });
+        void (async () => {
+          try {
+            await checkpointBeforeHeavyWorkRef.current?.();
+          } catch {
+            // unmount fallback is best-effort
+          } finally {
+            autosave.dispose();
+          }
+        })();
       }
       autosaveRef.current = null;
     };
@@ -1277,6 +1274,69 @@ export function useEditorController(projectId: string): EditorController {
     [deleteText, dispatch],
   );
 
+  const setTextDraft = useCallback((draft: string | null) => {
+    textDraftRef.current = draft;
+  }, []);
+
+  const commitPendingTextEditSync = useCallback(() => {
+    if (!textEditingRef.current || !textSelectionRef.current) {
+      return;
+    }
+    const { id, content: savedContent } = textSelectionRef.current;
+    const content = textDraftRef.current ?? savedContent;
+    textDraftRef.current = null;
+    setTextEditing(false);
+    textLiveRef.current.delete(id);
+    setTextLiveTransforms(Object.fromEntries(textLiveRef.current));
+
+    const prev = historyRef.current;
+    if (!prev) {
+      return;
+    }
+    const action: EditorDocumentAction = isTextContentEmpty(content)
+      ? { type: 'deleteText', textId: id }
+      : { type: 'editText', textId: id, content };
+    const nextPresent = reduceEditorDocument(prev.present, action, randomId);
+    const nextHistory = pushEditorHistory(prev, nextPresent, new Map(), false);
+    historyRef.current = nextHistory;
+    setHistory(nextHistory);
+  }, []);
+
+  const checkpointBeforeHeavyWork = useCallback(async (): Promise<void> => {
+    commitPendingTextEditSync();
+    const autosave = autosaveRef.current;
+    const api = inkApiRef.current;
+    if (!autosave) {
+      throw new Error('Autosave not ready');
+    }
+    await runEditorCheckpoint({
+      getHistory: () => historyRef.current,
+      setHistory: (next) => {
+        historyRef.current = next;
+        setHistory(next);
+      },
+      pendingInkHistory: pendingInkHistoryRef.current,
+      clearPendingInkHistory: () => {
+        pendingInkHistoryRef.current = [];
+      },
+      ink: api?.engine ?? null,
+      mergeEncodedPng: (encoded) => {
+        for (const [rasterId, png] of encoded) {
+          if (png.byteLength > 0) {
+            encodedPngRef.current.set(rasterId, png);
+          }
+        }
+      },
+      scheduleSave: (present, dirtyRasterIds) => {
+        autosave.scheduleSave(present, dirtyRasterIds, false);
+      },
+      flushRouteLeave: () => autosave.flushRouteLeave(),
+      collectRasterIds,
+    });
+  }, [commitPendingTextEditSync]);
+
+  checkpointBeforeHeavyWorkRef.current = checkpointBeforeHeavyWork;
+
   const onPdfViewChange = useCallback(
     (patch: { currentPage?: number; zoom?: number; panX?: number; panY?: number }) => {
       dispatch({ type: 'setPdfView', ...patch });
@@ -1286,38 +1346,16 @@ export function useEditorController(projectId: string): EditorController {
 
   const onPickPdf = useCallback(
     async (file: File) => {
-      const present = historyRef.current?.present;
-      if (!present) {
-        return;
-      }
-
-      const buffer = await file.arrayBuffer();
-      // pdf.js / OPFS may detach the buffer they receive; keep an owned copy for React state.
-      const owned = buffer.slice(0);
-      const opfsPath = await writeProjectPdf(projectId, owned.slice(0));
-      const nextGeneration = (present.pdf?.generation ?? 0) + 1;
-      if (present.pdf) {
-        dropPdfSession(present.pdf.opfsPath, present.pdf.generation);
-      }
-
-      const extractBytes = new Uint8Array(owned.slice(0));
-      const { pageCount, sourceTextByPage } = await extractPdfSourceText(extractBytes, (data) =>
-        getOrLoadPdfProxy(opfsPath, nextGeneration, data),
-      );
-
-      setPdfBytes(owned);
-      setPdfMissing(false);
-
-      dispatch({
-        type: 'loadPdf',
-        opfsPath,
-        pageCount,
-        sourceTextByPage,
-        generation: nextGeneration,
-        sourceFingerprint: pdfFileFingerprint(file),
+      await importProjectPdf(file, {
+        projectId,
+        getPresent: () => historyRef.current?.present,
+        checkpointBeforeHeavyWork,
+        setPdfBytes,
+        setPdfMissing,
+        dispatch: (action) => dispatch(action),
       });
     },
-    [dispatch, projectId],
+    [checkpointBeforeHeavyWork, dispatch, projectId],
   );
 
   const onExtractPdfText = useCallback(
@@ -1526,6 +1564,8 @@ export function useEditorController(projectId: string): EditorController {
     onPickPdf,
     onExtractPdfText,
     clearPageInk,
+    checkpointBeforeHeavyWork,
+    setTextDraft,
   };
 }
 

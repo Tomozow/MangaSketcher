@@ -42,14 +42,16 @@ function PdfFileInput({
   inputId,
   onPickPdf,
   label,
+  className = styles.pdfPickButton,
 }: {
   inputId: string;
   onPickPdf?: (file: File) => void | Promise<void>;
   label: string;
+  className?: string;
 }) {
   return (
     <>
-      <label htmlFor={inputId} className={styles.pdfPickButton}>
+      <label htmlFor={inputId} className={className}>
         {label}
       </label>
       <input
@@ -156,6 +158,16 @@ export function PdfPane({
       onExtractText={onExtractText}
       onToggleExtractMarkers={onToggleExtractMarkers}
       onToggleExtractSanitizePunctuation={onToggleExtractSanitizePunctuation}
+      navExtra={
+        onPickPdf ? (
+          <PdfFileInput
+            inputId={inputId}
+            onPickPdf={onPickPdf}
+            label="別のPDF"
+            className={styles.pdfNavButton}
+          />
+        ) : null
+      }
     />
   );
 }

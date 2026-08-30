@@ -1,0 +1,26 @@
+[
+  {
+    "path": "A:\\dev\\MangaSketcher\\public\\clip-export-template.clip",
+    "ok": true,
+    "checks": {
+      "magic_and_chunk_map": "ok",
+      "sqlite_extract": "ok (659456 bytes)",
+      "integrity_check": "ok",
+      "external_chunk_offsets": "ok"
+    },
+    "file_size": 853684,
+    "chunk_count": 7
+  },
+  {
+    "path": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E7_from_template.clip",
+    "ok": true,
+    "checks": {
+      "magic_and_chunk_map": "ok",
+      "sqlite_extract": "ok (376832 bytes)",
+      "integrity_check": "ok",
+      "external_chunk_offsets": "ok"
+    },
+    "file_size": 571060,
+    "chunk_count": 7
+  }
+]

@@ -228,6 +228,12 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     ).toEqual({ kind: 'skip', reason: 'not-explicit' });
   });
 
+  test('PDF 表示中は別の PDF を開ける', () => {
+    const pdfPaneSrc = readFileSync(join(here, '../pdf/PdfPane.tsx'), 'utf8');
+    expect(pdfPaneSrc).toContain('別のPDF');
+    expect(pdfPaneSrc).toContain('navExtra');
+  });
+
   test('7. PDF ページ送りで key が変わり、リロードで page/zoom/pan が残る', async () => {
     expect(pdfPageViewerKey('pdfs/a.pdf', 1, 1)).not.toBe(pdfPageViewerKey('pdfs/a.pdf', 2, 1));
 
@@ -267,10 +273,10 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
 
   test('8. 範囲ドロップはルビを落とし原文を残す。1 本指はパンできる', () => {
     const source: PdfTextItem[] = [
-      { str: '本', x: 200, y: 10, width: 12, height: 12, fontSize: 12 },
-      { str: '文', x: 200, y: 24, width: 12, height: 12, fontSize: 12 },
+      { str: '本', x: 200, y: 24, width: 12, height: 12, fontSize: 12 },
+      { str: '文', x: 200, y: 10, width: 12, height: 12, fontSize: 12 },
       { str: 'ほん', x: 212, y: 8, width: 6, height: 6, fontSize: 6, role: 'Ruby' },
-      { str: 'です', x: 180, y: 10, width: 12, height: 12, fontSize: 12 },
+      { str: 'です', x: 180, y: 24, width: 12, height: 12, fontSize: 12 },
     ];
     const before = JSON.stringify(source);
     expect(joinVerticalBody(source)).toBe('本文です');

@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "自動保存の差し込みタイミング",
+    "quality_profile": "showcase",
+    "viewBox": [1400, 720]
+  },
+  "lanes": [
+    { "id": "trigger", "label": "編集トリガー" },
+    { "id": "hook", "label": "差し込み" },
+    { "id": "manager", "label": "AutosaveManager" },
+    { "id": "leave", "label": "即時フラッシュ", "variant": "exception" },
+    { "id": "store", "label": "IndexedDB" }
+  ],
+  "phases": [
+    { "id": "edit", "label": "通常編集", "fromCol": 0, "toCol": 1 },
+    { "id": "wait", "label": "デバウンス", "fromCol": 2, "toCol": 2, "variant": "emphasis" },
+    { "id": "commit", "label": "書き込み / 退避", "fromCol": 3, "toCol": 5 }
+  ],
+  "groups": [
+    { "id": "debounce_group", "label": "遅延保存", "lane": "manager", "fromCol": 2, "toCol": 3, "variant": "emphasis" },
+    { "id": "leave_group", "label": "待ちなし", "lane": "leave", "fromCol": 2, "toCol": 4, "variant": "security" }
+  ],
+  "mainPath": ["edit", "persist", "schedule", "debounce", "execute", "idb"],
+  "nodes": [
+    { "id": "edit", "lane": "trigger", "col": 0, "type": "frontend", "label": "文書編集" },
+    { "id": "ink", "lane": "trigger", "col": 1, "type": "frontend", "label": "インク bake" },
+    { "id": "persist", "lane": "hook", "col": 0, "type": "backend", "label": "persist()" },
+    { "id": "schedule", "lane": "hook", "col": 1, "type": "backend", "label": "scheduleSave" },
+    { "id": "debounce", "lane": "manager", "col": 2, "type": "messagebus", "label": "デバウンス" },
+    { "id": "execute", "lane": "manager", "col": 3, "type": "backend", "label": "executeJob" },
+    { "id": "hidden", "lane": "leave", "col": 2, "type": "security", "label": "pagehide" },
+    { "id": "checkpoint", "lane": "leave", "col": 4, "type": "security", "label": "checkpoint" },
+    { "id": "heavy", "lane": "trigger", "col": 5, "type": "external", "label": "ホームへ" },
+    { "id": "idb", "lane": "store", "col": 5, "type": "database", "label": "IndexedDB" }
+  ],
+  "edges": [
+    { "id": "edit-persist", "from": "edit", "to": "persist" },
+    { "id": "persist-schedule", "from": "persist", "to": "schedule" },
+    { "id": "ink-schedule", "from": "ink", "to": "schedule", "label": "encode / bake" },
+    { "id": "schedule-debounce", "from": "schedule", "to": "debounce" },
+    { "id": "debounce-execute", "from": "debounce", "to": "execute" },
+    { "id": "execute-idb", "from": "execute", "to": "idb", "label": "書き込み", "labelDy": 38 },
+    { "id": "schedule-checkpoint", "from": "schedule", "to": "checkpoint", "variant": "security", "role": "branch" },
+    { "id": "hidden-idb", "from": "hidden", "to": "idb", "label": "メモリ PNG", "variant": "dashed", "role": "async", "route": "bottom-channel" },
+    { "id": "checkpoint-execute", "from": "checkpoint", "to": "execute", "variant": "emphasis" },
+    { "id": "checkpoint-heavy", "from": "checkpoint", "to": "heavy", "role": "return" }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "差し込み",
+      "items": [
+        "persist: dispatch / テキスト / undo / redo",
+        "インク: bake と encode 完了",
+        "800ms 文書、1500ms viewOnly"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "待ちなし",
+      "items": [
+        "flushNow: 切り取り・クリップ・PDF ページ",
+        "checkpoint: ホーム・書き出し・PDF・離脱",
+        "pagehide は convertToBlob しない"
+      ]
+    }
+  ]
+}

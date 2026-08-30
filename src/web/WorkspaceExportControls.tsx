@@ -10,7 +10,6 @@ import {
   EXPORT_DOWNLOAD_LABEL,
   EXPORT_FAILED_MESSAGE,
   EXPORT_SHARE_LABEL,
-  exportWorkspace,
   formatExportProgress,
   revokeExportObjectUrl,
   shareExportFile,
@@ -19,6 +18,8 @@ import {
   type ExportProgress,
   type ObjectUrlTracker,
 } from './export';
+import { runExportGeneration } from './export/runExportGeneration';
+import { ClipExportControls, mergeExportPhases } from './ClipExportControls';
 
 export type ExportUiPhase = 'idle' | 'generating' | 'ready' | 'failed';
 
@@ -26,14 +27,17 @@ type WorkspaceExportControlsProps = {
   doc: EditorDocument;
   inkEngine: InkEngine | null;
   onPhaseChange?: (phase: ExportUiPhase) => void;
+  onBeforeExport?: () => Promise<void>;
 };
 
 export function WorkspaceExportControls({
   doc,
   inkEngine,
   onPhaseChange,
+  onBeforeExport,
 }: WorkspaceExportControlsProps) {
   const [phase, setPhase] = useState<ExportUiPhase>('idle');
+  const [clipPhase, setClipPhase] = useState<ExportUiPhase>('idle');
   const [progress, setProgress] = useState<ExportProgress | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [canShare, setCanShare] = useState(false);
@@ -41,13 +45,13 @@ export function WorkspaceExportControls({
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
 
-  const updatePhase = useCallback(
-    (next: ExportUiPhase) => {
-      setPhase(next);
-      onPhaseChange?.(next);
-    },
-    [onPhaseChange],
-  );
+  const updatePhase = useCallback((next: ExportUiPhase) => {
+    setPhase(next);
+  }, []);
+
+  useEffect(() => {
+    onPhaseChange?.(mergeExportPhases(phase, clipPhase));
+  }, [phase, clipPhase, onPhaseChange]);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -83,7 +87,10 @@ export function WorkspaceExportControls({
     }
 
     try {
-      const exported = await exportWorkspace(doc, inkEngine, {
+      const exported = await runExportGeneration({
+        doc,
+        inkEngine,
+        onBeforeExport,
         signal: abort.signal,
         onProgress: (next) => {
           if (mountedRef.current && !abort.signal.aborted) {
@@ -108,7 +115,7 @@ export function WorkspaceExportControls({
       setProgress(null);
       updatePhase('failed');
     }
-  }, [discardReady, doc, inkEngine, phase, updatePhase]);
+  }, [discardReady, doc, inkEngine, onBeforeExport, phase, updatePhase]);
 
   const handleShare = useCallback(async () => {
     if (!file) {
@@ -173,6 +180,12 @@ export function WorkspaceExportControls({
           {EXPORT_FAILED_MESSAGE}
         </div>
       ) : null}
+      <ClipExportControls
+        doc={doc}
+        inkEngine={inkEngine}
+        onPhaseChange={setClipPhase}
+        onBeforeExport={onBeforeExport}
+      />
     </div>
   );
 }

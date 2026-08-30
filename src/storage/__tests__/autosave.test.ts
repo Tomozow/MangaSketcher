@@ -147,6 +147,107 @@ describe('AutosaveManager', () => {
     manager.dispose();
   });
 
+  test('flushRouteLeave waits for runningJob before starting another executeJob', async () => {
+    vi.useFakeTimers();
+    const db = new MemoryStorageDatabase();
+    let concurrentExecutes = 0;
+    let maxConcurrent = 0;
+    let releaseFirstPut!: () => void;
+    const firstPutGate = new Promise<void>((resolve) => {
+      releaseFirstPut = resolve;
+    });
+    let putDocumentCalls = 0;
+    const originalPutDocument = db.putDocument.bind(db);
+    db.putDocument = async (doc) => {
+      putDocumentCalls += 1;
+      concurrentExecutes += 1;
+      maxConcurrent = Math.max(maxConcurrent, concurrentExecutes);
+      if (putDocumentCalls === 1) {
+        await firstPutGate;
+      }
+      try {
+        return await originalPutDocument(doc);
+      } finally {
+        concurrentExecutes -= 1;
+      }
+    };
+
+    const encoded = new Map<string, ArrayBuffer>([['p1:page:a', new ArrayBuffer(4)]]);
+    const manager = new AutosaveManager({
+      db,
+      getEncodedPng: () => encoded,
+      getDelays: () => ({ documentMs: 50, viewOnlyMs: 50 }),
+    });
+    try {
+      manager.scheduleSave({ ...sampleDoc(), name: 'version-1' }, ['p1:page:a']);
+      await vi.advanceTimersByTimeAsync(50);
+      await Promise.resolve();
+
+      expect(putDocumentCalls).toBe(1);
+      expect(maxConcurrent).toBe(1);
+
+      manager.scheduleSave({ ...sampleDoc(), name: 'version-2' }, ['p1:page:a']);
+      const flushPromise = manager.flushRouteLeave();
+      await Promise.resolve();
+      expect(maxConcurrent).toBe(1);
+
+      releaseFirstPut();
+      await flushPromise;
+
+      expect(maxConcurrent).toBe(1);
+      const loaded = await db.getDocument('p1');
+      expect(loaded?.name).toBe('version-2');
+      expect(manager.getStatus().unsaved).toBe(false);
+    } finally {
+      manager.dispose();
+      vi.useRealTimers();
+    }
+  });
+
+  test('flushRouteLeave coalesces newer scheduleSave that arrives during wait', async () => {
+    vi.useFakeTimers();
+    const db = new MemoryStorageDatabase();
+    let releaseFirstPut!: () => void;
+    const firstPutGate = new Promise<void>((resolve) => {
+      releaseFirstPut = resolve;
+    });
+    let putDocumentCalls = 0;
+    const originalPutDocument = db.putDocument.bind(db);
+    db.putDocument = async (doc) => {
+      putDocumentCalls += 1;
+      if (putDocumentCalls === 1) {
+        await firstPutGate;
+      }
+      return originalPutDocument(doc);
+    };
+
+    const encoded = new Map<string, ArrayBuffer>([['p1:page:a', new ArrayBuffer(4)]]);
+    const manager = new AutosaveManager({
+      db,
+      getEncodedPng: () => encoded,
+      getDelays: () => ({ documentMs: 50, viewOnlyMs: 50 }),
+    });
+    try {
+      manager.scheduleSave({ ...sampleDoc(), name: 'version-1' }, ['p1:page:a']);
+      await vi.advanceTimersByTimeAsync(50);
+      await Promise.resolve();
+
+      const flushPromise = manager.flushRouteLeave();
+      await Promise.resolve();
+
+      manager.scheduleSave({ ...sampleDoc(), name: 'version-3' }, ['p1:page:a']);
+      releaseFirstPut();
+      await flushPromise;
+
+      const loaded = await db.getDocument('p1');
+      expect(loaded?.name).toBe('version-3');
+      expect(manager.getStatus().unsaved).toBe(false);
+    } finally {
+      manager.dispose();
+      vi.useRealTimers();
+    }
+  });
+
   test('document delay を差し替えると、その時間まで IndexedDB へ書かない', async () => {
     vi.useFakeTimers();
     const db = new MemoryStorageDatabase();

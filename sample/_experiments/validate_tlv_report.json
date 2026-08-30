@@ -1,0 +1,16 @@
+[
+  {
+    "path": "A:\\dev\\MangaSketcher\\public\\clip-export-template.clip",
+    "ok": true,
+    "checks": {
+      "skipped": "no E2 expectations"
+    }
+  },
+  {
+    "path": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E7_from_template.clip",
+    "ok": true,
+    "checks": {
+      "skipped": "no E2 expectations"
+    }
+  }
+]

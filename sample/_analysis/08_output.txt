@@ -1,0 +1,194 @@
+========================================================================
+ParamScheme: Layer / Text* columns (_PW_ID is DB column id, NOT TLV id)
+========================================================================
+  _PW_ID= 173  TextLayerType                        DataType=1 Flag=0 OwnerType=0 Lock=1 Link=
+  _PW_ID= 174  TextLayerString                      DataType=4 Flag=0 OwnerType=0 Lock=1 Link=
+  _PW_ID= 175  TextLayerAttributes                  DataType=4 Flag=0 OwnerType=0 Lock=1 Link=
+  _PW_ID= 176  TextLayerStringArray                 DataType=4 Flag=0 OwnerType=0 Lock=1 Link=
+  _PW_ID= 177  TextLayerAttributesArray             DataType=4 Flag=0 OwnerType=0 Lock=1 Link=
+  _PW_ID= 178  TextLayerAddAttributesV01            DataType=4 Flag=0 OwnerType=0 Lock=0 Link=
+  _PW_ID= 179  TextLayerAttributesVersion           DataType=1 Flag=0 OwnerType=0 Lock=0 Link=
+  _PW_ID= 180  TextLayerVersion                     DataType=1 Flag=0 OwnerType=0 Lock=1 Link=
+  _PW_ID= 181  TextLayerNameAutoChangeEnabled       DataType=1 Flag=0 OwnerType=0 Lock=0 Link=
+
+========================================================================
+ElemScheme (table element counts — no TLV labels)
+========================================================================
+  {'_PW_ID': 1, 'TableName': 'Offscreen', 'ElemType': 0, 'MaxIndex': 61}
+  {'_PW_ID': 2, 'TableName': 'VOffscreen', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 3, 'TableName': 'MipmapInfo', 'ElemType': 0, 'MaxIndex': 49}
+  {'_PW_ID': 4, 'TableName': 'Mipmap', 'ElemType': 0, 'MaxIndex': 9}
+  {'_PW_ID': 5, 'TableName': 'LayerThumbnail', 'ElemType': 0, 'MaxIndex': 9}
+  {'_PW_ID': 6, 'TableName': 'Layer', 'ElemType': 4, 'MaxIndex': 9}
+  {'_PW_ID': 7, 'TableName': 'LayerObject', 'ElemType': 8, 'MaxIndex': 0}
+  {'_PW_ID': 8, 'TableName': 'CameraInfo', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 9, 'TableName': 'CameraNodeInfo', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 10, 'TableName': 'CharacterInfo', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 11, 'TableName': 'DessinDollInfo', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 12, 'TableName': 'RoomInfo', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 13, 'TableName': 'SmallObjectInfo', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 14, 'TableName': 'PrimitiveInfo', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 15, 'TableName': 'LightInfo', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 16, 'TableName': 'FolderInfo', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 17, 'TableName': 'VectorObjectList', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 18, 'TableName': 'Manager3D', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 19, 'TableName': 'ModelInfo3D', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 20, 'TableName': 'ModelNodeInfo3D', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 21, 'TableName': 'Manager3DOd', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 22, 'TableName': 'RulerParallel', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 23, 'TableName': 'RulerCurveParallel', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 24, 'TableName': 'RulerMultiCurve', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 25, 'TableName': 'RulerEmit', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 26, 'TableName': 'RulerCurveEmit', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 27, 'TableName': 'RulerConcentricCircle', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 28, 'TableName': 'RulerGuide', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 29, 'TableName': 'RulerVanishPoint', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 30, 'TableName': 'RulerPerspective', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 31, 'TableName': 'RulerSymmetry', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 32, 'TableName': 'SpecialRulerManager', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 33, 'TableName': 'StreamLine', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 34, 'TableName': 'SpeechSynthesis', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 35, 'TableName': 'Canvas', 'ElemType': 2, 'MaxIndex': 2}
+  {'_PW_ID': 36, 'TableName': 'BrushEffectorGraphData', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 37, 'TableName': 'BrushPatternImage', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 38, 'TableName': 'BrushPatternStyle', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 39, 'TableName': 'BrushFixedSpray', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 40, 'TableName': 'BrushStyle', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 41, 'TableName': 'FillStyle', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 42, 'TableName': 'BrushStyleManager', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 43, 'TableName': 'ModelData3D', 'ElemType': 0, 'MaxIndex': 2}
+  {'_PW_ID': 44, 'TableName': 'TimeLapseBlob', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 45, 'TableName': 'TimeLapseRecord', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 46, 'TableName': 'TimeLapseManager', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 47, 'TableName': 'CanvasPreview', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 48, 'TableName': 'CanvasNode', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 49, 'TableName': 'CanvasItem', 'ElemType': 2048, 'MaxIndex': 0}
+  {'_PW_ID': 50, 'TableName': 'CanvasItemBinary', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 51, 'TableName': 'Canvas3DModelLoader', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 52, 'TableName': 'Canvas3DModelBank', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 53, 'TableName': 'CanvasItemBank', 'ElemType': 1024, 'MaxIndex': 0}
+  {'_PW_ID': 54, 'TableName': 'Track', 'ElemType': 4096, 'MaxIndex': 0}
+  {'_PW_ID': 55, 'TableName': 'TimeLineLabel', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 56, 'TableName': 'TimeLine', 'ElemType': 2048, 'MaxIndex': 0}
+  {'_PW_ID': 57, 'TableName': 'SituationCast', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 58, 'TableName': 'SituationSet', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 59, 'TableName': 'Scenario', 'ElemType': 2048, 'MaxIndex': 0}
+  {'_PW_ID': 60, 'TableName': 'AnimationCutBank', 'ElemType': 1024, 'MaxIndex': 0}
+  {'_PW_ID': 61, 'TableName': 'LayerComp', 'ElemType': 2048, 'MaxIndex': 1}
+  {'_PW_ID': 62, 'TableName': 'LayerCompManager', 'ElemType': 1024, 'MaxIndex': 0}
+  {'_PW_ID': 63, 'TableName': 'Project', 'ElemType': 1, 'MaxIndex': 1}
+
+========================================================================
+ParamScheme DataType value distribution (all 1250 rows)
+========================================================================
+  DataType=1: 803 rows
+  DataType=2: 244 rows
+  DataType=3: 103 rows
+  DataType=4: 100 rows
+  (observed: 1=int, 2=float, 3=uuid/text, 4=blob — TLV inner ids are NOT here)
+
+========================================================================
+ClipMerger paramscheme.json TextLayer entries
+========================================================================
+  _PW_ID= 173  TextLayerType
+  _PW_ID= 174  TextLayerString
+  _PW_ID= 175  TextLayerAttributes
+  _PW_ID= 176  TextLayerStringArray
+  _PW_ID= 177  TextLayerAttributesArray
+  _PW_ID= 178  TextLayerAddAttributesV01
+  _PW_ID= 179  TextLayerAttributesVersion
+  _PW_ID= 180  TextLayerVersion
+  _PW_ID= 181  TextLayerNameAutoChangeEnabled
+
+========================================================================
+TLV id inventory from sample text layers
+========================================================================
+  unique TLV ids: [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74]
+  count: 60
+
+  id | guess_name                  | L5 | L6 | L7 | const across layers?
+  --------------------------------------------------------------------
+   11 | CharRunHeader               |   34 |   34 |   64 | VAR
+   12 | RunAttr_U16_0               |   18 |   18 |   18 | VAR
+   13 | FontSizeMmScale             |   34 |   34 |   34 | VAR
+   14 | EmptySlot_14                |    - |    - |    - | CONST
+   15 | EmptySlot_15                |    - |    - |    - | CONST
+   16 | RunAttr_U16_0b              |    - |    - |   18 | VAR
+   17 | EmptySlot_17                |    - |    - |    - | CONST
+   18 | RunAttr_U16_0c              |   18 |   18 |   18 | VAR
+   19 | EmptySlot_19                |    - |    - |    - | CONST
+   20 | RunAttr_U16_0d              |    - |    - |   18 | VAR
+   21 | EmptySlot_21                |    - |    - |    - | CONST
+   22 | EmptySlot_22                |    - |    - |    - | CONST
+   26 | HorzVertScalePct            |   32 |   32 |   32 | VAR
+   27 | EmptySlot_27                |    - |    - |    - | CONST
+   28 | EmptySlot_28                |    - |    - |    - | CONST
+   29 | RunAttr_U16_1               |   18 |   18 |   18 | VAR
+   30 | PerIndexRunTable            |   20 |   20 |  260 | VAR
+   31 | FontNameUtf8                |   25 |   25 |   25 | CONST
+   32 | FontSizeValue               |    4 |    4 |    4 | CONST
+   33 | Const_16                    |    4 |    4 |    4 | CONST
+   34 | TextColorRGBA               |   12 |   12 |   12 | CONST
+   35 | Const_0                     |    4 |    4 |    4 | CONST
+   37 | MmPerPt_x100                |    4 |    4 |    4 | CONST
+   38 | Const_4                     |    4 |    4 |    4 | CONST
+   39 | Utf16CharCount              |    8 |    8 |    8 | VAR
+   40 | EmptySlot_40                |    - |    - |    - | CONST
+   41 | EmptySlot_41                |    - |    - |    - | CONST
+   42 | CanvasBBox                  |   16 |   16 |   16 | VAR
+   43 | Const_50                    |    4 |    4 |    4 | CONST
+   44 | PxPerPt_x1000               |    4 |    4 |    4 | CONST
+   45 | Const_0b                    |    4 |    4 |    4 | CONST
+   46 | Const_0c                    |    4 |    4 |    4 | CONST
+   47 | SubstituteFontList          |   41 |   41 |   41 | CONST
+   48 | Const_1                     |    4 |    4 |    4 | CONST
+   49 | Const_1003                  |    4 |    4 |    4 | CONST
+   50 | FloatCacheOffscreenMainId   |    4 |    4 |    4 | VAR
+   51 | Const_0d                    |    4 |    4 |    4 | CONST
+   52 | Const_1b                    |    4 |    4 |    4 | CONST
+   53 | Const_0e                    |    4 |    4 |    4 | CONST
+   54 | EdgePaddingFlags            |   20 |   20 |   20 | CONST
+   55 | Const_0f                    |    4 |    4 |    4 | CONST
+   56 | ThumbnailLink               |   24 |   24 |   24 | CONST
+   57 | FontFaceDescriptor          |   43 |   43 |   43 | CONST
+   58 | Const_1800                  |    4 |    4 |    4 | CONST
+   59 | Const_900                   |    4 |    4 |    4 | CONST
+   60 | Const_900b                  |    4 |    4 |    4 | CONST
+   61 | Const_0g                    |    4 |    4 |    4 | CONST
+   62 | Const_0h                    |    4 |    4 |    4 | CONST
+   63 | RenderPixelSize             |    8 |    8 |    8 | VAR
+   64 | RenderRectCentiPx           |   32 |   32 |   32 | VAR
+   65 | RunAttr_U16_1b              |   18 |   18 |   18 | VAR
+   66 | Const_0i                    |    4 |    4 |    4 | CONST
+   67 | Const_1000                  |    4 |    4 |    4 | CONST
+   68 | Const_0j                    |    4 |    4 |    4 | CONST
+   69 | Const_0k                    |    4 |    4 |    4 | CONST
+   70 | Const_u64_0                 |    8 |    8 |    8 | CONST
+   71 | Const_f64_384               |    8 |    8 |    8 | CONST
+   72 | CacheWidthField             |    8 |    8 |    8 | VAR
+   73 | Const_1c                    |    4 |    4 |    4 | CONST
+   74 | Const_0l                    |    4 |    4 |    4 | CONST
+
+========================================================================
+Binary string scan: Layer* labels in export_sample.clip
+========================================================================
+  LayerTextLayerAddAttributesV01
+  LayerTextLayerAttributes
+  LayerTextLayerAttributesArray
+  LayerTextLayerAttributesVersion
+  LayerTextLayerNameAutoChangeEnabled
+  LayerTextLayerString
+  LayerTextLayerStringArray
+  LayerTextLayerType
+  LayerTextLayerVersion
+
+  Total LayerTextLayer* strings: 9
+  => DB column names only; no inner TLV enum strings in container.
+
+========================================================================
+CONCLUSION: ParamScheme id <-> TLV id mapping
+========================================================================
+  FAILED for inner TLV ids.
+  ParamScheme._PW_ID indexes Layer TABLE COLUMNS (e.g. _PW_ID=175 -> TextLayerAttributes blob).
+  Inner TLV param_id (11..74) is a separate enum baked into CSP; not present in SQLite metadata.
+  Names in table above are heuristic from byte patterns / cross-layer diffs.

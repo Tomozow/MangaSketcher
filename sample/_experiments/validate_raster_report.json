@@ -1,0 +1,237 @@
+{
+  "path": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E5_bench_check.clip",
+  "ok": true,
+  "checks": {
+    "attribute": {
+      "w": 1518,
+      "h": 2150,
+      "grid_w": 6,
+      "grid_h": 9,
+      "block_sizes": [
+        817,
+        452,
+        452,
+        452,
+        452,
+        774,
+        624,
+        683,
+        452,
+        452,
+        683,
+        570,
+        452,
+        1169,
+        848,
+        905,
+        1033,
+        452,
+        452,
+        1760,
+        453,
+        453,
+        1701,
+        452,
+        1297,
+        1245,
+        1347,
+        453,
+        1679,
+        452,
+        2607,
+        456,
+        2788,
+        894,
+        1504,
+        452,
+        2607,
+        456,
+        2667,
+        452,
+        831,
+        452,
+        1084,
+        460,
+        775,
+        452,
+        496,
+        806,
+        587,
+        452,
+        452,
+        452,
+        452,
+        608
+      ],
+      "block_meta": [
+        12,
+        54,
+        4
+      ]
+    },
+    "block_checksum": "ok",
+    "pixel_samples": [
+      {
+        "label": "corner_tl",
+        "xy": [
+          0,
+          0
+        ],
+        "expected": [
+          0,
+          0,
+          0,
+          255
+        ],
+        "actual": [
+          0,
+          0,
+          0,
+          255
+        ],
+        "match": true
+      },
+      {
+        "label": "corner_br",
+        "xy": [
+          1517,
+          2149
+        ],
+        "expected": [
+          0,
+          0,
+          0,
+          255
+        ],
+        "actual": [
+          0,
+          0,
+          0,
+          255
+        ],
+        "match": true
+      },
+      {
+        "label": "diag1_mid",
+        "xy": [
+          379,
+          537
+        ],
+        "expected": [
+          0,
+          0,
+          0,
+          255
+        ],
+        "actual": [
+          0,
+          0,
+          0,
+          255
+        ],
+        "match": true
+      },
+      {
+        "label": "diag2_mid",
+        "xy": [
+          379,
+          1612
+        ],
+        "expected": [
+          128,
+          128,
+          128,
+          128
+        ],
+        "actual": [
+          128,
+          128,
+          128,
+          128
+        ],
+        "match": true
+      },
+      {
+        "label": "circle_center",
+        "xy": [
+          759,
+          1075
+        ],
+        "expected": [
+          0,
+          0,
+          0,
+          255
+        ],
+        "actual": [
+          0,
+          0,
+          0,
+          255
+        ],
+        "match": true
+      },
+      {
+        "label": "circle_edge_e",
+        "xy": [
+          1213,
+          1075
+        ],
+        "expected": [
+          0,
+          0,
+          0,
+          255
+        ],
+        "actual": [
+          0,
+          0,
+          0,
+          255
+        ],
+        "match": true
+      },
+      {
+        "label": "gray_rect_inside",
+        "xy": [
+          455,
+          1505
+        ],
+        "expected": [
+          128,
+          128,
+          128,
+          128
+        ],
+        "actual": [
+          128,
+          128,
+          128,
+          128
+        ],
+        "match": true
+      },
+      {
+        "label": "transparent_area",
+        "xy": [
+          80,
+          80
+        ],
+        "expected": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "actual": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "match": true
+      }
+    ],
+    "preview_png": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E5_decoded_preview.png"
+  }
+}

@@ -1,0 +1,122 @@
+{
+  "experiment": "E6_v2",
+  "output": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E6_v2.clip",
+  "deletedLayers": [
+    {
+      "layerMainId": 6,
+      "removedOffscreenIds": [
+        32,
+        34,
+        35,
+        36,
+        37,
+        38,
+        33,
+        39
+      ]
+    },
+    {
+      "layerMainId": 7,
+      "removedOffscreenIds": [
+        40,
+        42,
+        43,
+        44,
+        45,
+        46,
+        41,
+        47
+      ]
+    }
+  ],
+  "clones": [
+    {
+      "newMainId": 10,
+      "layerName": "クローン一号",
+      "prototypeMainId": 5,
+      "charCount": 6,
+      "lineCount": 1,
+      "bbox": {
+        "left": 1167,
+        "top": 300,
+        "right": 1200,
+        "bottom": 498,
+        "width": 33,
+        "height": 198
+      },
+      "anchor": {
+        "right": 1200,
+        "top": 300
+      },
+      "fontSizePt": 8
+    },
+    {
+      "newMainId": 11,
+      "layerName": "二行目も ある長文テキスト",
+      "prototypeMainId": 6,
+      "charCount": 14,
+      "lineCount": 2,
+      "bbox": {
+        "left": 609,
+        "top": 800,
+        "right": 700,
+        "bottom": 1066,
+        "width": 91,
+        "height": 266
+      },
+      "anchor": {
+        "right": 700,
+        "top": 800
+      },
+      "fontSizePt": 8
+    },
+    {
+      "newMainId": 12,
+      "layerName": "大きい字",
+      "prototypeMainId": 5,
+      "charCount": 4,
+      "lineCount": 1,
+      "bbox": {
+        "left": 334,
+        "top": 1400,
+        "right": 400,
+        "bottom": 1664,
+        "width": 66,
+        "height": 264
+      },
+      "anchor": {
+        "right": 400,
+        "top": 1400
+      },
+      "fontSizePt": 16
+    },
+    {
+      "newMainId": 13,
+      "layerName": "一行目 二行目 三行目",
+      "prototypeMainId": 7,
+      "charCount": 13,
+      "lineCount": 3,
+      "bbox": {
+        "left": 753,
+        "top": 1100,
+        "right": 900,
+        "bottom": 1201,
+        "width": 147,
+        "height": 101
+      },
+      "anchor": {
+        "right": 900,
+        "top": 1100
+      },
+      "fontSizePt": 8
+    }
+  ],
+  "canvasCurrentLayer": 8,
+  "layerSelect": 8,
+  "extaCount": 7,
+  "externalChunkOffsetCheck": {
+    "ok": true,
+    "mismatches": []
+  },
+  "sqliteSize": 557056
+}

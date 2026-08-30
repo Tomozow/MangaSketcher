@@ -1,0 +1,86 @@
+[
+  {
+    "experiment": "E2a_len_change_synced.clip",
+    "output": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E2a_len_change_synced.clip",
+    "intendedText": "かきくけこさしすせそ",
+    "readBackText": "かきくけこさしすせそ",
+    "meta": {
+      "charCount": 10,
+      "bbox": {
+        "left": 918,
+        "top": 509,
+        "right": 951,
+        "bottom": 1309
+      }
+    },
+    "externalChunkOffsetCheck": {
+      "ok": true,
+      "mismatches": []
+    },
+    "extaCount": 12,
+    "sqliteSize": 544768
+  },
+  {
+    "experiment": "E2b_moved.clip",
+    "output": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E2b_moved.clip",
+    "intendedText": "あいうえお",
+    "readBackText": "あいうえお",
+    "meta": {
+      "bbox": {
+        "left": 618,
+        "top": 909,
+        "right": 651,
+        "bottom": 1074
+      },
+      "positionDelta": {
+        "x": -300,
+        "y": 400
+      }
+    },
+    "externalChunkOffsetCheck": {
+      "ok": true,
+      "mismatches": []
+    },
+    "extaCount": 12,
+    "sqliteSize": 544768
+  },
+  {
+    "experiment": "E2c_fontsize.clip",
+    "output": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E2c_fontsize.clip",
+    "intendedText": "あいうえお",
+    "readBackText": "あいうえお",
+    "meta": {
+      "fontSizePt": 16,
+      "fontSizeValue": 794,
+      "bbox": {
+        "left": 885,
+        "top": 509,
+        "right": 951,
+        "bottom": 839
+      }
+    },
+    "externalChunkOffsetCheck": {
+      "ok": true,
+      "mismatches": []
+    },
+    "extaCount": 12,
+    "sqliteSize": 544768
+  },
+  {
+    "experiment": "E2d_no_cache.clip",
+    "output": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E2d_no_cache.clip",
+    "intendedText": "かきくけこ",
+    "readBackText": "かきくけこ",
+    "meta": {
+      "charCount": 5,
+      "floatCacheOffscreenId": 0,
+      "removedOffscreenMainId": 31
+    },
+    "externalChunkOffsetCheck": {
+      "ok": true,
+      "mismatches": []
+    },
+    "extaCount": 11,
+    "sqliteSize": 544768
+  }
+]

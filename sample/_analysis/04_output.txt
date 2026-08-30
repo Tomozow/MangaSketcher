@@ -1,0 +1,372 @@
+=== ExternalTableAndColumnName ===
+  {'TableName': 'Offscreen', 'ColumnName': 'BlockData'}
+  {'TableName': 'VectorObjectList', 'ColumnName': 'VectorData'}
+  {'TableName': 'Canvas3DModelBank', 'ColumnName': 'BankData'}
+  {'TableName': 'Canvas3DModelLoader', 'ColumnName': 'ModelData'}
+  {'TableName': 'Track', 'ColumnName': 'TrackActionMixer'}
+  {'TableName': 'Track', 'ColumnName': 'TrackActionMixer2'}
+  {'TableName': 'CanvasItemBinary', 'ColumnName': 'ItemBinaryData'}
+  {'TableName': 'Manager3DOd', 'ColumnName': 'SceneData'}
+  {'TableName': 'ModelData3D', 'ColumnName': 'Layer3DModelData'}
+  {'TableName': 'TimeLapseBlob', 'ColumnName': 'BlobData'}
+
+=== Offscreen table columns ===
+_PW_ID, MainId, CanvasId, LayerId, Attribute, BlockData
+=== Mipmap columns ===
+_PW_ID, MainId, CanvasId, LayerId, MipmapCount, BaseMipmapInfo
+=== MipmapInfo columns ===
+_PW_ID, MainId, CanvasId, LayerId, ThisScale, Offscreen, NextIndex
+
+=== Layer 2 '' (type=256) ===
+  [render] Mipmap MainId=2 MipmapCount=6 BaseMipmapInfo=2
+    L0: MipmapInfo=2 scale=100.0 -> Offscreen=3 w=1518 h=2150 grid=6x9 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid7207F0D0824747689647EC0638CD626F (in CHNKExta: False, body=0B) blocks=54 nonzero_blocks=54
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L1: MipmapInfo=9 scale=50.0 -> Offscreen=12 w=759 h=1075 grid=3x5 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidD94E091FB34045E58F950DB8AE44DF5B (in CHNKExta: False, body=0B) blocks=15 nonzero_blocks=15
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L2: MipmapInfo=10 scale=25.0 -> Offscreen=13 w=379 h=537 grid=2x3 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid9C8309E549714C2598AA19F70A8159C5 (in CHNKExta: False, body=0B) blocks=6 nonzero_blocks=6
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L3: MipmapInfo=11 scale=12.5 -> Offscreen=14 w=189 h=268 grid=1x2 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidA91CF998CE334DD99A9B28624752FD4E (in CHNKExta: False, body=0B) blocks=2 nonzero_blocks=2
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L4: MipmapInfo=12 scale=6.25 -> Offscreen=15 w=94 h=134 grid=1x1 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid753D2850B4304F56A33DABFA5C2DFC27 (in CHNKExta: False, body=0B) blocks=1 nonzero_blocks=1
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L5: MipmapInfo=13 scale=3.125 -> Offscreen=16 w=47 h=67 grid=1x1 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidA61A633D2FA447BE836E34BCC2710805 (in CHNKExta: False, body=0B) blocks=1 nonzero_blocks=1
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+
+=== Layer 3 'page_template' (type=1) ===
+  [render] Mipmap MainId=3 MipmapCount=6 BaseMipmapInfo=3
+    L0: MipmapInfo=3 scale=100.0 -> Offscreen=5 w=1518 h=2150 grid=6x9 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidB67B525BAB4B455EBE254C917AD141AA (in CHNKExta: True, body=247104B) blocks=54 nonzero_blocks=54
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L1: MipmapInfo=4 scale=50.0 -> Offscreen=7 w=759 h=1075 grid=3x5 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid05CAC68146AA4E21B857F25E534BD37A (in CHNKExta: False, body=0B) blocks=15 nonzero_blocks=15
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L2: MipmapInfo=5 scale=25.0 -> Offscreen=8 w=379 h=537 grid=2x3 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid80D7A8B5DFE349A9B87EBF65B2E73866 (in CHNKExta: False, body=0B) blocks=6 nonzero_blocks=6
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L3: MipmapInfo=6 scale=12.5 -> Offscreen=9 w=189 h=268 grid=1x2 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidE0F15A938F8E45A9A361F2BE55627718 (in CHNKExta: False, body=0B) blocks=2 nonzero_blocks=2
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L4: MipmapInfo=7 scale=6.25 -> Offscreen=10 w=94 h=134 grid=1x1 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidE3DD936D21F24981BAA39CAA9D587303 (in CHNKExta: False, body=0B) blocks=1 nonzero_blocks=1
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L5: MipmapInfo=8 scale=3.125 -> Offscreen=11 w=47 h=67 grid=1x1 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid90BF72E2A09342CC9F11BF51E64498A8 (in CHNKExta: False, body=0B) blocks=1 nonzero_blocks=1
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+
+=== Layer 5 'あいうえお' (type=0) ===
+  [render] Mipmap MainId=5 MipmapCount=6 BaseMipmapInfo=20
+    L0: MipmapInfo=20 scale=100.0 -> Offscreen=24 w=1518 h=2150 grid=6x9 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D (in CHNKExta: False, body=0B) blocks=54 nonzero_blocks=54
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L1: MipmapInfo=21 scale=50.0 -> Offscreen=26 w=759 h=1075 grid=3x5 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid8E1172744D36418D879F426C6BE5ED4B (in CHNKExta: False, body=0B) blocks=15 nonzero_blocks=15
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L2: MipmapInfo=22 scale=25.0 -> Offscreen=27 w=379 h=537 grid=2x3 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidFFBD3511FE5644EAA69143F74D98EB3B (in CHNKExta: False, body=0B) blocks=6 nonzero_blocks=6
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L3: MipmapInfo=23 scale=12.5 -> Offscreen=28 w=189 h=268 grid=1x2 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid4E5E8ECC7E224226A36CB9E8016915CC (in CHNKExta: False, body=0B) blocks=2 nonzero_blocks=2
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L4: MipmapInfo=24 scale=6.25 -> Offscreen=29 w=94 h=134 grid=1x1 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF (in CHNKExta: False, body=0B) blocks=1 nonzero_blocks=1
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L5: MipmapInfo=25 scale=3.125 -> Offscreen=30 w=47 h=67 grid=1x1 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid3D689D9AFD56438B9B0C372376BAA614 (in CHNKExta: False, body=0B) blocks=1 nonzero_blocks=1
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+
+=== Layer 6 'こんにちは さようなら' (type=0) ===
+  [render] Mipmap MainId=6 MipmapCount=6 BaseMipmapInfo=26
+    L0: MipmapInfo=26 scale=100.0 -> Offscreen=32 w=1518 h=2150 grid=6x9 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid928C67D383524C14BAE3805AC236B5C5 (in CHNKExta: False, body=0B) blocks=54 nonzero_blocks=54
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L1: MipmapInfo=27 scale=50.0 -> Offscreen=34 w=759 h=1075 grid=3x5 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidEB5B6202F25B481EB90DD91DCD3BC55A (in CHNKExta: False, body=0B) blocks=15 nonzero_blocks=15
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L2: MipmapInfo=28 scale=25.0 -> Offscreen=35 w=379 h=537 grid=2x3 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidA49B5463D77E4B0D97F5920F82F2C15C (in CHNKExta: False, body=0B) blocks=6 nonzero_blocks=6
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L3: MipmapInfo=29 scale=12.5 -> Offscreen=36 w=189 h=268 grid=1x2 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidE5D71B9D93E449899A49985C69039118 (in CHNKExta: False, body=0B) blocks=2 nonzero_blocks=2
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L4: MipmapInfo=30 scale=6.25 -> Offscreen=37 w=94 h=134 grid=1x1 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid397D9C4D0C5546F5AA5DA744F8273B39 (in CHNKExta: False, body=0B) blocks=1 nonzero_blocks=1
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L5: MipmapInfo=31 scale=3.125 -> Offscreen=38 w=47 h=67 grid=1x1 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid388F7DBB142640878997E8976B416D1E (in CHNKExta: False, body=0B) blocks=1 nonzero_blocks=1
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+
+=== Layer 7 'てすとてすとてすとてすと てすとてすとてすとてすと てすとてすとてすとてすと てすとてすとてすとてすと' (type=0) ===
+  [render] Mipmap MainId=7 MipmapCount=6 BaseMipmapInfo=32
+    L0: MipmapInfo=32 scale=100.0 -> Offscreen=40 w=1518 h=2150 grid=6x9 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidF7D1FD3FADAA4E89B759349B201C23E8 (in CHNKExta: False, body=0B) blocks=54 nonzero_blocks=54
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L1: MipmapInfo=33 scale=50.0 -> Offscreen=42 w=759 h=1075 grid=3x5 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid6B69C83526204054BEA044481F3FE0C7 (in CHNKExta: False, body=0B) blocks=15 nonzero_blocks=15
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L2: MipmapInfo=34 scale=25.0 -> Offscreen=43 w=379 h=537 grid=2x3 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid315C13D7E3334975A45B058DCC4E9FD1 (in CHNKExta: False, body=0B) blocks=6 nonzero_blocks=6
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L3: MipmapInfo=35 scale=12.5 -> Offscreen=44 w=189 h=268 grid=1x2 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidCE42DA2AE426496DAB1D781E760448A0 (in CHNKExta: False, body=0B) blocks=2 nonzero_blocks=2
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L4: MipmapInfo=36 scale=6.25 -> Offscreen=45 w=94 h=134 grid=1x1 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid1B8FC18ABF0D43FDAAF4347C8B68BF7A (in CHNKExta: False, body=0B) blocks=1 nonzero_blocks=1
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L5: MipmapInfo=37 scale=3.125 -> Offscreen=46 w=47 h=67 grid=1x1 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid3048B5BD48BC4F3E84ADE263868C5FBF (in CHNKExta: False, body=0B) blocks=1 nonzero_blocks=1
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+
+=== Layer 8 '線画' (type=1) ===
+  [render] Mipmap MainId=8 MipmapCount=6 BaseMipmapInfo=38
+    L0: MipmapInfo=38 scale=100.0 -> Offscreen=48 w=1518 h=2150 grid=6x9 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidC39752E934E847509B647C0EE8262DD8 (in CHNKExta: True, body=60672B) blocks=54 nonzero_blocks=54
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L1: MipmapInfo=39 scale=50.0 -> Offscreen=50 w=759 h=1075 grid=3x5 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidBC18B4D795F94EFD868BC3858C709481 (in CHNKExta: False, body=0B) blocks=15 nonzero_blocks=15
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L2: MipmapInfo=40 scale=25.0 -> Offscreen=51 w=379 h=537 grid=2x3 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidA5AE2D35CBE44D80910FE48E4B79F5B2 (in CHNKExta: False, body=0B) blocks=6 nonzero_blocks=6
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L3: MipmapInfo=41 scale=12.5 -> Offscreen=52 w=189 h=268 grid=1x2 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidBFE192014ED540CD84E519DF82CC4A2D (in CHNKExta: False, body=0B) blocks=2 nonzero_blocks=2
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L4: MipmapInfo=42 scale=6.25 -> Offscreen=53 w=94 h=134 grid=1x1 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid36EE3B08F99046B99785138412E0A64A (in CHNKExta: False, body=0B) blocks=1 nonzero_blocks=1
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L5: MipmapInfo=43 scale=3.125 -> Offscreen=54 w=47 h=67 grid=1x1 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid6402C5922F404BCFB92A15C343BA330C (in CHNKExta: False, body=0B) blocks=1 nonzero_blocks=1
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+
+=== Layer 9 'テキスト' (type=0) ===
+  [render] Mipmap MainId=9 MipmapCount=6 BaseMipmapInfo=44
+    L0: MipmapInfo=44 scale=100.0 -> Offscreen=55 w=1518 h=2150 grid=6x9 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidA73300E5C60A441E8E281685C28431BE (in CHNKExta: False, body=0B) blocks=54 nonzero_blocks=54
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L1: MipmapInfo=45 scale=50.0 -> Offscreen=57 w=759 h=1075 grid=3x5 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid985FA4816F4745B6B6579C53CDF75467 (in CHNKExta: False, body=0B) blocks=15 nonzero_blocks=15
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L2: MipmapInfo=46 scale=25.0 -> Offscreen=58 w=379 h=537 grid=2x3 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid3EDA8E05DA6E4FF09B754C5C8E1B5359 (in CHNKExta: False, body=0B) blocks=6 nonzero_blocks=6
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L3: MipmapInfo=47 scale=12.5 -> Offscreen=59 w=189 h=268 grid=1x2 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid0A07CFFB1C9B4372AEA0AAC82DD96324 (in CHNKExta: False, body=0B) blocks=2 nonzero_blocks=2
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L4: MipmapInfo=48 scale=6.25 -> Offscreen=60 w=94 h=134 grid=1x1 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlid8353B634B6A140AFA4AB68D394E825EA (in CHNKExta: False, body=0B) blocks=1 nonzero_blocks=1
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+    L5: MipmapInfo=49 scale=3.125 -> Offscreen=61 w=47 h=67 grid=1x1 p4..9=(33, 1, 4, 5, 65536, 4)
+        BlockData=extrnlidEDB48B26579E4BA9A24504A02406B28E (in CHNKExta: False, body=0B) blocks=1 nonzero_blocks=1
+        attr.parameter[10:20]=(1024, 1, 256, 65536, 256, 256, 8, 8, 0, 0)
+        InitColor payload (20B): 0000001400000000000000000000000000000004
+
+=== external chunk block structure ===
+--- extrnlid5ABB6410003A40949E51DF48E83BB456: body 528B, 4 BlockDataBeginChunk entries
+    {'offset_in_body': 0, 'index': 0, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 104, 'index': 1, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 208, 'index': 2, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 312, 'index': 3, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    tail label BlockStatus at 420, count=4
+    tail label BlockCheckSum at 474, count=4
+
+--- extrnlidB67B525BAB4B455EBE254C917AD141AA: body 247104B, 54 BlockDataBeginChunk entries
+    {'offset_in_body': 0, 'index': 0, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 1, 'outer_len_be': 5023, 'inner_len_le': 5019, 'zlib_off': 74}
+    {'offset_in_body': 5131, 'index': 1, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 1, 'outer_len_be': 1688, 'inner_len_le': 1684, 'zlib_off': 5205}
+    {'offset_in_body': 6927, 'index': 2, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 1, 'outer_len_be': 3138, 'inner_len_le': 3134, 'zlib_off': 7001}
+    {'offset_in_body': 10173, 'index': 3, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 1, 'outer_len_be': 1930, 'inner_len_le': 1926, 'zlib_off': 10247}
+    ... 50 more blocks
+    zlib OK: inner 5019B -> raw 327680B (256x256 => 5.00 bytes/px), uncomp_field=327680
+      plane0 (alpha?) min=255 max=255 nonzero=65536
+      plane1 first 32B: ffffff00ffffff00ffffff00ffffff00ffffff00ffffff00ffffff00ffffff00
+    tail label BlockStatus at 246596, count=54
+    tail label BlockCheckSum at 246850, count=54
+
+--- extrnlidE5A9E645332242E1831F2CEEA9A7C9E7: body 5474B, 4 BlockDataBeginChunk entries
+    {'offset_in_body': 0, 'index': 0, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 104, 'index': 1, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 1, 'outer_len_be': 4942, 'inner_len_le': 4938, 'zlib_off': 178}
+    {'offset_in_body': 5154, 'index': 2, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 5258, 'index': 3, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    zlib OK: inner 4938B -> raw 327680B (256x256 => 5.00 bytes/px), uncomp_field=327680
+      plane0 (alpha?) min=0 max=255 nonzero=11904
+      plane1 first 32B: 0000000000000000000000000000000000000000000000000000000000000000
+    tail label BlockStatus at 5366, count=4
+    tail label BlockCheckSum at 5420, count=4
+
+--- extrnlidC39752E934E847509B647C0EE8262DD8: body 60672B, 54 BlockDataBeginChunk entries
+    {'offset_in_body': 0, 'index': 0, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 104, 'index': 1, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 208, 'index': 2, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 312, 'index': 3, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    ... 50 more blocks
+    zlib OK: inner 2652B -> raw 327680B (256x256 => 5.00 bytes/px), uncomp_field=327680
+      plane0 (alpha?) min=0 max=255 nonzero=1405
+      plane1 first 32B: 0000000000000000000000000000000000000000000000000000000000000000
+    tail label BlockStatus at 60164, count=54
+    tail label BlockCheckSum at 60418, count=54
+
+--- extrnlid99AF81789A6841B3950D67A7B2A7CA5A: body 7660B, 4 BlockDataBeginChunk entries
+    {'offset_in_body': 0, 'index': 0, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 104, 'index': 1, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 1, 'outer_len_be': 7128, 'inner_len_le': 7124, 'zlib_off': 178}
+    {'offset_in_body': 7340, 'index': 2, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 7444, 'index': 3, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    zlib OK: inner 7124B -> raw 327680B (256x256 => 5.00 bytes/px), uncomp_field=327680
+      plane0 (alpha?) min=0 max=237 nonzero=1776
+      plane1 first 32B: 0000000000000000000000000000000000000000000000000000000000000000
+    tail label BlockStatus at 7552, count=4
+    tail label BlockCheckSum at 7606, count=4
+
+--- extrnlidD046B341A6B44296897C35F3FE3055D8: body 528B, 4 BlockDataBeginChunk entries
+    {'offset_in_body': 0, 'index': 0, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 104, 'index': 1, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 208, 'index': 2, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 312, 'index': 3, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    tail label BlockStatus at 420, count=4
+    tail label BlockCheckSum at 474, count=4
+
+--- extrnlid60EB043A38CF477CA5C6E7A06B3FA29D: body 5458B, 4 BlockDataBeginChunk entries
+    {'offset_in_body': 0, 'index': 0, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 104, 'index': 1, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 1, 'outer_len_be': 4926, 'inner_len_le': 4922, 'zlib_off': 178}
+    {'offset_in_body': 5138, 'index': 2, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 5242, 'index': 3, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    zlib OK: inner 4922B -> raw 327680B (256x256 => 5.00 bytes/px), uncomp_field=327680
+      plane0 (alpha?) min=0 max=255 nonzero=1271
+      plane1 first 32B: 0000000000000000000000000000000000000000000000000000000000000000
+    tail label BlockStatus at 5350, count=4
+    tail label BlockCheckSum at 5404, count=4
+
+--- extrnlidA44814613CD6406EA6B5C53D079FC420: body 3013B, 1 BlockDataBeginChunk entries
+    {'offset_in_body': 0, 'index': 0, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 1, 'outer_len_be': 2817, 'inner_len_le': 2813, 'zlib_off': 74}
+    zlib OK: inner 2813B -> raw 327680B (256x256 => 5.00 bytes/px), uncomp_field=327680
+      plane0 (alpha?) min=0 max=255 nonzero=1394
+      plane1 first 32B: 0000000000000000000000000000000000000000000000000000000000000000
+    tail label BlockStatus at 2929, count=1
+    tail label BlockCheckSum at 2971, count=1
+
+--- extrnlidC36AE644D5EC4F0AB27E97E89C60CBE4: body 8903B, 4 BlockDataBeginChunk entries
+    {'offset_in_body': 0, 'index': 0, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 104, 'index': 1, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 1, 'outer_len_be': 8371, 'inner_len_le': 8367, 'zlib_off': 178}
+    {'offset_in_body': 8583, 'index': 2, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 8687, 'index': 3, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    zlib OK: inner 8367B -> raw 327680B (256x256 => 5.00 bytes/px), uncomp_field=327680
+      plane0 (alpha?) min=0 max=255 nonzero=2498
+      plane1 first 32B: 0000000000000000000000000000000000000000000000000000000000000000
+    tail label BlockStatus at 8795, count=4
+    tail label BlockCheckSum at 8849, count=4
+
+--- extrnlid1C60B3BC68BD4236B94A0E1627F94036: body 4336B, 1 BlockDataBeginChunk entries
+    {'offset_in_body': 0, 'index': 0, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 1, 'outer_len_be': 4140, 'inner_len_le': 4136, 'zlib_off': 74}
+    zlib OK: inner 4136B -> raw 327680B (256x256 => 5.00 bytes/px), uncomp_field=327680
+      plane0 (alpha?) min=0 max=255 nonzero=2554
+      plane1 first 32B: 0000000000000000000000000000000000000000000000000000000000000000
+    tail label BlockStatus at 4252, count=1
+    tail label BlockCheckSum at 4294, count=1
+
+--- extrnlidA4F04453F9CA496D8EDEBF400643FE2B: body 9689B, 4 BlockDataBeginChunk entries
+    {'offset_in_body': 0, 'index': 0, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 104, 'index': 1, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 1, 'outer_len_be': 9157, 'inner_len_le': 9153, 'zlib_off': 178}
+    {'offset_in_body': 9369, 'index': 2, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    {'offset_in_body': 9473, 'index': 3, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 0}
+    zlib OK: inner 9153B -> raw 327680B (256x256 => 5.00 bytes/px), uncomp_field=327680
+      plane0 (alpha?) min=0 max=247 nonzero=2881
+      plane1 first 32B: 0000000000000000000000000000000000000000000000000000000000000000
+    tail label BlockStatus at 9581, count=4
+    tail label BlockCheckSum at 9635, count=4
+
+--- extrnlid42616F27333A4431B32F940EC41CDC1D: body 10744B, 2 BlockDataBeginChunk entries
+    {'offset_in_body': 0, 'index': 0, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 1, 'outer_len_be': 5927, 'inner_len_le': 5923, 'zlib_off': 74}
+    {'offset_in_body': 6035, 'index': 1, 'uncompressed_len_field': 327680, 'block_h': 256, 'block_w': 256, 'has_data': 1, 'outer_len_be': 4505, 'inner_len_le': 4501, 'zlib_off': 6109}
+    zlib OK: inner 5923B -> raw 327680B (256x256 => 5.00 bytes/px), uncomp_field=327680
+      plane0 (alpha?) min=0 max=255 nonzero=7312
+      plane1 first 32B: 0000000000000000000000000000000000000000000000000000000000000000
+    tail label BlockStatus at 10652, count=2
+    tail label BlockCheckSum at 10698, count=2
+
+=== CanvasPreview ===
+  {'_PW_ID': 1, 'MainId': 1, 'CanvasId': 2, 'ImageType': 1, 'ImageWidth': 1518, 'ImageHeight': 2150, 'ImageData': 'blob[300126] head=89504e470d0a1a0a0000000d49484452'}
+
+=== ParamScheme (version / schema related rows) ===
+  columns: ['_PW_ID', 'TableName', 'LabelName', 'DataType', 'Flag', 'OwnerType', 'LockType', 'LockSpecified', 'AlternativeLockType', 'AlternativeLockSpecified', 'LinkTable']
+  first 5 rows:
+    {'_PW_ID': 1, 'TableName': 'Offscreen', 'LabelName': 'CanvasId', 'DataType': 1, 'Flag': 0, 'OwnerType': 2, 'LockType': 2, 'LockSpecified': 0, 'AlternativeLockType': None, 'AlternativeLockSpecified': None, 'LinkTable': ''}
+    {'_PW_ID': 2, 'TableName': 'Offscreen', 'LabelName': 'LayerId', 'DataType': 1, 'Flag': 0, 'OwnerType': 4, 'LockType': 2, 'LockSpecified': 0, 'AlternativeLockType': None, 'AlternativeLockSpecified': None, 'LinkTable': ''}
+    {'_PW_ID': 3, 'TableName': 'Offscreen', 'LabelName': 'Attribute', 'DataType': 4, 'Flag': 0, 'OwnerType': 0, 'LockType': 1, 'LockSpecified': 0, 'AlternativeLockType': None, 'AlternativeLockSpecified': None, 'LinkTable': ''}
+    {'_PW_ID': 4, 'TableName': 'Offscreen', 'LabelName': 'BlockData', 'DataType': 4, 'Flag': 0, 'OwnerType': 0, 'LockType': 1, 'LockSpecified': 0, 'AlternativeLockType': None, 'AlternativeLockSpecified': None, 'LinkTable': ''}
+    {'_PW_ID': 5, 'TableName': 'VOffscreen', 'LabelName': 'CanvasId', 'DataType': 1, 'Flag': 0, 'OwnerType': 2, 'LockType': 2, 'LockSpecified': 0, 'AlternativeLockType': None, 'AlternativeLockSpecified': None, 'LinkTable': ''}
+  {'_PW_ID': 179, 'TableName': 'Layer', 'LabelName': 'TextLayerAttributesVersion', 'DataType': 1, 'Flag': 0, 'OwnerType': 0, 'LockType': 0, 'LockSpecified': 0, 'AlternativeLockType': None, 'AlternativeLockSpecified': None, 'LinkTable': ''}
+  {'_PW_ID': 180, 'TableName': 'Layer', 'LabelName': 'TextLayerVersion', 'DataType': 1, 'Flag': 0, 'OwnerType': 0, 'LockType': 1, 'LockSpecified': 0, 'AlternativeLockType': None, 'AlternativeLockSpecified': None, 'LinkTable': ''}
+  {'_PW_ID': 1031, 'TableName': 'CanvasItem', 'LabelName': 'ItemVersion', 'DataType': 1, 'Flag': 0, 'OwnerType': 0, 'LockType': 0, 'LockSpecified': 0, 'AlternativeLockType': None, 'AlternativeLockSpecified': None, 'LinkTable': ''}
+  {'_PW_ID': 1160, 'TableName': 'Project', 'LabelName': 'ProjectInternalVersion', 'DataType': 3, 'Flag': 0, 'OwnerType': 0, 'LockType': 0, 'LockSpecified': 0, 'AlternativeLockType': None, 'AlternativeLockSpecified': None, 'LinkTable': ''}
+
+=== ElemScheme sample (first 10) ===
+  {'_PW_ID': 1, 'TableName': 'Offscreen', 'ElemType': 0, 'MaxIndex': 61}
+  {'_PW_ID': 2, 'TableName': 'VOffscreen', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 3, 'TableName': 'MipmapInfo', 'ElemType': 0, 'MaxIndex': 49}
+  {'_PW_ID': 4, 'TableName': 'Mipmap', 'ElemType': 0, 'MaxIndex': 9}
+  {'_PW_ID': 5, 'TableName': 'LayerThumbnail', 'ElemType': 0, 'MaxIndex': 9}
+  {'_PW_ID': 6, 'TableName': 'Layer', 'ElemType': 4, 'MaxIndex': 9}
+  {'_PW_ID': 7, 'TableName': 'LayerObject', 'ElemType': 8, 'MaxIndex': 0}
+  {'_PW_ID': 8, 'TableName': 'CameraInfo', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 9, 'TableName': 'CameraNodeInfo', 'ElemType': 0, 'MaxIndex': 0}
+  {'_PW_ID': 10, 'TableName': 'CharacterInfo', 'ElemType': 0, 'MaxIndex': 0}
+
+=== sqlite_sequence ===
+  {'name': 'Project', 'seq': 1}
+  {'name': 'CanvasItemBank', 'seq': 1}
+  {'name': 'Canvas', 'seq': 1}
+  {'name': 'CanvasPreview', 'seq': 1}
+  {'name': 'Layer', 'seq': 7}
+  {'name': 'Mipmap', 'seq': 7}
+  {'name': 'MipmapInfo', 'seq': 42}
+  {'name': 'Offscreen', 'seq': 52}
+  {'name': 'LayerThumbnail', 'seq': 7}
+  {'name': 'AnimationCutBank', 'seq': 1}
+  {'name': 'LayerCompManager', 'seq': 1}
+  {'name': 'LayerComp', 'seq': 1}
+  {'name': 'ParamScheme', 'seq': 1250}
+  {'name': 'ElemScheme', 'seq': 63}

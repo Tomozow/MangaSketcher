@@ -1,0 +1,3403 @@
+{
+  "experiments": {
+    "E1a_samelen": {
+      "files": {
+        "original": "A:\\dev\\MangaSketcher\\sample\\export_sample.clip",
+        "generated": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E1a_samelen.clip",
+        "user": "A:\\dev\\MangaSketcher\\sample\\_experiments\\user\\E1a_samelen.clip"
+      },
+      "metrics": {
+        "original": {
+          "text": "あいうえお",
+          "utf16": 5,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 5,
+          "bbox": [
+            918,
+            509,
+            951,
+            674
+          ],
+          "id50": 31,
+          "size63": [
+            33,
+            165
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            16500,
+            -3300,
+            16500
+          ],
+          "id72": [
+            33,
+            0
+          ],
+          "pitch_px_per_char": 33.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid8E1172744D36418D879F426C6BE5ED4B"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlidFFBD3511FE5644EAA69143F74D98EB3B"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlid4E5E8ECC7E224226A36CB9E8016915CC"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid3D689D9AFD56438B9B0C372376BAA614"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlidA44814613CD6406EA6B5C53D079FC420"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 102185
+        },
+        "generated": {
+          "text": "かきくけこ",
+          "utf16": 5,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 5,
+          "bbox": [
+            918,
+            509,
+            951,
+            674
+          ],
+          "id50": 31,
+          "size63": [
+            33,
+            165
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            16500,
+            -3300,
+            16500
+          ],
+          "id72": [
+            33,
+            0
+          ],
+          "pitch_px_per_char": 33.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid8E1172744D36418D879F426C6BE5ED4B"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlidFFBD3511FE5644EAA69143F74D98EB3B"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlid4E5E8ECC7E224226A36CB9E8016915CC"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid3D689D9AFD56438B9B0C372376BAA614"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlidA44814613CD6406EA6B5C53D079FC420"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 102185
+        },
+        "user": {
+          "text": "かきくけこ",
+          "utf16": 5,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 5,
+          "bbox": [
+            918,
+            509,
+            951,
+            674
+          ],
+          "id50": 31,
+          "size63": [
+            33,
+            165
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            16500,
+            -3300,
+            16500
+          ],
+          "id72": [
+            33,
+            0
+          ],
+          "pitch_px_per_char": 33.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlidD7C8503DBD1D45B1916B6BE645D8BAE4"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlidA3DF879FA680445BBE5560911CAF278D"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlidC62AD268E8F1421D850506838927AC00"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlid5844DCF030294F74AA8BCBED9FACB32C"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlidEE4FBE5EE29A408D98216D43C9CD91BA"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlidAA62D75C4BD545598AE0697194A0DCAA"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlidDDEB64A751E842A2B4F841C20A474671"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid1B3CB66A83E94D1FB17E4F3AE8041342"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 133819
+        }
+      },
+      "tlv_diff_gen_vs_user": {
+        "attr_diff_count": 0,
+        "add_diff_count": 8,
+        "attr_diffs": [],
+        "add_diffs": [
+          {
+            "id": 11,
+            "left": "compact count=1 inner_len=14 | pad14=0000000000000000000000000000 | flags?=0x0",
+            "left_hex": "010000000e0000000000000000000000000000000000",
+            "right": "compact count=1 inner_len=14 | pad14=0000010000000000000000000000 | flags?=0x10000",
+            "right_hex": "010000000e0000000000010000000000000000000000"
+          },
+          {
+            "id": 12,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 13,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 18,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 26,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 29,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 30,
+            "left": "id30_compact count=1 pairs=[(4, 0)]",
+            "left_hex": "010000000400000000000000",
+            "right": "id30_compact count=1 pairs=[(4, 1)]",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 65,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          }
+        ]
+      },
+      "side_effects": {
+        "exta_count_gen": 12,
+        "exta_count_user": 12,
+        "offscreen_count_gen": 52,
+        "offscreen_count_user": 52,
+        "table_diffs": {
+          "Canvas": {
+            "column_diff_count": 2,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "CanvasPreview": {
+            "column_diff_count": 0,
+            "only_left": 1,
+            "only_right": 1
+          },
+          "ElemScheme": {
+            "column_diff_count": 5,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "ExternalChunk": {
+            "column_diff_count": 9,
+            "only_left": 3,
+            "only_right": 3
+          },
+          "Layer": {
+            "column_diff_count": 5,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "LayerComp": {
+            "column_diff_count": 0,
+            "only_left": 1,
+            "only_right": 1
+          },
+          "LayerThumbnail": {
+            "column_diff_count": 52,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "Offscreen": {
+            "column_diff_count": 46,
+            "only_left": 0,
+            "only_right": 0
+          }
+        }
+      }
+    },
+    "E1b_shorter": {
+      "files": {
+        "original": "A:\\dev\\MangaSketcher\\sample\\export_sample.clip",
+        "generated": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E1b_shorter.clip",
+        "user": "A:\\dev\\MangaSketcher\\sample\\_experiments\\user\\E1b_shorter.clip"
+      },
+      "metrics": {
+        "original": {
+          "text": "あいうえお",
+          "utf16": 5,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 5,
+          "bbox": [
+            918,
+            509,
+            951,
+            674
+          ],
+          "id50": 31,
+          "size63": [
+            33,
+            165
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            16500,
+            -3300,
+            16500
+          ],
+          "id72": [
+            33,
+            0
+          ],
+          "pitch_px_per_char": 33.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid8E1172744D36418D879F426C6BE5ED4B"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlidFFBD3511FE5644EAA69143F74D98EB3B"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlid4E5E8ECC7E224226A36CB9E8016915CC"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid3D689D9AFD56438B9B0C372376BAA614"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlidA44814613CD6406EA6B5C53D079FC420"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 102185
+        },
+        "generated": {
+          "text": "あい",
+          "utf16": 2,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 5,
+          "bbox": [
+            918,
+            509,
+            951,
+            674
+          ],
+          "id50": 31,
+          "size63": [
+            33,
+            165
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            16500,
+            -3300,
+            16500
+          ],
+          "id72": [
+            33,
+            0
+          ],
+          "pitch_px_per_char": 33.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid8E1172744D36418D879F426C6BE5ED4B"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlidFFBD3511FE5644EAA69143F74D98EB3B"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlid4E5E8ECC7E224226A36CB9E8016915CC"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid3D689D9AFD56438B9B0C372376BAA614"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlidA44814613CD6406EA6B5C53D079FC420"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 102185
+        },
+        "user": {
+          "text": "あい",
+          "utf16": 2,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 2,
+          "bbox": [
+            918,
+            509,
+            951,
+            575
+          ],
+          "id50": 31,
+          "size63": [
+            33,
+            66
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            6600,
+            -3300,
+            6600
+          ],
+          "id72": [
+            33,
+            0
+          ],
+          "pitch_px_per_char": 33.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlidC0E46000226A482DB07502E5663DE3B6"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid3F55EE7C32F743D69B78F7DAA51FB52A"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid27453DED96284BEFB5010F2DD9704F73"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlid4345A928967E4CFEBFB178C0F3782DB2"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlidC59FCCEB441F4551B9B6A7805D111E6A"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid9459C739CB68474A9A8151070B76239C"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid5939FFB315B1437C89088ED6BA532A95"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid0A0EE2AC47EA440B89EE6AB88E375F56"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 114524
+        }
+      },
+      "tlv_diff_gen_vs_user": {
+        "attr_diff_count": 4,
+        "add_diff_count": 12,
+        "attr_diffs": [
+          {
+            "id": 39,
+            "left": "u64=(5,0) char_count=5",
+            "left_hex": "0500000000000000",
+            "right": "u64=(2,0) char_count=2",
+            "right_hex": "0200000000000000"
+          },
+          {
+            "id": 42,
+            "left": "bbox canvas=(918,509,951,674) size=(33x165)",
+            "left_hex": "96030000fd010000b7030000a2020000",
+            "right": "bbox canvas=(918,509,951,575) size=(33x66)",
+            "right_hex": "96030000fd010000b70300003f020000"
+          },
+          {
+            "id": 63,
+            "left": "size=(33,165)",
+            "left_hex": "21000000a5000000",
+            "right": "size=(33,66)",
+            "right_hex": "2100000042000000"
+          },
+          {
+            "id": 64,
+            "left": "i32x8=(-3300, 0, 0, 0, 0, 16500, -3300, 16500) (w~33 h~165)",
+            "left_hex": "1cf3ffff00000000000000000000000000000000744000001cf3ffff74400000",
+            "right": "i32x8=(-3300, 0, 0, 0, 0, 6600, -3300, 6600) (w~33 h~66)",
+            "right_hex": "1cf3ffff00000000000000000000000000000000c81900001cf3ffffc8190000"
+          }
+        ],
+        "add_diffs": [
+          {
+            "id": 11,
+            "left": "compact count=1 inner_len=14 | pad14=0000000000000000000000000000 | flags?=0x0",
+            "left_hex": "010000000e0000000000000000000000000000000000",
+            "right": "compact count=1 inner_len=14 | pad14=0000010000000000000000000000 | flags?=0x10000",
+            "right_hex": "010000000e0000000000010000000000000000000000"
+          },
+          {
+            "id": 12,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 13,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 18,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 26,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 29,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 30,
+            "left": "id30_compact count=1 pairs=[(4, 0)]",
+            "left_hex": "010000000400000000000000",
+            "right": "id30_compact count=1 pairs=[(4, 1)]",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 39,
+            "left": "u64=(5,0) char_count=5",
+            "left_hex": "0500000000000000",
+            "right": "u64=(2,0) char_count=2",
+            "right_hex": "0200000000000000"
+          },
+          {
+            "id": 42,
+            "left": "bbox canvas=(918,509,951,674) size=(33x165)",
+            "left_hex": "96030000fd010000b7030000a2020000",
+            "right": "bbox canvas=(918,509,951,575) size=(33x66)",
+            "right_hex": "96030000fd010000b70300003f020000"
+          },
+          {
+            "id": 63,
+            "left": "size=(33,165)",
+            "left_hex": "21000000a5000000",
+            "right": "size=(33,66)",
+            "right_hex": "2100000042000000"
+          },
+          {
+            "id": 64,
+            "left": "i32x8=(-3300, 0, 0, 0, 0, 16500, -3300, 16500) (w~33 h~165)",
+            "left_hex": "1cf3ffff00000000000000000000000000000000744000001cf3ffff74400000",
+            "right": "i32x8=(-3300, 0, 0, 0, 0, 6600, -3300, 6600) (w~33 h~66)",
+            "right_hex": "1cf3ffff00000000000000000000000000000000c81900001cf3ffffc8190000"
+          },
+          {
+            "id": 65,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          }
+        ]
+      },
+      "side_effects": {
+        "exta_count_gen": 12,
+        "exta_count_user": 12,
+        "offscreen_count_gen": 52,
+        "offscreen_count_user": 52,
+        "table_diffs": {
+          "Canvas": {
+            "column_diff_count": 2,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "CanvasPreview": {
+            "column_diff_count": 0,
+            "only_left": 1,
+            "only_right": 1
+          },
+          "ElemScheme": {
+            "column_diff_count": 5,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "ExternalChunk": {
+            "column_diff_count": 10,
+            "only_left": 2,
+            "only_right": 2
+          },
+          "Layer": {
+            "column_diff_count": 6,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "LayerThumbnail": {
+            "column_diff_count": 40,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "Offscreen": {
+            "column_diff_count": 40,
+            "only_left": 0,
+            "only_right": 0
+          }
+        }
+      }
+    },
+    "E1c_longer": {
+      "files": {
+        "original": "A:\\dev\\MangaSketcher\\sample\\export_sample.clip",
+        "generated": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E1c_longer.clip",
+        "user": "A:\\dev\\MangaSketcher\\sample\\_experiments\\user\\E1c_longer.clip"
+      },
+      "metrics": {
+        "original": {
+          "text": "あいうえお",
+          "utf16": 5,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 5,
+          "bbox": [
+            918,
+            509,
+            951,
+            674
+          ],
+          "id50": 31,
+          "size63": [
+            33,
+            165
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            16500,
+            -3300,
+            16500
+          ],
+          "id72": [
+            33,
+            0
+          ],
+          "pitch_px_per_char": 33.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid8E1172744D36418D879F426C6BE5ED4B"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlidFFBD3511FE5644EAA69143F74D98EB3B"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlid4E5E8ECC7E224226A36CB9E8016915CC"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid3D689D9AFD56438B9B0C372376BAA614"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlidA44814613CD6406EA6B5C53D079FC420"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 102185
+        },
+        "generated": {
+          "text": "あいうえおかきくけこ",
+          "utf16": 10,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 5,
+          "bbox": [
+            918,
+            509,
+            951,
+            674
+          ],
+          "id50": 31,
+          "size63": [
+            33,
+            165
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            16500,
+            -3300,
+            16500
+          ],
+          "id72": [
+            33,
+            0
+          ],
+          "pitch_px_per_char": 33.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid8E1172744D36418D879F426C6BE5ED4B"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlidFFBD3511FE5644EAA69143F74D98EB3B"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlid4E5E8ECC7E224226A36CB9E8016915CC"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid3D689D9AFD56438B9B0C372376BAA614"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlidA44814613CD6406EA6B5C53D079FC420"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 102185
+        },
+        "user": {
+          "text": "あいうえおかきくけこ",
+          "utf16": 10,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 5,
+          "bbox": [
+            918,
+            509,
+            951,
+            839
+          ],
+          "id50": 31,
+          "size63": [
+            33,
+            330
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            33000,
+            -3300,
+            33000
+          ],
+          "id72": [
+            33,
+            0
+          ],
+          "pitch_px_per_char": 66.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlidB030F4E72D924D019F033BB494602A83"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlidC1A2E25F4CEB4995A670EE1F2F1B42AE"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid60EFB75B8A474C4FBC3BF9C7A2FB7442"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlidF9490B99DF0A4C078E0B100C00FA4AE7"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlidC6203054157243A5AB5CAE1D46A9213C"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid61B8291255D4443EAEC0EA5F7BA9FF6C"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid34FA9996D4C946F6BB1B17926088D053"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlid1ADFAC6D5CAB4488BD28CB532B1F6560"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 114535
+        }
+      },
+      "tlv_diff_gen_vs_user": {
+        "attr_diff_count": 3,
+        "add_diff_count": 11,
+        "attr_diffs": [
+          {
+            "id": 42,
+            "left": "bbox canvas=(918,509,951,674) size=(33x165)",
+            "left_hex": "96030000fd010000b7030000a2020000",
+            "right": "bbox canvas=(918,509,951,839) size=(33x330)",
+            "right_hex": "96030000fd010000b703000047030000"
+          },
+          {
+            "id": 63,
+            "left": "size=(33,165)",
+            "left_hex": "21000000a5000000",
+            "right": "size=(33,330)",
+            "right_hex": "210000004a010000"
+          },
+          {
+            "id": 64,
+            "left": "i32x8=(-3300, 0, 0, 0, 0, 16500, -3300, 16500) (w~33 h~165)",
+            "left_hex": "1cf3ffff00000000000000000000000000000000744000001cf3ffff74400000",
+            "right": "i32x8=(-3300, 0, 0, 0, 0, 33000, -3300, 33000) (w~33 h~330)",
+            "right_hex": "1cf3ffff00000000000000000000000000000000e88000001cf3ffffe8800000"
+          }
+        ],
+        "add_diffs": [
+          {
+            "id": 11,
+            "left": "compact count=1 inner_len=14 | pad14=0000000000000000000000000000 | flags?=0x0",
+            "left_hex": "010000000e0000000000000000000000000000000000",
+            "right": "compact count=1 inner_len=14 | pad14=0000010000000000000000000000 | flags?=0x10000",
+            "right_hex": "010000000e0000000000010000000000000000000000"
+          },
+          {
+            "id": 12,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 13,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 18,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 26,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 29,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 30,
+            "left": "id30_compact count=1 pairs=[(4, 0)]",
+            "left_hex": "010000000400000000000000",
+            "right": "id30_compact count=1 pairs=[(4, 1)]",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 42,
+            "left": "bbox canvas=(918,509,951,674) size=(33x165)",
+            "left_hex": "96030000fd010000b7030000a2020000",
+            "right": "bbox canvas=(918,509,951,839) size=(33x330)",
+            "right_hex": "96030000fd010000b703000047030000"
+          },
+          {
+            "id": 63,
+            "left": "size=(33,165)",
+            "left_hex": "21000000a5000000",
+            "right": "size=(33,330)",
+            "right_hex": "210000004a010000"
+          },
+          {
+            "id": 64,
+            "left": "i32x8=(-3300, 0, 0, 0, 0, 16500, -3300, 16500) (w~33 h~165)",
+            "left_hex": "1cf3ffff00000000000000000000000000000000744000001cf3ffff74400000",
+            "right": "i32x8=(-3300, 0, 0, 0, 0, 33000, -3300, 33000) (w~33 h~330)",
+            "right_hex": "1cf3ffff00000000000000000000000000000000e88000001cf3ffffe8800000"
+          },
+          {
+            "id": 65,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          }
+        ]
+      },
+      "side_effects": {
+        "exta_count_gen": 12,
+        "exta_count_user": 12,
+        "offscreen_count_gen": 52,
+        "offscreen_count_user": 52,
+        "table_diffs": {
+          "Canvas": {
+            "column_diff_count": 2,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "CanvasPreview": {
+            "column_diff_count": 0,
+            "only_left": 1,
+            "only_right": 1
+          },
+          "ElemScheme": {
+            "column_diff_count": 5,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "ExternalChunk": {
+            "column_diff_count": 10,
+            "only_left": 2,
+            "only_right": 2
+          },
+          "Layer": {
+            "column_diff_count": 6,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "LayerThumbnail": {
+            "column_diff_count": 40,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "Offscreen": {
+            "column_diff_count": 40,
+            "only_left": 0,
+            "only_right": 0
+          }
+        }
+      }
+    },
+    "E2a_len_change_synced": {
+      "files": {
+        "original": "A:\\dev\\MangaSketcher\\sample\\export_sample.clip",
+        "generated": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E2a_len_change_synced.clip",
+        "user": "A:\\dev\\MangaSketcher\\sample\\_experiments\\user\\E2a_len_change_synced.clip"
+      },
+      "metrics": {
+        "original": {
+          "text": "あいうえお",
+          "utf16": 5,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 5,
+          "bbox": [
+            918,
+            509,
+            951,
+            674
+          ],
+          "id50": 31,
+          "size63": [
+            33,
+            165
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            16500,
+            -3300,
+            16500
+          ],
+          "id72": [
+            33,
+            0
+          ],
+          "pitch_px_per_char": 33.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid8E1172744D36418D879F426C6BE5ED4B"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlidFFBD3511FE5644EAA69143F74D98EB3B"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlid4E5E8ECC7E224226A36CB9E8016915CC"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid3D689D9AFD56438B9B0C372376BAA614"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlidA44814613CD6406EA6B5C53D079FC420"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 102185
+        },
+        "generated": {
+          "text": "かきくけこさしすせそ",
+          "utf16": 10,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 10,
+          "bbox": [
+            918,
+            509,
+            951,
+            1309
+          ],
+          "id50": 31,
+          "size63": [
+            33,
+            800
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            80000,
+            -3300,
+            80000
+          ],
+          "id72": [
+            32,
+            0
+          ],
+          "pitch_px_per_char": 80.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid8E1172744D36418D879F426C6BE5ED4B"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlidFFBD3511FE5644EAA69143F74D98EB3B"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlid4E5E8ECC7E224226A36CB9E8016915CC"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid3D689D9AFD56438B9B0C372376BAA614"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlidA44814613CD6406EA6B5C53D079FC420"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 102185
+        },
+        "user": {
+          "text": "かきくけこさしすせそ",
+          "utf16": 10,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 2,
+          "bbox": [
+            918,
+            509,
+            951,
+            839
+          ],
+          "id50": 31,
+          "size63": [
+            33,
+            330
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            33000,
+            -3300,
+            33000
+          ],
+          "id72": [
+            33,
+            0
+          ],
+          "pitch_px_per_char": 165.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlid1AA46CD93FDF4BED85C9C134A7DE932E"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid796ECCE5ECA2413FBAC716CAB53547AC"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid2DBE317B225B418B9E8A1B390507AB2D"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlid770729010D1C4D388C5D45112968283D"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlidE3E91C7015E9416EA4C6F9A44ED77E8B"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid2DCA50EEC99C443E952C6781DC2BAD27"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlidA8427F0065E441D5B2084DE650736F63"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlid73753B6CE6AE448DA61CA6EEA0FCEAE4"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 109871
+        }
+      },
+      "tlv_diff_gen_vs_user": {
+        "attr_diff_count": 5,
+        "add_diff_count": 13,
+        "attr_diffs": [
+          {
+            "id": 39,
+            "left": "u64=(10,0) char_count=10",
+            "left_hex": "0a00000000000000",
+            "right": "u64=(2,0) char_count=2",
+            "right_hex": "0200000000000000"
+          },
+          {
+            "id": 42,
+            "left": "bbox canvas=(918,509,951,1309) size=(33x800)",
+            "left_hex": "96030000fd010000b70300001d050000",
+            "right": "bbox canvas=(918,509,951,839) size=(33x330)",
+            "right_hex": "96030000fd010000b703000047030000"
+          },
+          {
+            "id": 63,
+            "left": "size=(33,800)",
+            "left_hex": "2100000020030000",
+            "right": "size=(33,330)",
+            "right_hex": "210000004a010000"
+          },
+          {
+            "id": 64,
+            "left": "i32x8=(-3300, 0, 0, 0, 0, 80000, -3300, 80000) (w~33 h~800)",
+            "left_hex": "1cf3ffff00000000000000000000000000000000803801001cf3ffff80380100",
+            "right": "i32x8=(-3300, 0, 0, 0, 0, 33000, -3300, 33000) (w~33 h~330)",
+            "right_hex": "1cf3ffff00000000000000000000000000000000e88000001cf3ffffe8800000"
+          },
+          {
+            "id": 72,
+            "left": "u32x2=(32,0)",
+            "left_hex": "2000000000000000",
+            "right": "u32x2=(33,0)",
+            "right_hex": "2100000000000000"
+          }
+        ],
+        "add_diffs": [
+          {
+            "id": 11,
+            "left": "compact count=1 inner_len=14 | pad14=0000000000000000000000000000 | flags?=0x0",
+            "left_hex": "010000000e0000000000000000000000000000000000",
+            "right": "compact count=1 inner_len=14 | pad14=0000010000000000000000000000 | flags?=0x10000",
+            "right_hex": "010000000e0000000000010000000000000000000000"
+          },
+          {
+            "id": 12,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 13,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 18,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 26,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 29,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 30,
+            "left": "id30_compact count=1 pairs=[(4, 0)]",
+            "left_hex": "010000000400000000000000",
+            "right": "id30_compact count=1 pairs=[(4, 1)]",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 39,
+            "left": "u64=(10,0) char_count=10",
+            "left_hex": "0a00000000000000",
+            "right": "u64=(2,0) char_count=2",
+            "right_hex": "0200000000000000"
+          },
+          {
+            "id": 42,
+            "left": "bbox canvas=(918,509,951,1309) size=(33x800)",
+            "left_hex": "96030000fd010000b70300001d050000",
+            "right": "bbox canvas=(918,509,951,839) size=(33x330)",
+            "right_hex": "96030000fd010000b703000047030000"
+          },
+          {
+            "id": 63,
+            "left": "size=(33,800)",
+            "left_hex": "2100000020030000",
+            "right": "size=(33,330)",
+            "right_hex": "210000004a010000"
+          },
+          {
+            "id": 64,
+            "left": "i32x8=(-3300, 0, 0, 0, 0, 80000, -3300, 80000) (w~33 h~800)",
+            "left_hex": "1cf3ffff00000000000000000000000000000000803801001cf3ffff80380100",
+            "right": "i32x8=(-3300, 0, 0, 0, 0, 33000, -3300, 33000) (w~33 h~330)",
+            "right_hex": "1cf3ffff00000000000000000000000000000000e88000001cf3ffffe8800000"
+          },
+          {
+            "id": 65,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 72,
+            "left": "u32x2=(32,0)",
+            "left_hex": "2000000000000000",
+            "right": "u32x2=(33,0)",
+            "right_hex": "2100000000000000"
+          }
+        ]
+      },
+      "side_effects": {
+        "exta_count_gen": 12,
+        "exta_count_user": 12,
+        "offscreen_count_gen": 52,
+        "offscreen_count_user": 52,
+        "table_diffs": {
+          "Canvas": {
+            "column_diff_count": 2,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "CanvasPreview": {
+            "column_diff_count": 0,
+            "only_left": 1,
+            "only_right": 1
+          },
+          "ElemScheme": {
+            "column_diff_count": 5,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "ExternalChunk": {
+            "column_diff_count": 10,
+            "only_left": 2,
+            "only_right": 2
+          },
+          "Layer": {
+            "column_diff_count": 6,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "LayerThumbnail": {
+            "column_diff_count": 40,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "Offscreen": {
+            "column_diff_count": 79,
+            "only_left": 0,
+            "only_right": 0
+          }
+        }
+      }
+    },
+    "E2b_moved": {
+      "files": {
+        "original": "A:\\dev\\MangaSketcher\\sample\\export_sample.clip",
+        "generated": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E2b_moved.clip",
+        "user": "A:\\dev\\MangaSketcher\\sample\\_experiments\\user\\E2b_moved.clip"
+      },
+      "metrics": {
+        "original": {
+          "text": "あいうえお",
+          "utf16": 5,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 5,
+          "bbox": [
+            918,
+            509,
+            951,
+            674
+          ],
+          "id50": 31,
+          "size63": [
+            33,
+            165
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            16500,
+            -3300,
+            16500
+          ],
+          "id72": [
+            33,
+            0
+          ],
+          "pitch_px_per_char": 33.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid8E1172744D36418D879F426C6BE5ED4B"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlidFFBD3511FE5644EAA69143F74D98EB3B"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlid4E5E8ECC7E224226A36CB9E8016915CC"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid3D689D9AFD56438B9B0C372376BAA614"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlidA44814613CD6406EA6B5C53D079FC420"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 102185
+        },
+        "generated": {
+          "text": "あいうえお",
+          "utf16": 5,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 5,
+          "bbox": [
+            618,
+            909,
+            651,
+            1074
+          ],
+          "id50": 31,
+          "size63": [
+            33,
+            165
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            16500,
+            -3300,
+            16500
+          ],
+          "id72": [
+            32,
+            0
+          ],
+          "pitch_px_per_char": 33.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid8E1172744D36418D879F426C6BE5ED4B"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlidFFBD3511FE5644EAA69143F74D98EB3B"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlid4E5E8ECC7E224226A36CB9E8016915CC"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid3D689D9AFD56438B9B0C372376BAA614"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlidA44814613CD6406EA6B5C53D079FC420"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 102185
+        },
+        "user": {
+          "error": "Layer MainId=5 missing or no attributes"
+        }
+      },
+      "tlv_diff_gen_vs_user": {
+        "attr_diff_count": 0,
+        "add_diff_count": 0,
+        "attr_diffs": [],
+        "add_diffs": []
+      },
+      "side_effects": {
+        "exta_count_gen": 12,
+        "exta_count_user": 12,
+        "offscreen_count_gen": 52,
+        "offscreen_count_user": 52,
+        "table_diffs": {
+          "Canvas": {
+            "column_diff_count": 2,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "CanvasPreview": {
+            "column_diff_count": 0,
+            "only_left": 1,
+            "only_right": 1
+          },
+          "ElemScheme": {
+            "column_diff_count": 5,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "ExternalChunk": {
+            "column_diff_count": 8,
+            "only_left": 4,
+            "only_right": 4
+          },
+          "Layer": {
+            "column_diff_count": 4,
+            "only_left": 1,
+            "only_right": 1
+          },
+          "LayerComp": {
+            "column_diff_count": 0,
+            "only_left": 1,
+            "only_right": 1
+          },
+          "LayerThumbnail": {
+            "column_diff_count": 40,
+            "only_left": 1,
+            "only_right": 1
+          },
+          "Mipmap": {
+            "column_diff_count": 0,
+            "only_left": 1,
+            "only_right": 1
+          },
+          "MipmapInfo": {
+            "column_diff_count": 0,
+            "only_left": 6,
+            "only_right": 6
+          },
+          "Offscreen": {
+            "column_diff_count": 35,
+            "only_left": 8,
+            "only_right": 8
+          },
+          "sqlite_sequence": {
+            "column_diff_count": 5,
+            "only_left": 0,
+            "only_right": 0
+          }
+        }
+      }
+    },
+    "E2c_fontsize": {
+      "files": {
+        "original": "A:\\dev\\MangaSketcher\\sample\\export_sample.clip",
+        "generated": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E2c_fontsize.clip",
+        "user": "A:\\dev\\MangaSketcher\\sample\\_experiments\\user\\E2c_fontsize.clip"
+      },
+      "metrics": {
+        "original": {
+          "text": "あいうえお",
+          "utf16": 5,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 5,
+          "bbox": [
+            918,
+            509,
+            951,
+            674
+          ],
+          "id50": 31,
+          "size63": [
+            33,
+            165
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            16500,
+            -3300,
+            16500
+          ],
+          "id72": [
+            33,
+            0
+          ],
+          "pitch_px_per_char": 33.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid8E1172744D36418D879F426C6BE5ED4B"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlidFFBD3511FE5644EAA69143F74D98EB3B"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlid4E5E8ECC7E224226A36CB9E8016915CC"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid3D689D9AFD56438B9B0C372376BAA614"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlidA44814613CD6406EA6B5C53D079FC420"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 102185
+        },
+        "generated": {
+          "text": "あいうえお",
+          "utf16": 5,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 794,
+          "charCount39": 5,
+          "bbox": [
+            885,
+            509,
+            951,
+            839
+          ],
+          "id50": 31,
+          "size63": [
+            66,
+            330
+          ],
+          "id64": [
+            -6600,
+            0,
+            0,
+            0,
+            0,
+            33000,
+            -6600,
+            33000
+          ],
+          "id72": [
+            65,
+            0
+          ],
+          "pitch_px_per_char": 66.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid8E1172744D36418D879F426C6BE5ED4B"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlidFFBD3511FE5644EAA69143F74D98EB3B"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlid4E5E8ECC7E224226A36CB9E8016915CC"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid3D689D9AFD56438B9B0C372376BAA614"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlidA44814613CD6406EA6B5C53D079FC420"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 102185
+        },
+        "user": {
+          "text": "あいうえお",
+          "utf16": 5,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 794,
+          "charCount39": 1,
+          "bbox": [
+            885,
+            509,
+            951,
+            839
+          ],
+          "id50": 31,
+          "size63": [
+            66,
+            330
+          ],
+          "id64": [
+            -6600,
+            0,
+            0,
+            0,
+            0,
+            33000,
+            -6600,
+            33000
+          ],
+          "id72": [
+            66,
+            0
+          ],
+          "pitch_px_per_char": 330.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlid6B4789DF4DE94CB0A5966BFBE570D18D"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid3FF9867BC1044D55BFAA9EB1F8A51AC7"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid379EEE6CF1C6481FA8274104E6AB7F79"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlid0BE00BCDE2734FD48B21FE5686CBFCBB"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlidB8AAC18CF2EE48E5A72589880E35F39B"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid2903EA38C5C546CF821B4FCFCB8C7F90"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid190B0536ACFB482FB502A43634B03EF2"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlid67DC3CD92D114FB2A56FDE1BB58F158B"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 230701
+        }
+      },
+      "tlv_diff_gen_vs_user": {
+        "attr_diff_count": 2,
+        "add_diff_count": 10,
+        "attr_diffs": [
+          {
+            "id": 39,
+            "left": "u64=(5,0) char_count=5",
+            "left_hex": "0500000000000000",
+            "right": "u64=(1,0) char_count=1",
+            "right_hex": "0100000000000000"
+          },
+          {
+            "id": 72,
+            "left": "u32x2=(65,0)",
+            "left_hex": "4100000000000000",
+            "right": "u32x2=(66,0)",
+            "right_hex": "4200000000000000"
+          }
+        ],
+        "add_diffs": [
+          {
+            "id": 11,
+            "left": "compact count=1 inner_len=14 | pad14=0000000000000000000000000000 | flags?=0x0",
+            "left_hex": "010000000e0000000000000000000000000000000000",
+            "right": "compact count=1 inner_len=14 | pad14=0000010000000000000000000000 | flags?=0x10000",
+            "right_hex": "010000000e0000000000010000000000000000000000"
+          },
+          {
+            "id": 12,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 13,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 18,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 26,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 29,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 30,
+            "left": "id30_compact count=1 pairs=[(4, 0)]",
+            "left_hex": "010000000400000000000000",
+            "right": "id30_compact count=1 pairs=[(4, 1)]",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 39,
+            "left": "u64=(5,0) char_count=5",
+            "left_hex": "0500000000000000",
+            "right": "u64=(1,0) char_count=1",
+            "right_hex": "0100000000000000"
+          },
+          {
+            "id": 65,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 72,
+            "left": "u32x2=(65,0)",
+            "left_hex": "4100000000000000",
+            "right": "u32x2=(66,0)",
+            "right_hex": "4200000000000000"
+          }
+        ]
+      },
+      "side_effects": {
+        "exta_count_gen": 12,
+        "exta_count_user": 12,
+        "offscreen_count_gen": 52,
+        "offscreen_count_user": 52,
+        "table_diffs": {
+          "Canvas": {
+            "column_diff_count": 2,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "CanvasPreview": {
+            "column_diff_count": 0,
+            "only_left": 1,
+            "only_right": 1
+          },
+          "ElemScheme": {
+            "column_diff_count": 5,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "ExternalChunk": {
+            "column_diff_count": 10,
+            "only_left": 2,
+            "only_right": 2
+          },
+          "Layer": {
+            "column_diff_count": 5,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "LayerThumbnail": {
+            "column_diff_count": 40,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "Offscreen": {
+            "column_diff_count": 40,
+            "only_left": 0,
+            "only_right": 0
+          }
+        }
+      }
+    },
+    "E2d_no_cache": {
+      "files": {
+        "original": "A:\\dev\\MangaSketcher\\sample\\export_sample.clip",
+        "generated": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E2d_no_cache.clip",
+        "user": "A:\\dev\\MangaSketcher\\sample\\_experiments\\user\\E2d_no_cache.clip"
+      },
+      "metrics": {
+        "original": {
+          "text": "あいうえお",
+          "utf16": 5,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 5,
+          "bbox": [
+            918,
+            509,
+            951,
+            674
+          ],
+          "id50": 31,
+          "size63": [
+            33,
+            165
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            16500,
+            -3300,
+            16500
+          ],
+          "id72": [
+            33,
+            0
+          ],
+          "pitch_px_per_char": 33.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid8E1172744D36418D879F426C6BE5ED4B"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlidFFBD3511FE5644EAA69143F74D98EB3B"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlid4E5E8ECC7E224226A36CB9E8016915CC"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid3D689D9AFD56438B9B0C372376BAA614"
+            },
+            {
+              "mainId": 31,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlidA44814613CD6406EA6B5C53D079FC420"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 102185
+        },
+        "generated": {
+          "text": "かきくけこ",
+          "utf16": 5,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 5,
+          "bbox": [
+            918,
+            509,
+            951,
+            909
+          ],
+          "id50": 0,
+          "size63": [
+            33,
+            400
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            40000,
+            -3300,
+            40000
+          ],
+          "id72": [
+            32,
+            0
+          ],
+          "pitch_px_per_char": 80.0,
+          "offscreen_count": 51,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlidF3E7A9E5A35645D6BB7E5CCB3063AB0D"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid60EB043A38CF477CA5C6E7A06B3FA29D"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid8E1172744D36418D879F426C6BE5ED4B"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlidFFBD3511FE5644EAA69143F74D98EB3B"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlid4E5E8ECC7E224226A36CB9E8016915CC"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid923B749AC9E9455BA3CF2EB6BDCA1EBF"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid3D689D9AFD56438B9B0C372376BAA614"
+            }
+          ],
+          "exta_count": 11,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 52,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 102185
+        },
+        "user": {
+          "text": "かきくけこ",
+          "utf16": 5,
+          "layerOffset": [
+            0,
+            0
+          ],
+          "renderOffscr": [
+            0,
+            0
+          ],
+          "fontSizeValue": 397,
+          "charCount39": 1,
+          "bbox": [
+            918,
+            509,
+            951,
+            674
+          ],
+          "id50": 64,
+          "size63": [
+            33,
+            165
+          ],
+          "id64": [
+            -3300,
+            0,
+            0,
+            0,
+            0,
+            16500,
+            -3300,
+            16500
+          ],
+          "id72": [
+            33,
+            0
+          ],
+          "pitch_px_per_char": 165.0,
+          "offscreen_count": 52,
+          "offscreen_l5": [
+            {
+              "mainId": 24,
+              "layerId": 5,
+              "attr_len": 410,
+              "blockData_len": 40,
+              "ext": "extrnlid39202367A7A34256ADCE2F4096B9E8F7"
+            },
+            {
+              "mainId": 25,
+              "layerId": 5,
+              "attr_len": 210,
+              "blockData_len": 40,
+              "ext": "extrnlid64D2096E79B447559D6DFF3E581F46E2"
+            },
+            {
+              "mainId": 26,
+              "layerId": 5,
+              "attr_len": 254,
+              "blockData_len": 40,
+              "ext": "extrnlid88203F8403984AE585C679A5877157F0"
+            },
+            {
+              "mainId": 27,
+              "layerId": 5,
+              "attr_len": 218,
+              "blockData_len": 40,
+              "ext": "extrnlidB0C8FC30F8C94C67AA97F037535141E7"
+            },
+            {
+              "mainId": 28,
+              "layerId": 5,
+              "attr_len": 202,
+              "blockData_len": 40,
+              "ext": "extrnlidBB29D51670474336950C7F404DEAB696"
+            },
+            {
+              "mainId": 29,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid9C861EB6625F4591997AD7257535FDBF"
+            },
+            {
+              "mainId": 30,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlid036F9AA6AA7C4D21B101E6BC57BD60E8"
+            },
+            {
+              "mainId": 64,
+              "layerId": 5,
+              "attr_len": 198,
+              "blockData_len": 40,
+              "ext": "extrnlidA01185800CD5433199CB2A6D0B59AC4A"
+            }
+          ],
+          "exta_count": 12,
+          "sqlite_sequence": {
+            "Project": 1,
+            "CanvasItemBank": 1,
+            "Canvas": 1,
+            "CanvasPreview": 1,
+            "Layer": 7,
+            "Mipmap": 7,
+            "MipmapInfo": 42,
+            "Offscreen": 53,
+            "LayerThumbnail": 7,
+            "AnimationCutBank": 1,
+            "LayerCompManager": 1,
+            "LayerComp": 1,
+            "ParamScheme": 1250,
+            "ElemScheme": 63
+          },
+          "canvasWorkTime": 109326
+        }
+      },
+      "tlv_diff_gen_vs_user": {
+        "attr_diff_count": 6,
+        "add_diff_count": 14,
+        "attr_diffs": [
+          {
+            "id": 39,
+            "left": "u64=(5,0) char_count=5",
+            "left_hex": "0500000000000000",
+            "right": "u64=(1,0) char_count=1",
+            "right_hex": "0100000000000000"
+          },
+          {
+            "id": 42,
+            "left": "bbox canvas=(918,509,951,909) size=(33x400)",
+            "left_hex": "96030000fd010000b70300008d030000",
+            "right": "bbox canvas=(918,509,951,674) size=(33x165)",
+            "right_hex": "96030000fd010000b7030000a2020000"
+          },
+          {
+            "id": 50,
+            "left": "Offscreen.MainId=0",
+            "left_hex": "00000000",
+            "right": "Offscreen.MainId=64",
+            "right_hex": "40000000"
+          },
+          {
+            "id": 63,
+            "left": "size=(33,400)",
+            "left_hex": "2100000090010000",
+            "right": "size=(33,165)",
+            "right_hex": "21000000a5000000"
+          },
+          {
+            "id": 64,
+            "left": "i32x8=(-3300, 0, 0, 0, 0, 40000, -3300, 40000) (w~33 h~400)",
+            "left_hex": "1cf3ffff00000000000000000000000000000000409c00001cf3ffff409c0000",
+            "right": "i32x8=(-3300, 0, 0, 0, 0, 16500, -3300, 16500) (w~33 h~165)",
+            "right_hex": "1cf3ffff00000000000000000000000000000000744000001cf3ffff74400000"
+          },
+          {
+            "id": 72,
+            "left": "u32x2=(32,0)",
+            "left_hex": "2000000000000000",
+            "right": "u32x2=(33,0)",
+            "right_hex": "2100000000000000"
+          }
+        ],
+        "add_diffs": [
+          {
+            "id": 11,
+            "left": "compact count=1 inner_len=14 | pad14=0000000000000000000000000000 | flags?=0x0",
+            "left_hex": "010000000e0000000000000000000000000000000000",
+            "right": "compact count=1 inner_len=14 | pad14=0000010000000000000000000000 | flags?=0x10000",
+            "right_hex": "010000000e0000000000010000000000000000000000"
+          },
+          {
+            "id": 12,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 13,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 18,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 26,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 29,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 30,
+            "left": "id30_compact count=1 pairs=[(4, 0)]",
+            "left_hex": "010000000400000000000000",
+            "right": "id30_compact count=1 pairs=[(4, 1)]",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 39,
+            "left": "u64=(5,0) char_count=5",
+            "left_hex": "0500000000000000",
+            "right": "u64=(1,0) char_count=1",
+            "right_hex": "0100000000000000"
+          },
+          {
+            "id": 42,
+            "left": "bbox canvas=(918,509,951,909) size=(33x400)",
+            "left_hex": "96030000fd010000b70300008d030000",
+            "right": "bbox canvas=(918,509,951,674) size=(33x165)",
+            "right_hex": "96030000fd010000b7030000a2020000"
+          },
+          {
+            "id": 50,
+            "left": "Offscreen.MainId=0",
+            "left_hex": "00000000",
+            "right": "Offscreen.MainId=64",
+            "right_hex": "40000000"
+          },
+          {
+            "id": 63,
+            "left": "size=(33,400)",
+            "left_hex": "2100000090010000",
+            "right": "size=(33,165)",
+            "right_hex": "21000000a5000000"
+          },
+          {
+            "id": 64,
+            "left": "i32x8=(-3300, 0, 0, 0, 0, 40000, -3300, 40000) (w~33 h~400)",
+            "left_hex": "1cf3ffff00000000000000000000000000000000409c00001cf3ffff409c0000",
+            "right": "i32x8=(-3300, 0, 0, 0, 0, 16500, -3300, 16500) (w~33 h~165)",
+            "right_hex": "1cf3ffff00000000000000000000000000000000744000001cf3ffff74400000"
+          },
+          {
+            "id": 65,
+            "left": "compact count=1 inner_len=4 | u32=0",
+            "left_hex": "010000000400000000000000",
+            "right": "compact count=1 inner_len=4 | u32=1",
+            "right_hex": "010000000400000001000000"
+          },
+          {
+            "id": 72,
+            "left": "u32x2=(32,0)",
+            "left_hex": "2000000000000000",
+            "right": "u32x2=(33,0)",
+            "right_hex": "2100000000000000"
+          }
+        ]
+      },
+      "side_effects": {
+        "exta_count_gen": 11,
+        "exta_count_user": 12,
+        "offscreen_count_gen": 51,
+        "offscreen_count_user": 52,
+        "table_diffs": {
+          "Canvas": {
+            "column_diff_count": 2,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "CanvasPreview": {
+            "column_diff_count": 0,
+            "only_left": 1,
+            "only_right": 1
+          },
+          "ElemScheme": {
+            "column_diff_count": 5,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "ExternalChunk": {
+            "column_diff_count": 10,
+            "only_left": 1,
+            "only_right": 2
+          },
+          "Layer": {
+            "column_diff_count": 6,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "LayerThumbnail": {
+            "column_diff_count": 40,
+            "only_left": 0,
+            "only_right": 0
+          },
+          "Offscreen": {
+            "column_diff_count": 38,
+            "only_left": 0,
+            "only_right": 1
+          },
+          "sqlite_sequence": {
+            "column_diff_count": 1,
+            "only_left": 0,
+            "only_right": 0
+          }
+        }
+      }
+    }
+  }
+}

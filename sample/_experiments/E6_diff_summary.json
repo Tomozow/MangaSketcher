@@ -1,0 +1,20 @@
+{
+  "comparison": "E6_clone vs E6_clone_resolved",
+  "note": "TextLayerAttributes/AddAttributesV01/TextLayerString are byte-identical for all 4 text layers (5,10,11,12). CSP user save updated caches/thumbnails/Canvas metadata only; bbox correction must happen at generation time.",
+  "layers": {
+    "5_あいうえお": { "tlvDiff": false, "bbox": [918, 509, 951, 674] },
+    "10_クローン一号": { "tlvDiff": false, "bbox": [1167, 300, 1200, 498] },
+    "11_二行目も": {
+      "tlvDiff": false,
+      "bboxWrongInE6Clone": [667, 800, 700, 1262],
+      "bboxSizeWrong": "33x462 (totalChars×pitch, single column)",
+      "bboxCorrect": "91x266 (2 columns, maxLine=8×33+2)",
+      "rootCause": "Single-column width clipped left column (1st line in vertical RTL layout)"
+    },
+    "12_大きい字": { "tlvDiff": false, "bbox": [334, 1400, 400, 1664] }
+  },
+  "sampleReference": {
+    "L6": { "lines": 2, "bboxWH": [91, 167], "interColumnPitch": 58, "glyphColumn": 33 },
+    "L7": { "lines": 4, "bboxWH": [204, 398], "interColumnPitch": 57, "glyphColumn": 33 }
+  }
+}

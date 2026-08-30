@@ -1,0 +1,76 @@
+{
+  "experiment": "E6",
+  "output": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E6_clone.clip",
+  "deletedLayers": [
+    {
+      "layerMainId": 6,
+      "removedOffscreenIds": [
+        32,
+        34,
+        35,
+        36,
+        37,
+        38,
+        33,
+        39
+      ],
+      "layersBefore": 7,
+      "layersAfter": 6
+    },
+    {
+      "layerMainId": 7,
+      "removedOffscreenIds": [
+        40,
+        42,
+        43,
+        44,
+        45,
+        46,
+        41,
+        47
+      ],
+      "layersBefore": 6,
+      "layersAfter": 5
+    }
+  ],
+  "clones": [
+    {
+      "newMainId": 10,
+      "layerName": "クローン一号",
+      "charCount": 6,
+      "anchor": {
+        "right": 1200,
+        "top": 300
+      },
+      "fontSizePt": 8
+    },
+    {
+      "newMainId": 11,
+      "layerName": "二行目も ある長文テキスト",
+      "charCount": 14,
+      "anchor": {
+        "right": 700,
+        "top": 800
+      },
+      "fontSizePt": 8
+    },
+    {
+      "newMainId": 12,
+      "layerName": "大きい字",
+      "charCount": 4,
+      "anchor": {
+        "right": 400,
+        "top": 1400
+      },
+      "fontSizePt": 16
+    }
+  ],
+  "canvasCurrentLayer": 8,
+  "layerSelect": 8,
+  "extaCount": 7,
+  "externalChunkOffsetCheck": {
+    "ok": true,
+    "mismatches": []
+  },
+  "sqliteSize": 552960
+}

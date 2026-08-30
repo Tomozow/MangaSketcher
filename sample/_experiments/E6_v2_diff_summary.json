@@ -1,0 +1,71 @@
+{
+  "comparison": "E6_v2.clip (generated) vs E6_v2_resolved.clip (CSP 5.0.1 PC が開いて保存)",
+  "date": "2026-08-30",
+  "tool": "tools/clip-experiments/diff_e6v2.py",
+  "fullReport": "sample/_experiments/E6_v2_diff_full.json",
+  "files": {
+    "left": { "path": "E6_v2.clip", "size": 885096, "sha256": "99153d7dced1b36cb833f092ebbc79e0d3662ccd4bd5855ca304ca821c7d4db4" },
+    "right": { "path": "E6_v2_resolved.clip", "size": 885096, "sha256": "c621f4ee1c90cc6a695c739689836110931a03d9cd543585a5ebaafad27a0bb6" }
+  },
+  "q1_tlvPreservation": {
+    "verdict": "ALL_BYTE_IDENTICAL",
+    "residualError": "なし。導出公式 (bbox/列ピッチ/文字ピッチ/フォントサイズ換算) に対する CSP の補正はゼロ。",
+    "comparedColumns": ["TextLayerString", "TextLayerAttributes", "TextLayerAddAttributesV01", "LayerOffsetX/Y", "LayerRenderOffscrOffsetX/Y"],
+    "layers": [
+      { "mainId": 5, "name": "あいうえお", "lines": 1, "utf16": 5, "fontPt": 8, "bbox_id42": [918, 509, 951, 674], "size_id63": [33, 165], "id64": [-3300, 0, 0, 0, 0, 16500, -3300, 16500], "id72": [33, 0], "id32": 397, "id39": [5, 0], "id50": 0, "byteIdentical": true },
+      { "mainId": 10, "name": "クローン一号", "lines": 1, "utf16": 6, "fontPt": 8, "bbox_id42": [1167, 300, 1200, 498], "size_id63": [33, 198], "id64": [-3300, 0, 0, 0, 0, 19800, -3300, 19800], "id72": [33, 0], "id32": 397, "id39": [6, 0], "id50": 0, "byteIdentical": true },
+      { "mainId": 11, "name": "二行目も ある長文テキスト", "lines": 2, "utf16": 14, "fontPt": 8, "bbox_id42": [609, 800, 700, 1066], "size_id63": [91, 266], "id64": [-9100, 0, 100, 0, 100, 26600, -9100, 26600], "id72": [90, 0], "id32": 397, "id39": [14, 0], "id50": 0, "byteIdentical": true },
+      { "mainId": 12, "name": "大きい字", "lines": 1, "utf16": 4, "fontPt": 16, "bbox_id42": [334, 1400, 400, 1664], "size_id63": [66, 264], "id64": [-6600, 0, 0, 0, 0, 26400, -6600, 26400], "id72": [66, 0], "id32": 794, "id39": [4, 0], "id50": 0, "byteIdentical": true },
+      { "mainId": 13, "name": "一行目 二行目 三行目", "lines": 3, "utf16": 13, "fontPt": 8, "bbox_id42": [753, 1100, 900, 1201], "size_id63": [147, 101], "id64": [-14700, 0, 100, 0, 100, 10100, -14700, 10100], "id72": [146, 0], "id32": 397, "id39": [13, 0], "id50": 0, "byteIdentical": true }
+    ]
+  },
+  "q2_cacheRegeneration": {
+    "verdict": "NO_CACHE_REGENERATED_IN_FILE",
+    "offscreen": "66行が両者バイト一致。浮動キャッシュ行 (旧 MainId 31/39/47) は左右とも不在のまま。クローン層のミップマップ連鎖 Offscreen (MainId 62-89) は Exta 実体なしの externalId 参照のままで CSP は補修せず。",
+    "mipmap": "9行 一致", "mipmapInfo": "54行 一致", "layerThumbnail": "9行 一致",
+    "externalChunk": "7行 一致 (Offset 含む)",
+    "chnkExta": "7チャンクすべて SHA-256 一致 (再圧縮・再配置なし)",
+    "interpretation": "CSP は TLV からインメモリで再レンダリングして表示 (ユーザーが5枚全部正しい表示を確認)。非ダーティのままだったためファイルへのキャッシュ永続化は発生しなかった。キャッシュレス .clip は open→表示→保存を通しても受理される。"
+  },
+  "q3_otherNormalization": {
+    "dataTables": "全テーブル論理 diff ゼロ。CanvasWorkTime=102185 のまま、CanvasPreview/Project/sqlite_sequence/ElemScheme も不変。",
+    "schemaChanges": {
+      "addedTriggers": [
+        "CREATE TRIGGER ExternalDeleteOfBlockDataOnOffscreen DELETE ON Offscreen BEGIN INSERT INTO RemovedExternal(ExternalID) VALUES(OLD.BlockData); END",
+        "CREATE TRIGGER ExternalUpdateOfBlockDataOnOffscreen UPDATE OF BlockData ON Offscreen BEGIN INSERT INTO RemovedExternal(ExternalID) VALUES(OLD.BlockData); END"
+      ],
+      "note": "export_sample.clip (CSP 書き出し原本) にもこのトリガーは無い。CSP が編集用に開いた際に再作成する運用スキーマ。生成側で入れる必要なし。"
+    },
+    "sqliteHeader": {
+      "file_change_counter": [156, 173],
+      "schema_cookie": [220, 222],
+      "version_valid_for": [156, 173],
+      "sqlite_version_number": [3049001, 3030001],
+      "note": "3030001 = SQLite 3.30.1 (CSP 5.0.1 同梱)。生成側は sql.js 3.49.1。バージョンスタンプ差は問題なし。"
+    },
+    "chnkHead": "40B 中、末尾16Bのファイル UUID のみ再発行 (eaf78d09... → 062abf91...)。先頭 u64×2 (256, 328008=CHNKSQLi ヘッダオフセット) と idlen=16 は不変。"
+  },
+  "q4_sizeIdentityReason": {
+    "verdict": "IN_PLACE_UPDATE_NOT_FULL_RESAVE",
+    "byteDiffTotal": 470,
+    "byteDiffRanges": [
+      { "range": [64, 80], "what": "CHNKHead 内 UUID 16B" },
+      { "range": [328051, 328068], "what": "SQLite p1 ヘッダ: file_change_counter / schema_cookie" },
+      { "range": [328119, 328124], "what": "SQLite p1 ヘッダ: version_valid_for / sqlite_version_number" },
+      { "range": [831836, 833427], "what": "SQLite p124 (sqlite_master リーフ): トリガー2行の追記 (既存ページの空き領域 425B に収まった)" }
+    ],
+    "explanation": "CSP 5.0.1 (PC) は .clip 内の埋め込み SQLite を展開せず、ファイル内オフセットに直接ページ書き込みする (change_counter +17 のトランザクション痕跡)。今回はドキュメントが非ダーティのままだったため、永続化されたのはトリガー再作成 (+schema_cookie 2) と UUID 再発行のみ。トリガー SQL が既存 sqlite_master ページの空きに収まり page_count=136 のまま → CHNKSQLi 長不変 → ファイルサイズ完全一致。",
+    "contrastWithV1DirtySave": {
+      "E6_clone": { "size": 881000, "pageCount": 135, "canvasWorkTime": 102185, "triggers": 0 },
+      "E6_clone_resolved": { "size": 1172754, "pageCount": 205, "canvasWorkTime": 163597, "triggers": 2, "note": "真のダーティ保存: キャッシュ Exta 追加 +292KB、作業時間 +61412" },
+      "conclusion": "「CSP 保存 = サイズ増」は編集ありの保存に限る。非ダーティ保存 (または開閉のみ) は 470B のインプレース更新で終わる。"
+    }
+  },
+  "productionNotes": [
+    "導出公式 (§10.1/§10.7 text_tlv_layout.md) は CSP 5.0.1 実機で残差ゼロ確認済み。bbox/id63/id64/id72/id32/id39/run vtype をこのまま本実装へ。",
+    "キャッシュレス方式 (id50=0、浮動キャッシュ Offscreen 行なし、クローンのミップマップ連鎖は Exta 実体なし参照で可) は CSP に受理される。生成側でラスタキャッシュを作る必要なし。",
+    "Offscreen トリガー 2 種は生成不要 (原本にも無い)。CSP が開いた時点で自動再作成する。",
+    "CHNKHead UUID・SQLite ヘッダカウンタは CSP が管理するので任意値で良い (原本流用可)。",
+    "E6_v2_resolved は非ダーティ経路の検証。ダーティ保存後の TLV 正規化有無は v1 (E6_clone_resolved、TLV バイト一致維持) で別途確認済みであり、両経路とも TLV は維持される。"
+  ]
+}

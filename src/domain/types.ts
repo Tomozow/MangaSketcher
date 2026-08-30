@@ -251,11 +251,12 @@ export type PointerEvent = {
   pressure: number;
 };
 
+/** Normalized cover for the baked page-number “1”. Matches clip PAGE_NUMBER_PIXEL_RECT (760,1884)–(792,1932) on 1518×2150. */
 export const TEMPLATE_PAGE_NUMBER_COVER: Rect = {
-  x: 0.42,
-  y: 0.93,
-  width: 0.16,
-  height: 0.055,
+  x: 760 / 1518,
+  y: 1884 / 2150,
+  width: 32 / 1518,
+  height: 48 / 2150,
 };
 
 export const DEFAULT_RASTER_WIDTH = 1200;

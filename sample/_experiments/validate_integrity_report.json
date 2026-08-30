@@ -1,0 +1,30 @@
+[
+  {
+    "path": "A:\\dev\\MangaSketcher\\public\\clip-export-template.clip",
+    "ok": true,
+    "checks": {
+      "integrity_check": "ok",
+      "mipmap_chains": "ok",
+      "orphan_offscreens": "ok",
+      "external_chunk_pairing": "ok",
+      "exta_pairing": "ok",
+      "elem_scheme": "ok",
+      "sqlite_sequence": "ok",
+      "layer_tree": "ok"
+    }
+  },
+  {
+    "path": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E7_from_template.clip",
+    "ok": true,
+    "checks": {
+      "integrity_check": "ok",
+      "mipmap_chains": "ok",
+      "orphan_offscreens": "ok",
+      "external_chunk_pairing": "ok",
+      "exta_pairing": "ok",
+      "elem_scheme": "ok",
+      "sqlite_sequence": "ok",
+      "layer_tree": "ok"
+    }
+  }
+]

@@ -1,0 +1,35 @@
+[
+  {
+    "experiment": "E1a_samelen.clip",
+    "output": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E1a_samelen.clip",
+    "intendedText": "かきくけこ",
+    "readBackText": "かきくけこ",
+    "externalChunkOffsetCheck": {
+      "ok": true,
+      "mismatches": []
+    },
+    "sqliteSize": 544768
+  },
+  {
+    "experiment": "E1b_shorter.clip",
+    "output": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E1b_shorter.clip",
+    "intendedText": "あい",
+    "readBackText": "あい",
+    "externalChunkOffsetCheck": {
+      "ok": true,
+      "mismatches": []
+    },
+    "sqliteSize": 544768
+  },
+  {
+    "experiment": "E1c_longer.clip",
+    "output": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E1c_longer.clip",
+    "intendedText": "あいうえおかきくけこ",
+    "readBackText": "あいうえおかきくけこ",
+    "externalChunkOffsetCheck": {
+      "ok": true,
+      "mismatches": []
+    },
+    "sqliteSize": 544768
+  }
+]

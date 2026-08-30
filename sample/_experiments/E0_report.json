@@ -1,0 +1,115 @@
+{
+  "experiment": "E0",
+  "output": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E0_roundtrip.clip",
+  "dbSnapshotBeforeExport": {
+    "pageSize": 4096,
+    "encoding": "UTF-8",
+    "integrityCheck": "ok",
+    "schemaTables": [
+      "AnimationCutBank",
+      "Canvas",
+      "CanvasItem",
+      "CanvasItemBank",
+      "CanvasPreview",
+      "ElemScheme",
+      "ExternalChunk",
+      "ExternalTableAndColumnName",
+      "Layer",
+      "LayerComp",
+      "LayerCompManager",
+      "LayerThumbnail",
+      "Mipmap",
+      "MipmapInfo",
+      "Offscreen",
+      "ParamScheme",
+      "Project",
+      "RemovedExternal",
+      "sqlite_sequence"
+    ]
+  },
+  "dbSnapshotAfterExternalChunkRebuild": {
+    "pageSize": 4096,
+    "encoding": "UTF-8",
+    "integrityCheck": "ok",
+    "schemaTables": [
+      "AnimationCutBank",
+      "Canvas",
+      "CanvasItem",
+      "CanvasItemBank",
+      "CanvasPreview",
+      "ElemScheme",
+      "ExternalChunk",
+      "ExternalTableAndColumnName",
+      "Layer",
+      "LayerComp",
+      "LayerCompManager",
+      "LayerThumbnail",
+      "Mipmap",
+      "MipmapInfo",
+      "Offscreen",
+      "ParamScheme",
+      "Project",
+      "RemovedExternal",
+      "sqlite_sequence"
+    ]
+  },
+  "dbDiffOpenVsBefore": {},
+  "sqliteExportDiff": {
+    "originalSize": 909853,
+    "modifiedSize": 909853,
+    "sizeDelta": 0,
+    "sqliteOriginalSize": 544768,
+    "sqliteModifiedSize": 544768,
+    "sqliteSizeDelta": 0,
+    "sqliteByteDiffCount": 4,
+    "sqliteByteDiffSample": [
+      {
+        "offset": 27,
+        "orig": 18,
+        "mod": 31
+      },
+      {
+        "offset": 95,
+        "orig": 18,
+        "mod": 31
+      },
+      {
+        "offset": 98,
+        "orig": 59,
+        "mod": 134
+      },
+      {
+        "offset": 99,
+        "orig": 241,
+        "mod": 41
+      }
+    ],
+    "fileByteDiffCount": 4,
+    "fileByteDiffSample": [
+      {
+        "offset": 365096,
+        "orig": 18,
+        "mod": 31
+      },
+      {
+        "offset": 365164,
+        "orig": 18,
+        "mod": 31
+      },
+      {
+        "offset": 365167,
+        "orig": 59,
+        "mod": 134
+      },
+      {
+        "offset": 365168,
+        "orig": 241,
+        "mod": 41
+      }
+    ]
+  },
+  "externalChunkOffsetCheck": {
+    "ok": true,
+    "mismatches": []
+  }
+}

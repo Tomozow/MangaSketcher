@@ -105,6 +105,7 @@ export const styles = {
   workspaceExportControls: 'ms-workspaceExportControls',
   workspaceExportStatus: 'ms-workspaceExportStatus',
   workspaceExportActions: 'ms-workspaceExportActions',
+  clipExportButtons: 'ms-clipExportButtons',
   pairDivider: 'ms-pairDivider',
   workspaceSurface: 'ms-workspaceSurface',
   workspaceTransform: 'ms-workspaceTransform',

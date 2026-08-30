@@ -178,10 +178,10 @@ describe('シナリオ: 削除', () => {
 
 describe('シナリオ: PDF 本文抽出とドロップ', () => {
   const source: PdfTextItem[] = [
-    { str: '本', x: 200, y: 10, width: 12, height: 12, fontSize: 12 },
-    { str: '文', x: 200, y: 24, width: 12, height: 12, fontSize: 12 },
+    { str: '本', x: 200, y: 24, width: 12, height: 12, fontSize: 12 },
+    { str: '文', x: 200, y: 10, width: 12, height: 12, fontSize: 12 },
     { str: 'ほん', x: 212, y: 8, width: 6, height: 6, fontSize: 6, role: 'Ruby' },
-    { str: 'です', x: 180, y: 10, width: 12, height: 12, fontSize: 12 },
+    { str: 'です', x: 180, y: 24, width: 12, height: 12, fontSize: 12 },
   ];
 
   test('ルビを除いた本文だけを縦書きオブジェクトにし、ソースは消えない', () => {

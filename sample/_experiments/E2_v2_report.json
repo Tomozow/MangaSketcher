@@ -1,0 +1,82 @@
+[
+  {
+    "experiment": "E2a_v2.clip",
+    "output": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E2a_v2.clip",
+    "intendedText": "かきくけこさしすせそ",
+    "readBackText": "かきくけこさしすせそ",
+    "meta": {
+      "charCount": 10,
+      "bbox": {
+        "left": 918,
+        "top": 509,
+        "right": 951,
+        "bottom": 839
+      },
+      "cspTargetBBox": [
+        918,
+        509,
+        951,
+        839
+      ]
+    },
+    "externalChunkOffsetCheck": {
+      "ok": true,
+      "mismatches": []
+    },
+    "sqliteSize": 544768
+  },
+  {
+    "experiment": "E2c_v2.clip",
+    "output": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E2c_v2.clip",
+    "intendedText": "あいうえお",
+    "readBackText": "あいうえお",
+    "meta": {
+      "fontSizePt": 16,
+      "bbox": {
+        "left": 885,
+        "top": 509,
+        "right": 951,
+        "bottom": 839
+      },
+      "cspTargetBBox": [
+        885,
+        509,
+        951,
+        839
+      ]
+    },
+    "externalChunkOffsetCheck": {
+      "ok": true,
+      "mismatches": []
+    },
+    "sqliteSize": 544768
+  },
+  {
+    "experiment": "E2d_v2.clip",
+    "output": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E2d_v2.clip",
+    "intendedText": "かきくけこ",
+    "readBackText": "かきくけこ",
+    "meta": {
+      "charCount": 5,
+      "bbox": {
+        "left": 918,
+        "top": 509,
+        "right": 951,
+        "bottom": 674
+      },
+      "floatCacheOffscreenId": 31,
+      "cspTargetBBox": [
+        918,
+        509,
+        951,
+        674
+      ],
+      "note": "Keeps Offscreen 31; correct 33px/char bbox (no cache deletion)"
+    },
+    "externalChunkOffsetCheck": {
+      "ok": true,
+      "mismatches": []
+    },
+    "sqliteSize": 544768
+  }
+]

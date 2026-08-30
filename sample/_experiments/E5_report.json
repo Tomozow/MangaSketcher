@@ -1,0 +1,24 @@
+{
+  "experiment": "E5",
+  "output": "A:\\dev\\MangaSketcher\\sample\\_experiments\\E5_lineart_replaced.clip",
+  "lineartLayerMainId": 8,
+  "offscreenMainId": 48,
+  "externalId": "extrnlidC39752E934E847509B647C0EE8262DD8",
+  "dimensions": {
+    "width": 1518,
+    "height": 2150
+  },
+  "grid": {
+    "gridW": 6,
+    "gridH": 9
+  },
+  "blockCount": 54,
+  "blockSizeTotal": 46708,
+  "thumbnailOffscreenId": 49,
+  "thumbnailLeftStale": true,
+  "externalChunkOffsetCheck": {
+    "ok": true,
+    "mismatches": []
+  },
+  "sqliteSize": 544768
+}
