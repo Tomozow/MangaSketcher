@@ -62,7 +62,14 @@
   color: #6f675c;
 }
 
-.home[data-ms-theme='dark'] .subtitle {
+.shellStatus {
+  display: block;
+  font-size: 11px;
+  color: #6f675c;
+}
+
+.home[data-ms-theme='dark'] .subtitle,
+.home[data-ms-theme='dark'] .shellStatus {
   color: rgba(246, 243, 236, 0.55);
 }
 

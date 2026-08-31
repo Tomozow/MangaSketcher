@@ -71,11 +71,46 @@ function rasterPct(value: number, raster: number): string {
   return `${(value / raster) * 100}%`;
 }
 
+function DeleteMark({ icon, batch }: { icon: number; batch: boolean }) {
+  if (!batch) {
+    return (
+      <svg viewBox="0 0 12 12" width={icon} height={icon} aria-hidden="true" focusable="false">
+        <path
+          d="M3 3l6 6M9 3l-6 6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 14 12" width={icon} height={icon} aria-hidden="true" focusable="false">
+      <path
+        d="M1.5 2.5l4.5 7M6 2.5L1.5 9.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M7.5 2.5l4.5 7M12 2.5L7.5 9.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function TextBoxChrome({
   textId,
   buttonPx,
   gapPx,
   style,
+  batch,
   onDeleteText,
   onDuplicateText,
 }: {
@@ -83,6 +118,7 @@ function TextBoxChrome({
   buttonPx: number;
   gapPx: number;
   style?: { left: number; top: number };
+  batch?: boolean;
   onDeleteText: (textId: TextId) => void;
   onDuplicateText: (textId: TextId) => void;
 }) {
@@ -99,7 +135,7 @@ function TextBoxChrome({
         className={styles.pageTextChromeButton}
         style={size}
         {...{ [PAGE_TEXT_DELETE_ATTR]: '' }}
-        aria-label="テキストを削除"
+        aria-label={batch ? '選択中のテキストを削除' : 'テキストを削除'}
         onPointerDown={(event) => {
           event.stopPropagation();
         }}
@@ -108,15 +144,7 @@ function TextBoxChrome({
           onDeleteText(textId);
         }}
       >
-        <svg viewBox="0 0 12 12" width={icon} height={icon} aria-hidden="true" focusable="false">
-          <path
-            d="M3 3l6 6M9 3l-6 6"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-          />
-        </svg>
+        <DeleteMark icon={icon} batch={Boolean(batch)} />
       </div>
       <div
         role="button"
@@ -343,7 +371,7 @@ export function PasteboardTextsLayer({
 
 type TextChromeOverlayProps = {
   surfaceRef: RefObject<HTMLDivElement | null>;
-  textId: TextId;
+  textIds: TextId[];
   zoom: number;
   panX: number;
   panY: number;
@@ -355,7 +383,7 @@ type TextChromeOverlayProps = {
 /** Screen-space chrome. Kept outside `transform: scale` so iPad does not inflate or trap it. */
 export function TextChromeOverlay({
   surfaceRef,
-  textId,
+  textIds,
   zoom,
   panX,
   panY,
@@ -364,17 +392,21 @@ export function TextChromeOverlay({
   onDuplicateText,
 }: TextChromeOverlayProps) {
   const [pose, setPose] = useState<{ left: number; top: number; button: number; gap: number } | null>(null);
+  const primaryId = textIds[textIds.length - 1];
+  const batch = textIds.length > 1;
 
   useLayoutEffect(() => {
     const surface = surfaceRef.current;
-    if (!surface) {
+    if (!surface || textIds.length === 0) {
       setPose(null);
       return;
     }
-    const wrap = surface.querySelector<HTMLElement>(
-      `[${PAGE_TEXT_WRAP_ATTR}][${PAGE_TEXT_ID_ATTR}="${textId}"]`,
-    );
-    if (!wrap) {
+    const wraps = textIds
+      .map((id) =>
+        surface.querySelector<HTMLElement>(`[${PAGE_TEXT_WRAP_ATTR}][${PAGE_TEXT_ID_ATTR}="${id}"]`),
+      )
+      .filter((el): el is HTMLElement => el !== null);
+    if (wraps.length === 0) {
       setPose(null);
       return;
     }
@@ -385,26 +417,33 @@ export function TextChromeOverlay({
         : PAGE_DISPLAY_W * Math.max(0.1, zoom);
     const metrics = textChromeScreenMetrics(pageWidth);
     const surfaceRect = surface.getBoundingClientRect();
-    const wrapRect = wrap.getBoundingClientRect();
+    let left = Infinity;
+    let top = Infinity;
+    for (const wrap of wraps) {
+      const wrapRect = wrap.getBoundingClientRect();
+      left = Math.min(left, wrapRect.left);
+      top = Math.min(top, wrapRect.top);
+    }
     setPose({
-      left: wrapRect.left - surfaceRect.left,
-      top: wrapRect.top - surfaceRect.top - metrics.stack,
+      left: left - surfaceRect.left,
+      top: top - surfaceRect.top - metrics.stack,
       button: metrics.button,
       gap: metrics.gap,
     });
-  }, [surfaceRef, textId, zoom, panX, panY, layoutKey]);
+  }, [surfaceRef, textIds, zoom, panX, panY, layoutKey]);
 
-  if (!pose) {
+  if (!pose || !primaryId) {
     return null;
   }
 
   return (
     <div className={styles.pageTextChromeLayer}>
       <TextBoxChrome
-        textId={textId}
+        textId={primaryId}
         buttonPx={pose.button}
         gapPx={pose.gap}
         style={{ left: pose.left, top: pose.top }}
+        batch={batch}
         onDeleteText={onDeleteText}
         onDuplicateText={onDuplicateText}
       />

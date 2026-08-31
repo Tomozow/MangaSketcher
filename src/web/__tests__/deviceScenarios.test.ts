@@ -224,6 +224,18 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(sidebarSrc).toContain('setTextsFontSize');
   });
 
+  test('ワークスペース左に拡大縮小とページ移動のナビがある', () => {
+    const navSrc = readFileSync(join(here, '../WorkspaceNav.tsx'), 'utf8');
+    expect(editorLayoutSrc).toContain('WorkspaceNav');
+    expect(navSrc).toContain('aria-label="ズームイン"');
+    expect(navSrc).toContain('aria-label="ズームアウト"');
+    expect(navSrc).toContain('aria-label="前のページ"');
+    expect(navSrc).toContain('aria-label="次のページ"');
+    expect(editorCss).toMatch(/\.ms-leftChrome[^{]*\{[^}]*top:\s*50%/);
+    expect(editorCss).toMatch(/\.ms-workspaceNav[^{]*\{[^}]*grid-row:\s*1/);
+    expect(editorCss).toMatch(/\.ms-toolRail[^{]*\{[^}]*grid-row:\s*2/);
+  });
+
   test('選択の一括移動は着地先でテキスト所属を付け替える', () => {
     const controllerSrc = readFileSync(join(here, '../useEditorController.ts'), 'utf8');
     expect(controllerSrc).toContain('textPoseAfterWorldMove');

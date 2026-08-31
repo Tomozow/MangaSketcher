@@ -13,6 +13,7 @@ import type { MarqueePreview, ClipLiveTransform, TextLiveTransform } from '@/src
 import { colors } from '@/src/theme/tokens';
 import { styles } from './editorStyles';
 import { CompactSidebar } from './CompactSidebar';
+import { WorkspaceNav } from './WorkspaceNav';
 import { PdfPanePlaceholder } from './PdfPanePlaceholder';
 import { StockPane, STOCK_TRASH_DROP_ATTR, type WorkspaceGrab } from './StockPane';
 import { PageInkOverlay } from './PageInkOverlay';
@@ -403,6 +404,7 @@ export function EditorLayout({
           dispatch={dispatch}
           onUndo={onUndo}
           onRedo={onRedo}
+          leading={<WorkspaceNav doc={doc} dispatch={dispatch} />}
         />
       </div>
 

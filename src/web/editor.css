@@ -1530,16 +1530,39 @@ body {
   z-index: 8;
 }
 
+.ms-leftChrome,
 .ms-toolRail,
-.ms-toolFlyout {
+.ms-toolFlyout,
+.ms-workspaceNav {
   pointer-events: auto;
 }
 
-.ms-toolRail {
+.ms-leftChrome {
   position: absolute;
   left: 12px;
   top: 50%;
   transform: translateY(-50%);
+  display: grid;
+  grid-template-columns: auto auto;
+  grid-template-rows: auto auto;
+  column-gap: 12px;
+  row-gap: 10px;
+  align-items: start;
+  pointer-events: none;
+}
+
+.ms-workspaceNav {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.ms-toolRail {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.ms-workspaceNav,
+.ms-toolRail {
   display: flex;
   flex-direction: column;
   gap: 4px;
@@ -1553,8 +1576,21 @@ body {
   box-shadow: var(--ms-chrome-shadow);
 }
 
+.ms-workspaceNav .ms-chromeIcon,
 .ms-toolRail .ms-chromeIcon {
   border-radius: 16px;
+}
+
+.ms-workspaceNavLabel {
+  min-height: 18px;
+  padding: 0 2px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: var(--ms-chrome-muted);
+  text-align: center;
+  line-height: 1.2;
+  pointer-events: none;
 }
 
 .ms-toolRailActive {
@@ -1570,10 +1606,8 @@ body {
 }
 
 .ms-toolFlyout {
-  position: absolute;
-  left: 76px;
-  top: 50%;
-  transform: translateY(-42%);
+  grid-column: 2;
+  grid-row: 2;
   width: 196px;
   border-radius: 18px;
   padding: 12px;

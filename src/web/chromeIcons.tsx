@@ -138,3 +138,39 @@ export function IconRedo(props: IconProps) {
     </StrokeIcon>
   );
 }
+
+export function IconZoomIn(props: IconProps) {
+  return (
+    <StrokeIcon {...props}>
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="M15 15l5 5" />
+      <path d="M10.5 8v5M8 10.5h5" />
+    </StrokeIcon>
+  );
+}
+
+export function IconZoomOut(props: IconProps) {
+  return (
+    <StrokeIcon {...props}>
+      <circle cx="10.5" cy="10.5" r="6" />
+      <path d="M15 15l5 5" />
+      <path d="M8 10.5h5" />
+    </StrokeIcon>
+  );
+}
+
+export function IconPagePrev(props: IconProps) {
+  return (
+    <StrokeIcon {...props}>
+      <path d="M7 14l5-5 5 5" />
+    </StrokeIcon>
+  );
+}
+
+export function IconPageNext(props: IconProps) {
+  return (
+    <StrokeIcon {...props}>
+      <path d="M7 10l5 5 5-5" />
+    </StrokeIcon>
+  );
+}

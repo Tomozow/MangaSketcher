@@ -23,7 +23,6 @@ import { repaintAllInkDisplays } from '@/src/web/ink/PageInkCanvas';
 export type TextEditSelection = {
   id: TextId;
   content: string;
-  onPasteboard?: boolean;
 };
 
 type TextEditBarProps = {
@@ -89,7 +88,6 @@ export function TextEditBar({
         composing: composingRef.current,
         explicit: true,
         forceOnExplicit,
-        deleteIfEmpty: selectionRef.current?.onPasteboard === true,
       });
       if (plan.kind === 'commit') {
         lastCommittedRef.current = { id: textId, content: plan.content };
@@ -109,7 +107,7 @@ export function TextEditBar({
     setDraft(savedContent);
     pendingExplicitCommitRef.current = false;
     lastCommittedRef.current =
-      editingId && !(selection?.onPasteboard && isTextContentEmpty(savedContent))
+      editingId && !isTextContentEmpty(savedContent)
         ? { id: editingId, content: savedContent }
         : null;
     if (!selection) {

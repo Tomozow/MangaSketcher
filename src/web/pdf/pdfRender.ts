@@ -1,5 +1,6 @@
 import { PDF_MAX_EDGE } from './constants';
 import { computeLetterbox, renderScaleForPage } from './pdfLetterbox';
+import type { PdfCachedBitmap } from './pdfPageCache';
 import type { PdfDocumentProxy } from './pdfSession';
 
 type RenderTask = {
@@ -15,6 +16,56 @@ export type PdfRenderLayout = {
   maxEdge?: number;
 };
 
+export type PdfRenderHandle = RenderTask & {
+  scale: number;
+  cssWidth: number;
+  cssHeight: number;
+};
+
+export function resolvePdfRenderMetrics(
+  pageWidth: number,
+  pageHeight: number,
+  layout: PdfRenderLayout,
+): { scale: number; cssWidth: number; cssHeight: number } {
+  const letterbox = computeLetterbox(
+    layout.containerWidth,
+    layout.containerHeight,
+    pageWidth,
+    pageHeight,
+  );
+  const scale = renderScaleForPage(
+    pageWidth,
+    pageHeight,
+    letterbox.width,
+    letterbox.height,
+    layout.zoom,
+    layout.dpr,
+    layout.maxEdge ?? PDF_MAX_EDGE,
+  );
+  return { scale, cssWidth: letterbox.width, cssHeight: letterbox.height };
+}
+
+export function blitPdfBitmapToCanvas(
+  canvas: HTMLCanvasElement,
+  bitmap: PdfCachedBitmap,
+  cssWidth: number,
+  cssHeight: number,
+  zoom: number,
+): void {
+  const width = Math.max(1, Math.floor(bitmap.width));
+  const height = Math.max(1, Math.floor(bitmap.height));
+  canvas.width = width;
+  canvas.height = height;
+  canvas.style.width = `${cssWidth * Math.max(0.01, zoom)}px`;
+  canvas.style.height = `${cssHeight * Math.max(0.01, zoom)}px`;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return;
+  }
+  ctx.clearRect(0, 0, width, height);
+  ctx.drawImage(bitmap as CanvasImageSource, 0, 0);
+}
+
 function isPdfRenderCancelled(err: unknown): boolean {
   if (err == null || typeof err !== 'object') {
     return false;
@@ -29,31 +80,15 @@ export async function renderPdfPageToCanvas(
   pageNumber: number,
   canvas: HTMLCanvasElement,
   layout: PdfRenderLayout,
-): Promise<RenderTask | null> {
+): Promise<PdfRenderHandle | null> {
   const page = await proxy.getPage(pageNumber);
   const viewport1 = page.getViewport({ scale: 1 });
-  const letterbox = computeLetterbox(
-    layout.containerWidth,
-    layout.containerHeight,
-    viewport1.width,
-    viewport1.height,
-  );
-  const cssW = letterbox.width;
-  const cssH = letterbox.height;
-  const scale = renderScaleForPage(
-    viewport1.width,
-    viewport1.height,
-    cssW,
-    cssH,
-    layout.zoom,
-    layout.dpr,
-    layout.maxEdge ?? PDF_MAX_EDGE,
-  );
-  const viewport = page.getViewport({ scale });
+  const metrics = resolvePdfRenderMetrics(viewport1.width, viewport1.height, layout);
+  const viewport = page.getViewport({ scale: metrics.scale });
   canvas.width = Math.floor(viewport.width);
   canvas.height = Math.floor(viewport.height);
-  canvas.style.width = `${cssW * Math.max(0.01, layout.zoom)}px`;
-  canvas.style.height = `${cssH * Math.max(0.01, layout.zoom)}px`;
+  canvas.style.width = `${metrics.cssWidth * Math.max(0.01, layout.zoom)}px`;
+  canvas.style.height = `${metrics.cssHeight * Math.max(0.01, layout.zoom)}px`;
 
   const ctx = canvas.getContext('2d');
   if (!ctx) {
@@ -78,7 +113,19 @@ export async function renderPdfPageToCanvas(
       }
     },
     promise,
+    scale: metrics.scale,
+    cssWidth: metrics.cssWidth,
+    cssHeight: metrics.cssHeight,
   };
+}
+
+let scratchCanvas: HTMLCanvasElement | null = null;
+
+export function getPdfScratchCanvas(): HTMLCanvasElement {
+  if (!scratchCanvas) {
+    scratchCanvas = document.createElement('canvas');
+  }
+  return scratchCanvas;
 }
 
 export function pageMediaSize(

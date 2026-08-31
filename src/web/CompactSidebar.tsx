@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
 import { selectTargetFlagsOf, type ToolId } from '@/src/domain/types';
 import { findText, selectedTextIdsOf } from '@/src/domain/text';
@@ -45,6 +45,7 @@ type CompactSidebarProps = {
   dispatch: (action: EditorDocumentAction) => void;
   onUndo: () => void;
   onRedo: () => void;
+  leading?: ReactNode;
 };
 
 const ERASER_SIZE_MAX = 128;
@@ -69,6 +70,7 @@ export function CompactSidebar({
   dispatch,
   onUndo,
   onRedo,
+  leading,
 }: CompactSidebarProps) {
   const selectTargets = selectTargetFlagsOf(doc.tools);
   const selectedTextIds = selectedTextIdsOf(doc);
@@ -135,7 +137,8 @@ export function CompactSidebar({
   };
 
   return (
-    <>
+    <div className={styles.leftChrome}>
+      {leading}
       <div className={styles.toolRail} role="toolbar" aria-label="ツール">
         {TOOLS.map((tool) => (
           <button
@@ -257,6 +260,6 @@ export function CompactSidebar({
           </div>
         ) : null}
       </aside>
-    </>
+    </div>
   );
 }

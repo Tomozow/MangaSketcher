@@ -2,17 +2,12 @@
 
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
 import { buildStripFrames, PAGE_DISPLAY_W, stripLayoutFromDoc, textChromeScreenMetrics } from '@/src/domain/stripGeometry';
-import type { ClipId } from '@/src/domain/types';
+import type { ClipId, TextId } from '@/src/domain/types';
 import type { EditorDocument } from '@/src/storage/types';
-import {
-  CLIP_CHROME_ATTR,
-  CLIP_COPY_ATTR,
-  CLIP_DELETE_ATTR,
-  CLIP_FRAME_ATTR,
-  CLIP_ID_ATTR,
-  CLIP_INSERT_ATTR,
-} from './clip/constants';
+import { CLIP_CHROME_ATTR, CLIP_COPY_ATTR, CLIP_DELETE_ATTR, CLIP_FRAME_ATTR, CLIP_ID_ATTR, CLIP_INSERT_ATTR } from './clip/constants';
+import { PAGE_TEXT_ID_ATTR, PAGE_TEXT_WRAP_ATTR } from './gestures/pageTextDom';
 import { clipInsertTarget, clipWorldBounds, rasterToDisplayScale, selectedClipIdsOf } from './clip/clipGeometry';
+import { selectedTextIdsOf } from '@/src/domain/text';
 import { effectiveClipPose, type ClipLiveTransform } from './clip/clipLiveTransform';
 import type { MarqueePreview } from '@/src/web/useEditorController';
 import { PageInkCanvas } from '@/src/web/ink/PageInkCanvas';
@@ -30,12 +25,47 @@ type PageInkOverlayProps = {
   onInsertClip: (clipId: ClipId) => void;
 };
 
+function DeleteMark({ icon, batch }: { icon: number; batch: boolean }) {
+  if (!batch) {
+    return (
+      <svg viewBox="0 0 12 12" width={icon} height={icon} aria-hidden="true" focusable="false">
+        <path
+          d="M3 3l6 6M9 3l-6 6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 14 12" width={icon} height={icon} aria-hidden="true" focusable="false">
+      <path
+        d="M1.5 2.5l4.5 7M6 2.5L1.5 9.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+      <path
+        d="M7.5 2.5l4.5 7M12 2.5L7.5 9.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
 function ClipBoxChrome({
   clipId,
   buttonPx,
   gapPx,
   style,
   canInsert,
+  batch,
   onDeleteClip,
   onDuplicateClip,
   onInsertClip,
@@ -45,6 +75,7 @@ function ClipBoxChrome({
   gapPx: number;
   style?: { left: number; top: number };
   canInsert: boolean;
+  batch?: boolean;
   onDeleteClip: (clipId: ClipId) => void;
   onDuplicateClip: (clipId: ClipId) => void;
   onInsertClip: (clipId: ClipId) => void;
@@ -62,7 +93,7 @@ function ClipBoxChrome({
         className={styles.pageTextChromeButton}
         style={size}
         {...{ [CLIP_DELETE_ATTR]: '' }}
-        aria-label="クリップを削除"
+        aria-label={batch ? '選択中のものを削除' : 'クリップを削除'}
         onPointerDown={(event) => {
           event.stopPropagation();
         }}
@@ -71,15 +102,7 @@ function ClipBoxChrome({
           onDeleteClip(clipId);
         }}
       >
-        <svg viewBox="0 0 12 12" width={icon} height={icon} aria-hidden="true" focusable="false">
-          <path
-            d="M3 3l6 6M9 3l-6 6"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.6"
-            strokeLinecap="round"
-          />
-        </svg>
+        <DeleteMark icon={icon} batch={Boolean(batch)} />
       </div>
       <div
         role="button"
@@ -125,6 +148,7 @@ function ClipBoxChrome({
 function ClipChromeOverlay({
   overlayRef,
   clipIds,
+  textIds,
   zoom,
   panX,
   panY,
@@ -136,6 +160,7 @@ function ClipChromeOverlay({
 }: {
   overlayRef: RefObject<HTMLDivElement | null>;
   clipIds: ClipId[];
+  textIds: TextId[];
   zoom: number;
   panX: number;
   panY: number;
@@ -147,6 +172,7 @@ function ClipChromeOverlay({
 }) {
   const [pose, setPose] = useState<{ left: number; top: number; button: number; gap: number } | null>(null);
   const primaryId = clipIds[clipIds.length - 1];
+  const batch = clipIds.length + textIds.length > 1;
 
   useLayoutEffect(() => {
     const overlay = overlayRef.current;
@@ -154,10 +180,17 @@ function ClipChromeOverlay({
       setPose(null);
       return;
     }
+    const root = overlay.parentElement ?? overlay;
     const frames = clipIds
       .map((id) => overlay.querySelector<HTMLElement>(`[${CLIP_FRAME_ATTR}][${CLIP_ID_ATTR}="${id}"]`))
       .filter((el): el is HTMLElement => el !== null);
-    if (frames.length === 0) {
+    const wraps = textIds
+      .map((id) =>
+        root.querySelector<HTMLElement>(`[${PAGE_TEXT_WRAP_ATTR}][${PAGE_TEXT_ID_ATTR}="${id}"]`),
+      )
+      .filter((el): el is HTMLElement => el !== null);
+    const boxes = [...frames, ...wraps];
+    if (boxes.length === 0) {
       setPose(null);
       return;
     }
@@ -165,10 +198,10 @@ function ClipChromeOverlay({
     const overlayRect = overlay.getBoundingClientRect();
     let left = Infinity;
     let top = Infinity;
-    for (const frame of frames) {
-      const frameRect = frame.getBoundingClientRect();
-      left = Math.min(left, frameRect.left);
-      top = Math.min(top, frameRect.top);
+    for (const box of boxes) {
+      const boxRect = box.getBoundingClientRect();
+      left = Math.min(left, boxRect.left);
+      top = Math.min(top, boxRect.top);
     }
     setPose({
       left: left - overlayRect.left,
@@ -176,7 +209,7 @@ function ClipChromeOverlay({
       button: metrics.button,
       gap: metrics.gap,
     });
-  }, [overlayRef, zoom, panX, panY, layoutKey]);
+  }, [overlayRef, clipIds, textIds, zoom, panX, panY, layoutKey]);
 
   if (!pose || !primaryId) {
     return null;
@@ -190,6 +223,7 @@ function ClipChromeOverlay({
         gapPx={pose.gap}
         style={{ left: pose.left, top: pose.top }}
         canInsert={canInsert}
+        batch={batch}
         onDeleteClip={onDeleteClip}
         onDuplicateClip={onDuplicateClip}
         onInsertClip={onInsertClip}
@@ -211,6 +245,7 @@ export function PageInkOverlay({
   const overlayRef = useRef<HTMLDivElement>(null);
   const { frames } = buildStripFrames(doc.workspaceOrder, stripLayoutFromDoc(doc));
   const selectedIds = selectedClipIdsOf(doc);
+  const selectedTextIds = selectedTextIdsOf(doc);
   const selectedIdSet = new Set(selectedIds);
   const showWorldMarquee =
     marqueePreview != null &&
@@ -305,10 +340,11 @@ export function PageInkOverlay({
         <ClipChromeOverlay
           overlayRef={overlayRef}
           clipIds={selectedIds}
+          textIds={selectedTextIds}
           zoom={doc.workspaceZoom}
           panX={doc.workspacePanX}
           panY={doc.workspacePanY}
-          layoutKey={`${inkFrame}:${selectedIds.join(',')}:${JSON.stringify(
+          layoutKey={`${inkFrame}:${selectedIds.join(',')}:${selectedTextIds.join(',')}:${JSON.stringify(
             selectedIds.map((id) => clipLiveTransforms[id] ?? null),
           )}`}
           onDeleteClip={onDeleteClip}

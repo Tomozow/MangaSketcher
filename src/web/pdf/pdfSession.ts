@@ -2,6 +2,7 @@
 
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import { PDF_WORKER_SRC } from './constants';
+import { clearPdfPageBitmaps } from './pdfPageCache';
 
 type PdfJsModule = typeof import('pdfjs-dist');
 type PdfDocumentProxy = Awaited<ReturnType<PdfJsModule['getDocument']>['promise']>;
@@ -46,10 +47,12 @@ export async function getOrLoadPdfProxy(
 
 export function dropPdfSession(opfsPath: string, generation: number): void {
   sessions.delete(sessionKey(opfsPath, generation));
+  clearPdfPageBitmaps();
 }
 
 export function clearPdfSessions(): void {
   sessions.clear();
+  clearPdfPageBitmaps();
 }
 
 export type { PdfDocumentProxy };

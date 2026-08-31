@@ -6,7 +6,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   ...(isStaticExport
-    ? { output: 'export' as const, trailingSlash: true }
+    ? { output: 'export' as const, trailingSlash: true, distDir: '.next-export' }
     : { allowedDevOrigins: ['127.0.0.1', 'localhost', '192.168.0.2'] }),
   serverExternalPackages: ['pdfjs-dist'],
   webpack: (config, { isServer }) => {

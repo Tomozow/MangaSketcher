@@ -28,8 +28,12 @@ import {
   type PdfPointerInput,
   type PdfSelection,
 } from './pdfGestureFsm';
-import { computeLetterbox } from './pdfLetterbox';
-import { renderPdfPageToCanvas } from './pdfRender';
+import { computeLetterbox, bitmapCoversNeededScale, decidePdfPaint, planPdfPaint } from './pdfLetterbox';
+import {
+  getPdfPageBitmapCache,
+  schedulePdfIdle,
+} from './pdfPageCache';
+import { blitPdfBitmapToCanvas, getPdfScratchCanvas, renderPdfPageToCanvas } from './pdfRender';
 import { getOrLoadPdfProxy } from './pdfSession';
 
 const TOUCH_HIT_SLOP_PX = 24;
@@ -180,37 +184,133 @@ export function PdfPageViewer({
 
     let cancelled = false;
     let renderTask: { cancel: () => void } | null = null;
+    let idleHandle: { cancel: () => void } | null = null;
+    const cache = getPdfPageBitmapCache();
+    const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
+    const letterboxNow = computeLetterbox(
+      viewport.clientWidth,
+      viewport.clientHeight,
+      mediaWidth,
+      mediaHeight,
+    );
+    const plan = planPdfPaint(
+      mediaWidth,
+      mediaHeight,
+      letterboxNow.width,
+      letterboxNow.height,
+      zoom,
+      dpr,
+      PDF_MAX_EDGE,
+      PDF_SHARP_MAX_EDGE,
+    );
+    const cached = cache.peek(opfsPath, generation, currentPage);
+    const decision = decidePdfPaint(plan, cached?.scale ?? null);
 
-    const paint = async (maxEdge: number) => {
+    if (decision.immediate === 'blit' && cached) {
+      blitPdfBitmapToCanvas(canvas, cached.bitmap, letterboxNow.width, letterboxNow.height, zoom);
+      cache.get(opfsPath, generation, currentPage);
+    } else {
+      const ctx = canvas.getContext('2d');
+      ctx?.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    const layoutFor = (maxEdge: number) => ({
+      containerWidth: viewport.clientWidth,
+      containerHeight: viewport.clientHeight,
+      zoom,
+      dpr,
+      maxEdge,
+    });
+
+    const snapshot = async (target: HTMLCanvasElement, page: number, scale: number) => {
+      if (typeof createImageBitmap !== 'function') {
+        return;
+      }
+      try {
+        const bitmap = await createImageBitmap(target);
+        if (cancelled) {
+          bitmap.close();
+          return;
+        }
+        cache.put(opfsPath, generation, page, scale, bitmap);
+      } catch {
+        // cache is optional; display canvas already has pixels
+      }
+    };
+
+    const paint = async (maxEdge: number, target: HTMLCanvasElement, page: number) => {
       const proxy = await getOrLoadPdfProxy(opfsPath, generation, pdfBytes);
       if (cancelled) {
         return;
       }
-      const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
-      const task = await renderPdfPageToCanvas(proxy, currentPage, canvas, {
-        containerWidth: viewport.clientWidth,
-        containerHeight: viewport.clientHeight,
-        zoom,
-        dpr,
-        maxEdge,
-      });
+      const task = await renderPdfPageToCanvas(proxy, page, target, layoutFor(maxEdge));
       if (cancelled) {
         task?.cancel();
         await task?.promise;
         return;
       }
+      if (!task) {
+        return;
+      }
       renderTask = task;
-      await task?.promise;
+      await task.promise;
+      if (cancelled) {
+        return;
+      }
+      await snapshot(target, page, task.scale);
+    };
+
+    const preloadNeighbors = () => {
+      idleHandle = schedulePdfIdle(() => {
+        if (cancelled) {
+          return;
+        }
+        void (async () => {
+          const scratch = getPdfScratchCanvas();
+          for (const page of [currentPage - 1, currentPage + 1]) {
+            if (cancelled || page < 1 || page > pageCount) {
+              continue;
+            }
+            const existing = cache.peek(opfsPath, generation, page);
+            if (existing && bitmapCoversNeededScale(existing.scale, plan.previewScale)) {
+              continue;
+            }
+            await paint(PDF_MAX_EDGE, scratch, page);
+          }
+        })();
+      });
     };
 
     void (async () => {
       try {
         setRenderError((prev) => (prev == null ? prev : null));
-        await paint(PDF_MAX_EDGE);
+        if (decision.immediate === 'render-preview') {
+          await paint(PDF_MAX_EDGE, canvas, currentPage);
+        }
         if (cancelled) {
           return;
         }
-        await paint(PDF_SHARP_MAX_EDGE);
+        if (decision.needSharp) {
+          idleHandle = schedulePdfIdle(() => {
+            if (cancelled) {
+              return;
+            }
+            void (async () => {
+              try {
+                await paint(PDF_SHARP_MAX_EDGE, canvas, currentPage);
+                if (!cancelled) {
+                  preloadNeighbors();
+                }
+              } catch (err) {
+                if (!cancelled) {
+                  setRenderError(err instanceof Error ? err.message : 'PDF render failed');
+                }
+              }
+            })();
+          });
+          return;
+        }
+        preloadNeighbors();
       } catch (err) {
         if (!cancelled) {
           setRenderError(err instanceof Error ? err.message : 'PDF render failed');
@@ -221,8 +321,9 @@ export function PdfPageViewer({
     return () => {
       cancelled = true;
       renderTask?.cancel();
+      idleHandle?.cancel();
     };
-  }, [viewerKey, opfsPath, generation, currentPage, pdfBytes, zoom]);
+  }, [viewerKey, opfsPath, generation, currentPage, pdfBytes, zoom, mediaWidth, mediaHeight, pageCount]);
 
   const sortedBody = sortBodyReadingOrder(sourceTextByPage[currentPage] ?? []);
   const selectedItems =
@@ -668,7 +769,7 @@ export function PdfPageViewer({
             top: letterbox.offsetY,
           }}
         >
-          <canvas ref={canvasRef} className={styles.pdfCanvas} key={viewerKey} />
+          <canvas ref={canvasRef} className={styles.pdfCanvas} />
           {extractMarkersVisible
             ? sortedBody
                 .filter((item) => isExtractedGlyph(item, currentPage, extractedGlyphs))

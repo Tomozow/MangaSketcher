@@ -1,15 +1,27 @@
 'use client';
 
 import { useEffect } from 'react';
+import { readAppleTouchDevice, readStandaloneDisplay } from '@/src/web/displayMode';
+import {
+  SHELL_PROBE_TIMEOUT_MS,
+  probeShellServer,
+  readShellUpdateSession,
+  restoreShellUpdateSession,
+  runShellStartup,
+  setShellUpdateStatus,
+  writeShellUpdateSession,
+} from '@/src/web/shellUpdate';
 
-function isAppleTouchDevice(): boolean {
-  if (typeof navigator === 'undefined') {
-    return false;
-  }
-  return (
-    /iPad|iPhone|iPod/i.test(navigator.userAgent) ||
-    (/Macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
-  );
+async function runBrowserShellStartup(): Promise<void> {
+  await runShellStartup({
+    getRegistration: () => navigator.serviceWorker.getRegistration(),
+    register: () => navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }),
+    probe: () => probeShellServer(window.fetch.bind(window), SHELL_PROBE_TIMEOUT_MS),
+    readSession: () => readShellUpdateSession(window.sessionStorage),
+    writeSession: (status) => writeShellUpdateSession(window.sessionStorage, status),
+    reload: () => window.location.reload(),
+    setStatus: setShellUpdateStatus,
+  });
 }
 
 export function ServiceWorkerRegistrar() {
@@ -25,20 +37,39 @@ export function ServiceWorkerRegistrar() {
       return;
     }
 
-    // iOS: never register. An active SW makes Safari's ホーム画面に追加 fail
-    // with 「エラーが出たためホーム画面に追加できませんでした」.
-    if (isAppleTouchDevice()) {
-      void navigator.serviceWorker.getRegistrations().then((regs) =>
-        Promise.all(regs.map((reg) => reg.unregister())),
-      );
+    // iOS Safari tab: never register. An active SW here makes 「ホーム画面に追加」
+    // fail. The home-screen web app (standalone) registers separately.
+    if (readAppleTouchDevice() && !readStandaloneDisplay()) {
       return;
     }
 
-    const timer = window.setTimeout(() => {
-      void navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch(() => {});
-    }, 1500);
+    if (restoreShellUpdateSession(window.sessionStorage)) {
+      return;
+    }
 
-    return () => window.clearTimeout(timer);
+    let cancelled = false;
+    let timer = 0;
+    const delayMs = readAppleTouchDevice() ? 0 : 1500;
+
+    void navigator.serviceWorker.getRegistration().then((existing) => {
+      if (cancelled) {
+        return;
+      }
+      if (existing) {
+        void runBrowserShellStartup().catch(() => {});
+        return;
+      }
+      timer = window.setTimeout(() => {
+        if (!cancelled) {
+          void runBrowserShellStartup().catch(() => {});
+        }
+      }, delayMs);
+    });
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
   }, []);
 
   return null;

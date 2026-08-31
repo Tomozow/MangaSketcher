@@ -5,7 +5,7 @@ export const MIN_RANGE_CSS = 8;
 
 /** pdf.js render: long edge clamp for the immediate fallback bitmap. */
 export const PDF_MAX_EDGE = 2048;
-/** Sharper pass: long-edge hint; iOS area cap in renderScaleForPage is the real limit. */
+/** Sharper pass when zoom/DPR would actually add pixels; iOS area cap is the real limit. */
 export const PDF_SHARP_MAX_EDGE = 8192;
 
 export const PDF_WORKER_SRC = '/pdf.worker.min.mjs';

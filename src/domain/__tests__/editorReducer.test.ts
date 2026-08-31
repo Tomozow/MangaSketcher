@@ -440,6 +440,49 @@ describe('select texts and bulk font size', () => {
     expect(afterB.box.height).toBe(40);
   });
 
+  test('deleteSelection removes every selected text and clip', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId },
+        box: { x: 10, y: 20, width: 10, height: 20 },
+        content: 'あ',
+      },
+      ids,
+    );
+    const textA = doc.selectedTextId!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId },
+        box: { x: 40, y: 20, width: 10, height: 20 },
+        content: 'い',
+      },
+      ids,
+    );
+    const textB = doc.selectedTextId!;
+    doc = reduceEditorDocument(
+      doc,
+      { type: 'commitMarqueeCut', pageId, clipId: 'c1', rasterId: 'p1:clip:c1', workspaceX: 0, workspaceY: 0 },
+      ids,
+    );
+    doc = reduceEditorDocument(doc, { type: 'deleteSelection', textIds: [textA, textB], clipIds: ['c1'] }, ids);
+    expect(doc.pages[pageId]!.texts).toHaveLength(0);
+    expect(doc.pasteboardClips).toHaveLength(0);
+    expect(doc.selectedTextIds).toEqual([]);
+    expect(doc.selectedClipIds).toEqual([]);
+  });
+
   test('selectClips from a marquee does not clear text selection', () => {
     const ids = sequentialIds('id');
     let doc = createEditorDocument({

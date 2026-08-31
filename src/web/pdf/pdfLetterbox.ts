@@ -34,6 +34,9 @@ export function computeLetterbox(
 /** iOS Safari canvas pixel budget (width * height). */
 export const IOS_MAX_CANVAS_AREA = 16_777_216;
 
+/** Cached bitmap is sharp enough when it is within 2% of the needed pdf.js scale. */
+export const PDF_SCALE_REUSE_RATIO = 0.98;
+
 /**
  * pdf.js viewport scale: match on-screen CSS (letterbox × zoom × dpr),
  * then cap bitmap long edge and total pixels so iPad does not blank the canvas.
@@ -60,4 +63,71 @@ export function renderScaleForPage(
     scale *= Math.sqrt(IOS_MAX_CANVAS_AREA / area);
   }
   return scale;
+}
+
+export function bitmapCoversNeededScale(cachedScale: number, neededScale: number): boolean {
+  return cachedScale >= neededScale * PDF_SCALE_REUSE_RATIO;
+}
+
+export type PdfPaintPlan = {
+  previewScale: number;
+  sharpScale: number;
+  /** True when the sharp pass would actually add pixels (high zoom / DPR). */
+  runSharpPass: boolean;
+};
+
+export function planPdfPaint(
+  pageWidth: number,
+  pageHeight: number,
+  cssWidth: number,
+  cssHeight: number,
+  zoom: number,
+  dpr: number,
+  previewMaxEdge: number,
+  sharpMaxEdge: number,
+): PdfPaintPlan {
+  const previewScale = renderScaleForPage(
+    pageWidth,
+    pageHeight,
+    cssWidth,
+    cssHeight,
+    zoom,
+    dpr,
+    previewMaxEdge,
+  );
+  const sharpScale = renderScaleForPage(
+    pageWidth,
+    pageHeight,
+    cssWidth,
+    cssHeight,
+    zoom,
+    dpr,
+    sharpMaxEdge,
+  );
+  return {
+    previewScale,
+    sharpScale,
+    runSharpPass: !bitmapCoversNeededScale(previewScale, sharpScale),
+  };
+}
+
+export type PdfPaintImmediate = 'blit' | 'render-preview';
+
+export type PdfPaintDecision = {
+  immediate: PdfPaintImmediate;
+  /** Queue the 8192-capped pass after idle; skip when cache already covers it. */
+  needSharp: boolean;
+};
+
+export function decidePdfPaint(
+  plan: PdfPaintPlan,
+  cachedScale: number | null,
+): PdfPaintDecision {
+  if (cachedScale != null && bitmapCoversNeededScale(cachedScale, plan.sharpScale)) {
+    return { immediate: 'blit', needSharp: false };
+  }
+  if (cachedScale != null && bitmapCoversNeededScale(cachedScale, plan.previewScale)) {
+    return { immediate: 'blit', needSharp: plan.runSharpPass };
+  }
+  return { immediate: 'render-preview', needSharp: plan.runSharpPass };
 }

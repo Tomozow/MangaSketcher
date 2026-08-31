@@ -35,6 +35,11 @@ import {
   startExportDownload,
   type ObjectUrlTracker,
 } from '@/src/web/export';
+import {
+  getShellUpdateStatus,
+  shellUpdateStatusLabel,
+  subscribeShellUpdateStatus,
+} from '@/src/web/shellUpdate';
 import styles from '@/app/page.module.css';
 
 const DEFAULT_PROJECT_NAME = '無題';
@@ -92,6 +97,7 @@ export function ProjectList() {
   );
   const importInputRef = useRef<HTMLInputElement>(null);
   const objectUrlRef = useRef<ObjectUrlTracker | null>(null);
+  const [shellStatus, setShellStatus] = useState(getShellUpdateStatus);
   const [exportGeneratingId, setExportGeneratingId] = useState<string | null>(null);
   const [pendingExport, setPendingExport] = useState<{
     projectId: string;
@@ -111,6 +117,11 @@ export function ProjectList() {
       revokeExportObjectUrl(objectUrlRef.current, { unusedOnly: true });
       objectUrlRef.current = null;
     };
+  }, []);
+
+  useEffect(() => {
+    setShellStatus(getShellUpdateStatus());
+    return subscribeShellUpdateStatus(setShellStatus);
   }, []);
 
   const discardPendingExport = useCallback(() => {
@@ -326,6 +337,7 @@ export function ProjectList() {
     setAutosavePreset(saveAppSettings({ autosavePreset: value }).autosavePreset);
   };
 
+  const shellLabel = shellUpdateStatusLabel(shellStatus);
   const creating = busyId === '__create__';
   const importing = busyId === '__import__';
   const exportBusy = exportGeneratingId != null || pendingExport != null;
@@ -343,6 +355,11 @@ export function ProjectList() {
           <div>
             <h1 className={styles.title}>MangaSketcher</h1>
             <span className={styles.subtitle}>端末内 · 自動保存</span>
+            {shellLabel ? (
+              <span className={styles.shellStatus} aria-live="polite">
+                {shellLabel}
+              </span>
+            ) : null}
           </div>
         </div>
         <div className={styles.tools}>

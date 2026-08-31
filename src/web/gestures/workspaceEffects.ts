@@ -1,13 +1,7 @@
 import type { EditorDocumentAction } from '../../domain/editorReducer';
+import { clampWorkspaceZoom } from '../../domain/workspaceView';
 import type { EditorDocument } from '../../storage/types';
 import type { WorkspaceEffect } from './types';
-
-const MIN_ZOOM = 0.25;
-const MAX_ZOOM = 4;
-
-function clampZoom(zoom: number): number {
-  return Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
-}
 
 function pinchMidpoint(fingerPositions: Map<number, { x: number; y: number }>): { x: number; y: number } | null {
   const points = [...fingerPositions.values()];
@@ -45,7 +39,7 @@ export function reduceWorkspaceEffects(
         break;
       case 'pinchBy': {
         const mid = pinchMidpoint(fingerPositions);
-        const newZoom = clampZoom(zoom * effect.scaleBy);
+        const newZoom = clampWorkspaceZoom(zoom * effect.scaleBy);
         if (mid && surfaceRect) {
           const lx = mid.x - surfaceRect.left;
           const ly = mid.y - surfaceRect.top;

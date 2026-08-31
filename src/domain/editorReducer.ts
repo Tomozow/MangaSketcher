@@ -124,6 +124,7 @@ export type EditorDocumentAction =
     }
   | { type: 'editText'; textId: TextId; content: string }
   | { type: 'deleteText'; textId: TextId }
+  | { type: 'deleteSelection'; textIds: TextId[]; clipIds: ClipId[] }
   | { type: 'duplicateText'; textId: TextId }
   | { type: 'moveText'; textId: TextId; x: number; y: number }
   | {
@@ -281,6 +282,37 @@ function sameTextAttachment(
     return found.where === 'pasteboard';
   }
   return found.where === 'page' && found.pageId === attachment.pageId;
+}
+
+function removeTextsById(doc: EditorDocument, textIds: TextId[]): void {
+  const remove = new Set(textIds);
+  if (remove.size === 0) {
+    return;
+  }
+  for (const page of Object.values(doc.pages)) {
+    page.texts = page.texts.filter((t) => !remove.has(t.id));
+  }
+  doc.pasteboardTexts = doc.pasteboardTexts.filter((t) => !remove.has(t.id));
+  Object.assign(
+    doc,
+    textSelection(selectedTextIdsOf(doc).filter((id) => !remove.has(id))),
+  );
+}
+
+function removeClipsById(doc: EditorDocument, clipIds: ClipId[]): void {
+  const remove = new Set(clipIds);
+  if (remove.size === 0) {
+    return;
+  }
+  doc.pasteboardClips = doc.pasteboardClips.filter((c) => !remove.has(c.id));
+  Object.assign(
+    doc,
+    clipSelection(
+      (doc.selectedClipIds ?? (doc.selectedClipId ? [doc.selectedClipId] : [])).filter(
+        (id) => !remove.has(id),
+      ),
+    ),
+  );
 }
 
 function addPageToTrash(doc: EditorDocument, pageId: PageId): void {
@@ -467,12 +499,12 @@ export function reduceEditorDocument(
       return doc;
     }
     case 'deleteClip': {
-      const remove = new Set(a.clipIds);
-      doc.pasteboardClips = doc.pasteboardClips.filter((c) => !remove.has(c.id));
-      Object.assign(
-        doc,
-        clipSelection((doc.selectedClipIds ?? (doc.selectedClipId ? [doc.selectedClipId] : [])).filter((id) => !remove.has(id))),
-      );
+      removeClipsById(doc, a.clipIds);
+      return doc;
+    }
+    case 'deleteSelection': {
+      removeTextsById(doc, a.textIds);
+      removeClipsById(doc, a.clipIds);
       return doc;
     }
     case 'duplicateClip': {
@@ -526,26 +558,7 @@ export function reduceEditorDocument(
       return doc;
     }
     case 'deleteText': {
-      for (const page of Object.values(doc.pages)) {
-        const index = page.texts.findIndex((t) => t.id === a.textId);
-        if (index === -1) {
-          continue;
-        }
-        page.texts.splice(index, 1);
-        Object.assign(
-          doc,
-          textSelection(selectedTextIdsOf(doc).filter((id) => id !== a.textId)),
-        );
-        return doc;
-      }
-      const pbIndex = doc.pasteboardTexts.findIndex((t) => t.id === a.textId);
-      if (pbIndex !== -1) {
-        doc.pasteboardTexts.splice(pbIndex, 1);
-        Object.assign(
-          doc,
-          textSelection(selectedTextIdsOf(doc).filter((id) => id !== a.textId)),
-        );
-      }
+      removeTextsById(doc, [a.textId]);
       return doc;
     }
     case 'duplicateText': {

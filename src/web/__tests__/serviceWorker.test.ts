@@ -1,0 +1,60 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { describe, expect, test } from 'vitest';
+
+import { isAppleTouchDevice, isStandaloneDisplay } from '../displayMode';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const swSrc = readFileSync(join(here, '../../../public/sw.js'), 'utf8');
+const layoutSrc = readFileSync(join(here, '../../../app/layout.tsx'), 'utf8');
+const registrarSrc = readFileSync(join(here, '../ServiceWorkerRegistrar.tsx'), 'utf8');
+
+describe('offline home-screen shell', () => {
+  test('iPad Safari is an Apple touch device; desktop Mac is not', () => {
+    expect(isAppleTouchDevice('Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X)', 5)).toBe(true);
+    expect(isAppleTouchDevice('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', 5)).toBe(true);
+    expect(isAppleTouchDevice('Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)', 0)).toBe(false);
+    expect(isAppleTouchDevice('Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 0)).toBe(false);
+  });
+
+  test('standalone is true for home-screen web app, false for Safari tab', () => {
+    expect(isStandaloneDisplay({ standalone: true })).toBe(true);
+    expect(isStandaloneDisplay({ displayModeStandalone: true })).toBe(true);
+    expect(isStandaloneDisplay({ displayModeFullscreen: true })).toBe(true);
+    expect(isStandaloneDisplay({})).toBe(false);
+  });
+
+  test('sw.js precaches the shell and does not unregister itself', () => {
+    expect(swSrc).toContain("caches.open(SHELL_CACHE)");
+    expect(swSrc).toContain('/precache-manifest.json');
+    expect(swSrc).toContain('/page_template.jpg');
+    expect(swSrc).toContain('/pdf.worker.min.mjs');
+    expect(swSrc).toMatch(/addEventListener\('fetch'/);
+    expect(swSrc).not.toMatch(/registration\s*\n\s*\.unregister\(/);
+    expect(swSrc).not.toContain('self.registration.unregister');
+  });
+
+  test('navigation is cache-first with a short network timeout', () => {
+    expect(swSrc).toContain('function fetchWithTimeout');
+    expect(swSrc).toContain('NETWORK_TIMEOUT_MS = 4000');
+    expect(swSrc).toContain('event.respondWith(respondCacheFirst(request, keys))');
+    expect(swSrc).toContain("url.pathname === '/sw.js'");
+    expect(swSrc).toContain("url.pathname === '/precache-manifest.json'");
+    expect(swSrc).toContain("event.data.type === 'SKIP_WAITING'");
+    expect(swSrc).not.toMatch(/fetch\(request\)\s*\n\s*\.then\(\(response\) =>/);
+  });
+
+  test('layout does not unregister service workers on every page load', () => {
+    expect(layoutSrc).not.toContain('x.unregister()');
+    expect(layoutSrc).not.toContain('getRegistrations()');
+  });
+
+  test('iOS Safari tabs skip registration; standalone registers', () => {
+    expect(registrarSrc).toContain('readAppleTouchDevice() && !readStandaloneDisplay()');
+    expect(registrarSrc).toContain("register('/sw.js'");
+    expect(registrarSrc).toContain('restoreShellUpdateSession');
+    expect(registrarSrc).toContain('runShellStartup');
+    expect(registrarSrc).toContain('probeShellServer');
+  });
+});

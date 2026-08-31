@@ -570,7 +570,7 @@ export function WorkspaceStrip({
       {visibleSelectedTextId ? (
         <TextChromeOverlay
           surfaceRef={surfaceRef}
-          textId={visibleSelectedTextId}
+          textIds={visibleSelectedTextIds}
           zoom={zoom}
           panX={panX}
           panY={panY}

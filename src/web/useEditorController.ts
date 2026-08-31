@@ -12,7 +12,7 @@ import {
 } from '@/src/domain/pdfExtractPack';
 import { brushRadius } from '@/src/domain/pointers';
 import { pageLocalFromWorld, screenToWorld, buildStripFrames, stripLayoutFromDoc, PAGE_DISPLAY_H, PAGE_DISPLAY_W, type StripFrame } from '@/src/domain/stripGeometry';
-import { defaultTextBox, findText, isTextContentEmpty, clampTextBoxOrigin, rectsOverlap } from '@/src/domain/text';
+import { defaultTextBox, findText, isTextContentEmpty, clampTextBoxOrigin, rectsOverlap, selectedTextIdsOf } from '@/src/domain/text';
 import type { StrokePoint } from '@/src/domain/stroke';
 import { AutosaveManager, type AutosaveStatus } from '@/src/storage/autosave';
 import { getAutosaveDelays } from '@/src/storage/appSettings';
@@ -173,12 +173,12 @@ function selectedTextFromDocument(doc: EditorDocument): TextEditSelection | null
   for (const page of Object.values(doc.pages)) {
     const text = page.texts.find((item) => item.id === doc.selectedTextId);
     if (text) {
-      return { id: text.id, content: text.content, onPasteboard: false };
+      return { id: text.id, content: text.content };
     }
   }
   const pasteboard = doc.pasteboardTexts.find((item) => item.id === doc.selectedTextId);
   if (pasteboard) {
-    return { id: pasteboard.id, content: pasteboard.content, onPasteboard: true };
+    return { id: pasteboard.id, content: pasteboard.content };
   }
   return null;
 }
@@ -736,6 +736,7 @@ export function useEditorController(projectId: string): EditorController {
           action.type === 'transformClip' ||
           action.type === 'commitClipBake' ||
           action.type === 'deleteClip' ||
+          action.type === 'deleteSelection' ||
           action.type === 'duplicateClip' ||
           action.type === 'loadPdf' ||
           (action.type === 'setPdfView' && action.currentPage !== undefined);
@@ -1483,11 +1484,26 @@ export function useEditorController(projectId: string): EditorController {
 
   const deleteText = useCallback(
     (textId: string) => {
-      textLiveRef.current.delete(textId);
+      const present = historyRef.current?.present;
+      const selectedTexts = present ? selectedTextIdsOf(present) : [];
+      const selectedClips = present ? selectedClipIdsOf(present) : [];
+      const textIds = selectedTexts.includes(textId) ? selectedTexts : [textId];
+      const clipIds = selectedTexts.includes(textId) ? selectedClips : [];
+      for (const id of textIds) {
+        textLiveRef.current.delete(id);
+      }
       setTextLiveTransforms(Object.fromEntries(textLiveRef.current));
+      if (textIds.length + clipIds.length > 1) {
+        for (const id of clipIds) {
+          clipLiveRef.current.delete(id);
+        }
+        bumpClipDragFrame();
+        dispatch({ type: 'deleteSelection', textIds, clipIds });
+        return;
+      }
       dispatch({ type: 'deleteText', textId });
     },
-    [dispatch],
+    [bumpClipDragFrame, dispatch],
   );
 
   const duplicateText = useCallback(
@@ -1502,11 +1518,21 @@ export function useEditorController(projectId: string): EditorController {
     (clipId: string) => {
       const present = historyRef.current?.present;
       const selected = present ? selectedClipIdsOf(present) : [];
+      const selectedTexts = present ? selectedTextIdsOf(present) : [];
       const ids = selected.includes(clipId) ? selected : [clipId];
+      const textIds = selected.includes(clipId) ? selectedTexts : [];
       for (const id of ids) {
         clipLiveRef.current.delete(id);
       }
       bumpClipDragFrame();
+      if (ids.length + textIds.length > 1) {
+        for (const id of textIds) {
+          textLiveRef.current.delete(id);
+        }
+        setTextLiveTransforms(Object.fromEntries(textLiveRef.current));
+        dispatch({ type: 'deleteSelection', textIds, clipIds: ids });
+        return;
+      }
       dispatch({ type: 'deleteClip', clipIds: ids });
     },
     [bumpClipDragFrame, dispatch],
@@ -1586,7 +1612,7 @@ export function useEditorController(projectId: string): EditorController {
     if (!textEditingRef.current || !textSelectionRef.current) {
       return;
     }
-    const { id, content: savedContent, onPasteboard } = textSelectionRef.current;
+    const { id, content: savedContent } = textSelectionRef.current;
     const content = textDraftRef.current ?? savedContent;
     textDraftRef.current = null;
     setTextEditing(false);
@@ -1595,9 +1621,6 @@ export function useEditorController(projectId: string): EditorController {
 
     const prev = historyRef.current;
     if (!prev) {
-      return;
-    }
-    if (isTextContentEmpty(content) && !onPasteboard) {
       return;
     }
     const action: EditorDocumentAction = isTextContentEmpty(content)
