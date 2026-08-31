@@ -51,6 +51,7 @@ export function pushEditorHistory(
   nextPresent: EditorDocument,
   inkUndo: Map<string, InkUndoPixels>,
   viewOnly: boolean,
+  maxDepth = HISTORY_DEPTH,
 ): EditorHistory {
   if (viewOnly) {
     return {
@@ -64,7 +65,8 @@ export function pushEditorHistory(
     inkUndo: cloneInkUndo(inkUndo),
   };
   const past = [...history.past, pastEntry];
-  while (past.length > HISTORY_DEPTH) {
+  const depth = Math.max(1, Math.floor(maxDepth));
+  while (past.length > depth) {
     const dropped = past.shift();
     if (dropped) {
       releaseEntry(dropped);
@@ -74,6 +76,23 @@ export function pushEditorHistory(
     present: cloneEditorDocument(nextPresent),
     past,
     future: [],
+  };
+}
+
+export function trimEditorHistoryDepth(history: EditorHistory, maxDepth: number): EditorHistory {
+  const depth = Math.max(1, Math.floor(maxDepth));
+  if (history.past.length <= depth) {
+    return history;
+  }
+  const drop = history.past.length - depth;
+  const kept = history.past.slice(drop);
+  for (const entry of history.past.slice(0, drop)) {
+    releaseEntry(entry);
+  }
+  return {
+    present: history.present,
+    past: kept,
+    future: history.future,
   };
 }
 

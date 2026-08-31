@@ -61,7 +61,7 @@ export function SplitHandle({ orientation, onDrag }: SplitHandleProps) {
   );
 }
 
-type PdfDrawerResizeEdge = 'w' | 's' | 'sw';
+type PdfDrawerResizeEdge = 'w' | 's' | 'sw' | 'e' | 'se';
 
 type PdfDrawerResizeHandleProps = {
   edge: PdfDrawerResizeEdge;
@@ -94,8 +94,8 @@ export function PdfDrawerResizeHandle({ edge, onDrag }: PdfDrawerResizeHandlePro
       const dy = event.clientY - lastY.current;
       lastX.current = event.clientX;
       lastY.current = event.clientY;
-      const useX = edge === 'w' || edge === 'sw';
-      const useY = edge === 's' || edge === 'sw';
+      const useX = edge === 'w' || edge === 'sw' || edge === 'e' || edge === 'se';
+      const useY = edge === 's' || edge === 'sw' || edge === 'se';
       if ((useX && dx !== 0) || (useY && dy !== 0)) {
         onDrag(useX ? dx : 0, useY ? dy : 0);
       }
@@ -116,8 +116,13 @@ export function PdfDrawerResizeHandle({ edge, onDrag }: PdfDrawerResizeHandlePro
       ? styles.pdfDrawerResizeW
       : edge === 's'
         ? styles.pdfDrawerResizeS
-        : styles.pdfDrawerResizeSw;
-  const label = edge === 'w' ? 'PDFの幅' : edge === 's' ? 'PDFの高さ' : 'PDFの幅と高さ';
+        : edge === 'sw'
+          ? styles.pdfDrawerResizeSw
+          : edge === 'e'
+            ? styles.pdfDrawerResizeE
+            : styles.pdfDrawerResizeSe;
+  const label =
+    edge === 'w' || edge === 'e' ? 'PDFの幅' : edge === 's' ? 'PDFの高さ' : 'PDFの幅と高さ';
 
   return (
     <div

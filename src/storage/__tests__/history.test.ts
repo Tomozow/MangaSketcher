@@ -31,6 +31,16 @@ describe('EditorHistory', () => {
     expect(history.past[0]!.doc.inkGeneration).toBe(5);
   });
 
+  test('keeps at most the requested past depth', () => {
+    let history = createEditorHistory(createEditorDocument({ name: 'h', pageCount: 1 }));
+    const ink = new Map<string, ArrayBuffer>([['r1', new ArrayBuffer(1)]]);
+    for (let i = 0; i < 8; i += 1) {
+      const next = { ...history.present, inkGeneration: i + 1 };
+      history = pushEditorHistory(history, next, ink, false, 3);
+    }
+    expect(history.past).toHaveLength(3);
+  });
+
   test('VIEW_ONLY actions do not push past', () => {
     let history = createEditorHistory(createEditorDocument({ name: 'h', pageCount: 1 }));
     const next = { ...history.present, workspacePanX: 10 };

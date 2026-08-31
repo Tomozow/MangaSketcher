@@ -1,4 +1,5 @@
-import type { ProjectMeta, EditorDocument } from '../types';
+import type { EditorDocument, ProjectMeta } from '../types';
+import { APP_SETTINGS_META_ID } from '../types';
 import { collectRasterIds } from '../rasterIds';
 import type { ProjectExportSnapshot, ProjectImportPayload, StorageDatabase } from './idb';
 
@@ -10,7 +11,7 @@ export class MemoryStorageDatabase implements StorageDatabase {
   failImportProjectAtomic = false;
 
   async listMeta(): Promise<ProjectMeta[]> {
-    return [...this.meta.values()];
+    return [...this.meta.values()].filter((item) => item.id !== APP_SETTINGS_META_ID);
   }
 
   async getMeta(id: string): Promise<ProjectMeta | undefined> {

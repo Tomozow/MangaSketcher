@@ -70,13 +70,16 @@ export function clampPdfDrawerHeight(value: number): number {
   return Math.min(PDF_DRAWER_HEIGHT_MAX, Math.max(PDF_DRAWER_HEIGHT_MIN, value));
 }
 
-/** Left edge of a right-anchored drawer: pointer moving right shrinks width. */
+/** Left edge of a right-anchored drawer: pointer moving right shrinks width.
+ * Right edge of a left-anchored drawer: pointer moving right grows width. */
 export function nextPdfDrawerWidth(
   current: number,
-  deltaLeftEdgePx: number,
+  deltaEdgePx: number,
   parentWidthPx: number,
+  anchored: 'right' | 'left' = 'right',
 ): number {
-  return clampPdfDrawerWidth(current - deltaLeftEdgePx / Math.max(1, parentWidthPx));
+  const sign = anchored === 'right' ? -1 : 1;
+  return clampPdfDrawerWidth(current + (sign * deltaEdgePx) / Math.max(1, parentWidthPx));
 }
 
 /** Bottom edge: pointer moving down grows height. */

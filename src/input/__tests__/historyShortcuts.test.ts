@@ -10,6 +10,14 @@ describe('historyShortcuts', () => {
     expect(historyActionFromShortcutKey({ code: 'KeyS', ...bare })).toBe('redo');
   });
 
+  test('uses remapped undo and redo keys, Ctrl+Z/Y stay', () => {
+    const shortcuts = { undo: 'KeyQ', redo: 'KeyR' };
+    expect(historyActionFromShortcutKey({ code: 'KeyQ', ...bare }, shortcuts)).toBe('undo');
+    expect(historyActionFromShortcutKey({ code: 'KeyR', ...bare }, shortcuts)).toBe('redo');
+    expect(historyActionFromShortcutKey({ code: 'KeyW', ...bare }, shortcuts)).toBeNull();
+    expect(historyActionFromShortcutKey({ code: 'KeyZ', ...bare, ctrlKey: true }, shortcuts)).toBe('undo');
+  });
+
   test('Ctrl+Z and Ctrl+Y undo and redo', () => {
     expect(historyActionFromShortcutKey({ code: 'KeyZ', ...bare, ctrlKey: true })).toBe('undo');
     expect(historyActionFromShortcutKey({ code: 'KeyY', ...bare, ctrlKey: true })).toBe('redo');

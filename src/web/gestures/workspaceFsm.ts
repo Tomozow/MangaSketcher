@@ -475,7 +475,29 @@ function stepTextDrag(
         effects: [{ type: 'createText', pageId: session.pageId, x: coords.x, y: coords.y }],
       };
     }
-    return { session, effects: [] };
+    const dist = Math.hypot(input.x - session.startX, input.y - session.startY);
+    if (dist < TEXT_MOVE_SLOP) {
+      return { session, effects: [] };
+    }
+    const next = {
+      mode: 'marquee' as const,
+      kind: 'pencil' as const,
+      pageId: null,
+      x0: session.worldX,
+      y0: session.worldY,
+      x1: input.worldX,
+      y1: input.worldY,
+    };
+    const rect = {
+      x: Math.min(next.x0, next.x1),
+      y: Math.min(next.y0, next.y1),
+      width: Math.abs(next.x1 - next.x0),
+      height: Math.abs(next.y1 - next.y0),
+    };
+    return {
+      session: next,
+      effects: [{ type: 'marqueePreview', pageId: null, rect }],
+    };
   }
 
   return null;
@@ -593,7 +615,8 @@ function stepLockedPencil(
       };
       const tooSmall =
         rect.width < MIN_MARQUEE_RASTER_PX || rect.height < MIN_MARQUEE_RASTER_PX;
-      const targets = selectTargetsOf(input);
+      const targets =
+        input.tool === 'text' ? { text: true, ink: false, clip: false } : selectTargetsOf(input);
       const clear: WorkspaceEffect[] = [];
       if (targets.clip) {
         clear.push({ type: 'selectClips', clipIds: [] });
@@ -951,6 +974,12 @@ function stepPencilDown(
       };
     }
     if (isTextBodyHit(hit)) {
+      const selectedTexts = selectedTextIdsOfInput(input);
+      const alreadySelected = selectedTexts.includes(hit.textId);
+      const textIds = alreadySelected ? selectedTexts : [hit.textId];
+      if (textIds.length > 1) {
+        return pendingSelectionMove(input, [], textIds);
+      }
       const moveSession = textMoveSessionFromHit(hit);
       if (!moveSession) {
         return { session: { mode: 'idle' }, effects: [] };
@@ -1194,7 +1223,9 @@ export function stepWorkspacePointer(
         session.kind === 'pencil' &&
         (session.mode === 'pendingTextMove' ||
           session.mode === 'moveText' ||
-          session.mode === 'resizeText')));
+          session.mode === 'resizeText' ||
+          session.mode === 'pendingSelectionMove' ||
+          session.mode === 'moveSelection')));
 
   if (input.kind === 'finger' && !fingerUsesTextTool) {
     if (input.phase === 'down') {

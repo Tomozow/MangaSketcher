@@ -1,11 +1,12 @@
 'use client';
 
-import { useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
 import { selectTargetFlagsOf, type ToolId } from '@/src/domain/types';
 import { findText, selectedTextIdsOf } from '@/src/domain/text';
 import { inkPalette } from '@/src/theme/tokens';
 import type { EditorDocument, EditorHistory } from '@/src/storage/types';
+import { shortcutLabelFromCode, type ShortcutMap } from '@/src/storage/appSettings';
 import { historyControlsDisabled } from './historyControls';
 import { ValueSlider } from './ValueSlider';
 import { styles } from './editorStyles';
@@ -18,11 +19,11 @@ import {
   IconUndo,
 } from './chromeIcons';
 
-const TOOLS: { id: ToolId; label: string; shortcut: string }[] = [
-  { id: 'pen', label: 'ペン', shortcut: 'B' },
-  { id: 'eraser', label: '消', shortcut: 'E' },
-  { id: 'text', label: '文', shortcut: 'T' },
-  { id: 'select', label: '選', shortcut: 'C' },
+const TOOLS: { id: ToolId; label: string }[] = [
+  { id: 'pen', label: 'ペン' },
+  { id: 'eraser', label: '消' },
+  { id: 'text', label: '文' },
+  { id: 'select', label: '選' },
 ];
 
 const TOOL_FLYOUT_TITLES: Record<ToolId, string> = {
@@ -45,6 +46,8 @@ type CompactSidebarProps = {
   dispatch: (action: EditorDocumentAction) => void;
   onUndo: () => void;
   onRedo: () => void;
+  shortcuts: ShortcutMap;
+  toolFlyoutOnFirstTap?: boolean;
   leading?: ReactNode;
 };
 
@@ -70,8 +73,21 @@ export function CompactSidebar({
   dispatch,
   onUndo,
   onRedo,
+  shortcuts,
+  toolFlyoutOnFirstTap = false,
   leading,
 }: CompactSidebarProps) {
+  const [flyoutOpen, setFlyoutOpen] = useState(false);
+  const selectedToolRef = useRef(doc.tool);
+
+  useEffect(() => {
+    if (selectedToolRef.current === doc.tool) {
+      return;
+    }
+    selectedToolRef.current = doc.tool;
+    setFlyoutOpen(toolFlyoutOnFirstTap);
+  }, [doc.tool, toolFlyoutOnFirstTap]);
+
   const selectTargets = selectTargetFlagsOf(doc.tools);
   const selectedTextIds = selectedTextIdsOf(doc);
   const primarySelectedText =
@@ -140,27 +156,37 @@ export function CompactSidebar({
     <div className={styles.leftChrome}>
       {leading}
       <div className={styles.toolRail} role="toolbar" aria-label="ツール">
-        {TOOLS.map((tool) => (
-          <button
-            key={tool.id}
-            type="button"
-            className={`${styles.chromeIcon} ${doc.tool === tool.id ? styles.toolRailActive : ''}`}
-            onClick={() => dispatch({ type: 'setTool', tool: tool.id })}
-            aria-label={`${tool.label}（${tool.shortcut}）`}
-            aria-pressed={doc.tool === tool.id}
-            title={`${TOOL_FLYOUT_TITLES[tool.id]}（${tool.shortcut}）`}
-          >
-            <ToolGlyph id={tool.id} />
-          </button>
-        ))}
+        {TOOLS.map((tool) => {
+          const shortcut = shortcutLabelFromCode(shortcuts[tool.id]);
+          return (
+            <button
+              key={tool.id}
+              type="button"
+              className={`${styles.chromeIcon} ${doc.tool === tool.id ? styles.toolRailActive : ''}`}
+              onClick={() => {
+                if (doc.tool === tool.id) {
+                  setFlyoutOpen((open) => !open);
+                  return;
+                }
+                dispatch({ type: 'setTool', tool: tool.id });
+              }}
+              aria-label={`${tool.label}（${shortcut}）`}
+              aria-pressed={doc.tool === tool.id}
+              aria-expanded={doc.tool === tool.id ? flyoutOpen : undefined}
+              title={`${TOOL_FLYOUT_TITLES[tool.id]}（${shortcut}）`}
+            >
+              <ToolGlyph id={tool.id} />
+            </button>
+          );
+        })}
         <hr className={styles.toolRailRule} />
         <button
           type="button"
           className={styles.chromeIcon}
           disabled={historyControlsDisabled(textEditing, history.past.length)}
           onClick={onUndo}
-          aria-label="取り消し（W / Ctrl+Z）"
-          title="取り消し（W / Ctrl+Z）"
+          aria-label={`取り消し（${shortcutLabelFromCode(shortcuts.undo)} / Ctrl+Z）`}
+          title={`取り消し（${shortcutLabelFromCode(shortcuts.undo)} / Ctrl+Z）`}
         >
           <IconUndo />
         </button>
@@ -169,13 +195,14 @@ export function CompactSidebar({
           className={styles.chromeIcon}
           disabled={historyControlsDisabled(textEditing, history.future.length)}
           onClick={onRedo}
-          aria-label="やり直し（S / Ctrl+Y）"
-          title="やり直し（S / Ctrl+Y）"
+          aria-label={`やり直し（${shortcutLabelFromCode(shortcuts.redo)} / Ctrl+Y）`}
+          title={`やり直し（${shortcutLabelFromCode(shortcuts.redo)} / Ctrl+Y）`}
         >
           <IconRedo />
         </button>
       </div>
 
+      {flyoutOpen ? (
       <aside className={styles.toolFlyout} aria-label={`${TOOL_FLYOUT_TITLES[doc.tool]}の設定`}>
         <h4 className={styles.toolFlyoutTitle}>{TOOL_FLYOUT_TITLES[doc.tool]}</h4>
 
@@ -260,6 +287,7 @@ export function CompactSidebar({
           </div>
         ) : null}
       </aside>
+      ) : null}
     </div>
   );
 }

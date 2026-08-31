@@ -1,6 +1,6 @@
 import { cloneEditorDocument } from './editorDocument';
 import { collectRasterIds } from './rasterIds';
-import { DB_NAME, DB_VERSION, type EditorDocument, type ProjectMeta } from './types';
+import { APP_SETTINGS_META_ID, DB_NAME, DB_VERSION, type EditorDocument, type ProjectMeta } from './types';
 
 export type ProjectExportSnapshot = {
   document: EditorDocument;
@@ -49,6 +49,10 @@ const DOCUMENTS = 'documents';
 const RASTERS = 'rasters';
 
 const REQUIRED_STORES: StoreName[] = [META, DOCUMENTS, RASTERS];
+
+function projectMetaOnly(items: ProjectMeta[]): ProjectMeta[] {
+  return items.filter((item) => item.id !== APP_SETTINGS_META_ID);
+}
 
 function ensureObjectStores(db: IDBDatabase): void {
   if (!db.objectStoreNames.contains(META)) {
@@ -243,12 +247,12 @@ export class BrowserStorageDatabase implements StorageDatabase {
     metaWarmup = null;
     if (pending) {
       try {
-        return await pending;
+        return projectMetaOnly(await pending);
       } catch {
-        return collectStore(db, META, (cursor) => cursor.value as ProjectMeta);
+        return projectMetaOnly(await collectStore(db, META, (cursor) => cursor.value as ProjectMeta));
       }
     }
-    return collectStore(db, META, (cursor) => cursor.value as ProjectMeta);
+    return projectMetaOnly(await collectStore(db, META, (cursor) => cursor.value as ProjectMeta));
   }
 
   async getMeta(id: string): Promise<ProjectMeta | undefined> {

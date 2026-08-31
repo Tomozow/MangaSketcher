@@ -1,24 +1,34 @@
 import type { ToolId } from '../domain/types';
+import { DEFAULT_SHORTCUTS, type ShortcutMap } from '../storage/appSettings';
 import { isTypingTarget } from './desktopNavKeys';
 
-export const TOOL_SHORTCUT_BY_CODE: Record<string, ToolId> = {
-  KeyB: 'pen',
-  KeyE: 'eraser',
-  KeyT: 'text',
-  KeyC: 'select',
-};
+export function toolShortcutMapFromSettings(
+  shortcuts: Pick<ShortcutMap, 'pen' | 'eraser' | 'text' | 'select'> = DEFAULT_SHORTCUTS,
+): Record<string, ToolId> {
+  return {
+    [shortcuts.pen]: 'pen',
+    [shortcuts.eraser]: 'eraser',
+    [shortcuts.text]: 'text',
+    [shortcuts.select]: 'select',
+  };
+}
 
-export function toolIdFromShortcutKey(event: {
-  code: string;
-  ctrlKey: boolean;
-  metaKey: boolean;
-  altKey: boolean;
-  isComposing?: boolean;
-}): ToolId | null {
+export const TOOL_SHORTCUT_BY_CODE: Record<string, ToolId> = toolShortcutMapFromSettings();
+
+export function toolIdFromShortcutKey(
+  event: {
+    code: string;
+    ctrlKey: boolean;
+    metaKey: boolean;
+    altKey: boolean;
+    isComposing?: boolean;
+  },
+  shortcuts: Pick<ShortcutMap, 'pen' | 'eraser' | 'text' | 'select'> = DEFAULT_SHORTCUTS,
+): ToolId | null {
   if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing) {
     return null;
   }
-  return TOOL_SHORTCUT_BY_CODE[event.code] ?? null;
+  return toolShortcutMapFromSettings(shortcuts)[event.code] ?? null;
 }
 
 export function nextPenEraserTool(current: ToolId): ToolId {
@@ -38,12 +48,16 @@ export function isStylusBarrelToggle(
   return event.button === 5 || event.button === 2 || (event.buttons & 32) !== 0 || (event.buttons & 4) !== 0;
 }
 
-export function bindToolShortcuts(onTool: (tool: ToolId) => void, target: Window = window): () => void {
+export function bindToolShortcuts(
+  onTool: (tool: ToolId) => void,
+  target: Window = window,
+  shortcuts: Pick<ShortcutMap, 'pen' | 'eraser' | 'text' | 'select'> = DEFAULT_SHORTCUTS,
+): () => void {
   const onKeyDown = (event: KeyboardEvent) => {
     if (isTypingTarget()) {
       return;
     }
-    const tool = toolIdFromShortcutKey(event);
+    const tool = toolIdFromShortcutKey(event, shortcuts);
     if (!tool) {
       return;
     }

@@ -117,6 +117,7 @@ export function TextEditBar({
     if (!selection) {
       onLiveContent(null);
       setLiveTextContent(null);
+      onEditingChange(false);
       return;
     }
     onLiveContent(savedContent);

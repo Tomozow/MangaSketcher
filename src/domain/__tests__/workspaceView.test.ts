@@ -50,4 +50,15 @@ describe('workspaceView', () => {
     expect(neighborWorkspacePageId(order, null, -1)).toBeNull();
     expect(neighborWorkspacePageId([], 'a', 1)).toBeNull();
   });
+
+  test('見開き送りはページ1の次が2、2/3の次が4', () => {
+    const order = ['p1', 'p2', 'p3', 'p4', 'p5'];
+    expect(neighborWorkspacePageId(order, 'p1', 1, 'spread')).toBe('p2');
+    expect(neighborWorkspacePageId(order, 'p2', 1, 'spread')).toBe('p4');
+    expect(neighborWorkspacePageId(order, 'p3', 1, 'spread')).toBe('p4');
+    expect(neighborWorkspacePageId(order, 'p2', -1, 'spread')).toBe('p1');
+    expect(neighborWorkspacePageId(order, 'p3', -1, 'spread')).toBe('p1');
+    expect(neighborWorkspacePageId(order, 'p4', -1, 'spread')).toBe('p2');
+    expect(neighborWorkspacePageId(order, 'p5', 1, 'spread')).toBeNull();
+  });
 });

@@ -10,6 +10,14 @@ describe('toolShortcuts', () => {
     expect(toolIdFromShortcutKey({ code: 'KeyC', ctrlKey: false, metaKey: false, altKey: false })).toBe('select');
   });
 
+  test('uses remapped shortcut codes', () => {
+    const shortcuts = { pen: 'KeyQ', eraser: 'KeyW', text: 'KeyR', select: 'KeyF', undo: 'KeyZ', redo: 'KeyX' };
+    expect(toolIdFromShortcutKey({ code: 'KeyQ', ctrlKey: false, metaKey: false, altKey: false }, shortcuts)).toBe(
+      'pen',
+    );
+    expect(toolIdFromShortcutKey({ code: 'KeyB', ctrlKey: false, metaKey: false, altKey: false }, shortcuts)).toBeNull();
+  });
+
   test('ignores modifiers, IME composing, and other keys', () => {
     expect(toolIdFromShortcutKey({ code: 'KeyB', ctrlKey: true, metaKey: false, altKey: false })).toBeNull();
     expect(toolIdFromShortcutKey({ code: 'KeyC', ctrlKey: false, metaKey: true, altKey: false })).toBeNull();

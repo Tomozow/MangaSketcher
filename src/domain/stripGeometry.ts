@@ -233,6 +233,50 @@ export function buildStripFrames(
   };
 }
 
+export type WorldRect = { x: number; y: number; width: number; height: number };
+
+export function unionFrameRect(frames: ReadonlyArray<WorldRect>): WorldRect | null {
+  if (frames.length === 0) {
+    return null;
+  }
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const frame of frames) {
+    minX = Math.min(minX, frame.x);
+    minY = Math.min(minY, frame.y);
+    maxX = Math.max(maxX, frame.x + frame.width);
+    maxY = Math.max(maxY, frame.y + frame.height);
+  }
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+/** Bounding box of the reading spread that contains `pageId` (pages + start blank). */
+export function spreadWorldRectForPage(
+  frames: readonly StripFrame[],
+  workspaceOrder: readonly PageId[],
+  pageId: PageId,
+): WorldRect | null {
+  const pair = readingSpreads([...workspaceOrder]).find((spread) =>
+    spread.some((slot) => slot.kind === 'page' && slot.pageId === pageId),
+  );
+  if (!pair) {
+    return null;
+  }
+  const pageIds = new Set(
+    pair.filter((slot): slot is Extract<VisualSlot, { kind: 'page' }> => slot.kind === 'page').map((slot) => slot.pageId),
+  );
+  const includeStartBlank = pair.some((slot) => slot.kind === 'blank' && slot.at === 'start');
+  const matched = frames.filter((frame) => {
+    if (frame.slot.kind === 'page') {
+      return pageIds.has(frame.slot.pageId);
+    }
+    return includeStartBlank && frame.slot.kind === 'blank' && frame.slot.at !== 'end';
+  });
+  return unionFrameRect(matched);
+}
+
 export function hitStripFrame(frames: StripFrame[], worldX: number, worldY: number): StripFrame | null {
   for (const frame of frames) {
     if (

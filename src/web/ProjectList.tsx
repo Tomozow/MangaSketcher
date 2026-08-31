@@ -13,14 +13,6 @@ import {
   type ProjectMeta,
 } from '@/src/storage';
 import { ProjectPackError } from '@/src/storage/projectPack';
-import {
-  AUTOSAVE_PRESET_OPTIONS,
-  DEFAULT_APP_SETTINGS,
-  isAutosavePresetId,
-  loadAppSettings,
-  saveAppSettings,
-  type AutosavePresetId,
-} from '@/src/storage/appSettings';
 import { projectHref } from '@/src/web/projectRoutes';
 import { hardNavigate } from '@/src/web/hardNavigate';
 import { IconMoon, IconSun } from '@/src/web/chromeIcons';
@@ -94,9 +86,6 @@ export function ProjectList() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [menuId, setMenuId] = useState<string | null>(null);
-  const [autosavePreset, setAutosavePreset] = useState<AutosavePresetId>(
-    DEFAULT_APP_SETTINGS.autosavePreset,
-  );
   const importInputRef = useRef<HTMLInputElement>(null);
   const objectUrlRef = useRef<ObjectUrlTracker | null>(null);
   const [shellStatus, setShellStatus] = useState(getShellUpdateStatus);
@@ -130,10 +119,6 @@ export function ProjectList() {
     revokeExportObjectUrl(objectUrlRef.current, { unusedOnly: true });
     objectUrlRef.current = null;
     setPendingExport(null);
-  }, []);
-
-  useEffect(() => {
-    setAutosavePreset(loadAppSettings().autosavePreset);
   }, []);
 
   useEffect(() => {
@@ -332,20 +317,11 @@ export function ProjectList() {
     }
   };
 
-  const handleAutosavePreset = (value: string) => {
-    if (!isAutosavePresetId(value)) {
-      return;
-    }
-    setAutosavePreset(saveAppSettings({ autosavePreset: value }).autosavePreset);
-  };
-
   const shellLabel = shellUpdateStatusLabel(shellStatus);
   const creating = busyId === '__create__';
   const importing = busyId === '__import__';
   const exportBusy = exportGeneratingId != null || pendingExport != null;
   const listBusy = creating || importing || exportBusy;
-  const presetLabel =
-    AUTOSAVE_PRESET_OPTIONS.find((preset) => preset.id === autosavePreset)?.label ?? autosavePreset;
 
   return (
     <div
@@ -370,22 +346,6 @@ export function ProjectList() {
           </div>
         </div>
         <div className={styles.tools}>
-          <label className={styles.chip} htmlFor="autosave-preset">
-            自動保存
-            <select
-              id="autosave-preset"
-              className={styles.chipSelect}
-              value={autosavePreset}
-              onChange={(event) => handleAutosavePreset(event.target.value)}
-              aria-label="自動保存の間隔"
-            >
-              {AUTOSAVE_PRESET_OPTIONS.map((preset) => (
-                <option key={preset.id} value={preset.id}>
-                  {preset.label}
-                </option>
-              ))}
-            </select>
-          </label>
           <button
             type="button"
             className={styles.themeButton}
@@ -538,7 +498,7 @@ export function ProjectList() {
       </section>
 
       <p className={styles.settingsHint}>
-        自動保存は {presetLabel}。間隔を長くすると描画中の保存負荷が下がります。タブを閉じる・バックグラウンドにするときはすぐ保存します。
+        自動保存の間隔は編集画面の設定から変えられます。タブを閉じる・バックグラウンドにするときはすぐ保存します。
       </p>
     </div>
   );

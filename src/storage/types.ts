@@ -23,6 +23,8 @@ export type PdfMeta = import('../domain/types').PdfDocument;
 
 export const DB_NAME = 'mangasketcher';
 export const DB_VERSION = 1;
+/** Reserved `meta` row for app UI settings (excluded from project lists). */
+export const APP_SETTINGS_META_ID = 'mangasketcher:app-settings';
 
 export const DEFAULT_RASTER_WIDTH = 1200;
 export const DEFAULT_RASTER_HEIGHT = 1700;

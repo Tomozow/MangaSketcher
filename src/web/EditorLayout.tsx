@@ -3,6 +3,7 @@
 import type { MouseEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PageId } from '@/src/domain/types';
+import { selectedTextIdsOf } from '@/src/domain/text';
 import { selectTargetFlagsOf } from '@/src/domain/types';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
 import type { EditorDocument, EditorHistory } from '@/src/storage/types';
@@ -21,12 +22,14 @@ import { TextEditBar } from './TextEditBar';
 import type { TextEditSelection } from '@/src/web/TextEditBar';
 import type { PdfExtractPayload } from '@/src/web/pdf/PdfPageViewer';
 import { WorkspaceExportControls } from './WorkspaceExportControls';
+import { AppSettingsMenu } from './AppSettingsMenu';
 import { WorkspaceLayoutMenu } from './WorkspaceLayoutMenu';
 import { WorkspaceStrip } from './WorkspaceStrip';
 import { navigateHomeAfterCheckpoint } from './editorNavigate';
 import { hardNavigate } from './hardNavigate';
 import { IconBack, IconMoon, IconPdf, IconStock, IconSun } from './chromeIcons';
 import { useChromeTheme } from './useChromeTheme';
+import { useAppSettings } from './useAppSettings';
 import { PdfDrawerResizeHandle } from './SplitHandle';
 import {
   clampPdfDrawerHeight,
@@ -123,6 +126,7 @@ export function EditorLayout({
   onTextDraftChange,
 }: EditorLayoutProps) {
   const { theme, toggleTheme } = useChromeTheme();
+  const [appSettings, updateAppSettings] = useAppSettings();
   const [workspaceGrab, setWorkspaceGrab] = useState<WorkspaceGrab | null>(null);
   const suppressTrashToggleRef = useRef(false);
   const [stockOpen, setStockOpen] = useState(false);
@@ -257,6 +261,7 @@ export function EditorLayout({
           clampPdfDrawerWidth(doc.pdfDrawerWidth),
           deltaX,
           body.clientWidth,
+          appSettings.chromeFlip ? 'left' : 'right',
         );
       }
       if (deltaY !== 0) {
@@ -270,7 +275,7 @@ export function EditorLayout({
         dispatch({ type: 'setUiLayout', ...patch });
       }
     },
-    [dispatch, doc.pdfDrawerHeight, doc.pdfDrawerWidth],
+    [dispatch, doc.pdfDrawerHeight, doc.pdfDrawerWidth, appSettings.chromeFlip],
   );
 
   return (
@@ -281,6 +286,7 @@ export function EditorLayout({
       data-ms-theme={theme}
       data-ms-pdf={pdfVisible ? 'open' : 'closed'}
       data-ms-stock={stockVisible ? 'open' : 'closed'}
+      data-ms-chrome-flip={appSettings.chromeFlip ? '1' : '0'}
       style={{
         ['--ms-background' as string]: colors.background,
         ['--ms-pdf-drawer-w' as string]: String(clampPdfDrawerWidth(doc.pdfDrawerWidth)),
@@ -353,6 +359,7 @@ export function EditorLayout({
           <h1 className={styles.headerTitle}>{doc.name}</h1>
         </div>
         <WorkspaceLayoutMenu doc={doc} dispatch={dispatch} />
+        <AppSettingsMenu settings={appSettings} onChange={updateAppSettings} />
         <button
           type="button"
           className={`${styles.chromeIcon} ${stockVisible ? styles.chromeIconPressed : ''}`}
@@ -397,7 +404,13 @@ export function EditorLayout({
           dispatch={dispatch}
           onUndo={onUndo}
           onRedo={onRedo}
-          leading={<WorkspaceNav doc={doc} dispatch={dispatch} />}
+          shortcuts={appSettings.shortcuts}
+          toolFlyoutOnFirstTap={appSettings.toolFlyoutOnFirstTap}
+          leading={
+            appSettings.navBarVisible ? (
+              <WorkspaceNav doc={doc} dispatch={dispatch} pageTurnUnit={appSettings.pageTurnUnit} />
+            ) : undefined
+          }
         />
       </div>
 
@@ -496,9 +509,19 @@ export function EditorLayout({
           data-ms-region="pdf"
           aria-label="PDF"
         >
-          <PdfDrawerResizeHandle edge="w" onDrag={handlePdfDrawerResize} />
-          <PdfDrawerResizeHandle edge="s" onDrag={handlePdfDrawerResize} />
-          <PdfDrawerResizeHandle edge="sw" onDrag={handlePdfDrawerResize} />
+          {appSettings.chromeFlip ? (
+            <>
+              <PdfDrawerResizeHandle edge="e" onDrag={handlePdfDrawerResize} />
+              <PdfDrawerResizeHandle edge="s" onDrag={handlePdfDrawerResize} />
+              <PdfDrawerResizeHandle edge="se" onDrag={handlePdfDrawerResize} />
+            </>
+          ) : (
+            <>
+              <PdfDrawerResizeHandle edge="w" onDrag={handlePdfDrawerResize} />
+              <PdfDrawerResizeHandle edge="s" onDrag={handlePdfDrawerResize} />
+              <PdfDrawerResizeHandle edge="sw" onDrag={handlePdfDrawerResize} />
+            </>
+          )}
           <PdfPanePlaceholder
             visible
             hasPdf={Boolean(doc.pdf)}
@@ -530,7 +553,9 @@ export function EditorLayout({
       ) : null}
 
       <TextEditBar
-        selection={doc.tool === 'text' ? textSelection : null}
+        selection={
+          doc.tool === 'text' && selectedTextIdsOf(doc).length <= 1 ? textSelection : null
+        }
         layoutKey={`${doc.workspaceZoom}:${doc.workspacePanX}:${doc.workspacePanY}:${
           textSelection ? JSON.stringify(textLiveTransforms[textSelection.id] ?? null) : ''
         }`}

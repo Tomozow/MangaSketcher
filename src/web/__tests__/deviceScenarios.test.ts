@@ -222,6 +222,8 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(sidebarSrc).toContain("label: '線画'");
     expect(sidebarSrc).toContain("label: 'クリップ'");
     expect(sidebarSrc).toContain('setTextsFontSize');
+    expect(sidebarSrc).toContain('setFlyoutOpen');
+    expect(sidebarSrc).toContain('toolFlyoutOnFirstTap');
   });
 
   test('ワークスペース左に拡大縮小とページ移動のナビがある', () => {
@@ -229,8 +231,9 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(editorLayoutSrc).toContain('WorkspaceNav');
     expect(navSrc).toContain('aria-label="ズームイン"');
     expect(navSrc).toContain('aria-label="ズームアウト"');
-    expect(navSrc).toContain('aria-label="前のページ"');
-    expect(navSrc).toContain('aria-label="次のページ"');
+    expect(navSrc).toContain('前の${pageStepLabel}');
+    expect(navSrc).toContain('次の${pageStepLabel}');
+    expect(navSrc).toContain('spreadWorldRectForPage');
     expect(editorCss).toMatch(/\.ms-leftChrome[^{]*\{[^}]*top:\s*50%/);
     expect(editorCss).toMatch(/\.ms-workspaceNav[^{]*\{[^}]*grid-row:\s*1/);
     expect(editorCss).toMatch(/\.ms-toolRail[^{]*\{[^}]*grid-row:\s*2/);
@@ -282,7 +285,9 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(textEditBarSrc).toContain('PAGE_TEXT_CONFIRM_ATTR');
     expect(pageTextOverlaySrc).toContain('テキストを確定');
     expect(textEditBarSrc).toContain('PAGE_TEXT_WRAP_ATTR');
-    expect(editorLayoutSrc).toContain("doc.tool === 'text' ? textSelection : null");
+    expect(editorLayoutSrc).toContain(
+      "doc.tool === 'text' && selectedTextIdsOf(doc).length <= 1 ? textSelection : null",
+    );
     expect(workspaceStripSrc).toContain('tool === \'text\' || (tool === \'select\' && resolvedSelectTargets.text)');
     expect(
       planTextCommit({
@@ -311,6 +316,9 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(viewerSrc).toContain('pdfNavTools');
     expect(editorLayoutSrc).not.toContain('pdfDrawerHead');
     expect(editorLayoutSrc).toContain('PdfDrawerResizeHandle');
+    expect(editorCss).toMatch(
+      /\[data-ms-chrome-flip='1'\][\s\S]*\.ms-pdfNavPrimaryEnd[\s\S]*order:\s*1/,
+    );
   });
 
   test('PDF ナビにズームイン／アウトがある', () => {

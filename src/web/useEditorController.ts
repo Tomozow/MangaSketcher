@@ -15,7 +15,7 @@ import { pageLocalFromWorld, screenToWorld, buildStripFrames, stripLayoutFromDoc
 import { defaultTextBox, findText, isTextContentEmpty, clampTextBoxOrigin, rectsOverlap, selectedTextIdsOf } from '@/src/domain/text';
 import type { StrokePoint } from '@/src/domain/stroke';
 import { AutosaveManager, type AutosaveStatus } from '@/src/storage/autosave';
-import { getAutosaveDelays } from '@/src/storage/appSettings';
+import { getAutosaveDelays, getInkIdleMs } from '@/src/storage/appSettings';
 import { editorHistoryFromBoot, loadEditorBoot } from '@/src/storage/editorBoot';
 import { applyPdfViewSession, loadPdfViewSession, savePdfViewSession } from '@/src/storage/pdfViewSession';
 import { randomId } from '@/src/storage/randomId';
@@ -23,6 +23,7 @@ import {
   isViewOnlyHistoryAction,
   pushEditorHistory,
   redoEditorHistory,
+  trimEditorHistoryDepth,
   undoEditorHistory,
 } from '@/src/storage/history';
 import { copySharedTransparentPng } from '@/src/storage/transparentPng';
@@ -66,6 +67,7 @@ import { pageBoxToWorld, textBoxForOwnerMove, textPoseAfterWorldMove, textWorldB
 import type { PdfExtractPayload } from '@/src/web/pdf/PdfPageViewer';
 
 import type { TextEditSelection } from '@/src/web/TextEditBar';
+import { useAppSettings } from '@/src/web/useAppSettings';
 import {
   consumePendingInkHistory,
   createInkIdleAutosaveScheduler,
@@ -332,6 +334,9 @@ type PendingCreate =
   | { pasteboard: true; x: number; y: number };
 
 export function useEditorController(projectId: string): EditorController {
+  const [appSettings] = useAppSettings();
+  const historyDepthRef = useRef(appSettings.historyDepth);
+  historyDepthRef.current = appSettings.historyDepth;
   const [ready, setReady] = useState(false);
   const [missing, setMissing] = useState(false);
   const [history, setHistory] = useState<EditorHistory | null>(null);
@@ -375,12 +380,16 @@ export function useEditorController(projectId: string): EditorController {
   const pendingInkHistoryRef = useRef<PendingInkHistoryItem[]>([]);
   const idleInkFlushRef = useRef<() => Promise<void>>(async () => {});
   const inkIdleScheduler = useMemo(
-    () => createInkIdleAutosaveScheduler(() => {
-      void idleInkFlushRef.current();
-    }),
+    () =>
+      createInkIdleAutosaveScheduler(() => {
+        void idleInkFlushRef.current();
+      }, getInkIdleMs),
     [],
   );
   const historyRef = useRef<EditorHistory | null>(null);
+  useEffect(() => {
+    setHistory((prev) => (prev ? trimEditorHistoryDepth(prev, appSettings.historyDepth) : prev));
+  }, [appSettings.historyDepth]);
   const textEditingRef = useRef(false);
   const textSelectionRef = useRef<TextEditSelection | null>(null);
   const textDraftRef = useRef<string | null>(null);
@@ -432,7 +441,7 @@ export function useEditorController(projectId: string): EditorController {
             box: { x: origin.x, y: origin.y, width, height },
           };
       const nextPresent = reduceEditorDocument(prev.present, action, randomId);
-      const nextHistory = pushEditorHistory(prev, nextPresent, pendingInkUndo, false);
+      const nextHistory = pushEditorHistory(prev, nextPresent, pendingInkUndo, false, historyDepthRef.current);
       autosaveRef.current?.scheduleSave(nextHistory.present, [], false);
       return nextHistory;
     });
@@ -734,7 +743,7 @@ export function useEditorController(projectId: string): EditorController {
           }
         }
         const nextPresent = reduceEditorDocument(prev.present, action, randomId);
-        const nextHistory = pushEditorHistory(prev, nextPresent, pendingInkUndo, viewOnly);
+        const nextHistory = pushEditorHistory(prev, nextPresent, pendingInkUndo, viewOnly, historyDepthRef.current);
         const flushNow =
           action.type === 'commitMarqueeCut' ||
           action.type === 'transformClip' ||
@@ -856,7 +865,10 @@ export function useEditorController(projectId: string): EditorController {
           ) {
             continue;
           }
-          const targets = selectTargetFlagsOf(present.tools);
+          const targets =
+            present.tool === 'text'
+              ? { text: true, ink: false, clip: false }
+              : selectTargetFlagsOf(present.tools);
           const worldRect = effect.rect;
           const textIdsInRect = targets.text
             ? collectTextIdsInWorldRect(present, frames, worldRect)
@@ -1631,7 +1643,7 @@ export function useEditorController(projectId: string): EditorController {
       ? { type: 'deleteText', textId: id }
       : { type: 'editText', textId: id, content };
     const nextPresent = reduceEditorDocument(prev.present, action, randomId);
-    const nextHistory = pushEditorHistory(prev, nextPresent, new Map(), false);
+    const nextHistory = pushEditorHistory(prev, nextPresent, new Map(), false, historyDepthRef.current);
     historyRef.current = nextHistory;
     setHistory(nextHistory);
   }, []);

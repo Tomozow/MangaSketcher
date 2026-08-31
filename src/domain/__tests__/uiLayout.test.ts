@@ -26,6 +26,10 @@ describe('pdf drawer resize', () => {
     expect(nextPdfDrawerWidth(0.4, 100, 1000)).toBeCloseTo(0.3);
   });
 
+  test('right edge of a left-anchored drawer moving right grows width', () => {
+    expect(nextPdfDrawerWidth(0.4, 100, 1000, 'left')).toBeCloseTo(0.5);
+  });
+
   test('bottom edge moving down grows height', () => {
     expect(nextPdfDrawerHeight(0.5, 80, 800)).toBeCloseTo(0.6);
   });

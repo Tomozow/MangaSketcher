@@ -11,6 +11,7 @@ import {
   PAGE_DISPLAY_W,
   PAGE_NUMBER_BAND,
   SPREAD_INNER_GAP,
+  spreadWorldRectForPage,
   STRIP_GAP,
 } from '../stripGeometry';
 import { createDocument, sequentialIds } from '../document';
@@ -360,5 +361,35 @@ describe('stripGeometry 216×306 hit tests', () => {
     const gapY = leftOfPair.y + PAGE_DISPLAY_H / 2;
     expect(pageInkFrameAtWorld(frames, gapX, gapY)).toBeNull();
     expect(pageInkFrameAtWorld(frames, leftOfPair.x + PAGE_DISPLAY_W / 2, columnGap / 2)).toBeNull();
+  });
+
+  test('見開きの外接矩形は左右ページ（1は余白）の中央になる', () => {
+    const doc = createDocument({
+      projectId: 'p',
+      name: 't',
+      pageCount: 5,
+      ids: sequentialIds('pg'),
+    });
+    const { frames } = buildStripFrames(doc.workspaceOrder, { pagesPerColumn: 1 });
+    const page1 = frames.find((f) => f.slot.kind === 'page' && f.slot.number === 1)!;
+    const blank = frames.find((f) => f.slot.kind === 'blank')!;
+    const page2 = frames.find((f) => f.slot.kind === 'page' && f.slot.number === 2)!;
+    const page3 = frames.find((f) => f.slot.kind === 'page' && f.slot.number === 3)!;
+    const first = spreadWorldRectForPage(frames, doc.workspaceOrder, doc.workspaceOrder[0]!);
+    const second = spreadWorldRectForPage(frames, doc.workspaceOrder, doc.workspaceOrder[1]!);
+    expect(first).toEqual({
+      x: Math.min(page1.x, blank.x),
+      y: page1.y,
+      width: PAGE_DISPLAY_W * 2 + SPREAD_INNER_GAP,
+      height: PAGE_DISPLAY_H,
+    });
+    expect(first!.x + first!.width / 2).toBe((page1.x + page1.width / 2 + blank.x + blank.width / 2) / 2);
+    expect(second).toEqual({
+      x: Math.min(page2.x, page3.x),
+      y: page2.y,
+      width: PAGE_DISPLAY_W * 2 + SPREAD_INNER_GAP,
+      height: PAGE_DISPLAY_H,
+    });
+    expect(second!.x + second!.width / 2).toBe((page2.x + page2.width / 2 + page3.x + page3.width / 2) / 2);
   });
 });

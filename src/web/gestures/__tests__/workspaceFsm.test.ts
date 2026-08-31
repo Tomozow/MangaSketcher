@@ -331,11 +331,111 @@ describe('Web workspace FSM', () => {
       expect(up.effects).toEqual([{ type: 'selectText', textId: 'tx' }]);
     });
 
+    test('複数選択中のテキストをドラッグすると選択中のテキスト全部を動かす', () => {
+      const store = createWorkspaceGestureStore();
+      pencilText(store, 'down', {
+        x: 10,
+        y: 10,
+        worldX: 110,
+        worldY: 90,
+        selectedTextIds: ['tx', 'ty'],
+      });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('pendingSelectionMove');
+      const drag = pencilText(store, 'move', {
+        x: 30,
+        y: 10,
+        worldX: 130,
+        worldY: 90,
+        selectedTextIds: ['tx', 'ty'],
+      });
+      expect(drag.effects).toEqual([
+        { type: 'beginSelectionMove', clipIds: [], textIds: ['tx', 'ty'] },
+        { type: 'selectionMoveLive', dx: 20, dy: 0 },
+      ]);
+      const up = pencilText(store, 'up', {
+        x: 30,
+        y: 10,
+        worldX: 130,
+        worldY: 90,
+        selectedTextIds: ['tx', 'ty'],
+      });
+      expect(up.effects).toEqual([
+        { type: 'selectionMoveLive', dx: 20, dy: 0 },
+        { type: 'commitSelectionMove' },
+      ]);
+    });
+
     test('page 上の tap は 8px 以上ずれても createText する', () => {
       const store = createWorkspaceGestureStore();
       pencilText(store, 'down', { hit: pageHit, x: 10, y: 10, now: 100 });
       const up = pencilText(store, 'up', { hit: pageHit, x: 30, y: 18, now: 150 });
       expect(up.effects).toEqual([{ type: 'createText', pageId: 'p1', x: 10, y: 10 }]);
+    });
+
+    test('page 上で 8px 以上ドラッグするとテキスト専用の矩形選択になる', () => {
+      const store = createWorkspaceGestureStore();
+      pencilText(store, 'down', {
+        hit: pageHit,
+        x: 10,
+        y: 10,
+        worldX: 10,
+        worldY: 10,
+        now: 100,
+      });
+      const move = pencilText(store, 'move', {
+        hit: pageHit,
+        x: 30,
+        y: 40,
+        worldX: 30,
+        worldY: 40,
+        now: 120,
+      });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('marquee');
+      expect(move.effects[0]).toMatchObject({
+        type: 'marqueePreview',
+        pageId: null,
+        rect: { x: 10, y: 10, width: 20, height: 30 },
+      });
+      const up = pencilText(store, 'up', {
+        hit: pageHit,
+        x: 30,
+        y: 40,
+        worldX: 30,
+        worldY: 40,
+        now: 150,
+      });
+      expect(up.effects).toEqual([
+        { type: 'completeMarquee', pageId: null, rect: { x: 10, y: 10, width: 20, height: 30 } },
+      ]);
+    });
+
+    test('テキスト矩形選択が小さすぎるとテキスト選択だけクリアする', () => {
+      const store = createWorkspaceGestureStore();
+      pencilText(store, 'down', {
+        hit: pageHit,
+        x: 10,
+        y: 10,
+        worldX: 10,
+        worldY: 10,
+        now: 100,
+      });
+      pencilText(store, 'move', {
+        hit: pageHit,
+        x: 19,
+        y: 11,
+        worldX: 12,
+        worldY: 11,
+        now: 120,
+      });
+      const up = pencilText(store, 'up', {
+        hit: pageHit,
+        x: 19,
+        y: 11,
+        worldX: 12,
+        worldY: 11,
+        now: 150,
+      });
+      expect(up.effects).toEqual([{ type: 'selectTexts', textIds: [] }]);
     });
 
     test('ページ外の empty をタップすると台紙に createText する', () => {

@@ -8,6 +8,7 @@ import { bindStylusPenEraserToggle, bindToolShortcuts } from '@/src/input/toolSh
 import { EditorLayout } from '@/src/web/EditorLayout';
 import { EditorLoadingSurface } from '@/src/web/EditorLoadingSurface';
 import { styles } from '@/src/web/editorStyles';
+import { useAppSettings } from '@/src/web/useAppSettings';
 import { colors, useEditorController } from '@/src/web/useEditorController';
 
 type EditorProps = {
@@ -49,6 +50,7 @@ export default function Editor({ projectId }: EditorProps) {
     checkpointBeforeHeavyWork,
     setTextDraft,
   } = useEditorController(projectId);
+  const [appSettings] = useAppSettings();
   const rootHeight = useAppShellHeight(ready);
   const toolRef = useRef(history?.present.tool ?? 'pen');
   toolRef.current = history?.present.tool ?? 'pen';
@@ -68,7 +70,7 @@ export default function Editor({ projectId }: EditorProps) {
     }
     const unbindKeys = bindToolShortcuts((tool) => {
       dispatch({ type: 'setTool', tool });
-    });
+    }, window, appSettings.shortcuts);
     const unbindStylus = bindStylusPenEraserToggle(
       () => toolRef.current,
       (tool) => {
@@ -79,14 +81,14 @@ export default function Editor({ projectId }: EditorProps) {
       unbindKeys();
       unbindStylus();
     };
-  }, [ready, dispatch]);
+  }, [ready, dispatch, appSettings.shortcuts]);
 
   useEffect(() => {
     if (!ready) {
       return undefined;
     }
-    return bindHistoryShortcuts({ onUndo: undo, onRedo: redo });
-  }, [ready, undo, redo]);
+    return bindHistoryShortcuts({ onUndo: undo, onRedo: redo }, window, appSettings.shortcuts);
+  }, [ready, undo, redo, appSettings.shortcuts]);
 
   useEffect(() => {
     if (!ready) {

@@ -1,5 +1,6 @@
 import { reduceEditorDocument } from '@/src/domain/editorReducer';
 import { randomId } from '@/src/storage/randomId';
+import { getHistoryDepth } from '@/src/storage/appSettings';
 import { pushEditorHistory } from '@/src/storage/history';
 import { INK_IDLE_AUTOSAVE_MS, type EditorDocument, type EditorHistory, type InkUndoPixels } from '@/src/storage/types';
 import { waitForInkEncodes } from '@/src/web/export/waitForInkEncode';
@@ -9,12 +10,13 @@ export type PendingInkHistoryItem = { rasterId: string; canvas: InkUndoPixels };
 export function consumePendingInkHistory(
   history: EditorHistory,
   pending: PendingInkHistoryItem[],
+  maxDepth = getHistoryDepth(),
 ): EditorHistory {
   let next = history;
   for (const item of pending) {
     const inkUndo = new Map<string, InkUndoPixels>([[item.rasterId, item.canvas]]);
     const nextPresent = reduceEditorDocument(next.present, { type: 'commitInkBake', rasterId: item.rasterId }, randomId);
-    next = pushEditorHistory(next, nextPresent, inkUndo, false);
+    next = pushEditorHistory(next, nextPresent, inkUndo, false, maxDepth);
   }
   return next;
 }
@@ -79,9 +81,13 @@ export type InkIdleAutosaveScheduler = {
 
 export function createInkIdleAutosaveScheduler(
   run: () => void,
-  delayMs = INK_IDLE_AUTOSAVE_MS,
+  delayMs: number | (() => number) = INK_IDLE_AUTOSAVE_MS,
 ): InkIdleAutosaveScheduler {
   let timer: ReturnType<typeof setTimeout> | null = null;
+  const resolveDelay = () => {
+    const value = typeof delayMs === 'function' ? delayMs() : delayMs;
+    return Number.isFinite(value) ? Math.max(0, value) : INK_IDLE_AUTOSAVE_MS;
+  };
   return {
     schedule() {
       if (timer !== null) {
@@ -90,7 +96,7 @@ export function createInkIdleAutosaveScheduler(
       timer = setTimeout(() => {
         timer = null;
         run();
-      }, delayMs);
+      }, resolveDelay());
     },
     cancel() {
       if (timer !== null) {
