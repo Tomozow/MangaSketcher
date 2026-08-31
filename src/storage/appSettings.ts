@@ -46,6 +46,24 @@ export const SHORTCUT_ACTION_LABELS: Record<ShortcutActionId, string> = {
   redo: 'やり直し',
 };
 
+export const PEN_SIZE_PRESET_COUNT = 4;
+export const PEN_SIZE_MIN = 1;
+export const PEN_SIZE_MAX = 64;
+export type PenSizePresets = [number, number, number, number];
+export type BoolPresets = [boolean, boolean, boolean, boolean];
+
+export const DEFAULT_PEN_SIZE_PRESETS: PenSizePresets = [4, 8, 12, 24];
+export const DEFAULT_PEN_OPACITY_PRESETS: PenSizePresets = [1, 1, 1, 1];
+export const DEFAULT_PEN_SIZE_PRESET_INDEX = 2;
+export const DEFAULT_PRESSURE_SIZE_PRESETS: BoolPresets = [true, true, true, true];
+export const DEFAULT_PRESSURE_OPACITY_PRESETS: BoolPresets = [false, false, false, false];
+export const PEN_OPACITY_MIN = 0.05;
+export const PEN_OPACITY_MAX = 1;
+export const ERASER_SIZE_MIN = 1;
+export const ERASER_SIZE_MAX = 128;
+export const DEFAULT_ERASER_SIZE_PRESETS: PenSizePresets = [12, 28, 48, 80];
+export const DEFAULT_ERASER_SIZE_PRESET_INDEX = 1;
+
 export type AppSettings = {
   autosavePreset: AutosavePresetId;
   autosaveMs: number;
@@ -55,6 +73,16 @@ export type AppSettings = {
   chromeFlip: boolean;
   pageTurnUnit: PageTurnUnit;
   toolFlyoutOnFirstTap: boolean;
+  penSizePresets: PenSizePresets;
+  penOpacityPresets: PenSizePresets;
+  penSizePresetIndex: number;
+  penPressureSize: BoolPresets;
+  penPressureOpacity: BoolPresets;
+  eraserSizePresets: PenSizePresets;
+  eraserOpacityPresets: PenSizePresets;
+  eraserSizePresetIndex: number;
+  eraserPressureSize: BoolPresets;
+  eraserPressureOpacity: BoolPresets;
   shortcuts: ShortcutMap;
 };
 
@@ -67,6 +95,16 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   chromeFlip: false,
   pageTurnUnit: 'page',
   toolFlyoutOnFirstTap: false,
+  penSizePresets: [...DEFAULT_PEN_SIZE_PRESETS],
+  penOpacityPresets: [...DEFAULT_PEN_OPACITY_PRESETS],
+  penSizePresetIndex: DEFAULT_PEN_SIZE_PRESET_INDEX,
+  penPressureSize: [...DEFAULT_PRESSURE_SIZE_PRESETS],
+  penPressureOpacity: [...DEFAULT_PRESSURE_OPACITY_PRESETS],
+  eraserSizePresets: [...DEFAULT_ERASER_SIZE_PRESETS],
+  eraserOpacityPresets: [...DEFAULT_PEN_OPACITY_PRESETS],
+  eraserSizePresetIndex: DEFAULT_ERASER_SIZE_PRESET_INDEX,
+  eraserPressureSize: [...DEFAULT_PRESSURE_SIZE_PRESETS],
+  eraserPressureOpacity: [...DEFAULT_PRESSURE_OPACITY_PRESETS],
   shortcuts: { ...DEFAULT_SHORTCUTS },
 };
 
@@ -123,6 +161,89 @@ export function clampAutosaveMs(value: unknown): number {
 
 export function clampHistoryDepth(value: unknown): number {
   return clampInt(value, HISTORY_DEPTH_MIN, HISTORY_DEPTH_MAX, DEFAULT_APP_SETTINGS.historyDepth);
+}
+
+export function clampPenSize(value: unknown): number {
+  return clampInt(value, PEN_SIZE_MIN, PEN_SIZE_MAX, DEFAULT_PEN_SIZE_PRESETS[DEFAULT_PEN_SIZE_PRESET_INDEX]);
+}
+
+export function parsePenSizePresets(raw: unknown): PenSizePresets {
+  const source = Array.isArray(raw) ? raw : DEFAULT_PEN_SIZE_PRESETS;
+  const next: PenSizePresets = [...DEFAULT_PEN_SIZE_PRESETS];
+  for (let i = 0; i < PEN_SIZE_PRESET_COUNT; i += 1) {
+    next[i] = clampPenSize(source[i] ?? DEFAULT_PEN_SIZE_PRESETS[i]);
+  }
+  return next;
+}
+
+export function clampPenOpacity(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) {
+    return 1;
+  }
+  const stepped = Math.round(n / 0.05) * 0.05;
+  return Math.min(PEN_OPACITY_MAX, Math.max(PEN_OPACITY_MIN, Number(stepped.toFixed(2))));
+}
+
+export function parsePenOpacityPresets(raw: unknown): PenSizePresets {
+  const source = Array.isArray(raw) ? raw : DEFAULT_PEN_OPACITY_PRESETS;
+  const next: PenSizePresets = [...DEFAULT_PEN_OPACITY_PRESETS];
+  for (let i = 0; i < PEN_SIZE_PRESET_COUNT; i += 1) {
+    next[i] = clampPenOpacity(source[i] ?? DEFAULT_PEN_OPACITY_PRESETS[i]);
+  }
+  return next;
+}
+
+export function clampEraserSize(value: unknown): number {
+  return clampInt(value, ERASER_SIZE_MIN, ERASER_SIZE_MAX, DEFAULT_ERASER_SIZE_PRESETS[DEFAULT_ERASER_SIZE_PRESET_INDEX]);
+}
+
+export function parseEraserSizePresets(raw: unknown): PenSizePresets {
+  const source = Array.isArray(raw) ? raw : DEFAULT_ERASER_SIZE_PRESETS;
+  const next: PenSizePresets = [...DEFAULT_ERASER_SIZE_PRESETS];
+  for (let i = 0; i < PEN_SIZE_PRESET_COUNT; i += 1) {
+    next[i] = clampEraserSize(source[i] ?? DEFAULT_ERASER_SIZE_PRESETS[i]);
+  }
+  return next;
+}
+
+export function parseBool(value: unknown, fallback: boolean): boolean {
+  if (value === true) {
+    return true;
+  }
+  if (value === false) {
+    return false;
+  }
+  return fallback;
+}
+
+export function parseBoolPresets(raw: unknown, fallback: BoolPresets): BoolPresets {
+  if (raw === true || raw === false) {
+    return [raw, raw, raw, raw];
+  }
+  const source = Array.isArray(raw) ? raw : fallback;
+  const next: BoolPresets = [...fallback];
+  for (let i = 0; i < PEN_SIZE_PRESET_COUNT; i += 1) {
+    next[i] = parseBool(source[i], fallback[i]!);
+  }
+  return next;
+}
+
+export function parsePenSizePresetIndex(raw: unknown, fallback = DEFAULT_PEN_SIZE_PRESET_INDEX): number {
+  return clampInt(raw, 0, PEN_SIZE_PRESET_COUNT - 1, fallback);
+}
+
+export function activePenSizePresetIndex(
+  presets: PenSizePresets,
+  penSize: number,
+  fallbackIndex: number,
+): number {
+  const fallback = parsePenSizePresetIndex(fallbackIndex);
+  if (presets[fallback] === penSize) {
+    return fallback;
+  }
+  const found = presets.findIndex((size) => size === penSize);
+  return found >= 0 ? found : fallback;
 }
 
 function clampInt(value: unknown, min: number, max: number, fallback: number): number {
@@ -236,6 +357,16 @@ export function parseAppSettings(raw: unknown): AppSettings {
     chromeFlip?: unknown;
     pageTurnUnit?: unknown;
     toolFlyoutOnFirstTap?: unknown;
+    penSizePresets?: unknown;
+    penOpacityPresets?: unknown;
+    penSizePresetIndex?: unknown;
+    penPressureSize?: unknown;
+    penPressureOpacity?: unknown;
+    eraserSizePresets?: unknown;
+    eraserOpacityPresets?: unknown;
+    eraserSizePresetIndex?: unknown;
+    eraserPressureSize?: unknown;
+    eraserPressureOpacity?: unknown;
     shortcuts?: unknown;
   };
   const preset = isAutosavePresetId(record.autosavePreset) ? record.autosavePreset : null;
@@ -254,6 +385,16 @@ export function parseAppSettings(raw: unknown): AppSettings {
     chromeFlip: record.chromeFlip === true,
     pageTurnUnit: isPageTurnUnit(record.pageTurnUnit) ? record.pageTurnUnit : DEFAULT_APP_SETTINGS.pageTurnUnit,
     toolFlyoutOnFirstTap: record.toolFlyoutOnFirstTap === true,
+    penSizePresets: parsePenSizePresets(record.penSizePresets),
+    penOpacityPresets: parsePenOpacityPresets(record.penOpacityPresets),
+    penSizePresetIndex: parsePenSizePresetIndex(record.penSizePresetIndex),
+    penPressureSize: parseBoolPresets(record.penPressureSize, DEFAULT_PRESSURE_SIZE_PRESETS),
+    penPressureOpacity: parseBoolPresets(record.penPressureOpacity, DEFAULT_PRESSURE_OPACITY_PRESETS),
+    eraserSizePresets: parseEraserSizePresets(record.eraserSizePresets),
+    eraserOpacityPresets: parsePenOpacityPresets(record.eraserOpacityPresets),
+    eraserSizePresetIndex: parsePenSizePresetIndex(record.eraserSizePresetIndex, DEFAULT_ERASER_SIZE_PRESET_INDEX),
+    eraserPressureSize: parseBoolPresets(record.eraserPressureSize, DEFAULT_PRESSURE_SIZE_PRESETS),
+    eraserPressureOpacity: parseBoolPresets(record.eraserPressureOpacity, DEFAULT_PRESSURE_OPACITY_PRESETS),
     shortcuts: parseShortcuts(record.shortcuts),
   };
 }

@@ -37,6 +37,8 @@ function sampleDoc(): EditorDocument {
     workspaceOrder: ['a'],
     stock: [],
     trash: [],
+    trashClips: [],
+    trashTexts: [],
     pasteboardClips: [],
     pasteboardTexts: [],
     selectedPageId: 'a',

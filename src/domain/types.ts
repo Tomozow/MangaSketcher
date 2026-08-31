@@ -78,7 +78,10 @@ export type ClipMeta = {
 };
 
 export type StockItem = {
-  pageId: PageId;
+  kind?: 'page' | 'clip' | 'text';
+  pageId?: PageId;
+  clipId?: ClipId;
+  textId?: TextId;
   x: number;
   y: number;
 };
@@ -104,6 +107,12 @@ export type ToolProperties = {
   textFontSize: number;
   /** When false, pen/eraser ignore stylus pressure (undefined treated as true). */
   pressureEnabled?: boolean;
+  /** When set, overrides size pressure. Undefined follows `pressureEnabled`. */
+  pressureAffectsSize?: boolean;
+  /** When true, stylus pressure scales opacity. Undefined is false. */
+  pressureAffectsOpacity?: boolean;
+  eraserPressureAffectsSize?: boolean;
+  eraserPressureAffectsOpacity?: boolean;
   /** Select-tool filters. Undefined is treated as true (legacy documents). */
   selectText?: boolean;
   selectInk?: boolean;
@@ -159,6 +168,10 @@ export type DocumentState = {
   stock: StockItem[];
   /** Soft-deleted pages; still present in `pages`. */
   trash: PageId[];
+  /** Soft-deleted clips; still present in `pasteboardClips`. */
+  trashClips: ClipId[];
+  /** Soft-deleted texts; still present in `pasteboardTexts`. */
+  trashTexts: TextId[];
   pasteboardClips: InkClip[];
   pasteboardTexts: PasteboardText[];
   selectedPageId: PageId | null;
@@ -200,6 +213,8 @@ export type EditorDocument = {
   workspaceOrder: PageId[];
   stock: StockItem[];
   trash: PageId[];
+  trashClips: ClipId[];
+  trashTexts: TextId[];
   pasteboardClips: ClipMeta[];
   pasteboardTexts: PasteboardText[];
   selectedPageId: PageId | null;
@@ -285,6 +300,10 @@ export const DEFAULT_TOOL_PROPERTIES: ToolProperties = {
   textColor: '#1A1A1A',
   textFontSize: 36,
   pressureEnabled: true,
+  pressureAffectsSize: true,
+  pressureAffectsOpacity: false,
+  eraserPressureAffectsSize: true,
+  eraserPressureAffectsOpacity: false,
   selectText: true,
   selectInk: true,
   selectClip: true,

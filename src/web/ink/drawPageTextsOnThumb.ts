@@ -1,6 +1,11 @@
 import { isTextContentEmpty, verticalGlyphs } from '../../domain/text';
 import type { PageText, Rect } from '../../domain/types';
 import { pageTextCanvasFont } from '../pageTextFont';
+import {
+  isWhiteTextColor,
+  WHITE_TEXT_CANVAS_STROKE_RATIO,
+  WHITE_TEXT_STROKE_COLOR,
+} from '../text/whiteTextColor';
 
 export type ThumbText = Pick<PageText, 'content' | 'box' | 'fontSize' | 'color'>;
 
@@ -11,8 +16,13 @@ type ThumbTextContext = {
   rect(x: number, y: number, w: number, h: number): void;
   clip(): void;
   fillText(text: string, x: number, y: number): void;
+  strokeText?(text: string, x: number, y: number): void;
   font: string;
   fillStyle: string;
+  strokeStyle?: string;
+  lineWidth?: number;
+  lineJoin?: CanvasLineJoin;
+  miterLimit?: number;
   textBaseline: CanvasTextBaseline;
   textAlign: CanvasTextAlign;
 };
@@ -64,6 +74,13 @@ export function drawPageTextsOnThumb(
     ctx.font = pageTextCanvasFont(fontPx);
     ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
+    const outline = isWhiteTextColor(text.color) && typeof ctx.strokeText === 'function';
+    if (outline) {
+      ctx.strokeStyle = WHITE_TEXT_STROKE_COLOR;
+      ctx.lineWidth = Math.max(1, fontPx * WHITE_TEXT_CANVAS_STROKE_RATIO);
+      ctx.lineJoin = 'round';
+      ctx.miterLimit = 2;
+    }
 
     let colX = box.x + box.width - colW;
     let y = box.y;
@@ -82,7 +99,11 @@ export function drawPageTextsOnThumb(
       if (colX + colW < box.x) {
         break;
       }
-      ctx.fillText(glyph, colX + colW / 2, y);
+      const gx = colX + colW / 2;
+      if (outline) {
+        ctx.strokeText!(glyph, gx, y);
+      }
+      ctx.fillText(glyph, gx, y);
       y += fontPx;
     }
     ctx.restore();

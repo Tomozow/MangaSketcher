@@ -111,6 +111,23 @@ export class AutosaveManager {
     this.setUnsaved(true);
   }
 
+  /**
+   * Tool size / opacity changes should not start a new autosave.
+   * If a write is already queued, keep its debounce and persist the latest document JSON with it.
+   */
+  updatePendingDocument(doc: EditorDocument): void {
+    if (this.disposed) {
+      return;
+    }
+    const cloned = cloneEditorDocument(doc);
+    if (this.pendingJob) {
+      this.pendingJob.doc = cloned;
+    }
+    if (this.queuedAfterRun) {
+      this.queuedAfterRun.doc = cloned;
+    }
+  }
+
   scheduleSave(doc: EditorDocument, dirtyRasterIds: Iterable<string>, viewOnly = false): void {
     if (this.disposed) {
       return;

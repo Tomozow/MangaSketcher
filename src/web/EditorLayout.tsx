@@ -5,6 +5,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PageId } from '@/src/domain/types';
 import { selectedTextIdsOf } from '@/src/domain/text';
 import { selectTargetFlagsOf } from '@/src/domain/types';
+import { withoutStockedClips, withoutStockedTexts } from '@/src/domain/stockItems';
+import { moveWorkspacePageToStock, nextFreeStockPagePosition } from '@/src/web/stock/stockActions';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
 import type { EditorDocument, EditorHistory } from '@/src/storage/types';
 import type { AutosaveStatus } from '@/src/storage/autosave';
@@ -147,9 +149,6 @@ export function EditorLayout({
 
   const confirmPageDelete = useCallback(
     (pageId: PageId, source: 'workspace' | 'stock') => {
-      if (!window.confirm('このページをゴミ箱に移しますか？')) {
-        return;
-      }
       dispatch({
         type: source === 'stock' ? 'deleteStockPage' : 'deleteWorkspacePage',
         pageId,
@@ -157,6 +156,32 @@ export function EditorLayout({
       setPageDelete(null);
     },
     [dispatch],
+  );
+
+  const movePageToStockNow = useCallback(
+    (pageId: PageId) => {
+      const fromIndex = doc.workspaceOrder.indexOf(pageId);
+      if (fromIndex < 0) {
+        return;
+      }
+      const { x, y } = nextFreeStockPagePosition(doc.stock);
+      for (const action of moveWorkspacePageToStock(
+        pageId,
+        fromIndex,
+        x,
+        y,
+        doc.rasterWidth,
+        doc.rasterHeight,
+      )) {
+        dispatch(action);
+      }
+      if (doc.stockPane === 'trash') {
+        dispatch({ type: 'setUiLayout', stockPane: 'stock' });
+      }
+      setStockOpen(true);
+      setPageDelete(null);
+    },
+    [dispatch, doc.rasterHeight, doc.rasterWidth, doc.stock, doc.stockPane, doc.workspaceOrder],
   );
 
   const clearPageInkNow = useCallback(
@@ -168,14 +193,16 @@ export function EditorLayout({
   );
 
   const confirmEmptyTrash = useCallback(() => {
-    if (doc.trash.length === 0) {
+    const trashCount =
+      doc.trash.length + (doc.trashClips ?? []).length + (doc.trashTexts ?? []).length;
+    if (trashCount === 0) {
       return;
     }
-    if (!window.confirm('ゴミ箱を空にしますか？ページは完全に削除されます。')) {
+    if (!window.confirm('ゴミ箱を空にしますか？ページやアイテムは完全に削除されます。')) {
       return;
     }
     dispatch({ type: 'emptyTrash' });
-  }, [dispatch, doc.trash.length]);
+  }, [dispatch, doc.trash.length, doc.trashClips, doc.trashTexts]);
 
   useEffect(() => {
     if (!pageDelete) {
@@ -215,6 +242,32 @@ export function EditorLayout({
         }
         if (effect.type === 'endGrabPage') {
           setWorkspaceGrab(null);
+        }
+        if (effect.type === 'beginSelectionMove') {
+          setWorkspaceGrab({
+            clipId: effect.clipIds[0],
+            textId: effect.textIds[0],
+            clipIds: effect.clipIds,
+            textIds: effect.textIds,
+          });
+        }
+        if (effect.type === 'clipTransformLive' && (effect.x !== undefined || effect.y !== undefined)) {
+          setWorkspaceGrab((prev) =>
+            prev?.clipIds?.length || prev?.textIds?.length
+              ? prev
+              : prev?.clipId === effect.clipId
+                ? prev
+                : { clipId: effect.clipId },
+          );
+        }
+        if (effect.type === 'textTransformLive') {
+          setWorkspaceGrab((prev) =>
+            prev?.clipIds?.length || prev?.textIds?.length
+              ? prev
+              : prev?.textId === effect.textId
+                ? prev
+                : { textId: effect.textId },
+          );
         }
         if (effect.type === 'showPageDelete') {
           setPageDelete({ pageId: effect.pageId, source: 'workspace' });
@@ -306,9 +359,9 @@ export function EditorLayout({
             <WorkspaceStrip
               workspaceOrder={doc.workspaceOrder}
               pages={doc.pages}
-              pasteboardClips={doc.pasteboardClips}
+              pasteboardClips={withoutStockedClips(doc.pasteboardClips, doc.stock, doc.trashClips)}
               clipLiveTransforms={clipLiveTransforms}
-              pasteboardTexts={doc.pasteboardTexts}
+              pasteboardTexts={withoutStockedTexts(doc.pasteboardTexts, doc.stock, doc.trashTexts)}
               selectedPageId={doc.selectedPageId}
               selectedClipId={doc.selectedClipId}
               selectedClipIds={doc.selectedClipIds}
@@ -333,6 +386,7 @@ export function EditorLayout({
               deletePageId={pageDelete?.source === 'workspace' ? pageDelete.pageId : null}
               onDeletePage={(pageId) => confirmPageDelete(pageId, 'workspace')}
               onInsertPage={insertPageAfter}
+              onMovePageToStock={movePageToStockNow}
               onClearPageInk={clearPageInkNow}
             />
             {inkEngine ? (
@@ -415,15 +469,36 @@ export function EditorLayout({
       </div>
 
       {stockVisible ? (
-        <aside
+        <div
           id="editor-sidebar-split"
-          className={styles.stockSheet}
+          className={styles.stockDock}
           data-ms-shell="pane"
           data-ms-region="stock"
-          aria-label="ストック"
         >
+          <aside className={styles.stockSheet} aria-label="ストック">
+            <StockPane
+            doc={doc}
+            dispatch={dispatch}
+            workspaceGrab={workspaceGrab}
+            onWorkspaceGrabEnd={() => setWorkspaceGrab(null)}
+            onDroppedToTrash={() => {
+              suppressTrashToggleRef.current = true;
+            }}
+            getPageThumb={getPageThumb}
+            inkEngine={inkEngine}
+            rasterLayoutGen={rasterLayoutGen}
+            deletePageId={pageDelete?.source === 'stock' ? pageDelete.pageId : null}
+            onShowPageDelete={(pageId) => {
+              if (!pageId) {
+                setPageDelete(null);
+                return;
+              }
+              setPageDelete({ pageId, source: 'stock' });
+            }}
+            onDeletePage={(pageId) => confirmPageDelete(pageId, 'stock')}
+          />
+          </aside>
           <div className={styles.stockDrawerHead}>
-            <strong>{doc.stockPane === 'trash' ? 'ゴミ箱' : 'ストック'}</strong>
             <div className={styles.stockSeg} role="group" aria-label="ストック表示">
               {doc.stockPane !== 'trash' ? (
                 <>
@@ -449,9 +524,13 @@ export function EditorLayout({
               ) : (
                 <button
                   type="button"
-                  className={styles.stockSegButton}
+                  className={`${styles.stockSegButton} ${styles.stockSegButtonDanger}`}
                   aria-label="ゴミ箱を空にする"
-                  disabled={doc.trash.length === 0}
+                  disabled={
+                    doc.trash.length === 0 &&
+                    (doc.trashClips ?? []).length === 0 &&
+                    (doc.trashTexts ?? []).length === 0
+                  }
                   onClick={confirmEmptyTrash}
                 >
                   空にする
@@ -478,28 +557,7 @@ export function EditorLayout({
               </button>
             </div>
           </div>
-          <StockPane
-            doc={doc}
-            dispatch={dispatch}
-            workspaceGrab={workspaceGrab}
-            onWorkspaceGrabEnd={() => setWorkspaceGrab(null)}
-            onDroppedToTrash={() => {
-              suppressTrashToggleRef.current = true;
-            }}
-            getPageThumb={getPageThumb}
-            inkEngine={inkEngine}
-            rasterLayoutGen={rasterLayoutGen}
-            deletePageId={pageDelete?.source === 'stock' ? pageDelete.pageId : null}
-            onShowPageDelete={(pageId) => {
-              if (!pageId) {
-                setPageDelete(null);
-                return;
-              }
-              setPageDelete({ pageId, source: 'stock' });
-            }}
-            onDeletePage={(pageId) => confirmPageDelete(pageId, 'stock')}
-          />
-        </aside>
+        </div>
       ) : null}
 
       {pdfVisible ? (

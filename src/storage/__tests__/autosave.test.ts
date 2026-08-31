@@ -14,6 +14,8 @@ function sampleDoc(): EditorDocument {
     workspaceOrder: ['a'],
     stock: [],
     trash: [],
+    trashClips: [],
+    trashTexts: [],
     pasteboardClips: [],
     pasteboardTexts: [],
     selectedPageId: 'a',
@@ -255,6 +257,52 @@ describe('AutosaveManager', () => {
       const loaded = await db.getDocument('p1');
       expect(loaded?.name).toBe('version-3');
       expect(manager.getStatus().unsaved).toBe(false);
+    } finally {
+      manager.dispose();
+      vi.useRealTimers();
+    }
+  });
+
+  test('updatePendingDocument だけでは保存を開始しない', async () => {
+    vi.useFakeTimers();
+    const db = new MemoryStorageDatabase();
+    const manager = new AutosaveManager({
+      db,
+      getEncodedPng: () => new Map(),
+      getDelays: () => ({ documentMs: 50, viewOnlyMs: 50 }),
+    });
+    try {
+      const next = sampleDoc();
+      next.tools = { ...next.tools, penSize: 40 };
+      manager.updatePendingDocument(next);
+      expect(manager.getStatus().unsaved).toBe(false);
+      await vi.advanceTimersByTimeAsync(200);
+      expect(await db.getDocument('p1')).toBeUndefined();
+    } finally {
+      manager.dispose();
+      vi.useRealTimers();
+    }
+  });
+
+  test('既に予約された保存があるときだけ、ツールサイズをその文書に載せる', async () => {
+    vi.useFakeTimers();
+    const db = new MemoryStorageDatabase();
+    const manager = new AutosaveManager({
+      db,
+      getEncodedPng: () => new Map(),
+      getDelays: () => ({ documentMs: 200, viewOnlyMs: 200 }),
+    });
+    try {
+      manager.scheduleSave(sampleDoc(), [], false);
+      const next = sampleDoc();
+      next.tools = { ...next.tools, penSize: 40, eraserSize: 64 };
+      manager.updatePendingDocument(next);
+      await vi.advanceTimersByTimeAsync(199);
+      expect(await db.getDocument('p1')).toBeUndefined();
+      await vi.advanceTimersByTimeAsync(1);
+      const loaded = await db.getDocument('p1');
+      expect(loaded?.tools.penSize).toBe(40);
+      expect(loaded?.tools.eraserSize).toBe(64);
     } finally {
       manager.dispose();
       vi.useRealTimers();

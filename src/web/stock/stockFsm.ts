@@ -1,5 +1,5 @@
 import { stockPointerPolicy } from '../../domain/pointers';
-import { LONG_PRESS_MS, PAN_SLOP } from '../../domain/workspaceGestures';
+import { PAN_SLOP } from '../../domain/workspaceGestures';
 import type { PointerKind, PageId } from '../../domain/types';
 import type { StockEffect, StockGestureStore, StockHit, StockSession } from './types';
 
@@ -114,13 +114,13 @@ function stepFinger(
   }
 
   if (session.mode === 'fingerPending') {
+    const policy = stockPointerPolicy(session.kind);
     if (input.phase === 'up' || input.phase === 'cancel') {
       if (
         input.phase === 'up' &&
-        input.now - session.startedAt >= LONG_PRESS_MS &&
         Math.hypot(input.x - session.startX, input.y - session.startY) < PAN_SLOP &&
         session.hit.kind === 'thumb' &&
-        stockPointerPolicy('finger').dragPage
+        policy.dragPage
       ) {
         return {
           session: { mode: 'idle' },
@@ -132,16 +132,14 @@ function stepFinger(
 
     const dist = Math.hypot(input.x - session.startX, input.y - session.startY);
     if (dist >= PAN_SLOP) {
-      const held = input.now - session.startedAt >= LONG_PRESS_MS;
-      const canDragThumb =
-        session.hit.kind === 'thumb' && stockPointerPolicy('finger').dragPage;
-      if (canDragThumb && (input.layout === 'free' || held)) {
+      const canDragThumb = session.hit.kind === 'thumb' && policy.dragPage;
+      if (canDragThumb) {
         return {
-          session: { mode: 'dragPage', kind: 'finger', pageId: session.hit.pageId },
+          session: { mode: 'dragPage', kind: session.kind, pageId: session.hit.pageId },
           effects: [{ type: 'dragPage', pageId: session.hit.pageId }],
         };
       }
-      if (stockPointerPolicy('finger').pan) {
+      if (policy.pan) {
         return {
           session: { mode: 'pan', kind: 'finger', lastX: input.x, lastY: input.y },
           effects: [{ type: 'panBy', dx: input.x - session.startX, dy: input.y - session.startY }],
@@ -189,15 +187,27 @@ function stepFingerDown(
   };
 }
 
+function stepPencilDown(store: StockGestureStore, input: StockPointerInput): StockSession {
+  store.fingerPositions.set(input.pointerId, { x: input.x, y: input.y });
+  return {
+    mode: 'fingerPending',
+    kind: 'pencil',
+    hit: input.hit,
+    startX: input.x,
+    startY: input.y,
+    startedAt: input.now,
+  };
+}
+
 export function stepStockPointer(
   store: StockGestureStore,
   input: StockPointerInput,
 ): { effects: StockEffect[] } {
-  if (input.kind === 'pencil') {
-    return { effects: [] };
-  }
-
   if (input.phase === 'down') {
+    if (input.kind === 'pencil') {
+      store.sessions.set(input.pointerId, stepPencilDown(store, input));
+      return { effects: [] };
+    }
     const { session, effects, ignored } = stepFingerDown(store, input);
     if (!ignored) {
       store.sessions.set(input.pointerId, session);

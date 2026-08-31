@@ -1,9 +1,8 @@
 import { describe, expect, test } from 'vitest';
-import { LONG_PRESS_MS } from '../../../domain/workspaceGestures';
 import { stepStockPointer } from '../stockFsm';
 import { createStockGestureStore } from '../types';
 
-function finger(
+function pointer(
   store: ReturnType<typeof createStockGestureStore>,
   phase: 'down' | 'move' | 'up' | 'cancel',
   overrides: Partial<Parameters<typeof stepStockPointer>[1]> = {},
@@ -24,27 +23,48 @@ function finger(
   });
 }
 
+function finger(
+  store: ReturnType<typeof createStockGestureStore>,
+  phase: 'down' | 'move' | 'up' | 'cancel',
+  overrides: Partial<Parameters<typeof stepStockPointer>[1]> = {},
+) {
+  return pointer(store, phase, overrides);
+}
+
+function pencil(
+  store: ReturnType<typeof createStockGestureStore>,
+  phase: 'down' | 'move' | 'up' | 'cancel',
+  overrides: Partial<Parameters<typeof stepStockPointer>[1]> = {},
+) {
+  return pointer(store, phase, { kind: 'pencil', ...overrides });
+}
+
 describe('stock FSM page delete', () => {
-  test('長押しして動かさずに離すと showPageDelete', () => {
+  test('タップして動かさずに離すと showPageDelete', () => {
     const store = createStockGestureStore();
     finger(store, 'down', { now: 0 });
-    finger(store, 'move', { x: 2, y: 0, now: LONG_PRESS_MS + 1 });
-    const up = finger(store, 'up', { x: 2, y: 0, now: LONG_PRESS_MS + 10 });
+    const up = finger(store, 'up', { x: 2, y: 0, now: 40 });
     expect(up.effects).toEqual([{ type: 'showPageDelete', pageId: 'p1' }]);
   });
 
-  test('grid では 12px 動かすとパン（ページドラッグしない）', () => {
+  test('grid では clip/text サムネは長押しなしで dragPage', () => {
     const store = createStockGestureStore();
-    finger(store, 'down', { now: 0 });
-    const pan = finger(store, 'move', { x: 20, y: 0, now: 30 });
+    finger(store, 'down', { now: 0, hit: { kind: 'thumb', pageId: 'clip:c1' } });
+    const drag = finger(store, 'move', { x: 20, y: 0, now: 30, hit: { kind: 'thumb', pageId: 'clip:c1' } });
+    expect(drag.effects).toEqual([{ type: 'dragPage', pageId: 'clip:c1' }]);
+  });
+
+  test('grid では空地を 12px 動かすとパン', () => {
+    const store = createStockGestureStore();
+    finger(store, 'down', { now: 0, hit: { kind: 'empty' } });
+    const pan = finger(store, 'move', { x: 20, y: 0, now: 30, hit: { kind: 'empty' } });
     expect(pan.effects).toEqual([{ type: 'panBy', dx: 20, dy: 0 }]);
   });
 
-  test('grid では長押し後に動かすと dragPage', () => {
+  test('grid ではページも長押しなしで dragPage', () => {
     const store = createStockGestureStore();
     finger(store, 'down', { now: 0 });
-    finger(store, 'move', { x: 2, y: 0, now: LONG_PRESS_MS + 1 });
-    const drag = finger(store, 'move', { x: 20, y: 0, now: LONG_PRESS_MS + 20 });
+    const drag = finger(store, 'move', { x: 20, y: 0, now: 30 });
     expect(drag.effects).toEqual([{ type: 'dragPage', pageId: 'p1' }]);
   });
 
@@ -53,6 +73,34 @@ describe('stock FSM page delete', () => {
     finger(store, 'down', { now: 0, layout: 'free' });
     const drag = finger(store, 'move', { x: 20, y: 0, now: 30, layout: 'free' });
     expect(drag.effects).toEqual([{ type: 'dragPage', pageId: 'p1' }]);
+  });
+
+  test('Pencil はサムネを 12px 動かすと dragPage（出し入れ・並べ替え）', () => {
+    const store = createStockGestureStore();
+    pencil(store, 'down', { now: 0 });
+    const drag = pencil(store, 'move', { x: 20, y: 0, now: 30 });
+    expect(drag.effects).toEqual([{ type: 'dragPage', pageId: 'p1' }]);
+  });
+
+  test('Pencil は clip/text サムネも dragPage', () => {
+    const store = createStockGestureStore();
+    pencil(store, 'down', { now: 0, hit: { kind: 'thumb', pageId: 'clip:c1' } });
+    const drag = pencil(store, 'move', { x: 20, y: 0, now: 30, hit: { kind: 'thumb', pageId: 'clip:c1' } });
+    expect(drag.effects).toEqual([{ type: 'dragPage', pageId: 'clip:c1' }]);
+  });
+
+  test('Pencil は空地を動かしてもパンしない', () => {
+    const store = createStockGestureStore();
+    pencil(store, 'down', { now: 0, hit: { kind: 'empty' } });
+    const pan = pencil(store, 'move', { x: 20, y: 0, now: 30, hit: { kind: 'empty' } });
+    expect(pan.effects).toEqual([]);
+  });
+
+  test('Pencil タップで showPageDelete', () => {
+    const store = createStockGestureStore();
+    pencil(store, 'down', { now: 0 });
+    const up = pencil(store, 'up', { x: 2, y: 0, now: 40 });
+    expect(up.effects).toEqual([{ type: 'showPageDelete', pageId: 'p1' }]);
   });
 
   test('grid でも 2本指で pinchBy する', () => {

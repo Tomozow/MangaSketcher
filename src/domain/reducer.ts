@@ -1,11 +1,12 @@
 import { cloneDocument, newPage, type IdFactory } from './document';
 import { layoutWorkspace } from './layout';
-import { brushRadius, resolvePointerIntent } from './pointers';
+import { brushOpacity, brushRadius, pressureAffectsOf, resolvePointerIntent } from './pointers';
 import { compositeRaster, cutRect, parseHexColor, stampBrush } from './raster';
-import { wrapExtractedText, workspaceFontSizeFromTool } from './pdfExtractPack';
+import { pageTextToPasteboard, wrapExtractedText, workspaceFontSizeFromTool } from './pdfExtractPack';
 import { joinVerticalBody, rangeSelectBody } from './pdfText';
 import { stampStroke, type StrokePoint } from './stroke';
 import { applyFontSizeToText, findText, resizeTextBox } from './text';
+import { findStockClip, findStockPage, findStockText, isStockClipItem, isStockPageItem, isStockTextItem, stockPagesThenForeground } from './stockItems';
 import { fitTextBoxToContent } from './textWrap';
 import { clampSplit, clampPdfDrawerHeight, clampPdfDrawerWidth } from './uiLayout';
 import {
@@ -37,9 +38,21 @@ export type DocumentAction =
   | { type: 'returnTrashToWorkspace'; pageId: PageId; readingIndex: number }
   | { type: 'emptyTrash' }
   | { type: 'reorderWorkspace'; fromIndex: number; toIndex: number }
+  | { type: 'reorderStock'; fromIndex: number; toIndex: number }
+  | { type: 'swapStockPositions'; fromIndex: number; toIndex: number }
   | { type: 'movePageToStock'; pageId: PageId; x: number; y: number }
   | { type: 'returnStockToWorkspace'; pageId: PageId; readingIndex: number }
   | { type: 'placeStock'; pageId: PageId; x: number; y: number }
+  | { type: 'moveClipToStock'; clipId: ClipId; x: number; y: number }
+  | { type: 'moveTextToStock'; textId: TextId; x: number; y: number }
+  | { type: 'returnStockClip'; clipId: ClipId; x: number; y: number }
+  | { type: 'returnStockText'; textId: TextId; x: number; y: number }
+  | { type: 'returnTrashClip'; clipId: ClipId; x: number; y: number }
+  | { type: 'returnTrashText'; textId: TextId; x: number; y: number }
+  | { type: 'placeStockClip'; clipId: ClipId; x: number; y: number }
+  | { type: 'placeStockText'; textId: TextId; x: number; y: number }
+  | { type: 'deleteStockClip'; clipId: ClipId }
+  | { type: 'deleteStockText'; textId: TextId }
   | { type: 'setTool'; tool: ToolId }
   | { type: 'setToolProperties'; patch: Partial<ToolProperties> }
   | { type: 'setWorkspaceView'; zoom: number; panX: number; panY: number }
@@ -126,6 +139,66 @@ function addPageToTrash(doc: DocumentState, pageId: PageId): void {
   }
 }
 
+function ensureTrashLists(doc: DocumentState): void {
+  if (!doc.trashClips) {
+    doc.trashClips = [];
+  }
+  if (!doc.trashTexts) {
+    doc.trashTexts = [];
+  }
+}
+
+function addClipToTrash(doc: DocumentState, clipId: ClipId): void {
+  ensureTrashLists(doc);
+  if (!doc.pasteboardClips.some((clip) => clip.id === clipId)) {
+    return;
+  }
+  doc.stock = doc.stock.filter((item) => !(isStockClipItem(item) && item.clipId === clipId));
+  if (!doc.trashClips.includes(clipId)) {
+    doc.trashClips.push(clipId);
+  }
+  if (doc.selectedClipId === clipId) {
+    doc.selectedClipId = null;
+  }
+}
+
+function addTextToTrash(doc: DocumentState, textId: TextId): void {
+  ensureTrashLists(doc);
+  const found = findText(doc, textId);
+  if (!found) {
+    return;
+  }
+  if (found.where === 'page' && found.pageId) {
+    const page = doc.pages[found.pageId];
+    const index = page.texts.findIndex((item) => item.id === textId);
+    if (index !== -1) {
+      const [taken] = page.texts.splice(index, 1);
+      if (taken) {
+        const converted = pageTextToPasteboard(
+          taken.box,
+          taken.fontSize,
+          doc.rasterWidth,
+          doc.rasterHeight,
+        );
+        doc.pasteboardTexts.push({
+          id: taken.id,
+          content: taken.content,
+          box: converted.box,
+          fontSize: converted.fontSize,
+          color: taken.color,
+        });
+      }
+    }
+  }
+  doc.stock = doc.stock.filter((item) => !(isStockTextItem(item) && item.textId === textId));
+  if (!doc.trashTexts.includes(textId)) {
+    doc.trashTexts.push(textId);
+  }
+  if (doc.selectedTextId === textId) {
+    doc.selectedTextId = null;
+  }
+}
+
 function removePageFromWorkspace(doc: DocumentState, pageId: PageId): void {
   doc.workspaceOrder = doc.workspaceOrder.filter((id) => id !== pageId);
   if (doc.selectedPageId === pageId) {
@@ -176,11 +249,11 @@ export function reduceTestDocument(
       return doc;
     }
     case 'deleteStockPage': {
-      const item = doc.stock.find((s) => s.pageId === action.pageId);
+      const item = findStockPage(doc.stock, action.pageId);
       if (!item) {
         return doc;
       }
-      doc.stock = doc.stock.filter((s) => s.pageId !== action.pageId);
+      doc.stock = doc.stock.filter((s) => !isStockPageItem(s) || s.pageId !== action.pageId);
       addPageToTrash(doc, action.pageId);
       return doc;
     }
@@ -196,13 +269,26 @@ export function reduceTestDocument(
       return doc;
     }
     case 'emptyTrash': {
-      if (doc.trash.length === 0) {
+      ensureTrashLists(doc);
+      if (doc.trash.length === 0 && doc.trashClips.length === 0 && doc.trashTexts.length === 0) {
         return doc;
       }
       for (const pageId of doc.trash) {
         delete doc.pages[pageId];
       }
+      const clipIds = new Set(doc.trashClips);
+      const textIds = new Set(doc.trashTexts);
+      doc.pasteboardClips = doc.pasteboardClips.filter((clip) => !clipIds.has(clip.id));
+      doc.pasteboardTexts = doc.pasteboardTexts.filter((text) => !textIds.has(text.id));
+      if (doc.selectedClipId && clipIds.has(doc.selectedClipId)) {
+        doc.selectedClipId = null;
+      }
+      if (doc.selectedTextId && textIds.has(doc.selectedTextId)) {
+        doc.selectedTextId = null;
+      }
       doc.trash = [];
+      doc.trashClips = [];
+      doc.trashTexts = [];
       return doc;
     }
     case 'reorderWorkspace': {
@@ -221,16 +307,51 @@ export function reduceTestDocument(
       doc.workspaceOrder = next;
       return doc;
     }
+    case 'reorderStock': {
+      const { fromIndex, toIndex } = action;
+      if (
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= doc.stock.length ||
+        toIndex >= doc.stock.length
+      ) {
+        return doc;
+      }
+      const next = [...doc.stock];
+      const [moved] = next.splice(fromIndex, 1);
+      if (!moved) {
+        return doc;
+      }
+      next.splice(toIndex, 0, moved);
+      doc.stock = stockPagesThenForeground(next);
+      return doc;
+    }
+    case 'swapStockPositions': {
+      const { fromIndex, toIndex } = action;
+      const left = doc.stock[fromIndex];
+      const right = doc.stock[toIndex];
+      if (!left || !right || fromIndex === toIndex) {
+        return doc;
+      }
+      const x = left.x;
+      const y = left.y;
+      left.x = right.x;
+      left.y = right.y;
+      right.x = x;
+      right.y = y;
+      return doc;
+    }
     case 'movePageToStock': {
       if (!doc.workspaceOrder.includes(action.pageId)) {
         return doc;
       }
       removePageFromWorkspace(doc, action.pageId);
       doc.stock.push({ pageId: action.pageId, x: action.x, y: action.y });
+      doc.stock = stockPagesThenForeground(doc.stock);
       return doc;
     }
     case 'returnStockToWorkspace': {
-      const idx = doc.stock.findIndex((s) => s.pageId === action.pageId);
+      const idx = doc.stock.findIndex((s) => isStockPageItem(s) && s.pageId === action.pageId);
       if (idx === -1) {
         return doc;
       }
@@ -241,12 +362,141 @@ export function reduceTestDocument(
       return doc;
     }
     case 'placeStock': {
-      const item = doc.stock.find((s) => s.pageId === action.pageId);
+      const item = findStockPage(doc.stock, action.pageId);
       if (!item) {
         return doc;
       }
       item.x = action.x;
       item.y = action.y;
+      return doc;
+    }
+    case 'moveClipToStock': {
+      if (!doc.pasteboardClips.some((clip) => clip.id === action.clipId)) {
+        return doc;
+      }
+      if (findStockClip(doc.stock, action.clipId)) {
+        return doc;
+      }
+      doc.stock.push({ kind: 'clip', clipId: action.clipId, x: action.x, y: action.y });
+      doc.stock = stockPagesThenForeground(doc.stock);
+      if (doc.selectedClipId === action.clipId) {
+        doc.selectedClipId = null;
+      }
+      return doc;
+    }
+    case 'moveTextToStock': {
+      const found = findText(doc, action.textId);
+      if (!found) {
+        return doc;
+      }
+      if (findStockText(doc.stock, action.textId)) {
+        return doc;
+      }
+      if (found.where === 'page' && found.pageId) {
+        const page = doc.pages[found.pageId];
+        const index = page.texts.findIndex((t) => t.id === action.textId);
+        if (index !== -1) {
+          const [taken] = page.texts.splice(index, 1);
+          if (taken) {
+            const converted = pageTextToPasteboard(
+              taken.box,
+              taken.fontSize,
+              doc.rasterWidth,
+              doc.rasterHeight,
+            );
+            doc.pasteboardTexts.push({
+              id: taken.id,
+              content: taken.content,
+              box: converted.box,
+              fontSize: converted.fontSize,
+              color: taken.color,
+            });
+          }
+        }
+      }
+      doc.stock.push({ kind: 'text', textId: action.textId, x: action.x, y: action.y });
+      doc.stock = stockPagesThenForeground(doc.stock);
+      if (doc.selectedTextId === action.textId) {
+        doc.selectedTextId = null;
+      }
+      return doc;
+    }
+    case 'returnStockClip': {
+      const idx = doc.stock.findIndex((s) => isStockClipItem(s) && s.clipId === action.clipId);
+      if (idx === -1) {
+        return doc;
+      }
+      doc.stock.splice(idx, 1);
+      const clip = doc.pasteboardClips.find((c) => c.id === action.clipId);
+      if (clip) {
+        clip.x = action.x;
+        clip.y = action.y;
+      }
+      return doc;
+    }
+    case 'returnStockText': {
+      const idx = doc.stock.findIndex((s) => isStockTextItem(s) && s.textId === action.textId);
+      if (idx === -1) {
+        return doc;
+      }
+      doc.stock.splice(idx, 1);
+      const text = doc.pasteboardTexts.find((t) => t.id === action.textId);
+      if (text) {
+        text.box = { ...text.box, x: action.x, y: action.y };
+      }
+      return doc;
+    }
+    case 'returnTrashClip': {
+      ensureTrashLists(doc);
+      const idx = doc.trashClips.indexOf(action.clipId);
+      if (idx === -1) {
+        return doc;
+      }
+      doc.trashClips.splice(idx, 1);
+      const clip = doc.pasteboardClips.find((c) => c.id === action.clipId);
+      if (clip) {
+        clip.x = action.x;
+        clip.y = action.y;
+      }
+      return doc;
+    }
+    case 'returnTrashText': {
+      ensureTrashLists(doc);
+      const idx = doc.trashTexts.indexOf(action.textId);
+      if (idx === -1) {
+        return doc;
+      }
+      doc.trashTexts.splice(idx, 1);
+      const text = doc.pasteboardTexts.find((t) => t.id === action.textId);
+      if (text) {
+        text.box = { ...text.box, x: action.x, y: action.y };
+      }
+      return doc;
+    }
+    case 'placeStockClip': {
+      const item = findStockClip(doc.stock, action.clipId);
+      if (!item) {
+        return doc;
+      }
+      item.x = action.x;
+      item.y = action.y;
+      return doc;
+    }
+    case 'placeStockText': {
+      const item = findStockText(doc.stock, action.textId);
+      if (!item) {
+        return doc;
+      }
+      item.x = action.x;
+      item.y = action.y;
+      return doc;
+    }
+    case 'deleteStockClip': {
+      addClipToTrash(doc, action.clipId);
+      return doc;
+    }
+    case 'deleteStockText': {
+      addTextToTrash(doc, action.textId);
       return doc;
     }
     case 'setTool':
@@ -272,15 +522,21 @@ export function reduceTestDocument(
       doc.name = action.name;
       return doc;
     case 'stampInk': {
+      const affect = pressureAffectsOf(doc.tools, action.erase);
       const color = parseHexColor(
         action.erase ? '#000000' : doc.tools.penColor,
-        action.erase ? doc.tools.eraserOpacity : doc.tools.penOpacity,
+        brushOpacity(
+          action.erase ? doc.tools.eraserOpacity : doc.tools.penOpacity,
+          action.pressure,
+          action.pointerKind,
+          affect.opacity,
+        ),
       );
       const radius = brushRadius(
         action.erase ? doc.tools.eraserSize : doc.tools.penSize,
         action.pressure,
         action.pointerKind,
-        doc.tools.pressureEnabled !== false,
+        affect.size,
       );
       if (action.target.kind === 'page') {
         const page = doc.pages[action.target.pageId];
@@ -299,23 +555,24 @@ export function reduceTestDocument(
       return doc;
     }
     case 'strokeInk': {
-      const color = parseHexColor(
-        action.erase ? '#000000' : doc.tools.penColor,
-        action.erase ? doc.tools.eraserOpacity : doc.tools.penOpacity,
-      );
+      const affect = pressureAffectsOf(doc.tools, action.erase);
+      const hex = action.erase ? '#000000' : doc.tools.penColor;
+      const baseOpacity = action.erase ? doc.tools.eraserOpacity : doc.tools.penOpacity;
+      const colorFor = (pressure: number) =>
+        parseHexColor(hex, brushOpacity(baseOpacity, pressure, action.pointerKind, affect.opacity));
       const radiusFor = (pressure: number) =>
         brushRadius(
           action.erase ? doc.tools.eraserSize : doc.tools.penSize,
           pressure,
           action.pointerKind,
-          doc.tools.pressureEnabled !== false,
+          affect.size,
         );
       if (action.target.kind === 'page') {
         const page = doc.pages[action.target.pageId];
         if (!page) {
           return doc;
         }
-        stampStroke(page.raster, action.points, radiusFor, color, action.erase);
+        stampStroke(page.raster, action.points, radiusFor, colorFor, action.erase);
       } else {
         const inkTarget = action.target;
         if (inkTarget.kind !== 'clip') {
@@ -325,7 +582,7 @@ export function reduceTestDocument(
         if (!clip) {
           return doc;
         }
-        stampStroke(clip.raster, action.points, radiusFor, color, action.erase);
+        stampStroke(clip.raster, action.points, radiusFor, colorFor, action.erase);
       }
       return doc;
     }
@@ -420,24 +677,7 @@ export function reduceTestDocument(
       return doc;
     }
     case 'deleteText': {
-      for (const page of Object.values(doc.pages)) {
-        const index = page.texts.findIndex((t) => t.id === action.textId);
-        if (index === -1) {
-          continue;
-        }
-        page.texts.splice(index, 1);
-        if (doc.selectedTextId === action.textId) {
-          doc.selectedTextId = null;
-        }
-        return doc;
-      }
-      const pbIndex = doc.pasteboardTexts.findIndex((t) => t.id === action.textId);
-      if (pbIndex !== -1) {
-        doc.pasteboardTexts.splice(pbIndex, 1);
-        if (doc.selectedTextId === action.textId) {
-          doc.selectedTextId = null;
-        }
-      }
+      addTextToTrash(doc, action.textId);
       return doc;
     }
     case 'moveText': {

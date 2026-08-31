@@ -10,7 +10,7 @@ import {
   workspaceFontSizeFromTool,
   type ExtractPackCursor,
 } from '@/src/domain/pdfExtractPack';
-import { brushRadius } from '@/src/domain/pointers';
+import { brushOpacity, brushRadius, pressureAffectsOf } from '@/src/domain/pointers';
 import { pageLocalFromWorld, screenToWorld, buildStripFrames, stripLayoutFromDoc, PAGE_DISPLAY_H, PAGE_DISPLAY_W, type StripFrame } from '@/src/domain/stripGeometry';
 import { defaultTextBox, findText, isTextContentEmpty, clampTextBoxOrigin, rectsOverlap, selectedTextIdsOf } from '@/src/domain/text';
 import type { StrokePoint } from '@/src/domain/stroke';
@@ -49,6 +49,7 @@ import {
   mergeTextLive,
   sanitizeTextBox,
 } from '@/src/web/text/textLiveTransform';
+import { isStockPageItem, stockedClipIds, stockedTextIds } from '@/src/domain/stockItems';
 import { clipTouchesWorldRect, clipInsertTarget, pageLocalRectToWorld, selectedClipIdsOf, worldRectToPageLocalRect } from './clip/clipGeometry';
 import { CLIP_DUPLICATE_OFFSET, MIN_MARQUEE_RASTER_PX } from './clip/constants';
 import { clipRasterId } from '@/src/storage/rasterIds';
@@ -114,7 +115,14 @@ function collectTextIdsInWorldRect(
       }
     }
   }
+  const hiddenTexts = stockedTextIds(present.stock);
+  for (const id of present.trashTexts ?? []) {
+    hiddenTexts.add(id);
+  }
   for (const text of present.pasteboardTexts) {
+    if (hiddenTexts.has(text.id)) {
+      continue;
+    }
     if (rectsOverlap(text.box, worldRect)) {
       ids.push(text.id);
     }
@@ -215,7 +223,9 @@ function visiblePageRasterIds(doc: EditorDocument): string[] {
     pushPage(pageId);
   }
   for (const item of doc.stock) {
-    pushPage(item.pageId);
+    if (isStockPageItem(item)) {
+      pushPage(item.pageId);
+    }
   }
   if (doc.stockPane === 'trash') {
     for (const pageId of doc.trash) {
@@ -242,7 +252,9 @@ function documentRasterIdsKey(doc: EditorDocument): string {
 
 function workspaceVisibleRasterIdsKey(doc: EditorDocument): string {
   const workspace = doc.workspaceOrder.map((pageId) => doc.pages[pageId]?.rasterId ?? '');
-  const stock = doc.stock.map((item) => doc.pages[item.pageId]?.rasterId ?? '');
+  const stock = doc.stock.map((item) =>
+    isStockPageItem(item) ? (doc.pages[item.pageId]?.rasterId ?? '') : '',
+  );
   const trash =
     doc.stockPane === 'trash' ? doc.trash.map((pageId) => doc.pages[pageId]?.rasterId ?? '') : [];
   const clips = doc.pasteboardClips.map((clip) => clip.rasterId);
@@ -298,34 +310,24 @@ function rasterIdForInkEffect(doc: EditorDocument, effect: WorkspaceEffect): str
   return null;
 }
 
-function penStrokeStyle(doc: EditorDocument): {
-  color: string;
-  lineWidth: number;
-  globalAlpha: number;
-  composite: GlobalCompositeOperation;
-} {
-  return {
-    color: doc.tools.penColor,
-    lineWidth: doc.tools.penSize,
-    globalAlpha: doc.tools.penOpacity,
-    composite: 'source-over',
-  };
-}
-
-function eraseStrokeStyle(
+function inkStrokeStyle(
   doc: EditorDocument,
   pressure: number,
+  erase: boolean,
 ): {
   color: string;
   lineWidth: number;
   globalAlpha: number;
   composite: GlobalCompositeOperation;
 } {
+  const affect = pressureAffectsOf(doc.tools, erase);
+  const size = erase ? doc.tools.eraserSize : doc.tools.penSize;
+  const opacity = erase ? doc.tools.eraserOpacity : doc.tools.penOpacity;
   return {
-    color: '#000000',
-    lineWidth: brushRadius(doc.tools.eraserSize, pressure, 'pencil', doc.tools.pressureEnabled !== false) * 2,
-    globalAlpha: doc.tools.eraserOpacity,
-    composite: 'destination-out',
+    color: erase ? '#000000' : doc.tools.penColor,
+    lineWidth: brushRadius(size, pressure, 'pencil', affect.size) * 2,
+    globalAlpha: brushOpacity(opacity, pressure, 'pencil', affect.opacity),
+    composite: erase ? 'destination-out' : 'source-over',
   };
 }
 
@@ -696,7 +698,7 @@ export function useEditorController(projectId: string): EditorController {
     };
   }, [inkIdleScheduler]);
 
-  const persist = useCallback((nextHistory: EditorHistory, viewOnly: boolean, flushNow = false) => {
+  const persist = useCallback((nextHistory: EditorHistory, viewOnly: boolean, flushNow = false, skipSchedule = false) => {
     const dirty = viewOnly ? [] : collectRasterIds(nextHistory.present);
     const engine = inkApiRef.current?.engine;
     if (engine) {
@@ -706,7 +708,11 @@ export function useEditorController(projectId: string): EditorController {
         }
       }
     }
-    autosaveRef.current?.scheduleSave(nextHistory.present, dirty, viewOnly);
+    if (skipSchedule) {
+      autosaveRef.current?.updatePendingDocument?.(nextHistory.present);
+    } else {
+      autosaveRef.current?.scheduleSave(nextHistory.present, dirty, viewOnly);
+    }
     const pdf = nextHistory.present.pdf;
     if (pdf) {
       savePdfViewSession(projectId, {
@@ -753,7 +759,7 @@ export function useEditorController(projectId: string): EditorController {
           action.type === 'duplicateClip' ||
           action.type === 'loadPdf' ||
           (action.type === 'setPdfView' && action.currentPage !== undefined);
-        persist(nextHistory, viewOnly, flushNow);
+        persist(nextHistory, viewOnly, flushNow, action.type === 'setToolProperties');
         return nextHistory;
       });
     },
@@ -875,6 +881,8 @@ export function useEditorController(projectId: string): EditorController {
             : [];
           const clipIdsInRect = targets.clip
             ? present.pasteboardClips
+                .filter((clip) => !stockedClipIds(present.stock).has(clip.id))
+                .filter((clip) => !(present.trashClips ?? []).includes(clip.id))
                 .filter((clip) => {
                   const pose = effectiveClipPose(clip, clipLiveRef.current.get(clip.id));
                   return clipTouchesWorldRect(
@@ -1385,10 +1393,9 @@ export function useEditorController(projectId: string): EditorController {
             inkIdleScheduler.cancel();
             const ctx = api.beginPenOverlay(rasterId);
             const point: StrokePoint = { x: effect.x, y: effect.y, pressure: effect.pressure };
-            const last = appendLiveBrushStroke(ctx, null, [point], (p) => ({
-              ...penStrokeStyle(present),
-              lineWidth: brushRadius(present.tools.penSize, p.pressure, 'pencil', present.tools.pressureEnabled !== false) * 2,
-            }));
+            const last = appendLiveBrushStroke(ctx, null, [point], (p) =>
+              inkStrokeStyle(present, p.pressure, false),
+            );
             if (last) {
               lastLiveInkRef.current.set(rasterId, last);
             }
@@ -1404,10 +1411,7 @@ export function useEditorController(projectId: string): EditorController {
               overlayCtx,
               lastLiveInkRef.current.get(rasterId) ?? null,
               effect.points,
-              (p) => ({
-                ...penStrokeStyle(present),
-                lineWidth: brushRadius(present.tools.penSize, p.pressure, 'pencil', present.tools.pressureEnabled !== false) * 2,
-              }),
+              (p) => inkStrokeStyle(present, p.pressure, false),
             );
             if (last) {
               lastLiveInkRef.current.set(rasterId, last);
@@ -1444,7 +1448,7 @@ export function useEditorController(projectId: string): EditorController {
               eraseCtx,
               lastLiveInkRef.current.get(rasterId) ?? null,
               [point],
-              (p) => eraseStrokeStyle(present, p.pressure),
+              (p) => inkStrokeStyle(present, p.pressure, true),
             );
             if (last) {
               lastLiveInkRef.current.set(rasterId, last);

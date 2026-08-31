@@ -99,6 +99,9 @@ export function dropActions(
   }
 
   if (payload.type === 'clip') {
+    if (target.zone === 'stock') {
+      return [{ type: 'moveClipToStock', clipId: payload.clipId, x: target.x, y: target.y }];
+    }
     if (target.zone === 'page') {
       return [
         {
@@ -119,6 +122,9 @@ export function dropActions(
   }
 
   if (payload.type === 'pasteboardText') {
+    if (target.zone === 'stock') {
+      return [{ type: 'moveTextToStock', textId: payload.textId, x: target.x, y: target.y }];
+    }
     if (target.zone === 'page') {
       return [
         {

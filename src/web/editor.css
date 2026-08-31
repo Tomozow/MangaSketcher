@@ -1086,8 +1086,10 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 
 .ms-stockGrid {
   display: flex;
-  flex-flow: row nowrap;
-  align-items: stretch;
+  flex-flow: row wrap;
+  justify-content: flex-end;
+  align-content: flex-start;
+  align-items: flex-start;
   gap: 0;
   padding: 0;
   overflow-x: auto;
@@ -1100,13 +1102,12 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   position: relative;
   flex: 0 0 auto;
   box-sizing: border-box;
-  height: var(--ms-stock-sheet-h, 220px);
-  width: calc(var(--ms-stock-sheet-h, 220px) / var(--ms-page-aspect, 1.41667));
+  height: calc(var(--ms-stock-sheet-h, 220px) / 2);
+  width: calc((var(--ms-stock-sheet-h, 220px) / 2) / var(--ms-thumb-aspect, var(--ms-page-aspect, 1.41667)));
   overflow: hidden;
-  background-color: #fff;
+  background-color: transparent;
   background-size: 100% 100%;
   background-repeat: no-repeat;
-  box-shadow: inset 0 0 0 1px var(--ms-border);
 }
 
 .ms-stockThumbInkHost {
@@ -1124,6 +1125,54 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   pointer-events: none;
 }
 
+.ms-stockTextThumb {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  line-height: 1.2;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  text-align: center;
+  white-space: pre-wrap;
+  word-break: break-all;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.ms-stockThumbClip,
+.ms-stockThumbText {
+  order: 1;
+  background-color: transparent;
+  box-shadow: none;
+  border: none;
+}
+
+.ms-stockClipPad {
+  position: absolute;
+  inset: 5px;
+  overflow: hidden;
+  background: #fff;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  border-radius: 8px;
+}
+
+.ms-stockPagePad {
+  position: absolute;
+  inset: 5px;
+  overflow: hidden;
+  box-sizing: border-box;
+  background: #fff;
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  border: 8px solid #e7e7dd;
+  border-radius: 8px;
+}
+
 .ms-stockTransform {
   width: 100%;
   height: 100%;
@@ -1136,13 +1185,22 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 
 .ms-stockThumbFree {
   position: absolute;
-  width: 144px;
-  height: 204px;
+  z-index: 1;
+  width: 72px;
+  height: 102px;
   overflow: hidden;
-  background-color: #fff;
+  background-color: transparent;
   background-size: 100% 100%;
   background-repeat: no-repeat;
-  box-shadow: inset 0 0 0 1px var(--ms-border);
+  box-sizing: border-box;
+}
+
+.ms-stockThumbFree.ms-stockThumbClip,
+.ms-stockThumbFree.ms-stockThumbText {
+  z-index: 2;
+  background-color: transparent;
+  box-shadow: none;
+  border: none;
 }
 
 .ms-sidebar {
@@ -1378,6 +1436,19 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   text-size-adjust: 100%;
 }
 
+.ms-pasteboardTextWrap.ms-pageTextWrapSelected {
+  outline: 1px solid var(--ms-accent);
+  outline-offset: -1px;
+}
+
+.ms-pasteboardTextWrap .ms-pageTextBoxSelected {
+  outline: none;
+}
+
+.ms-body[data-ms-theme='dark'] .ms-pasteboardTextWrap .ms-pageTextBox {
+  filter: invert(1);
+}
+
 .ms-pageTextChromeLayer {
   position: absolute;
   inset: 0;
@@ -1452,6 +1523,11 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 .ms-pageTextBoxSelected {
   outline: 1px solid var(--ms-accent);
   outline-offset: -1px;
+}
+
+.ms-pageTextBoxWhite {
+  -webkit-text-stroke: 0.08em #000000;
+  paint-order: stroke fill;
 }
 
 .ms-textEditBar {
@@ -1703,6 +1779,7 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 }
 
 .ms-leftChrome,
+.ms-toolRailCluster,
 .ms-toolRail,
 .ms-toolFlyout,
 .ms-workspaceNav {
@@ -1715,9 +1792,8 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   top: 50%;
   transform: translateY(-50%);
   display: grid;
-  grid-template-columns: auto auto;
+  grid-template-columns: auto;
   grid-template-rows: auto auto;
-  column-gap: 12px;
   row-gap: 10px;
   align-items: start;
   pointer-events: none;
@@ -1728,9 +1804,10 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   grid-row: 1;
 }
 
-.ms-toolRail {
+.ms-toolRailCluster {
   grid-column: 1;
   grid-row: 2;
+  position: relative;
 }
 
 .ms-workspaceNav,
@@ -1778,9 +1855,14 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 }
 
 .ms-toolFlyout {
-  grid-column: 2;
-  grid-row: 2;
+  position: absolute;
+  top: 0;
+  left: calc(100% + 12px);
   width: 196px;
+  max-height: calc(100dvh - 24px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
   border-radius: 18px;
   padding: 12px;
   background: var(--ms-chrome);
@@ -1791,8 +1873,7 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   box-shadow: var(--ms-chrome-shadow);
 }
 
-.ms-leftChrome:not(:has(.ms-workspaceNav)) .ms-toolRail,
-.ms-leftChrome:not(:has(.ms-workspaceNav)) .ms-toolFlyout {
+.ms-leftChrome:not(:has(.ms-workspaceNav)) .ms-toolRailCluster {
   grid-row: 1;
 }
 
@@ -1825,6 +1906,74 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   background: var(--ms-on-tool-bg);
   color: var(--ms-on-tool-fg);
   border-color: transparent;
+}
+
+.ms-penPresetBlock {
+  padding: 0 0 8px;
+}
+
+.ms-penPresetLabel {
+  display: block;
+  font-size: 11px;
+  color: var(--ms-chrome-muted);
+  margin-bottom: 6px;
+}
+
+.ms-penPresetRow {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.ms-penPresetButton {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 52px;
+  padding: 6px 2px 4px;
+  border-radius: 10px;
+  border: 1px solid var(--ms-chrome-hair);
+  background: transparent;
+  color: var(--ms-chrome-fg);
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+  user-select: none;
+}
+
+.ms-penPresetButtonOn {
+  background: var(--ms-on-tool-bg);
+  color: var(--ms-on-tool-fg);
+  border-color: transparent;
+}
+
+.ms-penPresetButtonEdit {
+  box-shadow: 0 0 0 2px var(--ms-chrome-accent);
+}
+
+.ms-penPresetDot {
+  display: block;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.ms-penPresetValue {
+  font-size: 11px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.ms-toolFlyout .ms-penPresetBlock .ms-selectFilterRow {
+  padding: 0 0 8px;
+  justify-content: flex-start;
+}
+
+.ms-toolFlyout .ms-penPresetBlock .ms-sliderBlock {
+  padding: 8px 0 0;
 }
 
 .ms-toolFlyout .ms-sliderBlock {
@@ -1871,17 +2020,20 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   border-color: var(--ms-chrome-accent);
 }
 
-#editor-root .ms-stockSheet {
+#editor-root .ms-stockDock[data-ms-shell='pane'],
+#editor-root .ms-stockDock {
   --ms-stock-sheet-h: min(220px, 38vh);
   position: absolute;
   left: 84px;
   right: 12px;
   bottom: 12px;
-  width: auto;
-  height: var(--ms-stock-sheet-h);
   z-index: 6;
-  display: block;
-  padding: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 0;
+  height: var(--ms-stock-sheet-h);
+  pointer-events: none;
   border-radius: 18px;
   overflow: hidden;
   background: var(--ms-chrome);
@@ -1892,67 +2044,111 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   box-shadow: var(--ms-chrome-shadow);
 }
 
-#editor-root .ms-body[data-ms-pdf='open'] .ms-stockSheet {
+#editor-root .ms-body[data-ms-pdf='open'] .ms-stockDock {
   right: calc(max(220px, 100% * var(--ms-pdf-drawer-w, 0.32)) + 24px);
 }
 
-.ms-stockDrawerHead {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  right: 8px;
-  z-index: 2;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  pointer-events: none;
-}
-
-.ms-stockDrawerHead > * {
+#editor-root .ms-stockDock .ms-stockDrawerHead,
+#editor-root .ms-stockDock .ms-stockSheet {
   pointer-events: auto;
 }
 
-.ms-stockDrawerHead strong {
-  font-size: 13px;
-  font-weight: 620;
-  padding: 6px 10px;
-  border-radius: 999px;
-  background: var(--ms-chrome);
-  backdrop-filter: blur(18px) saturate(1.2);
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
-  border: 1px solid var(--ms-chrome-hair);
-  box-shadow: var(--ms-chrome-shadow);
+#editor-root .ms-stockSheet {
+  position: relative;
+  left: auto;
+  right: auto;
+  bottom: auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+  height: 100%;
+  z-index: 0;
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  overflow: hidden;
+  background: transparent;
+  box-shadow: none;
+  color: inherit;
+}
+
+.ms-stockDrawerHead {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 52px;
+  flex-shrink: 0;
+  width: 52px;
+  display: flex;
+  align-items: stretch;
+  justify-content: stretch;
+  align-self: stretch;
+  box-sizing: border-box;
+  border-left: 1px solid var(--ms-chrome-hair);
+  background: transparent;
 }
 
 .ms-stockSeg {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 3px;
-  border-radius: 999px;
-  background: var(--ms-seg-track);
-  border: 1px solid var(--ms-chrome-hair);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: stretch;
+  gap: 2px;
+  width: 100%;
+  height: 100%;
+  padding: 4px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 
 .ms-stockSegButton {
+  flex: 1 1 0%;
   min-height: 44px;
-  min-width: 44px;
-  padding: 0 10px;
+  min-width: 0;
+  width: 100%;
+  padding: 4px 2px;
   border: 0;
-  border-radius: 999px;
+  border-radius: 10px;
   background: transparent;
   color: var(--ms-chrome-muted);
   font: inherit;
   font-size: 11px;
+  line-height: 1.2;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  letter-spacing: 0.06em;
   touch-action: manipulation;
   cursor: pointer;
+}
+
+.ms-stockSegButton:first-child {
+  border-radius: 10px 13px 8px 8px;
+}
+
+.ms-stockSegButton:last-child {
+  border-radius: 8px 8px 13px 10px;
+}
+
+.ms-stockSegButton:first-child:last-child {
+  border-radius: 10px 13px 13px 10px;
 }
 
 .ms-stockSegButton[aria-pressed='true'],
 .ms-stockSegButton.ms-chromeIconPressed {
   background: var(--ms-on-tool-bg);
   color: var(--ms-on-tool-fg);
+}
+
+.ms-stockSegButtonDanger {
+  color: #b45450;
+  background: rgba(196, 80, 80, 0.16);
+}
+
+.ms-body[data-ms-theme='dark'] .ms-stockSegButtonDanger {
+  color: #e08a86;
+  background: rgba(196, 80, 80, 0.22);
 }
 
 .ms-stockSegButton:disabled {
@@ -2081,16 +2277,9 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   right: 12px;
 }
 
-#editor-root .ms-body[data-ms-chrome-flip='1'] .ms-workspaceNav {
-  grid-column: 2;
-}
-
-#editor-root .ms-body[data-ms-chrome-flip='1'] .ms-toolRail {
-  grid-column: 2;
-}
-
 #editor-root .ms-body[data-ms-chrome-flip='1'] .ms-toolFlyout {
-  grid-column: 1;
+  left: auto;
+  right: calc(100% + 12px);
 }
 
 #editor-root .ms-body[data-ms-chrome-flip='1'] .ms-pdfDrawer {
@@ -2108,12 +2297,12 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   margin-left: 0;
 }
 
-#editor-root .ms-body[data-ms-chrome-flip='1'] .ms-stockSheet {
+#editor-root .ms-body[data-ms-chrome-flip='1'] .ms-stockDock {
   left: 12px;
   right: 84px;
 }
 
-#editor-root .ms-body[data-ms-chrome-flip='1'][data-ms-pdf='open'] .ms-stockSheet {
+#editor-root .ms-body[data-ms-chrome-flip='1'][data-ms-pdf='open'] .ms-stockDock {
   left: calc(max(220px, 100% * var(--ms-pdf-drawer-w, 0.32)) + 24px);
   right: 84px;
 }

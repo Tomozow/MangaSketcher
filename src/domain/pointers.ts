@@ -13,7 +13,7 @@ export type PointerIntent =
 
 /**
  * Finger: pan, pinch, page ops, PDF drag, long-press reorder.
- * Pencil: draw, erase, text, selection rect.
+ * Pencil: draw, erase, text, selection rect. Stock thumbs: drag (move / take out).
  * Select tool: Pencil draws the rect; finger still pans.
  */
 export function resolvePointerIntent(
@@ -44,6 +44,33 @@ export function resolvePointerIntent(
   }
 }
 
+export type PressureAffect = {
+  size: boolean;
+  opacity: boolean;
+};
+
+export function pressureAffectsOf(
+  tools: {
+    pressureEnabled?: boolean;
+    pressureAffectsSize?: boolean;
+    pressureAffectsOpacity?: boolean;
+    eraserPressureAffectsSize?: boolean;
+    eraserPressureAffectsOpacity?: boolean;
+  },
+  erase = false,
+): PressureAffect {
+  if (erase) {
+    return {
+      size: tools.eraserPressureAffectsSize ?? tools.pressureEnabled !== false,
+      opacity: tools.eraserPressureAffectsOpacity === true,
+    };
+  }
+  return {
+    size: tools.pressureAffectsSize ?? tools.pressureEnabled !== false,
+    opacity: tools.pressureAffectsOpacity === true,
+  };
+}
+
 export function brushRadius(
   baseSize: number,
   pressure: number,
@@ -54,6 +81,19 @@ export function brushRadius(
     return Math.max(0.5, baseSize * Math.max(0.05, pressure));
   }
   return Math.max(0.5, baseSize);
+}
+
+export function brushOpacity(
+  baseOpacity: number,
+  pressure: number,
+  kind: PointerEvent['kind'],
+  pressureEnabled = false,
+): number {
+  const clamped = Math.max(0, Math.min(1, baseOpacity));
+  if (kind === 'pencil' && pressureEnabled) {
+    return Math.max(0.02, Math.min(1, clamped * Math.max(0.05, pressure)));
+  }
+  return clamped;
 }
 
 export function workspacePointerPolicy(kind: PointerKind): {
@@ -77,5 +117,5 @@ export function stockPointerPolicy(kind: PointerKind): { pan: boolean; dragPage:
   if (kind === 'finger') {
     return { pan: true, dragPage: true };
   }
-  return { pan: false, dragPage: false };
+  return { pan: false, dragPage: true };
 }

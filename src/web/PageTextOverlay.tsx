@@ -37,7 +37,7 @@ import { styles } from '@/src/web/editorStyles';
 import { PAGE_INK_FRAME_ATTR } from '@/src/web/gestures/pageInkDom';
 import { pageBoxToWorld } from '@/src/web/gestures/elementInteraction';
 import { useLiveTextContent, type LiveTextContent } from '@/src/web/liveTextContentStore';
-
+import { isWhiteTextColor } from '@/src/web/text/whiteTextColor';
 type PageTextOverlayProps = {
   doc: EditorDocument;
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
@@ -257,7 +257,7 @@ export function PageTextsOnFrame({
             }}
           >
             <div
-              className={`${styles.pageTextBox} ${selected ? styles.pageTextBoxSelected : ''}`}
+              className={`${styles.pageTextBox} ${selected ? styles.pageTextBoxSelected : ''} ${isWhiteTextColor(text.color) ? styles.pageTextBoxWhite : ''}`}
               style={{
                 color: text.color,
                 fontSize: cssFontSize,
@@ -385,7 +385,7 @@ export function PasteboardTextsLayer({
             style={{ left: box.x, top: box.y, width: box.width, height: box.height }}
           >
             <div
-              className={`${styles.pageTextBox} ${selected ? styles.pageTextBoxSelected : ''}`}
+              className={`${styles.pageTextBox} ${selected ? styles.pageTextBoxSelected : ''} ${isWhiteTextColor(text.color) ? styles.pageTextBoxWhite : ''}`}
               style={{ color: text.color, fontSize, lineHeight: 1.2 }}
             >
               {content}

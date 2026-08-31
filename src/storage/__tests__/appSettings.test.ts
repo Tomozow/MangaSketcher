@@ -4,6 +4,7 @@ import {
   APP_SETTINGS_STORAGE_KEY,
   DEFAULT_APP_SETTINGS,
   DEFAULT_SHORTCUTS,
+  activePenSizePresetIndex,
   assignShortcut,
   delaysForAutosavePreset,
   getAutosaveDelays,
@@ -82,6 +83,34 @@ describe('appSettings', () => {
     expect(parseAppSettings({ pageTurnUnit: 'nope' }).pageTurnUnit).toBe('page');
     expect(parseAppSettings({ historyDepth: 999 }).historyDepth).toBe(200);
     expect(parseAppSettings({ inkIdleMs: 10 }).inkIdleMs).toBe(200);
+  });
+
+  test('ペンサイズは4段階プリセットを正規化する', () => {
+    expect(DEFAULT_APP_SETTINGS.penSizePresets).toEqual([4, 8, 12, 24]);
+    expect(DEFAULT_APP_SETTINGS.penSizePresetIndex).toBe(2);
+    expect(parseAppSettings({ penSizePresets: [1, 99, 'x', 12.4] }).penSizePresets).toEqual([1, 64, 12, 12]);
+    expect(parseAppSettings({ penSizePresetIndex: 9 }).penSizePresetIndex).toBe(3);
+    expect(parseAppSettings({}).penSizePresets).toEqual([4, 8, 12, 24]);
+    expect(parseAppSettings({}).penOpacityPresets).toEqual([1, 1, 1, 1]);
+    expect(parseAppSettings({ penOpacityPresets: [0, 0.33, 2, 'x'] }).penOpacityPresets).toEqual([
+      0.05, 0.35, 1, 1,
+    ]);
+    expect(activePenSizePresetIndex([4, 8, 12, 24], 12, 0)).toBe(2);
+    expect(activePenSizePresetIndex([4, 8, 12, 24], 12, 2)).toBe(2);
+    expect(parseAppSettings({}).eraserSizePresets).toEqual([12, 28, 48, 80]);
+    expect(parseAppSettings({}).eraserSizePresetIndex).toBe(1);
+    expect(parseAppSettings({}).penPressureSize).toEqual([true, true, true, true]);
+    expect(parseAppSettings({}).penPressureOpacity).toEqual([false, false, false, false]);
+    expect(parseAppSettings({ penPressureSize: false, penPressureOpacity: true })).toMatchObject({
+      penPressureSize: [false, false, false, false],
+      penPressureOpacity: [true, true, true, true],
+    });
+    expect(
+      parseAppSettings({
+        penPressureSize: [true, false, true, false],
+        penPressureOpacity: [false, true, false, true],
+      }).penPressureSize,
+    ).toEqual([true, false, true, false]);
   });
 
   test('ショートカットの割当は衝突すると入れ替える', () => {

@@ -607,7 +607,7 @@ export class InkEngine {
       ctx.imageSmoothingEnabled = true;
     }
     if ('imageSmoothingQuality' in ctx) {
-      ctx.imageSmoothingQuality = 'medium';
+      ctx.imageSmoothingQuality = 'low';
     }
 
     ctx.drawImage(page as unknown as CanvasImageSource, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);

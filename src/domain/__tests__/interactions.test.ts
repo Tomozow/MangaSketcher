@@ -109,6 +109,59 @@ describe('ストックの自由配置と列への復帰', () => {
     expect(layoutWorkspace(doc.workspaceOrder).pageNumbers).toEqual([1, 2, 3]);
   });
 
+  test('クリップとテキストをストックへ登録し、ワークスペースへ戻せる', () => {
+    const ids = sequentialIds('s');
+    let doc = docN(1);
+    const pageId = doc.workspaceOrder[0];
+    doc = reduceTestDocument(
+      doc,
+      { type: 'createText', attachment: { kind: 'page', pageId }, box: { x: 1, y: 2, width: 8, height: 10 }, content: '名' },
+      ids,
+    );
+    const textId = doc.pages[pageId].texts[0].id;
+    doc = reduceTestDocument(
+      doc,
+      {
+        type: 'marqueeCut',
+        pageId,
+        rect: { x: 0, y: 0, width: 4, height: 4 },
+        workspaceX: 20,
+        workspaceY: 30,
+      },
+      ids,
+    );
+    const clipId = doc.pasteboardClips[0].id;
+    for (const action of dropActions(
+      { type: 'clip', clipId },
+      { zone: 'stock', x: 5, y: 6 },
+      doc.rasterWidth,
+      doc.rasterHeight,
+    )) {
+      doc = reduceTestDocument(doc, action, ids);
+    }
+    for (const action of dropActions(
+      { type: 'pasteboardText', textId },
+      { zone: 'stock', x: 7, y: 8 },
+      doc.rasterWidth,
+      doc.rasterHeight,
+    )) {
+      doc = reduceTestDocument(doc, action, ids);
+    }
+    expect(doc.stock).toEqual(
+      expect.arrayContaining([
+        { kind: 'clip', clipId, x: 5, y: 6 },
+        { kind: 'text', textId, x: 7, y: 8 },
+      ]),
+    );
+    expect(doc.pages[pageId].texts).toHaveLength(0);
+    expect(doc.pasteboardTexts.some((t) => t.id === textId)).toBe(true);
+    doc = reduceTestDocument(doc, { type: 'returnStockClip', clipId, x: 40, y: 50 }, ids);
+    doc = reduceTestDocument(doc, { type: 'returnStockText', textId, x: 11, y: 12 }, ids);
+    expect(doc.stock).toHaveLength(0);
+    expect(doc.pasteboardClips[0].x).toBe(40);
+    expect(doc.pasteboardTexts.find((t) => t.id === textId)?.box.x).toBe(11);
+  });
+
   test('ワークスペースまたはストックのページをゴミ箱へドロップできる', () => {
     const ids = sequentialIds('s');
     let doc = docN(2);

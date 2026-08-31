@@ -7,6 +7,7 @@ import type { EditorDocument } from '@/src/storage/types';
 import { CLIP_CHROME_ATTR, CLIP_COPY_ATTR, CLIP_DELETE_ATTR, CLIP_FRAME_ATTR, CLIP_ID_ATTR, CLIP_INSERT_ATTR } from './clip/constants';
 import { PAGE_TEXT_ID_ATTR, PAGE_TEXT_WRAP_ATTR } from './gestures/pageTextDom';
 import { clipInsertTarget, clipWorldBounds, rasterToDisplayScale, selectedClipIdsOf } from './clip/clipGeometry';
+import { withoutStockedClips } from '@/src/domain/stockItems';
 import { selectedTextIdsOf } from '@/src/domain/text';
 import { effectiveClipPose, type ClipLiveTransform } from './clip/clipLiveTransform';
 import type { MarqueePreview } from '@/src/web/useEditorController';
@@ -244,7 +245,8 @@ export function PageInkOverlay({
 }: PageInkOverlayProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
   const { frames } = buildStripFrames(doc.workspaceOrder, stripLayoutFromDoc(doc));
-  const selectedIds = selectedClipIdsOf(doc);
+  const visibleClips = withoutStockedClips(doc.pasteboardClips, doc.stock, doc.trashClips);
+  const selectedIds = selectedClipIdsOf(doc).filter((id) => visibleClips.some((clip) => clip.id === id));
   const selectedTextIds = selectedTextIdsOf(doc);
   const selectedIdSet = new Set(selectedIds);
   const showWorldMarquee =
@@ -292,7 +294,7 @@ export function PageInkOverlay({
           />
         ) : null}
 
-        {doc.pasteboardClips.map((clip) => {
+        {visibleClips.map((clip) => {
           const pose = effectiveClipPose(clip, clipLiveTransforms[clip.id]);
           const clipForLayout = { ...clip, ...pose };
           const size = engine.getRasterDimensions(clip.rasterId);

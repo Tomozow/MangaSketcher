@@ -6,6 +6,7 @@ import { styles } from './editorStyles';
 
 type PageChromeButtonsProps = {
   onInsert?: () => void;
+  onMoveToStock?: () => void;
   onDelete?: () => void;
   onClearInk?: () => void;
 };
@@ -14,8 +15,8 @@ function stopPointer(event: ReactPointerEvent) {
   event.stopPropagation();
 }
 
-export function PageChromeButtons({ onInsert, onDelete, onClearInk }: PageChromeButtonsProps) {
-  if (!onInsert && !onDelete && !onClearInk) {
+export function PageChromeButtons({ onInsert, onMoveToStock, onDelete, onClearInk }: PageChromeButtonsProps) {
+  if (!onInsert && !onMoveToStock && !onDelete && !onClearInk) {
     return null;
   }
   return (
@@ -35,6 +36,19 @@ export function PageChromeButtons({ onInsert, onDelete, onClearInk }: PageChrome
           }}
         >
           挿入
+        </button>
+      ) : null}
+      {onMoveToStock ? (
+        <button
+          type="button"
+          className={styles.pageDeleteButton}
+          aria-label="ストックへ移動"
+          onClick={(event) => {
+            event.stopPropagation();
+            onMoveToStock();
+          }}
+        >
+          ストックへ移動
         </button>
       ) : null}
       {onDelete ? (

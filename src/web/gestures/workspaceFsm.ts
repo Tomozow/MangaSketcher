@@ -1,4 +1,5 @@
 import { resolvePointerIntent } from '../../domain/pointers';
+import { clientOverStockPane } from '../stock/stockCoords';
 import {
   canGrabPage,
   LONG_PRESS_MS,
@@ -95,6 +96,9 @@ function textMoveEffects(
   }
   const { x, y, pageId, pasteboard } = point;
   if (phase === 'up') {
+    if (clientOverStockPane(input.x, input.y)) {
+      return [{ type: 'cancelTextTransform', textId: session.textId }];
+    }
     return [{ type: 'commitTextTransform', textId: session.textId, x, y, pageId, pasteboard }];
   }
   return [
@@ -594,6 +598,12 @@ function stepLockedPencil(
       };
     }
     if (input.phase === 'up') {
+      if (clientOverStockPane(input.x, input.y)) {
+        return {
+          session: { mode: 'idle' },
+          effects: [{ type: 'cancelSelectionMove' }],
+        };
+      }
       return {
         session: { mode: 'idle' },
         effects: [{ type: 'selectionMoveLive', dx, dy }, { type: 'commitSelectionMove' }],
@@ -723,6 +733,12 @@ function stepLockedPencil(
       y: input.worldY - session.offsetY,
     };
     if (input.phase === 'up') {
+      if (clientOverStockPane(input.x, input.y)) {
+        return {
+          session: { mode: 'idle' },
+          effects: [{ type: 'cancelClipTransform', clipId: session.clipId }],
+        };
+      }
       return {
         session: { mode: 'idle' },
         effects: [clipLiveEffect, { type: 'commitClipTransform', clipId: session.clipId }],

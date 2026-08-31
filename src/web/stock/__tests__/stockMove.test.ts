@@ -1,12 +1,17 @@
 import { describe, expect, test } from 'vitest';
 import { createDocument, sequentialIds } from '../../../domain/document';
 import { layoutWorkspace } from '../../../domain/layout';
+import { isStockPageItem, isStockTextItem } from '../../../domain/stockItems';
+import { buildStripFrames } from '../../../domain/stripGeometry';
 import { reduceTestDocument, type DocumentAction } from '../../../domain/reducer';
 import {
   dropStockPageToTrash,
   dropWorkspacePageToTrash,
+  moveTextToStock,
   moveWorkspacePageToStock,
+  nextFreeStockPagePosition,
   returnStockPageToWorkspace,
+  returnStockTextToWorkspace,
 } from '../stockActions';
 
 function blankDoc(pageCount: number) {
@@ -20,10 +25,7 @@ function blankDoc(pageCount: number) {
   });
 }
 
-function apply(
-  doc: ReturnType<typeof blankDoc>,
-  actions: ReturnType<typeof moveWorkspacePageToStock> | ReturnType<typeof dropWorkspacePageToTrash>,
-) {
+function apply(doc: ReturnType<typeof blankDoc>, actions: { type: string }[]) {
   let next = doc;
   const ids = sequentialIds('a');
   for (const action of actions) {
@@ -42,6 +44,34 @@ describe('stock MOVE adapters', () => {
     expect(doc.workspaceOrder).toHaveLength(0);
     expect(doc.stock).toHaveLength(2);
     expect(layoutWorkspace(doc.workspaceOrder).pageNumbers).toEqual([]);
+  });
+
+  test('クリップとテキストはストックページより手前に並ぶ', () => {
+    let doc = blankDoc(2);
+    const [a, b] = doc.workspaceOrder;
+    const ids = sequentialIds('fg');
+    doc = reduceTestDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'pasteboard' },
+        box: { x: 1, y: 1, width: 8, height: 20 },
+        content: '台',
+      },
+      ids,
+    );
+    const textId = doc.pasteboardTexts[0]!.id;
+    doc = apply(doc, moveTextToStock(textId, 2, 3, doc.rasterWidth, doc.rasterHeight));
+    doc = apply(doc, moveWorkspacePageToStock(a, 0, 10, 12, doc.rasterWidth, doc.rasterHeight));
+    doc = apply(doc, moveWorkspacePageToStock(b, 0, 20, 12, doc.rasterWidth, doc.rasterHeight));
+    expect(doc.stock.slice(0, 2).every(isStockPageItem)).toBe(true);
+    expect(isStockTextItem(doc.stock[2]!)).toBe(true);
+    expect(doc.stock[2]).toMatchObject({ textId });
+  });
+
+  test('next free stock page position tiles after existing pages', () => {
+    expect(nextFreeStockPagePosition([])).toEqual({ x: 8, y: 8 });
+    expect(nextFreeStockPagePosition([{ pageId: 'a', x: 8, y: 8 }])).toEqual({ x: 160, y: 8 });
   });
 
   test('stock to workspace inserts at reading index', () => {
@@ -106,5 +136,109 @@ describe('stock MOVE adapters', () => {
     doc = apply(doc, returnStockPageToWorkspace(page2, 2, doc.rasterWidth, doc.rasterHeight));
     expect(doc.pasteboardTexts[0].box).toEqual(textBefore);
     expect(doc.pasteboardClips[0]).toMatchObject(clipBefore);
+  });
+
+  test('ストックテキストはページ上ならページへ、それ以外はペーストボードへ戻す', () => {
+    let doc = blankDoc(1);
+    const pageId = doc.workspaceOrder[0]!;
+    const ids = sequentialIds('tx');
+    doc = reduceTestDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'pasteboard' },
+        box: { x: 400, y: 400, width: 8, height: 20 },
+        content: '台紙',
+      },
+      ids,
+    );
+    const textId = doc.pasteboardTexts[0]!.id;
+    doc = apply(doc, moveTextToStock(textId, 2, 3, doc.rasterWidth, doc.rasterHeight));
+    const { frames } = buildStripFrames(doc.workspaceOrder);
+    const pageFrame = frames.find((item) => item.slot.kind === 'page')!;
+
+    doc = apply(
+      doc,
+      returnStockTextToWorkspace({
+        textId,
+        pointerWorldX: pageFrame.x + pageFrame.width / 2,
+        pointerWorldY: pageFrame.y + pageFrame.height / 2,
+        box: { x: 400, y: 400, width: 8, height: 20 },
+        fontSize: 12,
+        frames,
+        rasterWidth: doc.rasterWidth,
+        rasterHeight: doc.rasterHeight,
+      }),
+    );
+    expect(doc.stock).toHaveLength(0);
+    expect(doc.pasteboardTexts).toHaveLength(0);
+    expect(doc.pages[pageId]!.texts.some((t) => t.id === textId)).toBe(true);
+
+    doc = reduceTestDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'pasteboard' },
+        box: { x: 10, y: 10, width: 8, height: 20 },
+        content: '外',
+      },
+      ids,
+    );
+    const pasteId = doc.pasteboardTexts[0]!.id;
+    doc = apply(doc, moveTextToStock(pasteId, 1, 1, doc.rasterWidth, doc.rasterHeight));
+    doc = apply(
+      doc,
+      returnStockTextToWorkspace({
+        textId: pasteId,
+        pointerWorldX: pageFrame.x + pageFrame.width + 80,
+        pointerWorldY: pageFrame.y + 10,
+        box: { x: 10, y: 10, width: 8, height: 20 },
+        fontSize: 12,
+        frames,
+        rasterWidth: doc.rasterWidth,
+        rasterHeight: doc.rasterHeight,
+      }),
+    );
+    expect(doc.pasteboardTexts.some((t) => t.id === pasteId)).toBe(true);
+    expect(doc.pages[pageId]!.texts.some((t) => t.id === pasteId)).toBe(false);
+  });
+
+  test('ゴミ箱テキストをページへ出すとゴミ箱から消える', () => {
+    let doc = blankDoc(1);
+    const pageId = doc.workspaceOrder[0]!;
+    const ids = sequentialIds('tt');
+    doc = reduceTestDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'pasteboard' },
+        box: { x: 10, y: 10, width: 8, height: 20 },
+        content: '本文',
+      },
+      ids,
+    );
+    const textId = doc.pasteboardTexts[0]!.id;
+    doc = reduceTestDocument(doc, { type: 'deleteStockText', textId }, ids);
+    expect(doc.trashTexts).toEqual([textId]);
+    const { frames } = buildStripFrames(doc.workspaceOrder);
+    const pageFrame = frames.find((item) => item.slot.kind === 'page')!;
+
+    doc = apply(
+      doc,
+      returnStockTextToWorkspace({
+        textId,
+        pointerWorldX: pageFrame.x + pageFrame.width / 2,
+        pointerWorldY: pageFrame.y + pageFrame.height / 2,
+        box: { x: 10, y: 10, width: 8, height: 20 },
+        fontSize: 12,
+        frames,
+        rasterWidth: doc.rasterWidth,
+        rasterHeight: doc.rasterHeight,
+        fromTrash: true,
+      }),
+    );
+    expect(doc.trashTexts).toEqual([]);
+    expect(doc.pasteboardTexts.some((t) => t.id === textId)).toBe(false);
+    expect(doc.pages[pageId]!.texts.some((t) => t.id === textId)).toBe(true);
   });
 });

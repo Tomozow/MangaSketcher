@@ -203,6 +203,32 @@ describe('clip chrome actions', () => {
     expect(doc.selectedClipIds).toEqual(['c1', 'c2']);
     expect(doc.selectedClipId).toBe('c2');
   });
+
+  test('moveClipToStock twice stocks both selected clips', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      { type: 'commitMarqueeCut', pageId, clipId: 'c1', rasterId: 'p1:clip:c1', workspaceX: 0, workspaceY: 0 },
+      ids,
+    );
+    doc = reduceEditorDocument(
+      doc,
+      { type: 'commitMarqueeCut', pageId, clipId: 'c2', rasterId: 'p1:clip:c2', workspaceX: 20, workspaceY: 20 },
+      ids,
+    );
+    doc = reduceEditorDocument(doc, { type: 'selectClips', clipIds: ['c1', 'c2'] }, ids);
+    doc = reduceEditorDocument(doc, { type: 'moveClipToStock', clipId: 'c1', x: 0, y: 0 }, ids);
+    doc = reduceEditorDocument(doc, { type: 'moveClipToStock', clipId: 'c2', x: 80, y: 0 }, ids);
+    expect(doc.stock.filter((s) => s.kind === 'clip')).toHaveLength(2);
+    expect(doc.selectedClipIds).toEqual([]);
+  });
 });
 
 describe('text attachment placement', () => {

@@ -18,9 +18,14 @@ export type ExportComposeContext = {
   rect(x: number, y: number, w: number, h: number): void;
   clip(): void;
   fillText(text: string, x: number, y: number): void;
+  strokeText?(text: string, x: number, y: number): void;
   font: string;
   textBaseline: CanvasTextBaseline;
   textAlign: CanvasTextAlign;
+  strokeStyle?: string;
+  lineWidth?: number;
+  lineJoin?: CanvasLineJoin;
+  miterLimit?: number;
 };
 
 export function createExportCanvas(width: number, height: number): ExportCanvas {

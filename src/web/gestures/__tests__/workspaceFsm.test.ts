@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { LONG_PRESS_MS, canGrabPage } from '../../../domain/workspaceGestures';
 import { buildStripFrames, pageLocalFromWorld } from '../../../domain/stripGeometry';
 import { rasterGrabOffsetToWorld } from '../pageInkDom';
@@ -10,6 +10,15 @@ import {
 } from '../workspaceFsm';
 import { createWorkspaceGestureStore } from '../types';
 import { reduceWorkspaceEffects } from '../workspaceEffects';
+import { clientOverStockPane } from '../../stock/stockCoords';
+
+vi.mock('../../stock/stockCoords', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../../stock/stockCoords')>();
+  return {
+    ...actual,
+    clientOverStockPane: vi.fn((x: number, y: number) => actual.clientOverStockPane(x, y)),
+  };
+});
 
 const pageHit = {
   kind: 'page' as const,
@@ -1161,6 +1170,46 @@ describe('Web workspace FSM', () => {
         { type: 'selectionMoveLive', dx: 20, dy: 0 },
         { type: 'commitSelectionMove' },
       ]);
+    });
+
+    test('複数選択をストック上で離すと cancelSelectionMove', () => {
+      vi.mocked(clientOverStockPane).mockReturnValueOnce(true);
+      const store = createWorkspaceGestureStore();
+      const clip = { id: 'c1', x: 100, y: 80, scale: 1, rotation: 0, rasterId: 'r1' };
+      const clipHit = { kind: 'clip' as const, clipId: 'c1', handle: 'body' as const };
+      pencil(store, 'down', {
+        tool: 'select',
+        hit: clipHit,
+        x: 10,
+        y: 10,
+        worldX: 110,
+        worldY: 90,
+        selectedClipIds: ['c1', 'c2'],
+        selectedTextIds: ['tx'],
+        getClipMeta: () => clip,
+        selectTargets: { text: true, ink: true, clip: true },
+      });
+      pencil(store, 'move', {
+        tool: 'select',
+        hit: clipHit,
+        x: 30,
+        y: 10,
+        worldX: 130,
+        worldY: 90,
+        getClipMeta: () => clip,
+        selectTargets: { text: true, ink: true, clip: true },
+      });
+      const up = pencil(store, 'up', {
+        tool: 'select',
+        hit: clipHit,
+        x: 30,
+        y: 10,
+        worldX: 130,
+        worldY: 90,
+        getClipMeta: () => clip,
+        selectTargets: { text: true, ink: true, clip: true },
+      });
+      expect(up.effects).toEqual([{ type: 'cancelSelectionMove' }]);
     });
 
     test('dragging two selected texts moves the whole selection', () => {

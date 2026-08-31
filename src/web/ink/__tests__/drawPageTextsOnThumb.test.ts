@@ -20,6 +20,7 @@ function recordingContext() {
     fillText(text: string, x: number, y: number) {
       fills.push({ text, x, y, font: ctx.font, fillStyle: ctx.fillStyle });
     },
+    strokeText() {},
   };
   return { ctx, fills };
 }
@@ -61,6 +62,49 @@ describe('drawPageTextsOnThumb', () => {
     expect(fills[0]!.x).toBeCloseTo(fills[1]!.x);
     expect(fills[0]!.fillStyle).toBe('#1A1A1A');
     expect(fills[0]!.font).toBe(pageTextCanvasFont(40 * (THUMB_WIDTH / 1200)));
+  });
+
+  test('white fill strokes black then fills', () => {
+    const strokes: string[] = [];
+    const fills: Fill[] = [];
+    const ctx = {
+      font: '',
+      fillStyle: '',
+      strokeStyle: '',
+      lineWidth: 0,
+      lineJoin: 'miter' as CanvasLineJoin,
+      textBaseline: 'alphabetic' as CanvasTextBaseline,
+      textAlign: 'start' as CanvasTextAlign,
+      save() {},
+      restore() {},
+      beginPath() {},
+      rect() {},
+      clip() {},
+      strokeText(text: string) {
+        strokes.push(text);
+      },
+      fillText(text: string, x: number, y: number) {
+        fills.push({ text, x, y, font: ctx.font, fillStyle: ctx.fillStyle });
+      },
+    };
+    drawPageTextsOnThumb(
+      ctx,
+      [
+        {
+          content: 'あ',
+          box: { x: 100, y: 100, width: 80, height: 400 },
+          fontSize: 40,
+          color: '#FFFFFF',
+        },
+      ],
+      1200,
+      1700,
+      1200,
+      1700,
+    );
+    expect(strokes).toEqual(['あ']);
+    expect(fills[0]!.fillStyle).toBe('#FFFFFF');
+    expect(ctx.strokeStyle).toBe('#000000');
   });
 
   test('newline starts a new column to the left', () => {

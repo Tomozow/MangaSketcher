@@ -196,7 +196,9 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
   test('ページ番号タップの選択肢に線画削除がある', () => {
     const pageChromeSrc = readFileSync(join(here, '../PageDeleteButton.tsx'), 'utf8');
     expect(pageChromeSrc).toContain('線画を削除');
+    expect(pageChromeSrc).toContain('ストックへ移動');
     expect(workspaceStripSrc).toContain('onClearPageInk');
+    expect(workspaceStripSrc).toContain('onMovePageToStock');
     expect(editorLayoutSrc).not.toContain('このページの線画を削除しますか？');
     expect(editorLayoutSrc).toContain('ゴミ箱を空にしますか？');
   });
@@ -224,6 +226,10 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(sidebarSrc).toContain('setTextsFontSize');
     expect(sidebarSrc).toContain('setFlyoutOpen');
     expect(sidebarSrc).toContain('toolFlyoutOnFirstTap');
+    expect(sidebarSrc).toContain('PenSizePresetRow');
+    expect(sidebarSrc).toContain('penSizePresets');
+    expect(sidebarSrc).toContain('eraserSizePresets');
+    expect(sidebarSrc).toContain('onChangePressure');
   });
 
   test('ワークスペース左に拡大縮小とページ移動のナビがある', () => {
@@ -236,7 +242,8 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(navSrc).toContain('spreadWorldRectForPage');
     expect(editorCss).toMatch(/\.ms-leftChrome[^{]*\{[^}]*top:\s*50%/);
     expect(editorCss).toMatch(/\.ms-workspaceNav[^{]*\{[^}]*grid-row:\s*1/);
-    expect(editorCss).toMatch(/\.ms-toolRail[^{]*\{[^}]*grid-row:\s*2/);
+    expect(editorCss).toMatch(/\.ms-toolRailCluster[^{]*\{[^}]*grid-row:\s*2/);
+    expect(editorCss).toMatch(/\.ms-toolFlyout[^{]*\{[^}]*position:\s*absolute/);
   });
 
   test('選択の一括移動は着地先でテキスト所属を付け替える', () => {
@@ -280,6 +287,12 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(pageTextOverlaySrc).toContain('pageTextBox');
     expect(editorCss).toMatch(/\.ms-pageTextBox[^{]*\{[^}]*writing-mode:\s*vertical-rl/);
     expect(editorCss).toMatch(/\.ms-pageTextBox[^{]*\{[^}]*I-OTFアンチックStd B/);
+    expect(editorCss).toMatch(/\.ms-pageTextBoxWhite[^{]*\{[^}]*-webkit-text-stroke:\s*0\.08em #000000/);
+    expect(pageTextOverlaySrc).toContain('pageTextBoxWhite');
+    expect(pageTextOverlaySrc).toContain('isWhiteTextColor');
+    expect(editorCss).toMatch(
+      /\[data-ms-theme='dark'\][^{]*\.ms-pasteboardTextWrap[^{]*\.ms-pageTextBox[^{]*\{[^}]*filter:\s*invert\(1\)/,
+    );
     expect(textEditBarSrc).toMatch(/<textarea/);
     expect(textEditBarSrc).not.toContain('完了');
     expect(textEditBarSrc).toContain('PAGE_TEXT_CONFIRM_ATTR');

@@ -1,6 +1,6 @@
 import { cloneEditorDocument, newPageMeta, type IdFactory } from './document';
 import { layoutWorkspace } from './layout';
-import { wrapExtractedText, workspaceFontSizeFromTool } from './pdfExtractPack';
+import { pageTextToPasteboard, wrapExtractedText, workspaceFontSizeFromTool } from './pdfExtractPack';
 import { joinVerticalBody, rangeSelectBody } from './pdfText';
 import { applyFontSizeToText, resizeTextBox, selectedTextIdsOf } from './text';
 import { fitTextBoxToContent } from './textWrap';
@@ -11,6 +11,7 @@ import {
   clampStoredPagesPerColumn,
 } from './stripGeometry';
 import { clampPdfPage, clampPdfZoom, keepPdfViewOnReload, pdfViewAfterLoad } from './pdfView';
+import { findStockClip, findStockPage, findStockText, isStockClipItem, isStockPageItem, isStockTextItem, stockPagesThenForeground } from './stockItems';
 import type {
   ClipId,
   EditorDocument,
@@ -82,9 +83,21 @@ export type EditorDocumentAction =
   | { type: 'returnTrashToWorkspace'; pageId: PageId; readingIndex: number }
   | { type: 'emptyTrash' }
   | { type: 'reorderWorkspace'; fromIndex: number; toIndex: number }
+  | { type: 'reorderStock'; fromIndex: number; toIndex: number }
+  | { type: 'swapStockPositions'; fromIndex: number; toIndex: number }
   | { type: 'movePageToStock'; pageId: PageId; x: number; y: number }
   | { type: 'returnStockToWorkspace'; pageId: PageId; readingIndex: number }
   | { type: 'placeStock'; pageId: PageId; x: number; y: number }
+  | { type: 'moveClipToStock'; clipId: ClipId; x: number; y: number }
+  | { type: 'moveTextToStock'; textId: TextId; x: number; y: number }
+  | { type: 'returnStockClip'; clipId: ClipId; x: number; y: number }
+  | { type: 'returnStockText'; textId: TextId; x: number; y: number }
+  | { type: 'returnTrashClip'; clipId: ClipId; x: number; y: number }
+  | { type: 'returnTrashText'; textId: TextId; x: number; y: number }
+  | { type: 'placeStockClip'; clipId: ClipId; x: number; y: number }
+  | { type: 'placeStockText'; textId: TextId; x: number; y: number }
+  | { type: 'deleteStockClip'; clipId: ClipId }
+  | { type: 'deleteStockText'; textId: TextId }
   | { type: 'setTool'; tool: ToolId }
   | { type: 'setToolProperties'; patch: Partial<ToolProperties> }
   | { type: 'setWorkspaceView'; zoom: number; panX: number; panY: number }
@@ -289,6 +302,7 @@ function removeTextsById(doc: EditorDocument, textIds: TextId[]): void {
     page.texts = page.texts.filter((t) => !remove.has(t.id));
   }
   doc.pasteboardTexts = doc.pasteboardTexts.filter((t) => !remove.has(t.id));
+  doc.stock = doc.stock.filter((item) => !(isStockTextItem(item) && remove.has(item.textId)));
   Object.assign(
     doc,
     textSelection(selectedTextIdsOf(doc).filter((id) => !remove.has(id))),
@@ -301,6 +315,7 @@ function removeClipsById(doc: EditorDocument, clipIds: ClipId[]): void {
     return;
   }
   doc.pasteboardClips = doc.pasteboardClips.filter((c) => !remove.has(c.id));
+  doc.stock = doc.stock.filter((item) => !(isStockClipItem(item) && remove.has(item.clipId)));
   Object.assign(
     doc,
     clipSelection(
@@ -315,6 +330,64 @@ function addPageToTrash(doc: EditorDocument, pageId: PageId): void {
   if (!doc.trash.includes(pageId)) {
     doc.trash.push(pageId);
   }
+}
+
+function ensureTrashLists(doc: EditorDocument): void {
+  if (!doc.trashClips) {
+    doc.trashClips = [];
+  }
+  if (!doc.trashTexts) {
+    doc.trashTexts = [];
+  }
+}
+
+function addClipToTrash(doc: EditorDocument, clipId: ClipId): void {
+  ensureTrashLists(doc);
+  if (!doc.pasteboardClips.some((clip) => clip.id === clipId)) {
+    return;
+  }
+  doc.stock = doc.stock.filter((item) => !(isStockClipItem(item) && item.clipId === clipId));
+  if (!doc.trashClips.includes(clipId)) {
+    doc.trashClips.push(clipId);
+  }
+  Object.assign(
+    doc,
+    clipSelection(
+      (doc.selectedClipIds ?? (doc.selectedClipId ? [doc.selectedClipId] : [])).filter((id) => id !== clipId),
+    ),
+  );
+}
+
+function addTextToTrash(doc: EditorDocument, textId: TextId): void {
+  ensureTrashLists(doc);
+  const found = findEditorText(doc, textId);
+  if (!found) {
+    return;
+  }
+  if (found.where === 'page') {
+    const taken = takeEditorText(doc, textId);
+    if (!taken) {
+      return;
+    }
+    const converted = pageTextToPasteboard(
+      taken.box,
+      taken.fontSize,
+      doc.rasterWidth,
+      doc.rasterHeight,
+    );
+    doc.pasteboardTexts.push({
+      id: taken.id,
+      content: taken.content,
+      box: converted.box,
+      fontSize: converted.fontSize,
+      color: taken.color,
+    });
+  }
+  doc.stock = doc.stock.filter((item) => !(isStockTextItem(item) && item.textId === textId));
+  if (!doc.trashTexts.includes(textId)) {
+    doc.trashTexts.push(textId);
+  }
+  Object.assign(doc, textSelection(selectedTextIdsOf(doc).filter((id) => id !== textId)));
 }
 
 function removePageFromWorkspace(doc: EditorDocument, pageId: PageId): void {
@@ -367,11 +440,11 @@ export function reduceEditorDocument(
       return doc;
     }
     case 'deleteStockPage': {
-      const item = doc.stock.find((s) => s.pageId === a.pageId);
+      const item = findStockPage(doc.stock, a.pageId);
       if (!item) {
         return doc;
       }
-      doc.stock = doc.stock.filter((s) => s.pageId !== a.pageId);
+      doc.stock = doc.stock.filter((s) => !isStockPageItem(s) || s.pageId !== a.pageId);
       addPageToTrash(doc, a.pageId);
       return doc;
     }
@@ -387,13 +460,20 @@ export function reduceEditorDocument(
       return doc;
     }
     case 'emptyTrash': {
-      if (doc.trash.length === 0) {
+      ensureTrashLists(doc);
+      if (doc.trash.length === 0 && doc.trashClips.length === 0 && doc.trashTexts.length === 0) {
         return doc;
       }
       for (const pageId of doc.trash) {
         delete doc.pages[pageId];
       }
+      const clipIds = [...doc.trashClips];
+      const textIds = [...doc.trashTexts];
       doc.trash = [];
+      doc.trashClips = [];
+      doc.trashTexts = [];
+      removeClipsById(doc, clipIds);
+      removeTextsById(doc, textIds);
       return doc;
     }
     case 'reorderWorkspace': {
@@ -412,16 +492,51 @@ export function reduceEditorDocument(
       doc.workspaceOrder = next;
       return doc;
     }
+    case 'reorderStock': {
+      const { fromIndex, toIndex } = a;
+      if (
+        fromIndex < 0 ||
+        toIndex < 0 ||
+        fromIndex >= doc.stock.length ||
+        toIndex >= doc.stock.length
+      ) {
+        return doc;
+      }
+      const next = [...doc.stock];
+      const [moved] = next.splice(fromIndex, 1);
+      if (!moved) {
+        return doc;
+      }
+      next.splice(toIndex, 0, moved);
+      doc.stock = stockPagesThenForeground(next);
+      return doc;
+    }
+    case 'swapStockPositions': {
+      const { fromIndex, toIndex } = a;
+      const left = doc.stock[fromIndex];
+      const right = doc.stock[toIndex];
+      if (!left || !right || fromIndex === toIndex) {
+        return doc;
+      }
+      const x = left.x;
+      const y = left.y;
+      left.x = right.x;
+      left.y = right.y;
+      right.x = x;
+      right.y = y;
+      return doc;
+    }
     case 'movePageToStock': {
       if (!doc.workspaceOrder.includes(a.pageId)) {
         return doc;
       }
       removePageFromWorkspace(doc, a.pageId);
       doc.stock.push({ pageId: a.pageId, x: a.x, y: a.y });
+      doc.stock = stockPagesThenForeground(doc.stock);
       return doc;
     }
     case 'returnStockToWorkspace': {
-      const idx = doc.stock.findIndex((s) => s.pageId === a.pageId);
+      const idx = doc.stock.findIndex((s) => isStockPageItem(s) && s.pageId === a.pageId);
       if (idx === -1) {
         return doc;
       }
@@ -432,12 +547,144 @@ export function reduceEditorDocument(
       return doc;
     }
     case 'placeStock': {
-      const item = doc.stock.find((s) => s.pageId === a.pageId);
+      const item = findStockPage(doc.stock, a.pageId);
       if (!item) {
         return doc;
       }
       item.x = a.x;
       item.y = a.y;
+      return doc;
+    }
+    case 'moveClipToStock': {
+      if (!doc.pasteboardClips.some((clip) => clip.id === a.clipId)) {
+        return doc;
+      }
+      if (findStockClip(doc.stock, a.clipId)) {
+        return doc;
+      }
+      doc.stock.push({ kind: 'clip', clipId: a.clipId, x: a.x, y: a.y });
+      doc.stock = stockPagesThenForeground(doc.stock);
+      Object.assign(
+        doc,
+        clipSelection(
+          (doc.selectedClipIds ?? (doc.selectedClipId ? [doc.selectedClipId] : [])).filter(
+            (id) => id !== a.clipId,
+          ),
+        ),
+      );
+      return doc;
+    }
+    case 'moveTextToStock': {
+      const found = findEditorText(doc, a.textId);
+      if (!found) {
+        return doc;
+      }
+      if (findStockText(doc.stock, a.textId)) {
+        return doc;
+      }
+      if (found.where === 'page') {
+        const taken = takeEditorText(doc, a.textId);
+        if (!taken) {
+          return doc;
+        }
+        const converted = pageTextToPasteboard(
+          taken.box,
+          taken.fontSize,
+          doc.rasterWidth,
+          doc.rasterHeight,
+        );
+        doc.pasteboardTexts.push({
+          id: taken.id,
+          content: taken.content,
+          box: converted.box,
+          fontSize: converted.fontSize,
+          color: taken.color,
+        });
+      }
+      doc.stock.push({ kind: 'text', textId: a.textId, x: a.x, y: a.y });
+      doc.stock = stockPagesThenForeground(doc.stock);
+      Object.assign(
+        doc,
+        textSelection(selectedTextIdsOf(doc).filter((id) => id !== a.textId)),
+      );
+      return doc;
+    }
+    case 'returnStockClip': {
+      const idx = doc.stock.findIndex((s) => isStockClipItem(s) && s.clipId === a.clipId);
+      if (idx === -1) {
+        return doc;
+      }
+      doc.stock.splice(idx, 1);
+      const clip = doc.pasteboardClips.find((c) => c.id === a.clipId);
+      if (clip) {
+        clip.x = a.x;
+        clip.y = a.y;
+      }
+      return doc;
+    }
+    case 'returnStockText': {
+      const idx = doc.stock.findIndex((s) => isStockTextItem(s) && s.textId === a.textId);
+      if (idx === -1) {
+        return doc;
+      }
+      doc.stock.splice(idx, 1);
+      const text = doc.pasteboardTexts.find((t) => t.id === a.textId);
+      if (text) {
+        text.box = { ...text.box, x: a.x, y: a.y };
+      }
+      return doc;
+    }
+    case 'returnTrashClip': {
+      ensureTrashLists(doc);
+      const idx = doc.trashClips.indexOf(a.clipId);
+      if (idx === -1) {
+        return doc;
+      }
+      doc.trashClips.splice(idx, 1);
+      const clip = doc.pasteboardClips.find((c) => c.id === a.clipId);
+      if (clip) {
+        clip.x = a.x;
+        clip.y = a.y;
+      }
+      return doc;
+    }
+    case 'returnTrashText': {
+      ensureTrashLists(doc);
+      const idx = doc.trashTexts.indexOf(a.textId);
+      if (idx === -1) {
+        return doc;
+      }
+      doc.trashTexts.splice(idx, 1);
+      const text = doc.pasteboardTexts.find((t) => t.id === a.textId);
+      if (text) {
+        text.box = { ...text.box, x: a.x, y: a.y };
+      }
+      return doc;
+    }
+    case 'placeStockClip': {
+      const item = findStockClip(doc.stock, a.clipId);
+      if (!item) {
+        return doc;
+      }
+      item.x = a.x;
+      item.y = a.y;
+      return doc;
+    }
+    case 'placeStockText': {
+      const item = findStockText(doc.stock, a.textId);
+      if (!item) {
+        return doc;
+      }
+      item.x = a.x;
+      item.y = a.y;
+      return doc;
+    }
+    case 'deleteStockClip': {
+      addClipToTrash(doc, a.clipId);
+      return doc;
+    }
+    case 'deleteStockText': {
+      addTextToTrash(doc, a.textId);
       return doc;
     }
     case 'rename':
@@ -495,12 +742,18 @@ export function reduceEditorDocument(
       return doc;
     }
     case 'deleteClip': {
-      removeClipsById(doc, a.clipIds);
+      for (const clipId of a.clipIds) {
+        addClipToTrash(doc, clipId);
+      }
       return doc;
     }
     case 'deleteSelection': {
-      removeTextsById(doc, a.textIds);
-      removeClipsById(doc, a.clipIds);
+      for (const textId of a.textIds) {
+        addTextToTrash(doc, textId);
+      }
+      for (const clipId of a.clipIds) {
+        addClipToTrash(doc, clipId);
+      }
       return doc;
     }
     case 'duplicateClip': {
@@ -554,7 +807,7 @@ export function reduceEditorDocument(
       return doc;
     }
     case 'deleteText': {
-      removeTextsById(doc, [a.textId]);
+      addTextToTrash(doc, a.textId);
       return doc;
     }
     case 'duplicateText': {

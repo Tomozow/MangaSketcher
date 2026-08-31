@@ -6,10 +6,19 @@ import { selectTargetFlagsOf, type ToolId } from '@/src/domain/types';
 import { findText, selectedTextIdsOf } from '@/src/domain/text';
 import { inkPalette } from '@/src/theme/tokens';
 import type { EditorDocument, EditorHistory } from '@/src/storage/types';
-import { shortcutLabelFromCode, type ShortcutMap } from '@/src/storage/appSettings';
+import {
+  ERASER_SIZE_MAX,
+  PEN_SIZE_MAX,
+  shortcutLabelFromCode,
+  type BoolPresets,
+  type PenSizePresets,
+  type ShortcutMap,
+} from '@/src/storage/appSettings';
 import { historyControlsDisabled } from './historyControls';
+import { PenSizePresetRow } from './PenSizePresets';
 import { ValueSlider } from './ValueSlider';
 import { styles } from './editorStyles';
+import { useAppSettings } from './useAppSettings';
 import {
   IconEraser,
   IconPen,
@@ -51,7 +60,17 @@ type CompactSidebarProps = {
   leading?: ReactNode;
 };
 
-const ERASER_SIZE_MAX = 128;
+function patchPreset(quad: PenSizePresets, index: number, value: number): PenSizePresets {
+  const next: PenSizePresets = [...quad];
+  next[index] = value;
+  return next;
+}
+
+function patchBoolPreset(quad: BoolPresets, index: number, value: boolean): BoolPresets {
+  const next: BoolPresets = [...quad];
+  next[index] = value;
+  return next;
+}
 
 function ToolGlyph({ id }: { id: ToolId }) {
   if (id === 'pen') {
@@ -77,6 +96,7 @@ export function CompactSidebar({
   toolFlyoutOnFirstTap = false,
   leading,
 }: CompactSidebarProps) {
+  const [appSettings, updateAppSettings] = useAppSettings();
   const [flyoutOpen, setFlyoutOpen] = useState(false);
   const selectedToolRef = useRef(doc.tool);
 
@@ -109,22 +129,13 @@ export function CompactSidebar({
   }, [doc.tool, doc.tools.penColor, doc.tools.textColor]);
 
   const sizeValue =
-    doc.tool === 'eraser'
-      ? doc.tools.eraserSize
-      : doc.tool === 'text'
-        ? doc.tools.textFontSize
-        : doc.tool === 'select' && primarySelectedText
-          ? primarySelectedText.node.fontSize
-          : doc.tools.penSize;
-  const opacityValue = doc.tool === 'eraser' ? doc.tools.eraserOpacity : doc.tools.penOpacity;
-  const showOpacity = doc.tool === 'pen' || doc.tool === 'eraser';
-  const pressureOn = doc.tools.pressureEnabled !== false;
+    doc.tool === 'text'
+      ? doc.tools.textFontSize
+      : doc.tool === 'select' && primarySelectedText
+        ? primarySelectedText.node.fontSize
+        : doc.tools.penSize;
 
   const handleSizeChange = (value: number) => {
-    if (doc.tool === 'eraser') {
-      dispatch({ type: 'setToolProperties', patch: { eraserSize: value } });
-      return;
-    }
     if (doc.tool === 'text') {
       dispatch({ type: 'setToolProperties', patch: { textFontSize: value } });
       return;
@@ -136,14 +147,6 @@ export function CompactSidebar({
     dispatch({ type: 'setToolProperties', patch: { penSize: value } });
   };
 
-  const handleOpacityChange = (value: number) => {
-    if (doc.tool === 'eraser') {
-      dispatch({ type: 'setToolProperties', patch: { eraserOpacity: value } });
-      return;
-    }
-    dispatch({ type: 'setToolProperties', patch: { penOpacity: value } });
-  };
-
   const handleColorPick = (color: string) => {
     if (doc.tool === 'text') {
       dispatch({ type: 'setToolProperties', patch: { textColor: color } });
@@ -152,9 +155,21 @@ export function CompactSidebar({
     }
   };
 
+  const inkPresetIndex =
+    doc.tool === 'eraser' ? appSettings.eraserSizePresetIndex : appSettings.penSizePresetIndex;
+  const inkPressureSize =
+    doc.tool === 'eraser'
+      ? appSettings.eraserPressureSize[inkPresetIndex]!
+      : appSettings.penPressureSize[inkPresetIndex]!;
+  const inkPressureOpacity =
+    doc.tool === 'eraser'
+      ? appSettings.eraserPressureOpacity[inkPresetIndex]!
+      : appSettings.penPressureOpacity[inkPresetIndex]!;
+
   return (
     <div className={styles.leftChrome}>
       {leading}
+      <div className={styles.toolRailCluster}>
       <div className={styles.toolRail} role="toolbar" aria-label="ツール">
         {TOOLS.map((tool) => {
           const shortcut = shortcutLabelFromCode(shortcuts[tool.id]);
@@ -231,44 +246,115 @@ export function CompactSidebar({
           </div>
         ) : null}
 
-        {showSize ? (
+        {doc.tool === 'pen' || doc.tool === 'eraser' ? (
+          <PenSizePresetRow
+            groupLabel={doc.tool === 'eraser' ? '消しゴム' : 'ペン'}
+            sizePresets={doc.tool === 'eraser' ? appSettings.eraserSizePresets : appSettings.penSizePresets}
+            opacityPresets={doc.tool === 'eraser' ? appSettings.eraserOpacityPresets : appSettings.penOpacityPresets}
+            storedIndex={inkPresetIndex}
+            sizeMax={doc.tool === 'eraser' ? ERASER_SIZE_MAX : PEN_SIZE_MAX}
+            pressureSize={inkPressureSize}
+            pressureOpacity={inkPressureOpacity}
+            onSelect={(index) => {
+              if (doc.tool === 'eraser') {
+                updateAppSettings({ eraserSizePresetIndex: index });
+                dispatch({
+                  type: 'setToolProperties',
+                  patch: {
+                    eraserSize: appSettings.eraserSizePresets[index]!,
+                    eraserOpacity: appSettings.eraserOpacityPresets[index]!,
+                    eraserPressureAffectsSize: appSettings.eraserPressureSize[index]!,
+                    eraserPressureAffectsOpacity: appSettings.eraserPressureOpacity[index]!,
+                  },
+                });
+                return;
+              }
+              const sizeOn = appSettings.penPressureSize[index]!;
+              const opacityOn = appSettings.penPressureOpacity[index]!;
+              updateAppSettings({ penSizePresetIndex: index });
+              dispatch({
+                type: 'setToolProperties',
+                patch: {
+                  penSize: appSettings.penSizePresets[index]!,
+                  penOpacity: appSettings.penOpacityPresets[index]!,
+                  pressureAffectsSize: sizeOn,
+                  pressureAffectsOpacity: opacityOn,
+                  pressureEnabled: sizeOn || opacityOn,
+                },
+              });
+            }}
+            onChangeSize={(index, value) => {
+              if (doc.tool === 'eraser') {
+                updateAppSettings({
+                  eraserSizePresets: patchPreset(appSettings.eraserSizePresets, index, value),
+                  eraserSizePresetIndex: index,
+                });
+                dispatch({ type: 'setToolProperties', patch: { eraserSize: value } });
+                return;
+              }
+              updateAppSettings({
+                penSizePresets: patchPreset(appSettings.penSizePresets, index, value),
+                penSizePresetIndex: index,
+              });
+              dispatch({ type: 'setToolProperties', patch: { penSize: value } });
+            }}
+            onChangeOpacity={(index, value) => {
+              if (doc.tool === 'eraser') {
+                updateAppSettings({
+                  eraserOpacityPresets: patchPreset(appSettings.eraserOpacityPresets, index, value),
+                  eraserSizePresetIndex: index,
+                });
+                dispatch({ type: 'setToolProperties', patch: { eraserOpacity: value } });
+                return;
+              }
+              updateAppSettings({
+                penOpacityPresets: patchPreset(appSettings.penOpacityPresets, index, value),
+                penSizePresetIndex: index,
+              });
+              dispatch({ type: 'setToolProperties', patch: { penOpacity: value } });
+            }}
+            onChangePressure={(next) => {
+              if (doc.tool === 'eraser') {
+                updateAppSettings({
+                  eraserPressureSize: patchBoolPreset(appSettings.eraserPressureSize, inkPresetIndex, next.size),
+                  eraserPressureOpacity: patchBoolPreset(
+                    appSettings.eraserPressureOpacity,
+                    inkPresetIndex,
+                    next.opacity,
+                  ),
+                });
+                dispatch({
+                  type: 'setToolProperties',
+                  patch: {
+                    eraserPressureAffectsSize: next.size,
+                    eraserPressureAffectsOpacity: next.opacity,
+                  },
+                });
+                return;
+              }
+              updateAppSettings({
+                penPressureSize: patchBoolPreset(appSettings.penPressureSize, inkPresetIndex, next.size),
+                penPressureOpacity: patchBoolPreset(appSettings.penPressureOpacity, inkPresetIndex, next.opacity),
+              });
+              dispatch({
+                type: 'setToolProperties',
+                patch: {
+                  pressureAffectsSize: next.size,
+                  pressureAffectsOpacity: next.opacity,
+                  pressureEnabled: next.size || next.opacity,
+                },
+              });
+            }}
+          />
+        ) : showSize ? (
           <ValueSlider
-            label={doc.tool === 'eraser' ? '消し' : 'サイズ'}
-            min={doc.tool === 'text' || doc.tool === 'select' ? 12 : 1}
-            max={doc.tool === 'text' || doc.tool === 'select' ? 96 : doc.tool === 'eraser' ? ERASER_SIZE_MAX : 64}
+            label="サイズ"
+            min={12}
+            max={96}
             step={1}
             value={sizeValue}
             onChange={handleSizeChange}
           />
-        ) : null}
-
-        {showOpacity ? (
-          <ValueSlider
-            label="不透明度"
-            min={0.05}
-            max={1}
-            step={0.05}
-            value={opacityValue}
-            formatValue={(value) => `${Math.round(value * 100)}%`}
-            onChange={handleOpacityChange}
-          />
-        ) : null}
-
-        {showOpacity ? (
-          <button
-            type="button"
-            className={`${styles.pressureToggle} ${pressureOn ? styles.pressureToggleOn : ''}`}
-            aria-pressed={pressureOn}
-            aria-label="筆圧"
-            onClick={() =>
-              dispatch({
-                type: 'setToolProperties',
-                patch: { pressureEnabled: doc.tools.pressureEnabled === false },
-              })
-            }
-          >
-            {pressureOn ? '筆圧オン' : '筆圧オフ'}
-          </button>
         ) : null}
 
         {showColor ? (
@@ -288,6 +374,7 @@ export function CompactSidebar({
         ) : null}
       </aside>
       ) : null}
+      </div>
     </div>
   );
 }

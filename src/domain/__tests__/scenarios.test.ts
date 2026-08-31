@@ -7,7 +7,7 @@ import { layoutWorkspace, describeLtr, describeSpreads } from '../layout';
 import { reduceHistory, createHistory } from '../history';
 import { reduceTestDocument, type DocumentAction } from '../reducer';
 import { inkPixelCount } from '../raster';
-import { resolvePointerIntent, brushRadius, workspacePointerPolicy, pdfPointerPolicy, stockPointerPolicy } from '../pointers';
+import { resolvePointerIntent, brushOpacity, brushRadius, pressureAffectsOf, workspacePointerPolicy, pdfPointerPolicy, stockPointerPolicy } from '../pointers';
 import { pdfPageViewerKey } from '../pdfView';
 import { mainPaneFlex, nextSplitFromDrag, SPLIT_MAX, SPLIT_MIN } from '../uiLayout';
 import { findText, selectedTextForEditor, verticalGlyphs } from '../text';
@@ -475,6 +475,16 @@ describe('シナリオ: ポインタ分担（指はパン、ペンはインク�
     expect(brushRadius(4, 0.5, 'finger')).toBe(4);
     expect(brushRadius(4, 0.5, 'pencil', false)).toBe(4);
     expect(brushRadius(0.2, 0.5, 'pencil', false)).toBe(0.5);
+    expect(brushOpacity(1, 0.5, 'pencil', false)).toBe(1);
+    expect(brushOpacity(1, 0.5, 'pencil', true)).toBe(0.5);
+    expect(pressureAffectsOf({ pressureEnabled: true }).size).toBe(true);
+    expect(pressureAffectsOf({ pressureEnabled: true }).opacity).toBe(false);
+    expect(pressureAffectsOf({ pressureAffectsSize: false, pressureAffectsOpacity: true }).size).toBe(false);
+    expect(pressureAffectsOf({ pressureAffectsSize: false, pressureAffectsOpacity: true }).opacity).toBe(true);
+    expect(pressureAffectsOf({ eraserPressureAffectsSize: false, eraserPressureAffectsOpacity: true }, true)).toEqual({
+      size: false,
+      opacity: true,
+    });
     expect(resolvePointerIntent('pen', { kind: 'pencil', phase: 'longpress' })).toEqual({ type: 'drawInk' });
     expect(resolvePointerIntent('select', { kind: 'finger', phase: 'longpress' })).toEqual({
       type: 'longPressReorder',
@@ -484,7 +494,7 @@ describe('シナリオ: ポインタ分担（指はパン、ペンはインク�
     expect(pdfPointerPolicy('finger').rangeSelect).toBe(true);
     expect(pdfPointerPolicy('pencil').rangeSelect).toBe(true);
     expect(stockPointerPolicy('finger')).toEqual({ pan: true, dragPage: true });
-    expect(stockPointerPolicy('pencil')).toEqual({ pan: false, dragPage: false });
+    expect(stockPointerPolicy('pencil')).toEqual({ pan: false, dragPage: true });
   });
 });
 

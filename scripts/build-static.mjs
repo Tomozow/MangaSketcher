@@ -77,6 +77,22 @@ function stampExportedServiceWorker(outDir) {
   writeFileSync(swPath, stamped === src ? `/* build ${stamp} */\n${src}` : stamped);
 }
 
+function backupStamp() {
+  const now = new Date();
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
+function backupExistingOut(outDir) {
+  if (!existsSync(join(outDir, 'index.html'))) {
+    return;
+  }
+  const dest = join(root, 'out-backup', backupStamp());
+  mkdirSync(dirname(dest), { recursive: true });
+  cpSync(outDir, dest, { recursive: true });
+  console.log(`Backed up previous static build to ${dest}`);
+}
+
 /** Next treats custom distDir as the export folder when output is "export". */
 function publishExportDir(exportDir, outDir) {
   if (!existsSync(join(exportDir, 'index.html'))) {
@@ -85,6 +101,7 @@ function publishExportDir(exportDir, outDir) {
   if (exportDir === outDir) {
     return;
   }
+  backupExistingOut(outDir);
   rmSync(outDir, { recursive: true, force: true });
   cpSync(exportDir, outDir, { recursive: true });
 }

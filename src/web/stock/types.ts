@@ -1,4 +1,4 @@
-import type { PageId } from '@/src/domain/types';
+import type { PageId, PointerKind } from '@/src/domain/types';
 
 export type StockHit =
   | { kind: 'thumb'; pageId: PageId }
@@ -14,7 +14,7 @@ export type StockSession =
   | { mode: 'idle' }
   | {
       mode: 'fingerPending';
-      kind: 'finger';
+      kind: PointerKind;
       hit: StockHit;
       startX: number;
       startY: number;
@@ -28,7 +28,7 @@ export type StockSession =
       partnerId: number;
       lastDist: number;
     }
-  | { mode: 'dragPage'; kind: 'finger'; pageId: PageId };
+  | { mode: 'dragPage'; kind: PointerKind; pageId: PageId };
 
 export type StockGestureStore = {
   sessions: Map<number, StockSession>;

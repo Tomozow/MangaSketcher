@@ -16,6 +16,7 @@ import {
   requestProjectExportCheckpoint,
 } from './projectExportCheckpoint';
 import { randomId } from './randomId';
+import { isStockPageItem } from '../domain/stockItems';
 import { collectRasterIds, pdfOpfsPath, rasterBelongsToProject } from './rasterIds';
 import { normalizePackRasterPng } from './compactInkPng';
 import {
@@ -207,7 +208,7 @@ function previewPageIds(doc: EditorDocument, maxPages: number): string[] {
   const seen = new Set<string>();
   const fromStock: string[] = [];
   for (const item of doc.stock) {
-    if (seen.has(item.pageId) || !doc.pages[item.pageId]) {
+    if (!isStockPageItem(item) || seen.has(item.pageId) || !doc.pages[item.pageId]) {
       continue;
     }
     seen.add(item.pageId);

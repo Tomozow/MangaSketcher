@@ -78,12 +78,13 @@ export function stampStroke(
   raster: Raster,
   points: StrokePoint[],
   radiusFor: (pressure: number) => number,
-  color: Rgba,
+  colorFor: Rgba | ((pressure: number) => Rgba),
   erase: boolean,
 ): void {
   const sample = points[0] ? radiusFor(points[0].pressure) : 1;
   const dense = prepareStroke(points, Math.max(0.4, sample * 0.35));
+  const resolve = typeof colorFor === 'function' ? colorFor : () => colorFor;
   for (const p of dense) {
-    stampBrush(raster, p.x, p.y, radiusFor(p.pressure), color, erase);
+    stampBrush(raster, p.x, p.y, radiusFor(p.pressure), resolve(p.pressure), erase);
   }
 }

@@ -30,6 +30,26 @@ export function workspaceFontSizeFromTool(toolFontSize: number, rasterWidth: num
   return Math.max(1, toolFontSize * (PAGE_DISPLAY_W / Math.max(1, rasterWidth)));
 }
 
+/** Page-raster text box → pasteboard world pixels. Font stays raster; overlay applies PAGE_DISPLAY_W/rasterWidth. */
+export function pageTextToPasteboard(
+  box: Rect,
+  fontSize: number,
+  rasterWidth: number,
+  rasterHeight: number,
+): { box: Rect; fontSize: number } {
+  const rw = Math.max(1, rasterWidth);
+  const rh = Math.max(1, rasterHeight);
+  return {
+    box: {
+      x: box.x,
+      y: box.y,
+      width: (Math.max(0, box.width) / rw) * PAGE_DISPLAY_W,
+      height: (Math.max(0, box.height) / rh) * PAGE_DISPLAY_H,
+    },
+    fontSize,
+  };
+}
+
 export type ExtractPackCursor = {
   originRight: number;
   originTop: number;
