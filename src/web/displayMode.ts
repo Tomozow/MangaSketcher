@@ -2,6 +2,16 @@ export function isAppleTouchDevice(userAgent: string, maxTouchPoints: number): b
   return /iPad|iPhone|iPod/i.test(userAgent) || (/Macintosh/i.test(userAgent) && maxTouchPoints > 1);
 }
 
+export function isLoopbackHost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]' || hostname === '::1';
+}
+
+export const STANDALONE_HTML_ATTR = 'data-ms-display';
+export const STANDALONE_HTML_VALUE = 'standalone';
+
+/** Head inline script: mark html before first paint so 100lvh CSS applies. */
+export const MARK_STANDALONE_SCRIPT = `(function(){try{var n=window.navigator;if(n.standalone||window.matchMedia('(display-mode: standalone)').matches||window.matchMedia('(display-mode: fullscreen)').matches){document.documentElement.setAttribute('${STANDALONE_HTML_ATTR}','${STANDALONE_HTML_VALUE}');}}catch(e){}})();`;
+
 export function isStandaloneDisplay(input: {
   standalone?: boolean;
   displayModeStandalone?: boolean;
@@ -19,6 +29,14 @@ export function readStandaloneDisplay(): boolean {
     displayModeStandalone: window.matchMedia('(display-mode: standalone)').matches,
     displayModeFullscreen: window.matchMedia('(display-mode: fullscreen)').matches,
   });
+}
+
+export function applyStandaloneHtmlFlag(standalone: boolean = readStandaloneDisplay()): void {
+  if (standalone) {
+    document.documentElement.setAttribute(STANDALONE_HTML_ATTR, STANDALONE_HTML_VALUE);
+  } else {
+    document.documentElement.removeAttribute(STANDALONE_HTML_ATTR);
+  }
 }
 
 export function readAppleTouchDevice(): boolean {

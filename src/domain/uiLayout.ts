@@ -3,7 +3,7 @@ import {
   clampColumnGap,
   clampPairGap,
   clampStoredPagesPerColumn,
-  PAIR_GAP,
+  PAGE_DISPLAY_H,
 } from './stripGeometry';
 
 export const SPLIT_MIN = 0.22;
@@ -43,10 +43,10 @@ export const DEFAULT_UI_LAYOUT: UiLayout = {
   sidebarCompact: false,
   stockLayout: 'free',
   stockPane: 'stock',
-  pagesPerColumn: 0,
-  pairGap: PAIR_GAP,
-  showPairDivider: false,
-  columnGap: 0,
+  pagesPerColumn: 3,
+  pairGap: 126,
+  showPairDivider: true,
+  columnGap: PAGE_DISPLAY_H,
 };
 
 export function clampSplit(value: number): number {

@@ -1,6 +1,8 @@
 import type { Metadata, Viewport } from 'next';
 import { DisableContextMenu } from '@/src/web/DisableContextMenu';
 import { ServiceWorkerRegistrar } from '@/src/web/ServiceWorkerRegistrar';
+import { StandaloneHtmlFlag } from '@/src/web/StandaloneHtmlFlag';
+import { MARK_STANDALONE_SCRIPT } from '@/src/web/displayMode';
 import './globals.css';
 import '@/src/web/editor.css';
 
@@ -39,8 +41,12 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="ja">
+    <html lang="ja" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: MARK_STANDALONE_SCRIPT }} />
+      </head>
       <body>
+        <StandaloneHtmlFlag />
         <DisableContextMenu />
         <ServiceWorkerRegistrar />
         {children}

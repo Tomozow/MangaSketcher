@@ -1,6 +1,8 @@
 import { createServer } from 'node:http';
+import { createServer as createHttpsServer } from 'node:https';
+import { request as httpRequest } from 'node:http';
 import { spawn, spawnSync } from 'node:child_process';
-import { createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { appendFileSync, createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { networkInterfaces } from 'node:os';
 import { join, resolve } from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -16,7 +18,67 @@ const profilePath = join(certDir, 'public', 'MangaSketcher-LAN.mobileconfig');
 const MKCERT_URL =
   'https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-windows-amd64.exe';
 const HTTPS_PORT = 3443;
+const SERVE_PORT = 13443;
 const CA_PORT = 3002;
+
+function persistDebugLog(raw) {
+  const lines = String(raw)
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean);
+  for (const line of lines) {
+    let sessionId = 'ipad';
+    let ingest = process.env.CURSOR_DEBUG_INGEST ?? '';
+    try {
+      const parsed = JSON.parse(line);
+      if (typeof parsed.sessionId === 'string' && parsed.sessionId.length > 0) {
+        sessionId = parsed.sessionId;
+      }
+      if (typeof parsed.ingest === 'string' && parsed.ingest.length > 0) {
+        ingest = parsed.ingest;
+      }
+    } catch {
+      // keep defaults
+    }
+    try {
+      appendFileSync(join(root, `debug-${sessionId}.log`), `${line}\n`);
+      mkdirSync(join(root, '.cursor'), { recursive: true });
+      appendFileSync(join(root, '.cursor', `debug-${sessionId}.log`), `${line}\n`);
+    } catch {
+      // ignore disk errors
+    }
+    if (ingest) {
+      fetch(ingest, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': sessionId },
+        body: line,
+      }).catch(() => {});
+    }
+  }
+}
+
+function proxyToServe(req, res) {
+  const upstream = httpRequest(
+    {
+      hostname: '127.0.0.1',
+      port: SERVE_PORT,
+      path: req.url,
+      method: req.method,
+      headers: { ...req.headers, host: `127.0.0.1:${SERVE_PORT}` },
+    },
+    (up) => {
+      res.writeHead(up.statusCode ?? 502, up.headers);
+      up.pipe(res);
+    },
+  );
+  upstream.on('error', () => {
+    if (!res.headersSent) {
+      res.writeHead(502);
+    }
+    res.end('proxy error');
+  });
+  req.pipe(upstream);
+}
 
 function lanIPv4s() {
   const ips = [];
@@ -217,23 +279,32 @@ async function main() {
 
   const child = spawn(
     'npx',
-    [
-      '--yes',
-      'serve',
-      'out',
-      '-l',
-      `tcp://0.0.0.0:${HTTPS_PORT}`,
-      '-n',
-      '--no-port-switching',
-      '--ssl-cert',
-      certFile,
-      '--ssl-key',
-      keyFile,
-    ],
+    ['--yes', 'serve', 'out', '-l', `tcp://127.0.0.1:${SERVE_PORT}`, '-n', '--no-port-switching'],
     { cwd: root, stdio: 'inherit', shell: true },
   );
+
+  const appServer = createHttpsServer(
+    { cert: readFileSync(certFile), key: readFileSync(keyFile) },
+    (req, res) => {
+      const url = new URL(req.url ?? '/', `https://${ip}`);
+      if (req.method === 'POST' && url.pathname === '/api/debug-log') {
+        const chunks = [];
+        req.on('data', (chunk) => chunks.push(chunk));
+        req.on('end', () => {
+          persistDebugLog(Buffer.concat(chunks).toString('utf8'));
+          res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('ok');
+        });
+        return;
+      }
+      proxyToServe(req, res);
+    },
+  );
+  await new Promise((resolveListen) => appServer.listen(HTTPS_PORT, '0.0.0.0', resolveListen));
+
   child.on('exit', (code) => {
     caServer.close();
+    appServer.close();
     process.exit(code ?? 1);
   });
 }

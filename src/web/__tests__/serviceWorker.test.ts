@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 
-import { isAppleTouchDevice, isStandaloneDisplay } from '../displayMode';
+import { isAppleTouchDevice, isLoopbackHost, isStandaloneDisplay } from '../displayMode';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const swSrc = readFileSync(join(here, '../../../public/sw.js'), 'utf8');
@@ -48,6 +48,7 @@ describe('offline home-screen shell', () => {
   test('layout does not unregister service workers on every page load', () => {
     expect(layoutSrc).not.toContain('x.unregister()');
     expect(layoutSrc).not.toContain('getRegistrations()');
+    expect(layoutSrc).toContain('MARK_STANDALONE_SCRIPT');
   });
 
   test('iOS Safari tabs skip registration; standalone registers', () => {
@@ -56,5 +57,9 @@ describe('offline home-screen shell', () => {
     expect(registrarSrc).toContain('restoreShellUpdateSession');
     expect(registrarSrc).toContain('runShellStartup');
     expect(registrarSrc).toContain('probeShellServer');
+    expect(registrarSrc).toContain('isLoopbackHost(window.location.hostname)');
+    expect(isLoopbackHost('localhost')).toBe(true);
+    expect(isLoopbackHost('127.0.0.1')).toBe(true);
+    expect(isLoopbackHost('192.168.0.2')).toBe(false);
   });
 });

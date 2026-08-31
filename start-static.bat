@@ -33,8 +33,11 @@ if not defined CHROME (
   echo Chrome was not found. Open %APP_URL% in a browser.
   goto after_chrome
 )
+if exist "%PROFILE%\Default\Service Worker" rmdir /s /q "%PROFILE%\Default\Service Worker"
+if exist "%PROFILE%\Default\Cache" rmdir /s /q "%PROFILE%\Default\Cache"
+if exist "%PROFILE%\Default\Code Cache" rmdir /s /q "%PROFILE%\Default\Code Cache"
 echo Opening dedicated Chrome (no personal bookmarks / extensions^)
-start "" "%CHROME%" --user-data-dir="%PROFILE%" --no-first-run --no-default-browser-check --disable-sync --disable-extensions --disable-default-apps --app="%APP_URL%"
+start "" "%CHROME%" --user-data-dir="%PROFILE%" --no-first-run --no-default-browser-check --disable-sync --disable-extensions --disable-default-apps --disable-http-cache --disable-features=ServiceWorker --app="%APP_URL%"
 
 :after_chrome
 echo.

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { readAppleTouchDevice, readStandaloneDisplay } from '@/src/web/displayMode';
+import { isLoopbackHost, readAppleTouchDevice, readStandaloneDisplay } from '@/src/web/displayMode';
 import {
   SHELL_PROBE_TIMEOUT_MS,
   probeShellServer,
@@ -30,7 +30,7 @@ export function ServiceWorkerRegistrar() {
       return;
     }
 
-    if (process.env.NODE_ENV !== 'production') {
+    if (process.env.NODE_ENV !== 'production' || isLoopbackHost(window.location.hostname)) {
       void navigator.serviceWorker.getRegistrations().then((regs) =>
         Promise.all(regs.map((reg) => reg.unregister())),
       );

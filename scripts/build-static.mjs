@@ -1,4 +1,15 @@
-import { copyFileSync, existsSync, mkdirSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import {
+  copyFileSync,
+  cpSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
 
@@ -52,6 +63,32 @@ function writePrecacheManifest(outDir) {
   writeFileSync(join(outDir, 'precache-manifest.json'), `${JSON.stringify(list)}\n`);
 }
 
+function stampExportedServiceWorker(outDir) {
+  const swPath = join(outDir, 'sw.js');
+  if (!existsSync(swPath)) {
+    return;
+  }
+  const stamp = Date.now().toString(36);
+  const src = readFileSync(swPath, 'utf8');
+  const stamped = src.replace(
+    /const SHELL_CACHE = 'mangasketcher-shell-v[^']*'/,
+    `const SHELL_CACHE = 'mangasketcher-shell-v13-${stamp}'`,
+  );
+  writeFileSync(swPath, stamped === src ? `/* build ${stamp} */\n${src}` : stamped);
+}
+
+/** Next treats custom distDir as the export folder when output is "export". */
+function publishExportDir(exportDir, outDir) {
+  if (!existsSync(join(exportDir, 'index.html'))) {
+    return;
+  }
+  if (exportDir === outDir) {
+    return;
+  }
+  rmSync(outDir, { recursive: true, force: true });
+  cpSync(exportDir, outDir, { recursive: true });
+}
+
 function parkFile(from) {
   const rel = from.slice(root.length + 1);
   const to = join(parkRoot, rel);
@@ -97,12 +134,17 @@ try {
   status = result.status ?? 1;
   if (status === 0) {
     const outDir = join(root, 'out');
+    publishExportDir(join(root, '.next-export'), outDir);
     writeFileSync(join(outDir, '.nojekyll'), '');
     writeFileSync(
       join(outDir, 'serve.json'),
       `${JSON.stringify(
         {
           headers: [
+            {
+              source: '**/*.html',
+              headers: [{ key: 'Cache-Control', value: 'no-store' }],
+            },
             {
               source: '**/*.webmanifest',
               headers: [{ key: 'Content-Type', value: 'application/manifest+json; charset=utf-8' }],
@@ -114,6 +156,7 @@ try {
       )}\n`,
     );
     writePrecacheManifest(outDir);
+    stampExportedServiceWorker(outDir);
   }
 } finally {
   restore();

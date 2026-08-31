@@ -40,6 +40,7 @@ import {
   shellUpdateStatusLabel,
   subscribeShellUpdateStatus,
 } from '@/src/web/shellUpdate';
+import { useAppShellHeight } from '@/src/web/appShellHeight';
 import styles from '@/app/page.module.css';
 
 const DEFAULT_PROJECT_NAME = '無題';
@@ -87,6 +88,7 @@ function promptRename(currentName: string): string | null {
 
 export function ProjectList() {
   const { theme, toggleTheme } = useChromeTheme();
+  const shellHeight = useAppShellHeight();
   const [projects, setProjects] = useState<ProjectMeta[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -346,7 +348,12 @@ export function ProjectList() {
     AUTOSAVE_PRESET_OPTIONS.find((preset) => preset.id === autosavePreset)?.label ?? autosavePreset;
 
   return (
-    <div className={styles.home} data-ms-theme={theme}>
+    <div
+      className={styles.home}
+      data-ms-theme={theme}
+      data-ms-app-shell="home"
+      style={shellHeight != null ? { minHeight: `${shellHeight}px` } : undefined}
+    >
       <header className={styles.top}>
         <div className={styles.brand}>
           <div className={styles.mark} aria-hidden>

@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useAppShellHeight } from '@/src/web/appShellHeight';
 import { subscribeProjectExportCheckpoint } from '@/src/storage/projectExportCheckpoint';
 import { bindHistoryShortcuts } from '@/src/input/historyShortcuts';
 import { bindToolShortcuts } from '@/src/input/toolShortcuts';
@@ -48,9 +49,7 @@ export default function Editor({ projectId }: EditorProps) {
     checkpointBeforeHeavyWork,
     setTextDraft,
   } = useEditorController(projectId);
-  const [rootHeight, setRootHeight] = useState<number | null>(() =>
-    typeof window === 'undefined' ? null : window.innerHeight,
-  );
+  const rootHeight = useAppShellHeight(ready);
 
   useEffect(() => {
     const lockScroll = () => {
@@ -60,26 +59,6 @@ export default function Editor({ projectId }: EditorProps) {
     window.addEventListener('scroll', lockScroll, { passive: true });
     return () => window.removeEventListener('scroll', lockScroll);
   }, []);
-
-  useLayoutEffect(() => {
-    const viewport = window.visualViewport;
-    const applyViewportHeight = () => {
-      const height = viewport
-        ? viewport.height + viewport.offsetTop
-        : window.innerHeight;
-      setRootHeight(height);
-    };
-
-    applyViewportHeight();
-    viewport?.addEventListener('resize', applyViewportHeight);
-    viewport?.addEventListener('scroll', applyViewportHeight);
-    window.addEventListener('resize', applyViewportHeight);
-    return () => {
-      viewport?.removeEventListener('resize', applyViewportHeight);
-      viewport?.removeEventListener('scroll', applyViewportHeight);
-      window.removeEventListener('resize', applyViewportHeight);
-    };
-  }, [ready]);
 
   useEffect(() => {
     if (!ready) {
@@ -120,7 +99,7 @@ export default function Editor({ projectId }: EditorProps) {
       id="editor-root"
       className={styles.editorRoot}
       style={{
-        height: rootHeight != null ? `${rootHeight}px` : '100dvh',
+        ...(rootHeight != null ? { height: `${rootHeight}px` } : {}),
         ['--ms-background' as string]: colors.background,
         ['--ms-surface' as string]: colors.surface,
         ['--ms-surface-muted' as string]: colors.surfaceMuted,

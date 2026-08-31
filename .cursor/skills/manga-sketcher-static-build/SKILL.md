@@ -32,6 +32,8 @@ npm run build:static
 
 `scripts/build-static.mjs`: API route を退避 → `NEXT_OUTPUT=export next build`（`distDir` は `.next-export`。dev の `.next` は消さない）→ `out/.nojekyll` と `out/precache-manifest.json` → API を戻す。失敗時も退避は戻す。所要約 15–40s。終了コード 0 を待つ。
 
+`build:static` のあと Cursor の Next overlay / `next dev` で開くと `.next` が欠けたチャンクを指し、`Cannot find module './124.js'` になる。そのときは `next-stale-webpack-cache`。overlay で静的結果を検証しない。
+
 ## LAN HTTPS の起動
 
 ```bash
