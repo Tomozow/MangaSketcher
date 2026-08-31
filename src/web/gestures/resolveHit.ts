@@ -20,6 +20,7 @@ import {
   PAGE_TEXT_WRAP_ATTR,
 } from './pageTextDom';
 import { buildTextInteractionElements, hitTextInteraction } from './elementInteraction';
+import { TEXT_HIT_PAD_CSS } from './textHit';
 import type { WorkspaceHit } from './types';
 
 export type ResolveWorkspaceHitInput = {
@@ -259,7 +260,7 @@ export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceH
       worldX,
       worldY,
       input.selectedTextId ?? null,
-      14 / Math.max(0.1, input.zoom),
+      TEXT_HIT_PAD_CSS / Math.max(0.1, input.zoom),
     );
     if (textHit) {
       const offsetX = worldX - textHit.element.worldBox.x;

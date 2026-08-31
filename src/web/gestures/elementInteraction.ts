@@ -5,7 +5,6 @@ import {
   pageLocalFromWorld,
   type StripFrame,
 } from '../../domain/stripGeometry';
-import { MIN_TEXT_HIT_CSS } from './textHit';
 
 export type TextInteractionElement = {
   id: TextId;
@@ -224,21 +223,12 @@ export function hitTextInteraction(
   worldX: number,
   worldY: number,
   _selectedTextId: TextId | null,
-  handleWorldSize: number,
+  padWorld: number,
 ): { element: TextInteractionElement; handle: 'body' | 'se' } | null {
-  const padding = Math.max(0, handleWorldSize * 0.35);
-  const minBodyWidth = handleWorldSize * (MIN_TEXT_HIT_CSS / 14);
+  const padding = Math.max(0, padWorld);
   for (let index = elements.length - 1; index >= 0; index -= 1) {
     const element = elements[index]!;
-    const bodyBox =
-      element.worldBox.width >= minBodyWidth
-        ? element.worldBox
-        : {
-            ...element.worldBox,
-            x: element.worldBox.x + element.worldBox.width - minBodyWidth,
-            width: minBodyWidth,
-          };
-    if (pointInRect(worldX, worldY, bodyBox, padding)) {
+    if (pointInRect(worldX, worldY, element.worldBox, padding)) {
       return { element, handle: 'body' };
     }
   }

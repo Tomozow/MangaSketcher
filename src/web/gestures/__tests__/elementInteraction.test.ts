@@ -200,4 +200,24 @@ describe('workspace element interaction geometry', () => {
     });
     expect(between.attachment).toEqual({ kind: 'pasteboard' });
   });
+
+  test('text hit uses the box plus pad, not a 44px minimum', () => {
+    const elements: ReturnType<typeof buildTextInteractionElements> = [
+      {
+        id: 'narrow',
+        owner: { kind: 'pasteboard' },
+        sourceBox: { x: 100, y: 100, width: 10, height: 40 },
+        worldBox: { x: 100, y: 100, width: 10, height: 40 },
+        zIndex: 0,
+      },
+    ];
+    expect(hitTextInteraction(elements, 100 - 5, 120, null, 5)).toMatchObject({
+      element: { id: 'narrow' },
+    });
+    expect(hitTextInteraction(elements, 100 - 6, 120, null, 5)).toBeNull();
+    expect(hitTextInteraction(elements, 100 + 10 + 5, 120, null, 5)).toMatchObject({
+      element: { id: 'narrow' },
+    });
+    expect(hitTextInteraction(elements, 100 + 10 + 6, 120, null, 5)).toBeNull();
+  });
 });

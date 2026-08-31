@@ -6,7 +6,7 @@ import {
   pageInkLocalFromFrameRect,
   rasterGrabOffsetToWorld,
 } from './pageInkDom';
-import { MIN_TEXT_HIT_CSS } from './textHit';
+import { TEXT_HIT_PAD_CSS } from './textHit';
 import type { WorkspaceHit } from './types';
 
 export const PAGE_TEXT_WRAP_ATTR = 'data-page-text-wrap';
@@ -14,6 +14,7 @@ export const PAGE_TEXT_ID_ATTR = 'data-text-id';
 export const PAGE_TEXT_PAGE_ATTR = 'data-page-id';
 export const PAGE_TEXT_DELETE_ATTR = 'data-page-text-delete';
 export const PAGE_TEXT_COPY_ATTR = 'data-page-text-copy';
+export const PAGE_TEXT_CONFIRM_ATTR = 'data-page-text-confirm';
 export const PAGE_TEXT_CHROME_ATTR = 'data-page-text-chrome';
 export const PAGE_DELETE_CHROME_ATTR = 'data-page-delete-chrome';
 
@@ -39,12 +40,12 @@ function pointInExpandedClientRect(
   clientY: number,
   rect: DOMRectReadOnly,
 ): boolean {
-  const extra = Math.max(0, MIN_TEXT_HIT_CSS - rect.width);
+  const pad = TEXT_HIT_PAD_CSS;
   return (
-    clientX >= rect.left - extra &&
-    clientX <= rect.right &&
-    clientY >= rect.top &&
-    clientY <= rect.bottom
+    clientX >= rect.left - pad &&
+    clientX <= rect.right + pad &&
+    clientY >= rect.top - pad &&
+    clientY <= rect.bottom + pad
   );
 }
 

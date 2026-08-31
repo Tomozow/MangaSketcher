@@ -576,6 +576,7 @@ export function WorkspaceStrip({
           panX={panX}
           panY={panY}
           layoutKey={textLiveTransforms}
+          showConfirm={tool === 'text'}
           onDeleteText={onDeleteText}
           onDuplicateText={onDuplicateText}
         />

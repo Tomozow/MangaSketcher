@@ -279,6 +279,8 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(editorCss).toMatch(/\.ms-pageTextBox[^{]*\{[^}]*I-OTFアンチックStd B/);
     expect(textEditBarSrc).toMatch(/<textarea/);
     expect(textEditBarSrc).not.toContain('完了');
+    expect(textEditBarSrc).toContain('PAGE_TEXT_CONFIRM_ATTR');
+    expect(pageTextOverlaySrc).toContain('テキストを確定');
     expect(textEditBarSrc).toContain('PAGE_TEXT_WRAP_ATTR');
     expect(editorLayoutSrc).toContain("doc.tool === 'text' ? textSelection : null");
     expect(workspaceStripSrc).toContain('tool === \'text\' || (tool === \'select\' && resolvedSelectTargets.text)');

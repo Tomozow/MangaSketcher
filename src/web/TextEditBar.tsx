@@ -12,6 +12,7 @@ import {
 } from '@/src/web/textEditCommit';
 import {
   PAGE_TEXT_CHROME_ATTR,
+  PAGE_TEXT_CONFIRM_ATTR,
   PAGE_TEXT_COPY_ATTR,
   PAGE_TEXT_DELETE_ATTR,
   PAGE_TEXT_ID_ATTR,
@@ -31,6 +32,7 @@ type TextEditBarProps = {
   onCommit: (textId: TextId, content: string) => void;
   onDeleteText: (textId: TextId) => void;
   onDuplicateText: (textId: TextId) => void;
+  onFinish: () => void;
   onEditingChange: (editing: boolean) => void;
   onLiveContent: (content: string | null) => void;
 };
@@ -60,6 +62,7 @@ export function TextEditBar({
   onCommit,
   onDeleteText,
   onDuplicateText,
+  onFinish,
   onEditingChange,
   onLiveContent,
 }: TextEditBarProps) {
@@ -223,6 +226,15 @@ export function TextEditBar({
         });
         return;
       }
+      const confirmButtons = Array.from(document.querySelectorAll<HTMLElement>(`[${PAGE_TEXT_CONFIRM_ATTR}]`));
+      if (confirmButtons.some(pointHits)) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        commitDraft(selection.id, selection.content, true);
+        onEditingChange(false);
+        onFinish();
+        return;
+      }
       const buttons = Array.from(document.querySelectorAll<HTMLElement>(`[${PAGE_TEXT_DELETE_ATTR}]`));
       if (buttons.some(pointHits)) {
         onDeleteText(selection.id);
@@ -239,7 +251,7 @@ export function TextEditBar({
     };
     document.addEventListener('pointerdown', capturePointerDown, true);
     return () => document.removeEventListener('pointerdown', capturePointerDown, true);
-  }, [commitDraft, onDeleteText, onDuplicateText, onEditingChange, selection?.id]);
+  }, [commitDraft, onDeleteText, onDuplicateText, onEditingChange, onFinish, selection?.id]);
 
   const handleBlur = () => {
     if (suppressBlurRef.current) {

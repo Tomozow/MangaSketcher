@@ -549,6 +549,7 @@ export function EditorLayout({
         onCommit={commitTextEdit}
         onDeleteText={deleteText}
         onDuplicateText={duplicateText}
+        onFinish={() => dispatch({ type: 'selectText', textId: null })}
         onEditingChange={onTextEditingChange}
         onLiveContent={handleLiveContent}
       />

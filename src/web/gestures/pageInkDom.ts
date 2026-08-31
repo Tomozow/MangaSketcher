@@ -92,7 +92,7 @@ function hitPageTexts(
 ): WorkspaceHit | null {
   for (let i = texts.length - 1; i >= 0; i -= 1) {
     const text = texts[i]!;
-    const box = expandTextHitBox(text.box, rasterWidth);
+    const box = expandTextHitBox(text.box, rasterWidth, rasterHeight);
     if (
       localX >= box.x &&
       localX <= box.x + box.width &&

@@ -26,6 +26,7 @@ import {
 } from '@/src/web/text/textLiveTransform';
 import {
   PAGE_TEXT_CHROME_ATTR,
+  PAGE_TEXT_CONFIRM_ATTR,
   PAGE_TEXT_COPY_ATTR,
   PAGE_TEXT_DELETE_ATTR,
   PAGE_TEXT_ID_ATTR,
@@ -111,6 +112,7 @@ function TextBoxChrome({
   gapPx,
   style,
   batch,
+  showConfirm,
   onDeleteText,
   onDuplicateText,
 }: {
@@ -119,6 +121,7 @@ function TextBoxChrome({
   gapPx: number;
   style?: { left: number; top: number };
   batch?: boolean;
+  showConfirm?: boolean;
   onDeleteText: (textId: TextId) => void;
   onDuplicateText: (textId: TextId) => void;
 }) {
@@ -165,6 +168,29 @@ function TextBoxChrome({
           <rect x="1.5" y="3.5" width="7" height="7" fill="var(--ms-background)" stroke="currentColor" strokeWidth="1.4" />
         </svg>
       </div>
+      {showConfirm ? (
+        <div
+          role="button"
+          className={styles.pageTextChromeButton}
+          style={size}
+          {...{ [PAGE_TEXT_CONFIRM_ATTR]: '' }}
+          aria-label="テキストを確定"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+        >
+          <svg viewBox="0 0 12 12" width={icon} height={icon} aria-hidden="true" focusable="false">
+            <path
+              d="M2.4 6.2l2.6 2.6 4.6-5.2"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -376,6 +402,7 @@ type TextChromeOverlayProps = {
   panX: number;
   panY: number;
   layoutKey: unknown;
+  showConfirm?: boolean;
   onDeleteText: (textId: TextId) => void;
   onDuplicateText: (textId: TextId) => void;
 };
@@ -388,6 +415,7 @@ export function TextChromeOverlay({
   panX,
   panY,
   layoutKey,
+  showConfirm,
   onDeleteText,
   onDuplicateText,
 }: TextChromeOverlayProps) {
@@ -444,6 +472,7 @@ export function TextChromeOverlay({
         gapPx={pose.gap}
         style={{ left: pose.left, top: pose.top }}
         batch={batch}
+        showConfirm={showConfirm}
         onDeleteText={onDeleteText}
         onDuplicateText={onDuplicateText}
       />
