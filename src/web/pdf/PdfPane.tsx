@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
-import type { PdfExtractedGlyph, PdfTextItem } from '@/src/domain/types';
+import { useEffect, useId, useState, type ReactNode } from 'react';
+import type { PdfTextItem } from '@/src/domain/types';
+import { IconPdfReplace } from '@/src/web/chromeIcons';
 import { styles } from '@/src/web/editorStyles';
 import { PdfPageViewer, type PdfExtractPayload } from './PdfPageViewer';
 import { getOrLoadPdfProxy } from './pdfSession';
@@ -15,8 +16,6 @@ export type PdfPanePdfState = {
   panX: number;
   panY: number;
   sourceTextByPage: Record<number, PdfTextItem[]>;
-  extractedGlyphs?: PdfExtractedGlyph[];
-  extractMarkersVisible?: boolean;
   extractSanitizePunctuation?: boolean;
 };
 
@@ -34,7 +33,6 @@ export type PdfPaneProps = {
   }) => void;
   onPickPdf?: (file: File) => void | Promise<void>;
   onExtractText?: (payload: PdfExtractPayload) => void;
-  onToggleExtractMarkers?: (visible: boolean) => void;
   onToggleExtractSanitizePunctuation?: (enabled: boolean) => void;
 };
 
@@ -43,16 +41,18 @@ export function PdfFileInput({
   onPickPdf,
   label,
   className = styles.pdfPickButton,
+  children,
 }: {
   inputId: string;
   onPickPdf?: (file: File) => void | Promise<void>;
   label: string;
   className?: string;
+  children?: ReactNode;
 }) {
   return (
     <>
-      <label htmlFor={inputId} className={className}>
-        {label}
+      <label htmlFor={inputId} className={className} title={label} aria-label={label}>
+        {children ?? label}
       </label>
       <span className={styles.pdfFileInputWrap}>
         <input
@@ -83,7 +83,6 @@ export function PdfPane({
   onViewChange,
   onPickPdf,
   onExtractText,
-  onToggleExtractMarkers,
   onToggleExtractSanitizePunctuation,
 }: PdfPaneProps) {
   const inputId = useId();
@@ -152,18 +151,22 @@ export function PdfPane({
       panY={pdf.panY}
       pdfBytes={pdfBytes}
       sourceTextByPage={pdf.sourceTextByPage}
-      extractedGlyphs={pdf.extractedGlyphs}
-      extractMarkersVisible={pdf.extractMarkersVisible !== false}
       extractSanitizePunctuation={pdf.extractSanitizePunctuation === true}
       mediaWidth={mediaSize.width}
       mediaHeight={mediaSize.height}
       onViewChange={onViewChange}
       onExtractText={onExtractText}
-      onToggleExtractMarkers={onToggleExtractMarkers}
       onToggleExtractSanitizePunctuation={onToggleExtractSanitizePunctuation}
       navLeading={
         onPickPdf ? (
-          <PdfFileInput inputId={inputId} onPickPdf={onPickPdf} label="別のPDF" className={styles.pdfNavButton} />
+          <PdfFileInput
+            inputId={inputId}
+            onPickPdf={onPickPdf}
+            label="別のPDF"
+            className={`${styles.pdfNavButton} ${styles.pdfNavIconButton}`}
+          >
+            <IconPdfReplace />
+          </PdfFileInput>
         ) : null
       }
     />

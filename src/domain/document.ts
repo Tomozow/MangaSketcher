@@ -79,14 +79,18 @@ export function createDocument(options: {
 }
 
 export function clonePdfDocument(pdf: PdfDocument): PdfDocument {
+  const next = { ...pdf } as PdfDocument & {
+    extractedGlyphs?: unknown;
+    extractMarkersVisible?: unknown;
+  };
+  delete next.extractedGlyphs;
+  delete next.extractMarkersVisible;
   return {
-    ...pdf,
+    ...next,
     sourceTextByPage: Object.fromEntries(
-      Object.entries(pdf.sourceTextByPage).map(([k, v]) => [k, v.map((i) => ({ ...i }))]),
+      Object.entries(next.sourceTextByPage).map(([k, v]) => [k, v.map((i) => ({ ...i }))]),
     ),
-    extractedGlyphs: (pdf.extractedGlyphs ?? []).map((glyph) => ({ ...glyph })),
-    extractMarkersVisible: pdf.extractMarkersVisible !== false,
-    extractSanitizePunctuation: pdf.extractSanitizePunctuation === true,
+    extractSanitizePunctuation: next.extractSanitizePunctuation === true,
   };
 }
 

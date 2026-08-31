@@ -307,6 +307,7 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     const viewerSrc = readFileSync(join(here, '../pdf/PdfPageViewer.tsx'), 'utf8');
     expect(paneSrc).toContain('別のPDF');
     expect(viewerSrc).toContain('pdfNavPrimary');
+    expect(viewerSrc).toContain('pdfNavPrimaryEnd');
     expect(viewerSrc).toContain('pdfNavTools');
     expect(editorLayoutSrc).not.toContain('pdfDrawerHead');
     expect(editorLayoutSrc).toContain('PdfDrawerResizeHandle');

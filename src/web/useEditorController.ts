@@ -393,7 +393,11 @@ export function useEditorController(projectId: string): EditorController {
     if (!present) {
       return;
     }
-    const rasterBox = defaultTextBox(present.rasterWidth, present.rasterHeight);
+    const rasterBox = defaultTextBox(
+      present.rasterWidth,
+      present.rasterHeight,
+      present.tools.textFontSize,
+    );
     const pasteboard = 'pasteboard' in pending && pending.pasteboard;
     const width = pasteboard
       ? rasterBox.width * (PAGE_DISPLAY_W / Math.max(1, present.rasterWidth))
@@ -1765,7 +1769,6 @@ export function useEditorController(projectId: string): EditorController {
         attachment: { kind: 'pasteboard' },
         box: packed.box,
         content,
-        glyphs: payload.glyphs,
         fontSize: present.tools.textFontSize,
       });
     },

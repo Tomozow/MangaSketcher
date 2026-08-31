@@ -31,7 +31,6 @@ const VIEW_ONLY = new Set<string>([
   'setWorkspaceView',
   'setStockView',
   'setPdfView',
-  'setPdfExtractMarkersVisible',
   'setPdfExtractSanitizePunctuation',
   'selectClip',
   'selectClips',
@@ -47,7 +46,6 @@ type ViewOnlyEditorAction =
   | { type: 'setWorkspaceView'; zoom: number; panX: number; panY: number }
   | { type: 'setStockView'; zoom: number; panX: number; panY: number }
   | { type: 'setPdfView'; currentPage?: number; zoom?: number; panX?: number; panY?: number }
-  | { type: 'setPdfExtractMarkersVisible'; visible: boolean }
   | { type: 'setPdfExtractSanitizePunctuation'; enabled: boolean }
   | { type: 'selectClip'; clipId: ClipId | null }
   | { type: 'selectClips'; clipIds: ClipId[] }
@@ -158,7 +156,6 @@ export type EditorDocumentAction =
       sourceFingerprint?: string;
     }
   | { type: 'setPdfView'; currentPage?: number; zoom?: number; panX?: number; panY?: number }
-  | { type: 'setPdfExtractMarkersVisible'; visible: boolean }
   | { type: 'setPdfExtractSanitizePunctuation'; enabled: boolean }
   | {
       type: 'dropPdfTextRange';
@@ -167,7 +164,6 @@ export type EditorDocumentAction =
       attachment: { kind: 'page'; pageId: PageId } | { kind: 'pasteboard' };
       box: Rect;
       content?: string;
-      glyphs?: Array<{ x: number; y: number; width: number; height: number }>;
       fontSize?: number;
     }
   | {
@@ -750,8 +746,6 @@ export function reduceEditorDocument(
         sourceTextByPage: a.sourceTextByPage,
         generation: a.generation ?? (sameSource ? doc.pdf!.generation : 1),
         sourceFingerprint: a.sourceFingerprint ?? (sameSource ? doc.pdf?.sourceFingerprint : undefined),
-        extractedGlyphs: view.extractedGlyphs,
-        extractMarkersVisible: view.extractMarkersVisible,
         extractSanitizePunctuation: view.extractSanitizePunctuation,
       };
       return doc;
@@ -764,12 +758,6 @@ export function reduceEditorDocument(
       const snapshot = source.map((item) => ({ ...item }));
       const selected = rangeSelectBody(source, a.range);
       const content = wrapExtractedText(a.content ?? joinVerticalBody(selected));
-      const glyphs = a.glyphs ?? selected.map((item) => ({
-        x: item.x,
-        y: item.y,
-        width: item.width,
-        height: item.height,
-      }));
       const id = ids();
       const text = {
         id,
@@ -785,10 +773,6 @@ export function reduceEditorDocument(
       }
       Object.assign(doc, textSelection([id]));
       doc.pdf.sourceTextByPage[a.pdfPage] = snapshot;
-      doc.pdf.extractedGlyphs = [
-        ...(doc.pdf.extractedGlyphs ?? []),
-        ...glyphs.map((glyph) => ({ page: a.pdfPage, ...glyph })),
-      ];
       return doc;
     }
     default: {
@@ -848,14 +832,6 @@ function reduceEditorDocumentViewOnly(
         pdf.panY = action.panY;
       }
       return { ...state, pdf };
-    case 'setPdfExtractMarkersVisible':
-      if (!state.pdf) {
-        return state;
-      }
-      return {
-        ...state,
-        pdf: { ...state.pdf, extractMarkersVisible: action.visible },
-      };
     case 'setPdfExtractSanitizePunctuation':
       if (!state.pdf) {
         return state;

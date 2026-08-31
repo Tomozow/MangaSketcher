@@ -1,0 +1,30 @@
+---
+description: Never run static export unless the user explicitly asks; default to the Next.js development server
+alwaysApply: true
+---
+
+# 静的ビルドは明示要求のときだけ
+
+エージェントは **ユーザーがこの会話で静的ビルドをしたいと明示したとき以外**、静的書き出しを実行しない。iPad 再現・デバッグ・ホットリロードは開発版（`npm run dev` / `npm run dev:ipad` / `scripts/start-dev.mjs`、ポート **3000**）だけを触る。
+
+例外はスキル `manga-sketcher-static-build` だけ。そのスキルの手順に従うのは正しいが、**ユーザーが静的ビルドを頼んでいない会話ではそのスキルを開かない・使わない・実行しない。** iPad 向けだから、という理由では起動しない。
+
+禁止（ユーザーが静的ビルドを頼んでいないとき）:
+
+- `manga-sketcher-static-build` スキルの使用
+- `npm run build:static`
+- `node scripts/build-static.mjs`
+- `NEXT_OUTPUT=export` 付きの `next build`
+- `out/` を作り直す・上書きする操作
+
+許可:
+
+- ユーザーが「静的ビルド」「build:static」「out を作り直して」などと **この会話で頼んだ** ときだけ、`manga-sketcher-static-build` に従う
+
+```text
+# BAD — デバッグや iPad 確認のついで
+npm run build:static
+
+# GOOD — 開発版（ホットリロード）
+npm run dev:ipad
+```

@@ -89,7 +89,6 @@ export type DocumentAction =
       sourceFingerprint?: string;
     }
   | { type: 'setPdfView'; currentPage?: number; zoom?: number; panX?: number; panY?: number }
-  | { type: 'setPdfExtractMarkersVisible'; visible: boolean }
   | { type: 'setPdfExtractSanitizePunctuation'; enabled: boolean }
   | {
       type: 'dropPdfTextRange';
@@ -98,7 +97,6 @@ export type DocumentAction =
       attachment: { kind: 'page'; pageId: PageId } | { kind: 'pasteboard' };
       box: Rect;
       content?: string;
-      glyphs?: Array<{ x: number; y: number; width: number; height: number }>;
       fontSize?: number;
     }
   | {
@@ -537,8 +535,6 @@ export function reduceTestDocument(
         sourceTextByPage: action.sourceTextByPage,
         generation: action.generation ?? (sameSource ? doc.pdf!.generation : 1),
         sourceFingerprint: action.sourceFingerprint ?? (sameSource ? doc.pdf?.sourceFingerprint : undefined),
-        extractedGlyphs: view.extractedGlyphs,
-        extractMarkersVisible: view.extractMarkersVisible,
         extractSanitizePunctuation: view.extractSanitizePunctuation,
       };
       return doc;
@@ -560,12 +556,6 @@ export function reduceTestDocument(
         doc.pdf.panY = action.panY;
       }
       return doc;
-    case 'setPdfExtractMarkersVisible':
-      if (!doc.pdf) {
-        return doc;
-      }
-      doc.pdf.extractMarkersVisible = action.visible;
-      return doc;
     case 'setPdfExtractSanitizePunctuation':
       if (!doc.pdf) {
         return doc;
@@ -580,12 +570,6 @@ export function reduceTestDocument(
       const snapshot = source.map((item) => ({ ...item }));
       const selected = rangeSelectBody(source, action.range);
       const content = wrapExtractedText(action.content ?? joinVerticalBody(selected));
-      const glyphs = action.glyphs ?? selected.map((item) => ({
-        x: item.x,
-        y: item.y,
-        width: item.width,
-        height: item.height,
-      }));
       const id = ids();
       const text = {
         id,
@@ -601,10 +585,6 @@ export function reduceTestDocument(
       }
       doc.selectedTextId = id;
       doc.pdf.sourceTextByPage[action.pdfPage] = snapshot;
-      doc.pdf.extractedGlyphs = [
-        ...(doc.pdf.extractedGlyphs ?? []),
-        ...glyphs.map((glyph) => ({ page: action.pdfPage, ...glyph })),
-      ];
       return doc;
     }
     case 'setUiLayout':

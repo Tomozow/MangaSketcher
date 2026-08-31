@@ -19,6 +19,7 @@ import {
   PAGE_TEXT_WRAP_ATTR,
 } from '@/src/web/gestures/pageTextDom';
 import { styles } from '@/src/web/editorStyles';
+import { setLiveTextContent } from '@/src/web/liveTextContentStore';
 import { repaintAllInkDisplays } from '@/src/web/ink/PageInkCanvas';
 
 export type TextEditSelection = {
@@ -115,9 +116,13 @@ export function TextEditBar({
         : null;
     if (!selection) {
       onLiveContent(null);
+      setLiveTextContent(null);
       return;
     }
     onLiveContent(savedContent);
+    if (editingId) {
+      setLiveTextContent({ id: editingId, content: savedContent });
+    }
     onEditingChange(true);
     const frame = requestAnimationFrame(() => {
       textareaRef.current?.focus();
@@ -284,6 +289,10 @@ export function TextEditBar({
     composingRef.current = false;
     const value = textareaRef.current?.value ?? draft;
     onLiveContent(value);
+    const liveId = selectionRef.current?.id;
+    if (liveId) {
+      setLiveTextContent({ id: liveId, content: value });
+    }
     if (pendingExplicitCommitRef.current) {
       pendingExplicitCommitRef.current = false;
       const current = selectionRef.current;
@@ -298,6 +307,10 @@ export function TextEditBar({
     setDraft(value);
     if (!composingRef.current) {
       onLiveContent(value);
+      const current = selectionRef.current;
+      if (current) {
+        setLiveTextContent({ id: current.id, content: value });
+      }
     }
   };
 

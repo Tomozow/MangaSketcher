@@ -11,12 +11,11 @@ import {
 } from '@/src/domain/pdfText';
 import {
   hitBodyReadingIndex,
-  isExtractedGlyph,
   pdfItemToView,
   unionPdfItems,
 } from '@/src/domain/pdfLayout';
 import { clampPdfZoom, PDF_MAX_ZOOM, PDF_MIN_ZOOM, PDF_ZOOM_STEP, pdfPageViewerKey } from '@/src/domain/pdfView';
-import type { PdfExtractedGlyph, PdfTextItem, Rect } from '@/src/domain/types';
+import type { PdfTextItem, Rect } from '@/src/domain/types';
 import { styles } from '@/src/web/editorStyles';
 import { PDF_MAX_EDGE, PDF_SHARP_MAX_EDGE } from './constants';
 import {
@@ -46,7 +45,6 @@ export type PdfExtractPayload = {
   pdfPage: number;
   range: Rect;
   preview: string;
-  glyphs: Array<{ x: number; y: number; width: number; height: number }>;
 };
 
 export type PdfPageViewerProps = {
@@ -59,8 +57,6 @@ export type PdfPageViewerProps = {
   panY: number;
   pdfBytes: ArrayBuffer;
   sourceTextByPage: Record<number, PdfTextItem[]>;
-  extractedGlyphs?: PdfExtractedGlyph[];
-  extractMarkersVisible?: boolean;
   extractSanitizePunctuation?: boolean;
   mediaWidth: number;
   mediaHeight: number;
@@ -71,7 +67,6 @@ export type PdfPageViewerProps = {
     panY?: number;
   }) => void;
   onExtractText?: (payload: PdfExtractPayload) => void;
-  onToggleExtractMarkers?: (visible: boolean) => void;
   onToggleExtractSanitizePunctuation?: (enabled: boolean) => void;
   navLeading?: ReactNode;
 };
@@ -121,14 +116,11 @@ export function PdfPageViewer({
   panY,
   pdfBytes,
   sourceTextByPage,
-  extractedGlyphs = [],
-  extractMarkersVisible = true,
   extractSanitizePunctuation = false,
   mediaWidth,
   mediaHeight,
   onViewChange,
   onExtractText,
-  onToggleExtractMarkers,
   onToggleExtractSanitizePunctuation,
   navLeading,
 }: PdfPageViewerProps) {
@@ -682,12 +674,6 @@ export function PdfPageViewer({
       pdfPage: currentPage,
       range,
       preview,
-      glyphs: selectedItems.map((item) => ({
-        x: item.x,
-        y: item.y,
-        width: item.width,
-        height: item.height,
-      })),
     });
     clearSelection();
   };
@@ -696,61 +682,56 @@ export function PdfPageViewer({
     <div className={styles.pdfPaneInner}>
       <div className={styles.pdfNav}>
         <div className={styles.pdfNavPrimary}>
-          {navLeading}
-          <button
-            type="button"
-            className={styles.pdfNavButton}
-            onClick={() => goPage(1)}
-            disabled={currentPage >= pageCount}
-          >
-            次
-          </button>
-          <span className={styles.pdfNavLabel}>
-            {currentPage} / {pageCount}
-          </span>
-          <button type="button" className={styles.pdfNavButton} onClick={() => goPage(-1)} disabled={currentPage <= 1}>
-            前
-          </button>
-          <button
-            type="button"
-            className={styles.pdfNavButton}
-            aria-label="ズームアウト"
-            title="ズームアウト"
-            onClick={() => nudgeZoom(-1)}
-            disabled={zoom <= PDF_MIN_ZOOM}
-          >
-            −
-          </button>
-          <span className={styles.pdfNavLabel}>{Math.round(zoom * 100)}%</span>
-          <button
-            type="button"
-            className={styles.pdfNavButton}
-            aria-label="ズームイン"
-            title="ズームイン"
-            onClick={() => nudgeZoom(1)}
-            disabled={zoom >= PDF_MAX_ZOOM}
-          >
-            ＋
-          </button>
-        </div>
-        <div className={styles.pdfNavTools}>
-          <button
-            type="button"
-            className={styles.pdfNavButton}
-            aria-pressed={extractMarkersVisible}
-            onClick={() => onToggleExtractMarkers?.(!extractMarkersVisible)}
-          >
-            マーカー
-          </button>
-          <button
-            type="button"
-            className={styles.pdfNavButton}
-            aria-pressed={extractSanitizePunctuation}
-            title="「」を削除し、句読点を半角スペースにする"
-            onClick={() => onToggleExtractSanitizePunctuation?.(!extractSanitizePunctuation)}
-          >
-            整形
-          </button>
+          <div className={styles.pdfNavPrimaryStart}>
+            {navLeading}
+            <button
+              type="button"
+              className={styles.pdfNavButton}
+              aria-label="ズームアウト"
+              title="ズームアウト"
+              onClick={() => nudgeZoom(-1)}
+              disabled={zoom <= PDF_MIN_ZOOM}
+            >
+              −
+            </button>
+            <button
+              type="button"
+              className={styles.pdfNavButton}
+              aria-label="ズームイン"
+              title="ズームイン"
+              onClick={() => nudgeZoom(1)}
+              disabled={zoom >= PDF_MAX_ZOOM}
+            >
+              ＋
+            </button>
+            <div className={styles.pdfNavTools}>
+              <button
+                type="button"
+                className={styles.pdfNavButton}
+                aria-pressed={extractSanitizePunctuation}
+                title="「」を削除し、句読点を半角スペースにする"
+                onClick={() => onToggleExtractSanitizePunctuation?.(!extractSanitizePunctuation)}
+              >
+                整形
+              </button>
+            </div>
+          </div>
+          <div className={styles.pdfNavPrimaryEnd}>
+            <button
+              type="button"
+              className={styles.pdfNavButton}
+              onClick={() => goPage(1)}
+              disabled={currentPage >= pageCount}
+            >
+              次
+            </button>
+            <span className={styles.pdfNavLabel}>
+              {currentPage} / {pageCount}
+            </span>
+            <button type="button" className={styles.pdfNavButton} onClick={() => goPage(-1)} disabled={currentPage <= 1}>
+              前
+            </button>
+          </div>
         </div>
       </div>
       <div
@@ -770,25 +751,6 @@ export function PdfPageViewer({
           }}
         >
           <canvas ref={canvasRef} className={styles.pdfCanvas} />
-          {extractMarkersVisible
-            ? sortedBody
-                .filter((item) => isExtractedGlyph(item, currentPage, extractedGlyphs))
-                .map((item, index) => {
-                  const rect = pdfItemToView(item, viewW, viewH, media);
-                  return (
-                    <div
-                      key={`m-${index}-${item.x}-${item.y}`}
-                      className={styles.pdfGlyphMarker}
-                      style={{
-                        left: rect.x,
-                        top: rect.y,
-                        width: rect.width,
-                        height: rect.height,
-                      }}
-                    />
-                  );
-                })
-            : null}
           {selectedItems.map((item, index) => {
             const rect = pdfItemToView(item, viewW, viewH, media);
             return (

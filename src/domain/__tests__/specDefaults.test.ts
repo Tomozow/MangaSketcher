@@ -9,15 +9,15 @@ import {
 } from '../types';
 
 describe('§13.1 spec defaults', () => {
-  test('defaultTextBox for production raster 1200×1700 is 96×213', () => {
+  test('defaultTextBox is one glyph cell until content grows', () => {
     expect(DEFAULT_RASTER_WIDTH).toBe(1200);
     expect(DEFAULT_RASTER_HEIGHT).toBe(1700);
 
-    const box = defaultTextBox(DEFAULT_RASTER_WIDTH, DEFAULT_RASTER_HEIGHT);
+    const font = DEFAULT_TOOL_PROPERTIES.textFontSize;
+    const box = defaultTextBox(DEFAULT_RASTER_WIDTH, DEFAULT_RASTER_HEIGHT, font);
 
-    // round(rw*0.08), round(rh*0.125) → 1200×1700 → 96×213
-    expect(box.width).toBe(96);
-    expect(box.height).toBe(213);
+    expect(box.width).toBe(Math.ceil(font * 1.2));
+    expect(box.height).toBe(font);
   });
 
   test('DEFAULT_TOOL_PROPERTIES.penSize is 12 (§6, §13.1)', () => {

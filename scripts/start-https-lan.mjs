@@ -1,25 +1,21 @@
 import { createServer } from 'node:http';
 import { createServer as createHttpsServer } from 'node:https';
 import { request as httpRequest } from 'node:http';
-import { spawn, spawnSync } from 'node:child_process';
-import { appendFileSync, createWriteStream, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { networkInterfaces } from 'node:os';
+import { spawn } from 'node:child_process';
+import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { pipeline } from 'node:stream/promises';
+import {
+  CA_PORT,
+  HTTPS_PORT,
+  certPaths,
+  ensureLanLeaf,
+  lanIPv4s,
+} from './lanHttpsShared.mjs';
 
 const root = process.cwd();
-const certDir = join(root, 'certs');
-const caDir = join(certDir, 'ca');
-const mkcertPath = join(certDir, 'mkcert.exe');
-const certFile = join(certDir, 'lan.pem');
-const keyFile = join(certDir, 'lan-key.pem');
-const caPem = join(caDir, 'rootCA.pem');
+const { certDir, caPem, certFile, keyFile } = certPaths(root);
 const profilePath = join(certDir, 'public', 'MangaSketcher-LAN.mobileconfig');
-const MKCERT_URL =
-  'https://github.com/FiloSottile/mkcert/releases/download/v1.4.4/mkcert-v1.4.4-windows-amd64.exe';
-const HTTPS_PORT = 3443;
 const SERVE_PORT = 13443;
-const CA_PORT = 3002;
 
 function persistDebugLog(raw) {
   const lines = String(raw)
@@ -78,52 +74,6 @@ function proxyToServe(req, res) {
     res.end('proxy error');
   });
   req.pipe(upstream);
-}
-
-function lanIPv4s() {
-  const ips = [];
-  const nets = networkInterfaces();
-  for (const list of Object.values(nets)) {
-    for (const net of list ?? []) {
-      if (net.family !== 'IPv4' || net.internal) {
-        continue;
-      }
-      if (net.address.startsWith('169.254.')) {
-        continue;
-      }
-      ips.push(net.address);
-    }
-  }
-  return [...new Set(ips)];
-}
-
-function lanIPv4() {
-  const ips = lanIPv4s();
-  return ips.find((ip) => ip.startsWith('192.168.')) ?? ips[0] ?? '192.168.0.2';
-}
-
-async function ensureMkcert() {
-  if (existsSync(mkcertPath)) {
-    return;
-  }
-  mkdirSync(certDir, { recursive: true });
-  const res = await fetch(MKCERT_URL, { redirect: 'follow' });
-  if (!res.ok || !res.body) {
-    throw new Error(`mkcert download failed: ${res.status}`);
-  }
-  await pipeline(res.body, createWriteStream(mkcertPath));
-}
-
-function runMkcert(args) {
-  const result = spawnSync(mkcertPath, args, {
-    cwd: root,
-    env: { ...process.env, CAROOT: caDir },
-    encoding: 'utf8',
-    windowsHide: true,
-  });
-  if (result.status !== 0) {
-    throw new Error(result.stderr || result.stdout || `mkcert ${args.join(' ')} failed`);
-  }
 }
 
 function pemToMobileconfig(pem, displayName) {
@@ -231,19 +181,8 @@ ${lanIPv4s()
 }
 
 async function main() {
-  const ip = lanIPv4();
+  const { ip } = await ensureLanLeaf(root);
   mkdirSync(join(certDir, 'public'), { recursive: true });
-  mkdirSync(caDir, { recursive: true });
-  await ensureMkcert();
-  if (!existsSync(caPem)) {
-    try {
-      runMkcert(['-install']);
-    } catch {
-      // iPad trusts via mobileconfig.
-    }
-  }
-  const extraIps = lanIPv4s().filter((item) => item !== ip);
-  runMkcert(['-cert-file', certFile, '-key-file', keyFile, ip, ...extraIps, '127.0.0.1', 'localhost']);
   const pem = readFileSync(caPem, 'utf8');
   writeFileSync(profilePath, pemToMobileconfig(pem, 'MangaSketcher LAN CA'));
   writeFileSync(join(certDir, 'public', 'index.html'), caPage(ip));

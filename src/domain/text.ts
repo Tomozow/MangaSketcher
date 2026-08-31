@@ -7,13 +7,20 @@ import type {
   TextDocument,
   TextId,
 } from './types';
+import { DEFAULT_TOOL_PROPERTIES } from './types';
 
 type SelectedTextDocument = TextDocument & Pick<EditorDocument, 'selectedTextId'>;
 
-export function defaultTextBox(rw: number, rh: number): Pick<Rect, 'width' | 'height'> {
+/** One vertical column: width = glyph cell (same 1.2 as TEXT_WRAP_LINE_HEIGHT). */
+export function defaultTextBox(
+  rw: number,
+  rh: number,
+  fontSize: number = DEFAULT_TOOL_PROPERTIES.textFontSize,
+): Pick<Rect, 'width' | 'height'> {
+  const fontPx = Math.max(1, Number.isFinite(fontSize) ? fontSize : DEFAULT_TOOL_PROPERTIES.textFontSize);
   return {
-    width: Math.round(rw * 0.08),
-    height: Math.round(rh * 0.125),
+    width: Math.min(rw, Math.ceil(fontPx * 1.2)),
+    height: Math.min(rh, Math.ceil(fontPx)),
   };
 }
 

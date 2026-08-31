@@ -190,6 +190,9 @@ describe('fitTextBoxToContent', () => {
     const two = verticalTextContentSize('あ'.repeat(11), fontSize);
     expect(two.width).toBeGreaterThan(one.width);
     expect(two.width).toBe(Math.ceil(2 * fontSize * TEXT_WRAP_LINE_HEIGHT));
+    expect(one.height).toBe(10 * fontSize);
+    expect(verticalTextContentSize('あ', fontSize).height).toBe(fontSize);
+    expect(verticalTextContentSize('あ'.repeat(3), fontSize).height).toBe(3 * fontSize);
   });
 
   test('empty content leaves the box unchanged', () => {

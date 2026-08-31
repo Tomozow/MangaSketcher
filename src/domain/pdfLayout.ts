@@ -146,18 +146,3 @@ export function hitBodyReadingIndex(
   }
   return null;
 }
-
-export function isExtractedGlyph(
-  item: PdfTextItem,
-  page: number,
-  glyphs: readonly { page: number; x: number; y: number; width: number; height: number }[],
-): boolean {
-  return glyphs.some(
-    (glyph) =>
-      glyph.page === page &&
-      Math.abs(glyph.x - item.x) < 0.5 &&
-      Math.abs(glyph.y - item.y) < 0.5 &&
-      Math.abs(glyph.width - item.width) < 0.5 &&
-      Math.abs(glyph.height - item.height) < 0.5,
-  );
-}

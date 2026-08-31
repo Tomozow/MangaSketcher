@@ -36,6 +36,7 @@ import {
 import { styles } from '@/src/web/editorStyles';
 import { PAGE_INK_FRAME_ATTR } from '@/src/web/gestures/pageInkDom';
 import { pageBoxToWorld } from '@/src/web/gestures/elementInteraction';
+import { useLiveTextContent, type LiveTextContent } from '@/src/web/liveTextContentStore';
 
 type PageTextOverlayProps = {
   doc: EditorDocument;
@@ -195,10 +196,7 @@ function TextBoxChrome({
   );
 }
 
-export type LiveTextContent = {
-  id: TextId;
-  content: string;
-};
+export type { LiveTextContent } from '@/src/web/liveTextContentStore';
 
 type PageTextsOnFrameProps = {
   pageId: PageId;
@@ -220,8 +218,10 @@ export function PageTextsOnFrame({
   selectedTextId,
   selectedTextIds,
   textLiveTransforms,
-  liveTextContent,
+  liveTextContent: liveTextContentProp,
 }: PageTextsOnFrameProps) {
+  const liveFromStore = useLiveTextContent();
+  const liveTextContent = liveTextContentProp !== undefined ? liveTextContentProp : liveFromStore;
   const rw = rasterSize(rasterWidth, DEFAULT_RASTER_WIDTH);
   const rh = rasterSize(rasterHeight, DEFAULT_RASTER_HEIGHT);
   const scaleX = PAGE_DISPLAY_W / rw;
@@ -353,8 +353,10 @@ export function PasteboardTextsLayer({
   selectedTextId,
   selectedTextIds,
   textLiveTransforms,
-  liveTextContent,
+  liveTextContent: liveTextContentProp,
 }: PasteboardTextsLayerProps) {
+  const liveFromStore = useLiveTextContent();
+  const liveTextContent = liveTextContentProp !== undefined ? liveTextContentProp : liveFromStore;
   const items = pasteboardWorldItems({
     frames,
     pages,
@@ -422,6 +424,7 @@ export function TextChromeOverlay({
   const [pose, setPose] = useState<{ left: number; top: number; button: number; gap: number } | null>(null);
   const primaryId = textIds[textIds.length - 1];
   const batch = textIds.length > 1;
+  const liveTextContent = useLiveTextContent();
 
   useLayoutEffect(() => {
     const surface = surfaceRef.current;
@@ -458,7 +461,7 @@ export function TextChromeOverlay({
       button: metrics.button,
       gap: metrics.gap,
     });
-  }, [surfaceRef, textIds, zoom, panX, panY, layoutKey]);
+  }, [surfaceRef, textIds, zoom, panX, panY, layoutKey, liveTextContent]);
 
   if (!pose || !primaryId) {
     return null;

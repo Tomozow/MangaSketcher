@@ -21,15 +21,13 @@ function pdf(partial: Partial<PdfDocument> = {}): PdfDocument {
     opfsPath: 'pdfs/p1.pdf',
     generation: 2,
     sourceFingerprint: 'novel.pdf:10:1',
-    extractedGlyphs: [{ page: 3, x: 1, y: 2, width: 3, height: 4 }],
-    extractMarkersVisible: false,
     extractSanitizePunctuation: true,
     ...partial,
   };
 }
 
 describe('pdf view restore', () => {
-  test('fingerprint が同じならページと抽出印を残す', () => {
+  test('fingerprint が同じならページを残す', () => {
     const prev = pdf();
     expect(keepPdfViewOnReload(prev, { opfsPath: prev.opfsPath, fingerprint: prev.sourceFingerprint })).toBe(true);
     expect(pdfViewAfterLoad(prev, { opfsPath: prev.opfsPath, pageCount: 4, fingerprint: prev.sourceFingerprint })).toMatchObject({
@@ -37,10 +35,8 @@ describe('pdf view restore', () => {
       zoom: 1.4,
       panX: 12,
       panY: -8,
-      extractMarkersVisible: false,
       extractSanitizePunctuation: true,
     });
-    expect(pdfViewAfterLoad(prev, { opfsPath: prev.opfsPath, pageCount: 4, fingerprint: prev.sourceFingerprint }).extractedGlyphs).toHaveLength(1);
   });
 
   test('別ファイルなら 1 ページ目に戻す', () => {

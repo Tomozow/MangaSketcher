@@ -120,14 +120,6 @@ export function selectTargetFlagsOf(
   };
 }
 
-export type PdfExtractedGlyph = {
-  page: number;
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-};
-
 export type PdfDocument = {
   pageCount: number;
   currentPage: number;
@@ -140,10 +132,6 @@ export type PdfDocument = {
   generation: number;
   /** File identity (name/size/mtime) so a re-pick of the same PDF can restore the page. */
   sourceFingerprint?: string;
-  /** Glyph boxes already copied to the workspace (non-destructive). */
-  extractedGlyphs?: PdfExtractedGlyph[];
-  /** PDF-pane toggle; default on. */
-  extractMarkersVisible?: boolean;
   /** When extracting, drop 「」 and replace 、。 with ASCII spaces. */
   extractSanitizePunctuation?: boolean;
 };

@@ -1,13 +1,27 @@
+import { networkInterfaces } from 'node:os';
 import type { NextConfig } from 'next';
 
 const isStaticExport = process.env.NEXT_OUTPUT === 'export';
+
+function lanDevOrigins(): string[] {
+  const hosts = ['127.0.0.1', 'localhost'];
+  for (const list of Object.values(networkInterfaces())) {
+    for (const net of list ?? []) {
+      if (net.family !== 'IPv4' || net.internal || net.address.startsWith('169.254.')) {
+        continue;
+      }
+      hosts.push(net.address);
+    }
+  }
+  return [...new Set(hosts)];
+}
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   ...(isStaticExport
     ? { output: 'export' as const, trailingSlash: true, distDir: '.next-export' }
-    : { allowedDevOrigins: ['127.0.0.1', 'localhost', '192.168.0.2'] }),
+    : { allowedDevOrigins: lanDevOrigins() }),
   serverExternalPackages: ['pdfjs-dist', 'fflate'],
   turbopack: {
     resolveAlias: {

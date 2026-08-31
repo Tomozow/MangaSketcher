@@ -1184,8 +1184,19 @@ export function stepWorkspacePointer(
   const hit = preferWorkspaceHit(input.tool, input.kind, input.hit, input.selectTargets);
   const normalized = { ...input, hit };
   let session = store.sessions.get(input.pointerId) ?? { mode: 'idle' as const };
+  const fingerUsesTextTool =
+    input.kind === 'finger' &&
+    input.tool === 'text' &&
+    (isTextBodyHit(hit) ||
+      isTextHandleHit(hit) ||
+      (session.mode !== 'idle' &&
+        'kind' in session &&
+        session.kind === 'pencil' &&
+        (session.mode === 'pendingTextMove' ||
+          session.mode === 'moveText' ||
+          session.mode === 'resizeText')));
 
-  if (input.kind === 'finger') {
+  if (input.kind === 'finger' && !fingerUsesTextTool) {
     if (input.phase === 'down') {
       const down = stepFingerDown(store, normalized);
       if (!down.ignored) {

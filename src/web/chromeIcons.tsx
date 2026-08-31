@@ -59,6 +59,16 @@ export function IconPdf(props: IconProps) {
   );
 }
 
+export function IconPdfReplace(props: IconProps) {
+  return (
+    <StrokeIcon {...props}>
+      <path d="M7 3h7l5 5v13H7z" />
+      <path d="M14 3v5h5" />
+      <path d="M12 12v6M9 15h6" />
+    </StrokeIcon>
+  );
+}
+
 export function IconExport(props: IconProps) {
   return (
     <StrokeIcon {...props}>

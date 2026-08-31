@@ -1,10 +1,10 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useAppShellHeight } from '@/src/web/appShellHeight';
 import { subscribeProjectExportCheckpoint } from '@/src/storage/projectExportCheckpoint';
 import { bindHistoryShortcuts } from '@/src/input/historyShortcuts';
-import { bindToolShortcuts } from '@/src/input/toolShortcuts';
+import { bindStylusPenEraserToggle, bindToolShortcuts } from '@/src/input/toolShortcuts';
 import { EditorLayout } from '@/src/web/EditorLayout';
 import { EditorLoadingSurface } from '@/src/web/EditorLoadingSurface';
 import { styles } from '@/src/web/editorStyles';
@@ -50,6 +50,8 @@ export default function Editor({ projectId }: EditorProps) {
     setTextDraft,
   } = useEditorController(projectId);
   const rootHeight = useAppShellHeight(ready);
+  const toolRef = useRef(history?.present.tool ?? 'pen');
+  toolRef.current = history?.present.tool ?? 'pen';
 
   useEffect(() => {
     const lockScroll = () => {
@@ -64,9 +66,19 @@ export default function Editor({ projectId }: EditorProps) {
     if (!ready) {
       return undefined;
     }
-    return bindToolShortcuts((tool) => {
+    const unbindKeys = bindToolShortcuts((tool) => {
       dispatch({ type: 'setTool', tool });
     });
+    const unbindStylus = bindStylusPenEraserToggle(
+      () => toolRef.current,
+      (tool) => {
+        dispatch({ type: 'setTool', tool });
+      },
+    );
+    return () => {
+      unbindKeys();
+      unbindStylus();
+    };
   }, [ready, dispatch]);
 
   useEffect(() => {

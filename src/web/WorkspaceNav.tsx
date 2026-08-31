@@ -94,7 +94,6 @@ export function WorkspaceNav({ doc, dispatch }: WorkspaceNavProps) {
       >
         <IconZoomIn />
       </button>
-      <span className={styles.workspaceNavLabel}>{Math.round(doc.workspaceZoom * 100)}%</span>
       <button
         type="button"
         className={styles.chromeIcon}

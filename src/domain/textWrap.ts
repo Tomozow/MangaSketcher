@@ -84,7 +84,7 @@ export function verticalTextContentSize(
   const maxGlyphs = Math.max(1, ...lines.map((line) => [...line].length));
   return {
     width: Math.ceil(columns * colW),
-    height: Math.ceil(maxGlyphs * fontPx * TEXT_WRAP_LINE_HEIGHT),
+    height: Math.ceil(maxGlyphs * fontPx),
   };
 }
 

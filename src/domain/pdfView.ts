@@ -1,4 +1,4 @@
-import type { PdfDocument, PdfExtractedGlyph } from './types';
+import type { PdfDocument } from './types';
 
 /** ページ番号が変わるとキーが変わるので、ビューアは再マウント／再描画する。 */
 export function pdfPageViewerKey(opfsPath: string, currentPage: number, generation: number): string {
@@ -47,8 +47,6 @@ export type PdfViewCarry = {
   zoom: number;
   panX: number;
   panY: number;
-  extractedGlyphs: PdfExtractedGlyph[];
-  extractMarkersVisible: boolean;
   extractSanitizePunctuation: boolean;
 };
 
@@ -62,8 +60,6 @@ export function pdfViewAfterLoad(
       zoom: 1,
       panX: 0,
       panY: 0,
-      extractedGlyphs: [],
-      extractMarkersVisible: true,
       extractSanitizePunctuation: false,
     };
   }
@@ -72,8 +68,6 @@ export function pdfViewAfterLoad(
     zoom: prev.zoom,
     panX: prev.panX,
     panY: prev.panY,
-    extractedGlyphs: [...(prev.extractedGlyphs ?? [])],
-    extractMarkersVisible: prev.extractMarkersVisible !== false,
     extractSanitizePunctuation: prev.extractSanitizePunctuation === true,
   };
 }

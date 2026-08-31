@@ -125,7 +125,6 @@ export function EditorLayout({
   const { theme, toggleTheme } = useChromeTheme();
   const [workspaceGrab, setWorkspaceGrab] = useState<WorkspaceGrab | null>(null);
   const suppressTrashToggleRef = useRef(false);
-  const [liveTextDraft, setLiveTextDraft] = useState<string | null>(null);
   const [stockOpen, setStockOpen] = useState(false);
   const [pageDelete, setPageDelete] = useState<{ pageId: PageId; source: 'workspace' | 'stock' } | null>(
     null,
@@ -232,7 +231,6 @@ export function EditorLayout({
 
   const handleLiveContent = useCallback(
     (draft: string | null) => {
-      setLiveTextDraft(draft);
       onTextDraftChange(draft);
     },
     [onTextDraftChange],
@@ -322,11 +320,6 @@ export function EditorLayout({
               selectedTextIds={doc.selectedTextIds}
               selectTargets={selectTargetFlagsOf(doc.tools)}
               textLiveTransforms={textLiveTransforms}
-              liveTextContent={
-                doc.tool === 'text' && textSelection && liveTextDraft !== null
-                  ? { id: textSelection.id, content: liveTextDraft }
-                  : null
-              }
               onDeleteText={deleteText}
               onDuplicateText={duplicateText}
               inkEngine={inkEngine}
@@ -522,8 +515,6 @@ export function EditorLayout({
                     panX: doc.pdf.panX,
                     panY: doc.pdf.panY,
                     sourceTextByPage: doc.pdf.sourceTextByPage,
-                    extractedGlyphs: doc.pdf.extractedGlyphs,
-                    extractMarkersVisible: doc.pdf.extractMarkersVisible,
                     extractSanitizePunctuation: doc.pdf.extractSanitizePunctuation,
                   }
                 : null
@@ -531,9 +522,6 @@ export function EditorLayout({
             onViewChange={onPdfViewChange}
             onPickPdf={onPickPdf}
             onExtractText={onExtractPdfText}
-            onToggleExtractMarkers={(visible) =>
-              dispatch({ type: 'setPdfExtractMarkersVisible', visible })
-            }
             onToggleExtractSanitizePunctuation={(enabled) =>
               dispatch({ type: 'setPdfExtractSanitizePunctuation', enabled })
             }

@@ -310,6 +310,27 @@ describe('Web workspace FSM', () => {
       expect(up.effects).toEqual([{ type: 'createText', pageId: 'p1', x: 10, y: 10 }]);
     });
 
+    test('text tool: 指タップでも pageText を selectText する', () => {
+      const store = createWorkspaceGestureStore();
+      const down = finger(store, 'down', {
+        tool: 'text',
+        hit: pageText,
+        x: 10,
+        y: 10,
+        now: 100,
+      });
+      expect(down.effects.some((e) => e.type === 'selectText')).toBe(false);
+      expect(getWorkspaceSession(store, 1)?.mode).toBe('pendingTextMove');
+      const up = finger(store, 'up', {
+        tool: 'text',
+        hit: pageText,
+        x: 12,
+        y: 11,
+        now: 150,
+      });
+      expect(up.effects).toEqual([{ type: 'selectText', textId: 'tx' }]);
+    });
+
     test('page 上の tap は 8px 以上ずれても createText する', () => {
       const store = createWorkspaceGestureStore();
       pencilText(store, 'down', { hit: pageHit, x: 10, y: 10, now: 100 });

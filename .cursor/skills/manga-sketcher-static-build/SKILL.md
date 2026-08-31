@@ -2,14 +2,19 @@
 name: manga-sketcher-static-build
 description: >-
   Builds MangaSketcher static export to out/, (re)starts LAN HTTPS, and guides
-  iPad certificate / ホーム画面に追加 / オフライン PWA. Use when the user asks to 静的ビルド,
-  build:static, rebuild for iPad, 証明書, プロファイル, 警告, ホーム画面, オフライン, Service Worker,
-  start:https-lan, or LAN HTTPS.
+  iPad certificate / ホーム画面に追加 / オフライン PWA. Invoke this skill ONLY when the user
+  has explicitly said they want a 静的ビルド (or build:static / out の作り直し) in this
+  conversation. Do not invoke for iPad debugging, hot reload, UI fixes, or
+  because the app is used on iPad — those use npm run dev:ipad (port 3000).
 ---
 
 # MangaSketcher 静的ビルドと iPad HTTPS
 
-Do **not** run `npm run build`. iPad 向けは静的書き出し + LAN HTTPS。
+**Gate (read this first):** Do not use this skill unless the user has explicitly said they want a 静的ビルド in this conversation (`静的ビルド`, `build:static`, `out` を作り直して, など). iPad で再現する・コードを直す・ホットリロードする、だけではこのスキルを開かない・実行しない。その場合は `npm run dev:ipad`（ポート 3000）。
+
+ユーザーが静的ビルドを頼んだあとだけ、以下に従う。
+
+Do **not** run `npm run build`. Static iPad PWA 向けだけが静的書き出し + LAN HTTPS（:3443）。
 
 ## いつ何をやり直すか
 
