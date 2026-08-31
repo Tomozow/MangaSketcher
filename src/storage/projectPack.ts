@@ -1,5 +1,6 @@
-import { strFromU8, strToU8, unzipSync, zipSync, type UnzipFile, type Zippable } from 'fflate';
+import { strFromU8, strToU8, unzipSync, zipSync, type UnzipFile, type Zippable } from 'fflate/browser';
 import { formatExportTimestamp, sanitizeExportStem } from '../web/export/sanitizeExportName';
+import { compactPackRasterPng } from './compactInkPng';
 import { assertStorableDocument, cloneEditorDocument } from './editorDocument';
 import { clipRasterId, collectRasterIds, pageRasterId } from './rasterIds';
 import type { EditorDocument, ProjectId } from './types';
@@ -233,7 +234,7 @@ export function buildProjectPackZip(input: {
     }
     const zipPath = rasterZipPathForDocumentMember(document, rasterId);
     rasterMembers.push(zipPath);
-    files[zipPath] = [new Uint8Array(png), { level: 0 }];
+    files[zipPath] = [new Uint8Array(compactPackRasterPng(png)), { level: 0 }];
   }
 
   const manifest: ProjectPackManifest = {

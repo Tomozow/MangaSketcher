@@ -24,6 +24,30 @@ export function desktopNavMode(): DesktopNavMode {
   return 'pan';
 }
 
+/** Space / Ctrl+Space, or right mouse button (pan). */
+export function desktopNavForPointer(
+  event: Pick<PointerEvent, 'pointerType' | 'button' | 'buttons'>,
+  phase: 'down' | 'move' | 'up' | 'cancel',
+): DesktopNavMode {
+  if (event.pointerType !== 'mouse') {
+    return 'none';
+  }
+  const keyNav = desktopNavMode();
+  if (keyNav !== 'none') {
+    return keyNav;
+  }
+  if (phase === 'down' && event.button === 2) {
+    return 'pan';
+  }
+  if (phase === 'move' && (event.buttons & 2) !== 0) {
+    return 'pan';
+  }
+  if ((phase === 'up' || phase === 'cancel') && event.button === 2) {
+    return 'pan';
+  }
+  return 'none';
+}
+
 export function resetDesktopNavKeys(): void {
   spaceDown = false;
   ctrlDown = false;

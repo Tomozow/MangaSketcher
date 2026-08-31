@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 
 import type { InkEngine } from './InkEngine';
+import { inkDisplayBackingSize } from './inkDisplayBacking';
 
 type PageInkCanvasProps = {
   engine: InkEngine;
@@ -10,6 +11,8 @@ type PageInkCanvasProps = {
   className?: string;
   /** CSS display width (spec: 216). Height follows raster aspect. */
   displayWidth?: number;
+  /** Workspace CSS scale applied on an ancestor. Backing store follows this. */
+  cssZoom?: number;
   /** Bumped while drawing so overlay composites repaint. */
   inkFrame?: number;
 };
@@ -88,13 +91,15 @@ export function scheduleInkDisplay(rasterId: string): void {
 }
 
 /**
- * Display copy (§9.5): scales 1200×1700 hot canvas to CSS size. Not pixel truth.
+ * Display copy (§9.5): scales 1200×1700 hot canvas to a zoom-aware backing store.
+ * CSS size stays 216×306; pixel buffer follows dpr, a 2× floor, and workspace zoom.
  */
 export function PageInkCanvas({
   engine,
   rasterId,
   className,
   displayWidth = 216,
+  cssZoom = 1,
   inkFrame = 0,
 }: PageInkCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -107,27 +112,28 @@ export function PageInkCanvas({
       }
       const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
       const dims = engine.getRasterDimensions(rasterId);
-      const displayHeight = Math.max(
-        1,
-        Math.round((displayWidth * dims.height) / Math.max(1, dims.width)),
-      );
-      const pixelW = Math.round(displayWidth * dpr);
-      const pixelH = Math.round(displayHeight * dpr);
+      const { cssHeight, pixelW, pixelH } = inkDisplayBackingSize({
+        displayWidth,
+        rasterWidth: dims.width,
+        rasterHeight: dims.height,
+        devicePixelRatio: dpr,
+        cssZoom,
+      });
       if (el.width !== pixelW || el.height !== pixelH) {
         el.width = pixelW;
         el.height = pixelH;
         el.style.width = `${displayWidth}px`;
-        el.style.height = `${displayHeight}px`;
+        el.style.height = `${cssHeight}px`;
       }
 
       const ctx = el.getContext('2d');
       if (!ctx) {
         return;
       }
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'medium';
-      engine.paintDisplay(ctx, rasterId, displayWidth, displayHeight);
+      ctx.imageSmoothingQuality = 'high';
+      engine.paintDisplay(ctx, rasterId, pixelW, pixelH);
     };
 
     painters.set(rasterId, paint);
@@ -149,7 +155,7 @@ export function PageInkCanvas({
       }
       releaseInkDisplayKeepAlive();
     };
-  }, [engine, rasterId, displayWidth]);
+  }, [engine, rasterId, displayWidth, cssZoom]);
 
   useEffect(() => {
     painters.get(rasterId)?.();

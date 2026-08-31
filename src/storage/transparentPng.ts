@@ -1,46 +1,7 @@
+import { zlibSync } from 'fflate/browser';
 import { DEFAULT_RASTER_HEIGHT, DEFAULT_RASTER_WIDTH } from './types';
 
 let sharedTransparentPng: ArrayBuffer | null = null;
-
-function adler32(data: Uint8Array): number {
-  let a = 1;
-  let b = 0;
-  for (let i = 0; i < data.length; i += 1) {
-    a = (a + data[i]!) % 65521;
-    b = (b + a) % 65521;
-  }
-  return ((b << 16) | a) >>> 0;
-}
-
-/** RFC 1950 wrapper around stored (uncompressed) deflate blocks. No Node `zlib`. */
-function zlibStore(raw: Uint8Array): Uint8Array {
-  const max = 65535;
-  const blocks: Uint8Array[] = [];
-  for (let offset = 0; offset < raw.length; offset += max) {
-    const len = Math.min(max, raw.length - offset);
-    const last = offset + len >= raw.length ? 1 : 0;
-    const block = new Uint8Array(5 + len);
-    block[0] = last;
-    block[1] = len & 0xff;
-    block[2] = (len >> 8) & 0xff;
-    const nlen = ~len & 0xffff;
-    block[3] = nlen & 0xff;
-    block[4] = (nlen >> 8) & 0xff;
-    block.set(raw.subarray(offset, offset + len), 5);
-    blocks.push(block);
-  }
-  const bodyLen = blocks.reduce((sum, block) => sum + block.length, 0);
-  const out = new Uint8Array(2 + bodyLen + 4);
-  out[0] = 0x78;
-  out[1] = 0x01;
-  let cursor = 2;
-  for (const block of blocks) {
-    out.set(block, cursor);
-    cursor += block.length;
-  }
-  new DataView(out.buffer).setUint32(cursor, adler32(raw));
-  return out;
-}
 
 function crc32(data: Uint8Array): number {
   let crc = 0xffffffff;
@@ -70,8 +31,7 @@ function encodeTransparentPng(width: number, height: number): ArrayBuffer {
   const rowBytes = 1 + width * 4;
   const raw = new Uint8Array(rowBytes * height);
   for (let y = 0; y < height; y += 1) {
-    const rowStart = y * rowBytes;
-    raw[rowStart] = 0;
+    raw[y * rowBytes] = 0;
   }
   const ihdr = new Uint8Array(13);
   const view = new DataView(ihdr.buffer);
@@ -82,7 +42,7 @@ function encodeTransparentPng(width: number, height: number): ArrayBuffer {
   ihdr[10] = 0;
   ihdr[11] = 0;
   ihdr[12] = 0;
-  const idat = zlibStore(raw);
+  const idat = zlibSync(raw, { level: 9 });
   const signature = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10]);
   const chunks = [
     signature,
@@ -97,7 +57,7 @@ function encodeTransparentPng(width: number, height: number): ArrayBuffer {
     out.set(chunk, offset);
     offset += chunk.length;
   }
-  return out.buffer;
+  return out.buffer.slice(out.byteOffset, out.byteOffset + out.byteLength);
 }
 
 async function encodeWithOffscreenCanvas(width: number, height: number): Promise<ArrayBuffer> {

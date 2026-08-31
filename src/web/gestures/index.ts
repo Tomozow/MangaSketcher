@@ -8,7 +8,7 @@ import {
   pointerKindForWorkspace,
   pressureFromWeb,
 } from '../../input/pointerEvents';
-import { bindDesktopNavKeys, desktopNavMode } from '../../input/desktopNavKeys';
+import { bindDesktopNavKeys, desktopNavForPointer } from '../../input/desktopNavKeys';
 import type { ClipId, PageId, TextId, ToolId } from '../../domain/types';
 import { screenToWorld } from '../../domain/stripGeometry';
 import { stepWorkspacePointer } from './workspaceFsm';
@@ -126,13 +126,32 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
 
     const dispatch = (event: PointerEvent, phase: 'down' | 'move' | 'up' | 'cancel') => {
       const pointerId = pointerIdFromWeb(event);
-      const nav = event.pointerType === 'mouse' ? desktopNavMode() : 'none';
-      const kind =
+      const nav = desktopNavForPointer(event, phase);
+      const prevSession = store.sessions.get(pointerId);
+      let kind =
         event.pointerType === 'mouse'
           ? pointerKindForWorkspace(event, phase, nav)
           : kindTracker.classify(event);
-      const prevSession = store.sessions.get(pointerId);
+      if (
+        event.pointerType === 'mouse' &&
+        prevSession &&
+        prevSession.mode !== 'idle' &&
+        'kind' in prevSession &&
+        (phase === 'move' || phase === 'up' || phase === 'cancel')
+      ) {
+        kind = prevSession.kind;
+      }
       if (kind === 'pencil' && phase === 'move' && isPencilHover(event, kind)) {
+        return;
+      }
+      if (
+        event.pointerType === 'mouse' &&
+        phase === 'move' &&
+        event.buttons === 0 &&
+        prevSession &&
+        prevSession.mode !== 'idle'
+      ) {
+        dispatch(event, 'up');
         return;
       }
 
@@ -193,7 +212,7 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
           mapPageDomLocal: ctx.mapPageDomLocal,
           mapWorldToPage: ctx.mapWorldToPage,
           pointerType: pe.pointerType,
-          desktopNav: pe.pointerType === 'mouse' ? nav : 'none',
+          desktopNav: nav,
         });
         batch.push(...effects);
       };
@@ -220,8 +239,8 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
         return;
       }
       if (event.pointerType === 'mouse') {
-        const nav = desktopNavMode();
-        if (nav === 'pan' || nav === 'zoom' || (nav === 'none' && event.button === 0)) {
+        const nav = desktopNavForPointer(event, 'down');
+        if (nav === 'pan' || nav === 'zoom' || event.button === 0) {
           event.preventDefault();
         }
       }
@@ -264,10 +283,17 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
       }
     };
 
+    const onLostPointerCapture = (event: PointerEvent) => {
+      if (store.sessions.has(event.pointerId)) {
+        dispatch(event, 'cancel');
+      }
+    };
+
     element.addEventListener('pointerdown', onPointerDown, { passive: false });
     element.addEventListener('pointermove', onPointerMove, { passive: false });
     element.addEventListener('pointerup', onPointerUp, { passive: false });
     element.addEventListener('pointercancel', onPointerCancel, { passive: false });
+    element.addEventListener('lostpointercapture', onLostPointerCapture);
 
     return () => {
       unbindDesktopNav();
@@ -275,6 +301,7 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
       element.removeEventListener('pointermove', onPointerMove);
       element.removeEventListener('pointerup', onPointerUp);
       element.removeEventListener('pointercancel', onPointerCancel);
+      element.removeEventListener('lostpointercapture', onLostPointerCapture);
     };
   };
 

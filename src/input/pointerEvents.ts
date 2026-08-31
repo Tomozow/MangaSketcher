@@ -24,7 +24,7 @@ export function pointerKindFromWeb(event: Pick<PointerEvent, 'pointerType'>): Po
 
 /**
  * Workspace pointer kind: mouse left button uses the active tool (pencil);
- * Space / Ctrl+Space keeps finger (pan / zoom).
+ * Space / Ctrl+Space / right button keeps finger (pan / zoom).
  */
 export function pointerKindForWorkspace(
   event: Pick<PointerEvent, 'pointerType' | 'buttons' | 'button'>,
@@ -36,7 +36,7 @@ export function pointerKindForWorkspace(
       return 'finger';
     }
     if (phase === 'up' || phase === 'cancel') {
-      return 'pencil';
+      return event.button === 2 ? 'finger' : 'pencil';
     }
     if (phase === 'down') {
       return event.button === 0 ? 'pencil' : 'finger';

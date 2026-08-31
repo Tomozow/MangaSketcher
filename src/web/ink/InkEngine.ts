@@ -135,13 +135,17 @@ export class InkEngine {
       this.noteEncodedPng(rasterId, png);
     }
     if (!this.rasterDimensions.has(rasterId)) {
-      const stored = this.encodedPng.get(rasterId);
-      const parsed =
-        stored && stored.byteLength > 0 ? encodedRasterDimensions(stored) : null;
-      this.rasterDimensions.set(
-        rasterId,
-        parsed ?? { width: this.rasterWidth, height: this.rasterHeight },
-      );
+      if (rasterId.includes(':page:')) {
+        this.rasterDimensions.set(rasterId, { width: this.rasterWidth, height: this.rasterHeight });
+      } else {
+        const stored = this.encodedPng.get(rasterId);
+        const parsed =
+          stored && stored.byteLength > 0 ? encodedRasterDimensions(stored) : null;
+        this.rasterDimensions.set(
+          rasterId,
+          parsed ?? { width: this.rasterWidth, height: this.rasterHeight },
+        );
+      }
     }
     const stored = this.encodedPng.get(rasterId);
     const storedLen = stored?.byteLength ?? 0;
@@ -358,9 +362,10 @@ export class InkEngine {
       bitmap.close();
       return;
     }
-    this.ensureCanvasSize(rasterId, canvas, bitmap.width, bitmap.height);
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(bitmap, 0, 0);
+    const dims = this.getRasterDimensions(rasterId);
+    this.ensureCanvasSize(rasterId, canvas, dims.width, dims.height);
+    ctx.clearRect(0, 0, dims.width, dims.height);
+    ctx.drawImage(bitmap, 0, 0, dims.width, dims.height);
     bitmap.close();
     this.callbacks.onHotPixelsReady?.(rasterId);
   }

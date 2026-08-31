@@ -513,6 +513,7 @@ export function WorkspaceStrip({
                       engine={inkEngine}
                       rasterId={rasterId}
                       displayWidth={frame.width}
+                      cssZoom={zoom}
                       inkFrame={inkFrame}
                       className={styles.pageInkCanvas}
                     />

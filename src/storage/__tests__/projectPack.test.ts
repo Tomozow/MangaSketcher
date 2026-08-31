@@ -17,6 +17,12 @@ import {
   rewriteImportedDocument,
 } from '../projectPack';
 import { buildWorkspaceZip } from '../../web/export/buildWorkspaceZip';
+import {
+  encodeInkGrayAlphaPng,
+  encodeInkRgbaPng,
+  pngColorType,
+  tryDecodePngToRgba,
+} from '../compactInkPng';
 import { MemoryStorageDatabase } from '../testUtils/memoryDb';
 import { MemoryOpfsStorage } from '../testUtils/memoryOpfs';
 
@@ -230,8 +236,74 @@ describe('exportProjectPack / importProjectPack', () => {
 
     const file = await exportProjectPack(meta.id, { db, opfs, ...noopCheckpoint });
     expect(file.size).toBeGreaterThan(0);
+    expect(file.size).toBeLessThan(200 * 1024);
     const parsed = parseProjectPackZip(new Uint8Array(await file.arrayBuffer()));
     expect(parsed.rasters.size).toBe(1);
+    const [png] = [...parsed.rasters.values()];
+    expect(png!.byteLength).toBeLessThan(8 * 1024);
+  });
+
+  test('re-encodes an older rgba empty raster and still parses', async () => {
+    const db = new MemoryStorageDatabase();
+    const opfs = new MemoryOpfsStorage();
+    const { document } = await createProject('legacy-empty', 1, { db, opfs });
+    const rasterId = collectRasterIds(document)[0]!;
+    const width = 16;
+    const height = 12;
+    const rgbaEmpty = encodeInkRgbaPng(new Uint8Array(width * height * 4), width, height);
+    const zip = buildProjectPackZip({
+      document,
+      rasters: new Map([[rasterId, rgbaEmpty]]),
+    });
+    const parsed = parseProjectPackZip(zip);
+    const packed = [...parsed.rasters.values()][0]!;
+    expect(pngColorType(packed)).toBe(6);
+    const decoded = tryDecodePngToRgba(packed);
+    expect(decoded?.width).toBe(width);
+    expect(decoded?.height).toBe(height);
+    expect(decoded?.rgba.every((value) => value === 0)).toBe(true);
+    expect(pngColorType(packed)).toBe(6);
+  });
+
+  test('import rewrites gray+alpha rasters to rgba', async () => {
+    const db = new MemoryStorageDatabase();
+    const opfs = new MemoryOpfsStorage();
+    const { document, meta } = await createProject('type4-import', 1, { db, opfs });
+    const rasterId = collectRasterIds(document)[0]!;
+    const width = 6;
+    const height = 4;
+    const rgba = new Uint8Array(width * height * 4);
+    rgba[0] = 0;
+    rgba[1] = 0;
+    rgba[2] = 0;
+    rgba[3] = 200;
+    const grayAlpha = encodeInkGrayAlphaPng(rgba, width, height);
+    expect(pngColorType(grayAlpha)).toBe(4);
+    await db.putRaster(rasterId, grayAlpha);
+
+    const zip = zipSync({
+      [MANIFEST_JSON]: new TextEncoder().encode(
+        JSON.stringify({
+          magic: PROJECT_PACK_MAGIC,
+          formatVersion: PROJECT_PACK_FORMAT_VERSION,
+          exportedProjectId: document.projectId,
+          rasterMembers: [rasterZipPathFromPageId(document.workspaceOrder[0]!)],
+        }),
+      ),
+      [DOCUMENT_JSON]: new TextEncoder().encode(JSON.stringify({ ...document, pdf: null })),
+      [rasterZipPathFromPageId(document.workspaceOrder[0]!)]: new Uint8Array(grayAlpha),
+    });
+    const imported = await importProjectPack(new File([zip], 'type4.zip', { type: 'application/zip' }), {
+      db,
+      opfs,
+      ...noopCheckpoint,
+      now: () => '2026-03-02T00:00:00.000Z',
+    });
+    const loaded = await loadDocument(imported.id, { db, opfs });
+    const importedRasterId = collectRasterIds(loaded!)[0]!;
+    const stored = await db.getRaster(importedRasterId);
+    expect(pngColorType(stored!)).toBe(6);
+    expect(imported.id).not.toBe(meta.id);
   });
 });
 

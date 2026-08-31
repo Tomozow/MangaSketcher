@@ -30,6 +30,9 @@ describe('pointerEvents (Web)', () => {
     expect(pointerKindForWorkspace({ pointerType: 'mouse', button: 2, buttons: 0 } as PointerEvent, 'down', 'none')).toBe(
       'finger',
     );
+    expect(pointerKindForWorkspace({ pointerType: 'mouse', button: 2, buttons: 0 } as PointerEvent, 'up', 'none')).toBe(
+      'finger',
+    );
   });
 
   test('sticky は最初の判定を維持し Pencil に昇格しない', () => {

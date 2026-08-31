@@ -60,3 +60,6 @@ coverage/
 # npm pack leftovers
 *.tgz
 
+# dedicated Chrome profile used by start-static.bat
+.chrome-static-profile/
+

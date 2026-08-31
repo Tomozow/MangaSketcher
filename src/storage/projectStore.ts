@@ -17,6 +17,7 @@ import {
 } from './projectExportCheckpoint';
 import { randomId } from './randomId';
 import { collectRasterIds, pdfOpfsPath, rasterBelongsToProject } from './rasterIds';
+import { normalizePackRasterPng } from './compactInkPng';
 import {
   copySharedTransparentPng,
   encodeTransparentPngBuffer,
@@ -327,7 +328,7 @@ export async function importProjectPack(
     if (!png) {
       throw new ProjectPackError('ラスターデータが不足しています。');
     }
-    rasters.set(rasterId, png.slice(0));
+    rasters.set(rasterId, normalizePackRasterPng(png.slice(0)));
   }
 
   const meta = toMeta(document, now());

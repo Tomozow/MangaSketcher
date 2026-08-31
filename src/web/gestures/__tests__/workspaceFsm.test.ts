@@ -1173,6 +1173,40 @@ describe('Web workspace FSM', () => {
   });
 
   describe('PC desktop navigation', () => {
+    test('right mouse button pans immediately without slop', () => {
+      const store = createWorkspaceGestureStore();
+      finger(store, 'down', {
+        pointerId: 4,
+        pointerType: 'mouse',
+        desktopNav: 'pan',
+        x: 50,
+        y: 80,
+        now: 1,
+      });
+      expect(getWorkspaceSession(store, 4)?.mode).toBe('pan');
+
+      const move = finger(store, 'move', {
+        pointerId: 4,
+        pointerType: 'mouse',
+        desktopNav: 'pan',
+        x: 70,
+        y: 90,
+        now: 2,
+      });
+      expect(move.effects[0]).toMatchObject({ type: 'panBy', dx: 20, dy: 10 });
+
+      const up = finger(store, 'up', {
+        pointerId: 4,
+        pointerType: 'mouse',
+        desktopNav: 'pan',
+        x: 70,
+        y: 90,
+        now: 3,
+      });
+      expect(up.effects).toEqual([]);
+      expect(getWorkspaceSession(store, 4)).toBeUndefined();
+    });
+
     test('Space+drag pans immediately without slop', () => {
       const store = createWorkspaceGestureStore();
       finger(store, 'down', {

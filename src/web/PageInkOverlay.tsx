@@ -324,6 +324,7 @@ export function PageInkOverlay({
                 engine={engine}
                 rasterId={clip.rasterId}
                 displayWidth={displayW}
+                cssZoom={doc.workspaceZoom}
                 inkFrame={inkFrame}
               />
               {selectedIdSet.has(clip.id) ? (

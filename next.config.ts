@@ -8,11 +8,17 @@ const nextConfig: NextConfig = {
   ...(isStaticExport
     ? { output: 'export' as const, trailingSlash: true, distDir: '.next-export' }
     : { allowedDevOrigins: ['127.0.0.1', 'localhost', '192.168.0.2'] }),
-  serverExternalPackages: ['pdfjs-dist'],
+  serverExternalPackages: ['pdfjs-dist', 'fflate'],
+  turbopack: {
+    resolveAlias: {
+      fflate: 'fflate/browser',
+    },
+  },
   webpack: (config, { isServer }) => {
     config.resolve.alias = {
       ...config.resolve.alias,
       canvas: false,
+      fflate: 'fflate/browser',
     };
     if (!isServer) {
       config.output.globalObject = 'self';

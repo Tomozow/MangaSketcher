@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { DisableContextMenu } from '@/src/web/DisableContextMenu';
 import { ServiceWorkerRegistrar } from '@/src/web/ServiceWorkerRegistrar';
 import './globals.css';
 import '@/src/web/editor.css';
@@ -40,6 +41,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ja">
       <body>
+        <DisableContextMenu />
         <ServiceWorkerRegistrar />
         {children}
       </body>
