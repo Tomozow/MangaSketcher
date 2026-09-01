@@ -30,7 +30,7 @@ import {
   resolveWorkspaceHit,
 } from '@/src/web/gestures/resolveHit';
 import { PageDragThumbnail } from '@/src/web/PageDragThumbnail';
-import { PageChromeButtons } from '@/src/web/PageDeleteButton';
+import { PageChromeOverlay } from '@/src/web/PageDeleteButton';
 import { PageInkCanvas } from '@/src/web/ink/PageInkCanvas';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
 import { effectiveClipPose, type ClipLiveTransform } from '@/src/web/clip/clipLiveTransform';
@@ -420,6 +420,7 @@ export function WorkspaceStrip({
           position: 'relative',
           width: contentWidth,
           height: contentHeight,
+          ['--ms-screen-px' as string]: String(1 / Math.max(0.1, zoom)),
         }}
       >
         {dividers.map((divider) => (
@@ -541,14 +542,6 @@ export function WorkspaceStrip({
                   textLiveTransforms={textLiveTransforms}
                   liveTextContent={liveTextContent}
                 />
-                {deletePageId === pageId ? (
-                  <PageChromeButtons
-                    onInsert={onInsertPage ? () => onInsertPage(pageId) : undefined}
-                    onMoveToStock={onMovePageToStock ? () => onMovePageToStock(pageId) : undefined}
-                    onDelete={onDeletePage ? () => onDeletePage(pageId) : undefined}
-                    onClearInk={onClearPageInk ? () => onClearPageInk(pageId) : undefined}
-                  />
-                ) : null}
               </div>
               <div
                 className={`${styles.pageNumberBand} ${selectedPageId === pageId ? styles.pageNumberBandSelected : ''}`}
@@ -572,6 +565,19 @@ export function WorkspaceStrip({
           liveTextContent={liveTextContent}
         />
       </div>
+      {deletePageId ? (
+        <PageChromeOverlay
+          surfaceRef={surfaceRef}
+          pageId={deletePageId}
+          zoom={zoom}
+          panX={panX}
+          panY={panY}
+          onInsert={onInsertPage ? () => onInsertPage(deletePageId) : undefined}
+          onMoveToStock={onMovePageToStock ? () => onMovePageToStock(deletePageId) : undefined}
+          onDelete={onDeletePage ? () => onDeletePage(deletePageId) : undefined}
+          onClearInk={onClearPageInk ? () => onClearPageInk(deletePageId) : undefined}
+        />
+      ) : null}
       {visibleSelectedTextId ? (
         <TextChromeOverlay
           surfaceRef={surfaceRef}

@@ -1,12 +1,16 @@
 'use client';
 
 import { brushRadius } from '@/src/domain/pointers';
+import { PAGE_DISPLAY_W } from '@/src/domain/stripGeometry';
 import { styles } from './editorStyles';
 
 export const INK_SIZE_PREVIEW_HIDE_MS = 900;
 
-export function inkSizePreviewDiameterPx(size: number, zoom: number): number {
-  return Math.max(1, brushRadius(size, 1, 'pencil', false) * 2 * Math.max(0.01, zoom));
+/** Screen CSS diameter of a full-pressure stamp, matching page ink (raster → 216px display × zoom). */
+export function inkSizePreviewDiameterPx(size: number, zoom: number, rasterWidth: number): number {
+  const rasterDiameter = brushRadius(size, 1, 'pencil', false) * 2;
+  const pageScale = PAGE_DISPLAY_W / Math.max(1, rasterWidth);
+  return rasterDiameter * pageScale * Math.max(0.01, zoom);
 }
 
 export type InkSizePreviewKind = 'pen' | 'eraser';

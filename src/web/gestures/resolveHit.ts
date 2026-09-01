@@ -115,6 +115,7 @@ function hitPasteboardClips(
   rasterWidth: number,
   rasterHeight: number,
   getClipRasterSize: (clipId: ClipId) => { width: number; height: number },
+  zoom: number,
 ): WorkspaceHit | null {
   const selectedSet = new Set(selectedClipIds);
   for (let i = clips.length - 1; i >= 0; i -= 1) {
@@ -130,6 +131,7 @@ function hitPasteboardClips(
       rasterWidth,
       rasterHeight,
       true,
+      zoom,
     );
     if (handle) {
       return { kind: 'clip', clipId: clip.id, handle };
@@ -146,6 +148,7 @@ function hitPasteboardClips(
       rasterWidth,
       rasterHeight,
       selectedSet.has(clip.id),
+      zoom,
     );
     if (handle) {
       return { kind: 'clip', clipId: clip.id, handle };
@@ -310,6 +313,7 @@ export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceH
       input.rasterWidth,
       input.rasterHeight,
       input.getClipRasterSize,
+      input.zoom,
     );
     if (clipHit) {
       return clipHit;

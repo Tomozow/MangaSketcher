@@ -106,19 +106,21 @@ export function hitClipAt(
   rasterWidth: number,
   rasterHeight: number,
   selected: boolean,
+  zoom = 1,
 ): ClipHandle | null {
   const bounds = clipWorldBounds(clip, size, rasterWidth, rasterHeight);
   const local = worldToClipLocal(worldX, worldY, bounds);
+  const handleR = CLIP_HANDLE_RADIUS / Math.max(0.1, zoom);
 
   if (selected) {
     const rotateX = 0;
-    const rotateY = -bounds.halfH - CLIP_HANDLE_RADIUS;
-    if (dist(local.x, local.y, rotateX, rotateY) <= CLIP_HANDLE_RADIUS) {
+    const rotateY = -bounds.halfH - handleR;
+    if (dist(local.x, local.y, rotateX, rotateY) <= handleR) {
       return 'rotate';
     }
     const cornerX = bounds.halfW;
     const cornerY = bounds.halfH;
-    if (dist(local.x, local.y, cornerX, cornerY) <= CLIP_HANDLE_RADIUS) {
+    if (dist(local.x, local.y, cornerX, cornerY) <= handleR) {
       return 'corner';
     }
   }

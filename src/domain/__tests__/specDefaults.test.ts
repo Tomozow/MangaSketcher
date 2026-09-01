@@ -25,8 +25,8 @@ describe('§13.1 spec defaults', () => {
   });
 
   test('text chrome origin sits above the text box, not inside it', () => {
-    expect(PAGE_DISPLAY_W * TEXT_CHROME_BUTTON_PAGE_RATIO).toBeCloseTo(15);
-    expect(textChromeScreenMetrics(PAGE_DISPLAY_W).button).toBeCloseTo(15);
+    expect(PAGE_DISPLAY_W * TEXT_CHROME_BUTTON_PAGE_RATIO).toBeCloseTo(30);
+    expect(textChromeScreenMetrics(PAGE_DISPLAY_W).button).toBeCloseTo(30);
     expect(textChromeScreenMetrics(PAGE_DISPLAY_W).stack).toBeCloseTo(TEXT_CHROME_STACK_PX);
     expect(textChromeScreenMetrics(PAGE_DISPLAY_W * 2).button).toBeCloseTo(30);
   });

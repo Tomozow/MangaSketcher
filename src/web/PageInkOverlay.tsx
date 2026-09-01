@@ -1,7 +1,7 @@
 'use client';
 
 import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
-import { buildStripFrames, PAGE_DISPLAY_W, stripLayoutFromDoc, textChromeScreenMetrics } from '@/src/domain/stripGeometry';
+import { buildStripFrames, stripLayoutFromDoc, textChromeScreenMetrics } from '@/src/domain/stripGeometry';
 import type { ClipId, TextId } from '@/src/domain/types';
 import type { EditorDocument } from '@/src/storage/types';
 import { CLIP_CHROME_ATTR, CLIP_COPY_ATTR, CLIP_DELETE_ATTR, CLIP_FRAME_ATTR, CLIP_ID_ATTR, CLIP_INSERT_ATTR } from './clip/constants';
@@ -196,7 +196,7 @@ function ClipChromeOverlay({
       setPose(null);
       return;
     }
-    const metrics = textChromeScreenMetrics(PAGE_DISPLAY_W * Math.max(0.1, zoom));
+    const metrics = textChromeScreenMetrics();
     const overlayRect = overlay.getBoundingClientRect();
     let left = Infinity;
     let top = Infinity;
@@ -302,6 +302,7 @@ export function PageInkOverlay({
           width: 'max-content',
           height: 'max-content',
           overflow: 'visible',
+          ['--ms-screen-px' as string]: String(1 / Math.max(0.1, doc.workspaceZoom)),
         }}
       >
         {showWorldMarquee ? (

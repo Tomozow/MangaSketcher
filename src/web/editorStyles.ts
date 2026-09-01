@@ -28,6 +28,7 @@ export const styles = {
   marqueePreview: 'ms-marqueePreview',
   lassoPreview: 'ms-lassoPreview',
   pageChromeRow: 'ms-pageChromeRow',
+  pageChromeRowScreen: 'ms-pageChromeRowScreen',
   pageDeleteButton: 'ms-pageDeleteButton',
   pageDragThumb: 'ms-pageDragThumb',
   pageDragThumbInk: 'ms-pageDragThumbInk',

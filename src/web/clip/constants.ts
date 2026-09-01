@@ -4,7 +4,7 @@ export const MIN_MARQUEE_RASTER_PX = 4;
 /** Clip axis scale floor (free transform). */
 export const MIN_CLIP_SCALE = 0.1;
 
-/** World-space hit radius for clip transform handles (CSS px, pre-zoom). */
+/** Screen-space hit radius for clip transform handles (world = radius / zoom). */
 export const CLIP_HANDLE_RADIUS = 12;
 
 /** Workspace offset applied when duplicating a pasteboard clip. */

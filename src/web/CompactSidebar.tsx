@@ -127,7 +127,7 @@ export function CompactSidebar({
     setInkSizePreview((prev) => ({
       key: (prev?.key ?? 0) + 1,
       kind,
-      diameter: inkSizePreviewDiameterPx(size, doc.workspaceZoom),
+      diameter: inkSizePreviewDiameterPx(size, doc.workspaceZoom, doc.rasterWidth),
       color,
       opacity,
       size,

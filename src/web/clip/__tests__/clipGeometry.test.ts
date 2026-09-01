@@ -90,6 +90,16 @@ describe('clipGeometry', () => {
     expect(hitClipAt(cornerWorldX, cornerWorldY, clip, size, 1200, 1700, true)).toBe('corner');
   });
 
+  test('hitClipAt handle radius is screen-fixed (world radius shrinks with zoom)', () => {
+    const clip = { id: 'c1', x: 0, y: 0, scale: 1, rotation: 0 };
+    const size = { width: 100, height: 100 };
+    const bounds = clipWorldBounds(clip, size, 1200, 1700);
+    const awayX = bounds.cx + bounds.halfW;
+    const awayY = bounds.cy + bounds.halfH + 10;
+    expect(hitClipAt(awayX, awayY, clip, size, 1200, 1700, true, 1)).toBe('corner');
+    expect(hitClipAt(awayX, awayY, clip, size, 1200, 1700, true, 2)).toBeNull();
+  });
+
       test('hitClipAt body does not steal page marquee area outside clip', () => {
     const clip = { id: 'c1', x: 200, y: 200, scale: 1, rotation: 0 };
     const size = { width: 20, height: 20 };

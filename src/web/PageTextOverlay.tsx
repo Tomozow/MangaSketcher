@@ -34,7 +34,6 @@ import {
   PAGE_TEXT_WRAP_ATTR,
 } from '@/src/web/gestures/pageTextDom';
 import { styles } from '@/src/web/editorStyles';
-import { PAGE_INK_FRAME_ATTR } from '@/src/web/gestures/pageInkDom';
 import { pageBoxToWorld } from '@/src/web/gestures/elementInteraction';
 import { useLiveTextContent, type LiveTextContent } from '@/src/web/liveTextContentStore';
 import { isWhiteTextColor } from '@/src/web/text/whiteTextColor';
@@ -441,12 +440,7 @@ export function TextChromeOverlay({
       setPose(null);
       return;
     }
-    const page = surface.querySelector<HTMLElement>(`[${PAGE_INK_FRAME_ATTR}]`);
-    const pageWidth =
-      page && page.getBoundingClientRect().width > 0
-        ? page.getBoundingClientRect().width
-        : PAGE_DISPLAY_W * Math.max(0.1, zoom);
-    const metrics = textChromeScreenMetrics(pageWidth);
+    const metrics = textChromeScreenMetrics();
     const surfaceRect = surface.getBoundingClientRect();
     let left = Infinity;
     let top = Infinity;
