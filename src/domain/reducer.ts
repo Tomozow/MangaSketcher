@@ -6,7 +6,7 @@ import { pageTextToPasteboard, wrapExtractedText, workspaceFontSizeFromTool } fr
 import { joinVerticalBody, rangeSelectBody } from './pdfText';
 import { stampStroke, type StrokePoint } from './stroke';
 import { applyFontSizeToText, findText, resizeTextBox } from './text';
-import { findStockClip, findStockPage, findStockText, isStockClipItem, isStockPageItem, isStockTextItem, stockPagesThenForeground } from './stockItems';
+import { findStockClip, findStockPage, findStockText, isStockClipItem, isStockPageItem, isStockTextItem } from './stockItems';
 import { fitTextBoxToContent } from './textWrap';
 import { clampSplit, clampPdfDrawerHeight, clampPdfDrawerWidth } from './uiLayout';
 import {
@@ -323,7 +323,7 @@ export function reduceTestDocument(
         return doc;
       }
       next.splice(toIndex, 0, moved);
-      doc.stock = stockPagesThenForeground(next);
+      doc.stock = next;
       return doc;
     }
     case 'swapStockPositions': {
@@ -347,7 +347,6 @@ export function reduceTestDocument(
       }
       removePageFromWorkspace(doc, action.pageId);
       doc.stock.push({ pageId: action.pageId, x: action.x, y: action.y });
-      doc.stock = stockPagesThenForeground(doc.stock);
       return doc;
     }
     case 'returnStockToWorkspace': {
@@ -378,7 +377,6 @@ export function reduceTestDocument(
         return doc;
       }
       doc.stock.push({ kind: 'clip', clipId: action.clipId, x: action.x, y: action.y });
-      doc.stock = stockPagesThenForeground(doc.stock);
       if (doc.selectedClipId === action.clipId) {
         doc.selectedClipId = null;
       }
@@ -415,7 +413,6 @@ export function reduceTestDocument(
         }
       }
       doc.stock.push({ kind: 'text', textId: action.textId, x: action.x, y: action.y });
-      doc.stock = stockPagesThenForeground(doc.stock);
       if (doc.selectedTextId === action.textId) {
         doc.selectedTextId = null;
       }

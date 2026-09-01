@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PageId } from '@/src/domain/types';
 import { selectedTextIdsOf } from '@/src/domain/text';
 import { selectTargetFlagsOf } from '@/src/domain/types';
-import { withoutStockedClips, withoutStockedTexts } from '@/src/domain/stockItems';
+import { withoutStockedClips, withoutStockedTexts, stockGridFitPageUnits } from '@/src/domain/stockItems';
 import { moveWorkspacePageToStock, nextFreeStockPagePosition } from '@/src/web/stock/stockActions';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
 import type { EditorDocument, EditorHistory } from '@/src/storage/types';
@@ -333,6 +333,15 @@ export function EditorLayout({
 
   const stockVisible = stockOpen || stockEdgeReveal;
   const pdfVisible = doc.pdfViewerVisible;
+  const stockFitItems =
+    doc.stockPane === 'trash'
+      ? [
+          ...doc.trash.map((pageId) => ({ pageId, x: 0, y: 0 })),
+          ...(doc.trashClips ?? []).map((clipId) => ({ kind: 'clip' as const, clipId, x: 0, y: 0 })),
+          ...(doc.trashTexts ?? []).map((textId) => ({ kind: 'text' as const, textId, x: 0, y: 0 })),
+        ]
+      : doc.stock;
+  const stockFitUnits = Math.max(3, stockGridFitPageUnits(stockFitItems));
   const bodyRef = useRef<HTMLDivElement>(null);
   const saveKind =
     autosaveStatus.encodingCount > 0 ? 'encoding' : autosaveStatus.unsaved ? 'unsaved' : 'idle';
@@ -378,10 +387,15 @@ export function EditorLayout({
       data-ms-pdf={pdfVisible ? 'open' : 'closed'}
       data-ms-stock={stockVisible ? 'open' : 'closed'}
       data-ms-chrome-flip={appSettings.chromeFlip ? '1' : '0'}
+      data-ms-stock-top={appSettings.swapTopbarAndStock ? '1' : '0'}
+      data-ms-stock-fit={stockVisible && (doc.stockPane === 'trash' || doc.stockLayout === 'grid') ? '1' : '0'}
       style={{
         ['--ms-background' as string]: colors.background,
         ['--ms-pdf-drawer-w' as string]: String(clampPdfDrawerWidth(doc.pdfDrawerWidth)),
         ['--ms-pdf-drawer-h' as string]: String(clampPdfDrawerHeight(doc.pdfDrawerHeight)),
+        ['--ms-page-aspect' as string]: String(
+          doc.rasterWidth > 0 ? doc.rasterHeight / doc.rasterWidth : 1.41667,
+        ),
       }}
     >
       <div id="editor-main-split" className={styles.mainColumn}>
@@ -452,26 +466,30 @@ export function EditorLayout({
         </div>
         <WorkspaceLayoutMenu doc={doc} dispatch={dispatch} />
         <AppSettingsMenu settings={appSettings} onChange={updateAppSettings} />
-        <button
-          type="button"
-          className={`${styles.chromeIcon} ${stockOpen ? styles.chromeIconPressed : ''}`}
-          aria-label="ストック"
-          aria-pressed={stockOpen}
-          title="ストック"
-          onClick={() => setStockOpen((open) => !open)}
-        >
-          <IconStock />
-        </button>
-        <button
-          type="button"
-          className={`${styles.chromeIcon} ${pdfVisible ? styles.chromeIconPressed : ''}`}
-          aria-label="PDF 表示切替"
-          aria-pressed={pdfVisible}
-          title="PDF"
-          onClick={() => dispatch({ type: 'setUiLayout', pdfViewerVisible: !doc.pdfViewerVisible })}
-        >
-          <IconPdf />
-        </button>
+        {appSettings.stockPdfButtonsOnPalette ? null : (
+          <>
+            <button
+              type="button"
+              className={`${styles.chromeIcon} ${stockOpen ? styles.chromeIconPressed : ''}`}
+              aria-label="ストック"
+              aria-pressed={stockOpen}
+              title="ストック"
+              onClick={() => setStockOpen((open) => !open)}
+            >
+              <IconStock />
+            </button>
+            <button
+              type="button"
+              className={`${styles.chromeIcon} ${pdfVisible ? styles.chromeIconPressed : ''}`}
+              aria-label="PDF 表示切替"
+              aria-pressed={pdfVisible}
+              title="PDF"
+              onClick={() => dispatch({ type: 'setUiLayout', pdfViewerVisible: !doc.pdfViewerVisible })}
+            >
+              <IconPdf />
+            </button>
+          </>
+        )}
         <WorkspaceExportControls
           doc={doc}
           inkEngine={inkEngine}
@@ -503,6 +521,32 @@ export function EditorLayout({
               <WorkspaceNav doc={doc} dispatch={dispatch} pageTurnUnit={appSettings.pageTurnUnit} />
             ) : undefined
           }
+          trailing={
+            appSettings.stockPdfButtonsOnPalette ? (
+              <div className={styles.toolRail} role="toolbar" aria-label="ストックとPDF">
+                <button
+                  type="button"
+                  className={`${styles.chromeIcon} ${stockOpen ? styles.chromeIconPressed : ''}`}
+                  aria-label="ストック"
+                  aria-pressed={stockOpen}
+                  title="ストック"
+                  onClick={() => setStockOpen((open) => !open)}
+                >
+                  <IconStock />
+                </button>
+                <button
+                  type="button"
+                  className={`${styles.chromeIcon} ${pdfVisible ? styles.chromeIconPressed : ''}`}
+                  aria-label="PDF 表示切替"
+                  aria-pressed={pdfVisible}
+                  title="PDF"
+                  onClick={() => dispatch({ type: 'setUiLayout', pdfViewerVisible: !doc.pdfViewerVisible })}
+                >
+                  <IconPdf />
+                </button>
+              </div>
+            ) : undefined
+          }
         />
       </div>
 
@@ -512,6 +556,7 @@ export function EditorLayout({
           className={styles.stockDock}
           data-ms-shell="pane"
           data-ms-region="stock"
+          style={{ ['--ms-stock-fit-units' as string]: String(stockFitUnits) }}
         >
           <aside className={styles.stockSheet} aria-label="ストック">
             <StockPane

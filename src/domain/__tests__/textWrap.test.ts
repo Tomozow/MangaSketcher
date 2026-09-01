@@ -206,15 +206,19 @@ describe('fitTextBoxToContent', () => {
     expect(next.y).toBe(box.y);
   });
 
-  test('an 11th glyph adds a column instead of clipping', () => {
+  test('typed text grows a single column; 10-glyph wrap is extract-only', () => {
     const fontSize = 36;
     const one = verticalTextContentSize('あ'.repeat(10), fontSize);
     const two = verticalTextContentSize('あ'.repeat(11), fontSize);
-    expect(two.width).toBeGreaterThan(one.width);
-    expect(two.width).toBe(Math.ceil(2 * fontSize * TEXT_WRAP_LINE_HEIGHT));
+    expect(two.width).toBe(one.width);
+    expect(two.width).toBe(Math.ceil(fontSize * TEXT_WRAP_LINE_HEIGHT));
     expect(one.height).toBe(10 * fontSize);
+    expect(two.height).toBe(11 * fontSize);
     expect(verticalTextContentSize('あ', fontSize).height).toBe(fontSize);
     expect(verticalTextContentSize('あ'.repeat(3), fontSize).height).toBe(3 * fontSize);
+    expect(verticalTextContentSize(`${'あ'.repeat(10)}\nあ`, fontSize).width).toBe(
+      Math.ceil(2 * fontSize * TEXT_WRAP_LINE_HEIGHT),
+    );
   });
 
   test('empty content leaves the box unchanged', () => {

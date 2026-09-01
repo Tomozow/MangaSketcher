@@ -16,6 +16,70 @@ export function isStockTextItem(item: StockItem): item is StockTextItem {
   return item.kind === 'text';
 }
 
+export type StockGridCell = {
+  column: number;
+  row: 1 | 2;
+  rowSpan: 1 | 2;
+};
+
+/**
+ * 2-row grid: array[0] is top-right (front), then bottom-right, then the column to the left.
+ * The last array item sits on the left. Pages take a full-height column.
+ * Adjacent clips/texts share a column (earlier index on top). An unpaired clip sits on top.
+ */
+export function stockGridPlacements(items: readonly StockItem[]): StockGridCell[] {
+  const cells: StockGridCell[] = items.map(() => ({ column: 1, row: 1, rowSpan: 2 }));
+  type Col =
+    | { kind: 'page'; index: number }
+    | { kind: 'clip'; top: number; bottom?: number };
+  const fromRight: Col[] = [];
+  let i = 0;
+  while (i < items.length) {
+    if (isStockPageItem(items[i]!)) {
+      fromRight.push({ kind: 'page', index: i });
+      i += 1;
+      continue;
+    }
+    if (i + 1 < items.length && !isStockPageItem(items[i + 1]!)) {
+      fromRight.push({ kind: 'clip', top: i, bottom: i + 1 });
+      i += 2;
+      continue;
+    }
+    fromRight.push({ kind: 'clip', top: i });
+    i += 1;
+  }
+  fromRight.reverse().forEach((col, offset) => {
+    const column = offset + 1;
+    if (col.kind === 'page') {
+      cells[col.index] = { column, row: 1, rowSpan: 2 };
+      return;
+    }
+    cells[col.top] = { column, row: 1, rowSpan: 1 };
+    if (col.bottom !== undefined) {
+      cells[col.bottom] = { column, row: 2, rowSpan: 1 };
+    }
+  });
+  return cells;
+}
+
+/** Page-width units for a fitted stock dock (clip columns are half a page). */
+export function stockGridFitPageUnits(items: readonly StockItem[]): number {
+  const placements = stockGridPlacements(items);
+  let maxCol = 0;
+  const fullCols = new Set<number>();
+  placements.forEach((cell, index) => {
+    maxCol = Math.max(maxCol, cell.column);
+    if (isStockPageItem(items[index]!)) {
+      fullCols.add(cell.column);
+    }
+  });
+  let units = 0;
+  for (let column = 1; column <= maxCol; column += 1) {
+    units += fullCols.has(column) ? 1 : 0.5;
+  }
+  return units;
+}
+
 /** Grid packs to the right: pages first (left), clips/texts in front (right). */
 export function stockPagesThenForeground<T extends StockItem>(stock: readonly T[]): T[] {
   const pages: T[] = [];

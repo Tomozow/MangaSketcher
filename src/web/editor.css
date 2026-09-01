@@ -1232,7 +1232,6 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 
 .ms-stockThumbClip,
 .ms-stockThumbText {
-  order: 1;
   grid-row: auto;
   width: calc((var(--ms-stock-sheet-h, 220px) / 2) / var(--ms-thumb-aspect, var(--ms-page-aspect, 1.41667)));
   background-color: transparent;
@@ -1914,6 +1913,7 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 
 .ms-leftChrome,
 .ms-toolRailCluster,
+.ms-leftChromeExtras,
 .ms-toolRail,
 .ms-toolFlyout,
 .ms-workspaceNav {
@@ -1942,6 +1942,11 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   grid-column: 1;
   grid-row: 2;
   position: relative;
+}
+
+.ms-leftChromeExtras {
+  grid-column: 1;
+  grid-row: 3;
 }
 
 .ms-workspaceNav,
@@ -2009,6 +2014,10 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 
 .ms-leftChrome:not(:has(.ms-workspaceNav)) .ms-toolRailCluster {
   grid-row: 1;
+}
+
+.ms-leftChrome:not(:has(.ms-workspaceNav)) .ms-leftChromeExtras {
+  grid-row: 2;
 }
 
 .ms-toolFlyoutTitle {
@@ -2455,6 +2464,63 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 #editor-root .ms-body[data-ms-chrome-flip='1'][data-ms-pdf='open'] .ms-stockDock {
   left: calc(12px + var(--ms-pdf-stock-inset));
   right: 84px;
+}
+
+#editor-root .ms-body[data-ms-stock-top='1'] .ms-topbar {
+  top: auto;
+  bottom: 12px;
+}
+
+#editor-root .ms-body[data-ms-stock-top='1'] .ms-stockDock {
+  bottom: auto;
+  top: 12px;
+}
+
+#editor-root .ms-body[data-ms-stock-top='1'] .ms-workspaceLayoutPanel,
+#editor-root .ms-body[data-ms-stock-top='1'] .ms-appSettingsPanel,
+#editor-root .ms-body[data-ms-stock-top='1'] .ms-exportMenu,
+#editor-root .ms-body[data-ms-stock-top='1'] .ms-workspaceExportStatus {
+  top: auto;
+  bottom: calc(100% + 8px);
+}
+
+#editor-root .ms-body[data-ms-stock-top='1'][data-ms-pdf='open'] .ms-stockDock {
+  --ms-pdf-stock-collide: 1px;
+}
+
+#editor-root .ms-body[data-ms-stock-fit='1'] .ms-stockDock {
+  --ms-stock-page-w: calc(
+    var(--ms-stock-sheet-h, 220px) / var(--ms-page-aspect, 1.41667)
+  );
+  width: min(
+    calc(var(--ms-stock-page-w) * var(--ms-stock-fit-units, 3) + 52px),
+    calc(100% - 96px)
+  );
+  left: auto;
+  right: 12px;
+}
+
+#editor-root .ms-body[data-ms-stock-fit='1'][data-ms-pdf='open'] .ms-stockDock {
+  right: calc(12px + var(--ms-pdf-stock-inset));
+  left: auto;
+  max-width: calc(100% - 96px - var(--ms-pdf-stock-inset, 0px));
+}
+
+#editor-root .ms-body[data-ms-chrome-flip='1'][data-ms-stock-fit='1'] .ms-stockDock {
+  left: auto;
+  right: 84px;
+}
+
+#editor-root .ms-body[data-ms-chrome-flip='1'][data-ms-stock-fit='1'][data-ms-pdf='open'] .ms-stockDock {
+  left: auto;
+  right: 84px;
+  max-width: calc(100% - 96px - var(--ms-pdf-stock-inset, 0px));
+}
+
+#editor-root .ms-body[data-ms-stock-fit='1'] .ms-stockSheet {
+  flex: 1 1 auto;
+  width: auto;
+  min-width: 0;
 }
 
 #editor-root .ms-pdfDrawer .ms-pdfDrawerResizeE,

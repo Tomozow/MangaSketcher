@@ -6,6 +6,7 @@ import { isTextContentEmpty } from '@/src/domain/text';
 import {
   fitTextEditInputHeight,
   planTextCommit,
+  TEXT_EDIT_MARGIN_PX,
   TEXT_EDIT_MIN_HEIGHT_PX,
   TEXT_EDIT_MIN_WIDTH_PX,
   textEditBarPose,
@@ -45,6 +46,9 @@ function fitBarInput(input: HTMLTextAreaElement, viewHeight: number): void {
 }
 
 function visualViewRect(): { left: number; top: number; width: number; height: number } {
+  if (typeof window === 'undefined') {
+    return { left: 0, top: 0, width: TEXT_EDIT_MIN_WIDTH_PX, height: TEXT_EDIT_MIN_HEIGHT_PX };
+  }
   const viewport = window.visualViewport;
   if (!viewport) {
     return { left: 0, top: 0, width: window.innerWidth, height: window.innerHeight };
@@ -125,11 +129,7 @@ export function TextEditBar({
       setLiveTextContent({ id: editingId, content: savedContent });
     }
     onEditingChange(true);
-    const frame = requestAnimationFrame(() => {
-      textareaRef.current?.focus();
-    });
     return () => {
-      cancelAnimationFrame(frame);
       if (!editingId) {
         return;
       }
@@ -137,6 +137,13 @@ export function TextEditBar({
       commitDraft(editingId, savedContent, true);
     };
   }, [commitDraft, onEditingChange, onLiveContent, selection?.id]);
+
+  useLayoutEffect(() => {
+    if (!selection) {
+      return;
+    }
+    textareaRef.current?.focus({ preventScroll: true });
+  }, [selection?.id]);
 
   useLayoutEffect(() => {
     if (!selection) {
@@ -319,15 +326,20 @@ export function TextEditBar({
     return null;
   }
 
+  const view = visualViewRect();
+  const barStyle = pose
+    ? { left: pose.left, top: pose.top, width: pose.width }
+    : {
+        left: view.left + TEXT_EDIT_MARGIN_PX,
+        top: view.top + TEXT_EDIT_MARGIN_PX,
+        width: TEXT_EDIT_MIN_WIDTH_PX,
+      };
+
   return (
     <div
       ref={barRef}
       className={styles.textEditBar}
-      style={
-        pose
-          ? { left: pose.left, top: pose.top, width: pose.width }
-          : { left: 0, top: -9999, width: TEXT_EDIT_MIN_WIDTH_PX }
-      }
+      style={barStyle}
       data-testid="text-edit-bar"
     >
       <textarea
@@ -335,6 +347,7 @@ export function TextEditBar({
         className={styles.textEditInput}
         value={draft}
         rows={1}
+        autoFocus
         aria-label="テキスト編集"
         onChange={handleChange}
         onFocus={handleFocus}

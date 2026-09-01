@@ -297,6 +297,8 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
       /\[data-ms-theme='dark'\][^{]*\.ms-pasteboardTextWrap[^{]*\.ms-pageTextBox[^{]*\{[^}]*filter:\s*invert\(1\)/,
     );
     expect(textEditBarSrc).toMatch(/<textarea/);
+    expect(textEditBarSrc).toContain('autoFocus');
+    expect(textEditBarSrc).toContain('preventScroll');
     expect(textEditBarSrc).not.toContain('完了');
     expect(textEditBarSrc).toContain('PAGE_TEXT_CONFIRM_ATTR');
     expect(pageTextOverlaySrc).toContain('テキストを確定');

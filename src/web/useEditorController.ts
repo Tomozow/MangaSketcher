@@ -1489,8 +1489,14 @@ export function useEditorController(projectId: string): EditorController {
     [bumpClipDragFrame, dispatch],
   );
 
+  const lastTextDuplicateAtRef = useRef(0);
   const duplicateText = useCallback(
     (textId: string) => {
+      const now = Date.now();
+      if (now - lastTextDuplicateAtRef.current < 450) {
+        return;
+      }
+      lastTextDuplicateAtRef.current = now;
       dispatch({ type: 'duplicateText', textId });
       setTextEditing(true);
     },

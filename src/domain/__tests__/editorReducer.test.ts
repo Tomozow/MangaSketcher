@@ -312,7 +312,8 @@ describe('text attachment placement', () => {
     expect(one.box.x + one.box.width).toBeCloseTo(180);
     doc = reduceEditorDocument(doc, { type: 'editText', textId, content: 'あ'.repeat(11) }, ids);
     const many = doc.pages[pageId]!.texts[0]!;
-    expect(many.box.width).toBeGreaterThan(one.box.width);
+    expect(many.box.width).toBe(one.box.width);
+    expect(many.box.height).toBeGreaterThan(one.box.height);
   });
 });
 

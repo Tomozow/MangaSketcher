@@ -11,7 +11,7 @@ import {
   clampStoredPagesPerColumn,
 } from './stripGeometry';
 import { clampPdfPage, clampPdfZoom, keepPdfViewOnReload, pdfViewAfterLoad } from './pdfView';
-import { findStockClip, findStockPage, findStockText, isStockClipItem, isStockPageItem, isStockTextItem, stockPagesThenForeground } from './stockItems';
+import { findStockClip, findStockPage, findStockText, isStockClipItem, isStockPageItem, isStockTextItem } from './stockItems';
 import type {
   ClipId,
   EditorDocument,
@@ -508,7 +508,7 @@ export function reduceEditorDocument(
         return doc;
       }
       next.splice(toIndex, 0, moved);
-      doc.stock = stockPagesThenForeground(next);
+      doc.stock = next;
       return doc;
     }
     case 'swapStockPositions': {
@@ -532,7 +532,6 @@ export function reduceEditorDocument(
       }
       removePageFromWorkspace(doc, a.pageId);
       doc.stock.push({ pageId: a.pageId, x: a.x, y: a.y });
-      doc.stock = stockPagesThenForeground(doc.stock);
       return doc;
     }
     case 'returnStockToWorkspace': {
@@ -563,7 +562,6 @@ export function reduceEditorDocument(
         return doc;
       }
       doc.stock.push({ kind: 'clip', clipId: a.clipId, x: a.x, y: a.y });
-      doc.stock = stockPagesThenForeground(doc.stock);
       Object.assign(
         doc,
         clipSelection(
@@ -602,7 +600,6 @@ export function reduceEditorDocument(
         });
       }
       doc.stock.push({ kind: 'text', textId: a.textId, x: a.x, y: a.y });
-      doc.stock = stockPagesThenForeground(doc.stock);
       Object.assign(
         doc,
         textSelection(selectedTextIdsOf(doc).filter((id) => id !== a.textId)),

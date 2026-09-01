@@ -146,6 +146,7 @@ export const styles = {
   toolFlyout: 'ms-toolFlyout',
   toolFlyoutTitle: 'ms-toolFlyoutTitle',
   leftChrome: 'ms-leftChrome',
+  leftChromeExtras: 'ms-leftChromeExtras',
   toolRailCluster: 'ms-toolRailCluster',
   toolRail: 'ms-toolRail',
   toolRailActive: 'ms-toolRailActive',

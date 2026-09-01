@@ -140,6 +140,22 @@ export function AppSettingsMenu({ settings, onChange }: AppSettingsMenuProps) {
             />
             サイドメニューとPDFの位置を入れ替える
           </label>
+          <label className={styles.workspaceLayoutCheck}>
+            <input
+              type="checkbox"
+              checked={settings.swapTopbarAndStock}
+              onChange={(event) => onChange({ swapTopbarAndStock: event.target.checked })}
+            />
+            トップメニューとストックウィンドウの位置を入れ替える
+          </label>
+          <label className={styles.workspaceLayoutCheck}>
+            <input
+              type="checkbox"
+              checked={settings.stockPdfButtonsOnPalette}
+              onChange={(event) => onChange({ stockPdfButtonsOnPalette: event.target.checked })}
+            />
+            ツールパレットの下にストックとPDFボタンを置く
+          </label>
 
           <label className={styles.workspaceLayoutCheck}>
             <input

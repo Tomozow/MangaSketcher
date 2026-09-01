@@ -59,6 +59,7 @@ type CompactSidebarProps = {
   shortcuts: ShortcutMap;
   toolFlyoutOnFirstTap?: boolean;
   leading?: ReactNode;
+  trailing?: ReactNode;
 };
 
 function patchPreset(quad: PenSizePresets, index: number, value: number): PenSizePresets {
@@ -96,6 +97,7 @@ export function CompactSidebar({
   shortcuts,
   toolFlyoutOnFirstTap = false,
   leading,
+  trailing,
 }: CompactSidebarProps) {
   const [appSettings, updateAppSettings] = useAppSettings();
   const [flyoutOpen, setFlyoutOpen] = useState(false);
@@ -435,6 +437,7 @@ export function CompactSidebar({
       </aside>
       ) : null}
       </div>
+      {trailing ? <div className={styles.leftChromeExtras}>{trailing}</div> : null}
     </div>
     </>
   );

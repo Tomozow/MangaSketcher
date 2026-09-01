@@ -9,7 +9,7 @@ import {
   isStockTextItem,
   parseStockThumbKey,
   stockIndexByKey,
-  stockPagesThenForeground,
+  stockGridPlacements,
   stockThumbKey,
 } from '@/src/domain/stockItems';
 import { findText } from '@/src/domain/text';
@@ -520,7 +520,8 @@ export function StockPane({
         ...(doc.trashClips ?? []).map((clipId) => ({ kind: 'clip' as const, clipId, x: 0, y: 0 })),
         ...(doc.trashTexts ?? []).map((textId) => ({ kind: 'text' as const, textId, x: 0, y: 0 })),
       ]
-    : stockPagesThenForeground(doc.stock);
+    : doc.stock;
+  const gridCells = paneLayout === 'grid' ? stockGridPlacements(paneItems) : [];
 
   useLayoutEffect(() => {
     if (viewGestureRef.current) {
@@ -1265,9 +1266,13 @@ export function StockPane({
             ['--ms-page-aspect' as string]: String(pageAspect),
           }}
         >
-        {paneItems.map((item) => {
+        {paneItems.map((item, itemIndex) => {
           const key = stockThumbKey(item);
           const dragging = draggedStockPageId === key;
+          const cell = gridCells[itemIndex];
+          const gridStyle = cell
+            ? { gridColumn: cell.column, gridRow: `${cell.row} / span ${cell.rowSpan}` }
+            : undefined;
           if (isStockClipItem(item)) {
             const clip = doc.pasteboardClips.find((c) => c.id === item.clipId);
             return (
@@ -1275,6 +1280,7 @@ export function StockPane({
                 key={key}
                 data-stock-item-key={key}
                 className={`${styles.stockThumb} ${styles.stockThumbClip} ${dragging ? styles.stockThumbDragging : ''}`}
+                style={gridStyle}
                 title={`クリップ ${item.clipId.slice(0, 8)}`}
               >
                 <div className={styles.stockClipPad}>
@@ -1298,6 +1304,7 @@ export function StockPane({
                 key={key}
                 data-stock-item-key={key}
                 className={`${styles.stockThumb} ${styles.stockThumbText} ${dragging ? styles.stockThumbDragging : ''}`}
+                style={gridStyle}
                 title={`テキスト ${item.textId.slice(0, 8)}`}
               >
                 <div className={styles.stockClipPad}>
@@ -1320,6 +1327,7 @@ export function StockPane({
             data-stock-item-key={key}
             data-stock-page-id={pageId}
             className={`${styles.stockThumb} ${dragging ? styles.stockThumbDragging : ''}`}
+            style={gridStyle}
             title={`${trashPane ? 'ゴミ箱' : 'ストック'} ${pageId.slice(0, 8)}`}
           >
             <div

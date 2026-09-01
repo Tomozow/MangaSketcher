@@ -78,6 +78,10 @@ describe('appSettings', () => {
       chromeFlip: true,
       pageTurnUnit: 'spread',
     });
+    expect(parseAppSettings({}).swapTopbarAndStock).toBe(false);
+    expect(parseAppSettings({ swapTopbarAndStock: true }).swapTopbarAndStock).toBe(true);
+    expect(parseAppSettings({}).stockPdfButtonsOnPalette).toBe(false);
+    expect(parseAppSettings({ stockPdfButtonsOnPalette: true }).stockPdfButtonsOnPalette).toBe(true);
     expect(parseAppSettings({ toolFlyoutOnFirstTap: true }).toolFlyoutOnFirstTap).toBe(true);
     expect(parseAppSettings({}).toolFlyoutOnFirstTap).toBe(false);
     expect(parseAppSettings({ stockRevealOnBottomEdge: true }).stockRevealOnBottomEdge).toBe(true);

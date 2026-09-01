@@ -29,6 +29,11 @@ describe('wrapExtractedText', () => {
     expect(wrapExtractedText('あ い')).toBe('あ い');
     expect(wrapExtractedText(`${'あ'.repeat(9)} い`)).toBe(`${'あ'.repeat(9)} \nい`);
   });
+
+  test('改行後の行頭スペースは落とす', () => {
+    expect(wrapExtractedText(`${'あ'.repeat(10)} い`)).toBe(`${'あ'.repeat(10)}\nい`);
+    expect(wrapExtractedText(` あ${'い'.repeat(9)} う`)).toBe(`あ${'い'.repeat(9)}\nう`);
+  });
 });
 
 describe('extractedTextBoxSize', () => {

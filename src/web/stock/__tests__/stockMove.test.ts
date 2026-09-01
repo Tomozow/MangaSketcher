@@ -46,7 +46,7 @@ describe('stock MOVE adapters', () => {
     expect(layoutWorkspace(doc.workspaceOrder).pageNumbers).toEqual([]);
   });
 
-  test('クリップとテキストはストックページより手前に並ぶ', () => {
+  test('ストックへドロップした順に並び、新しいアイテムは配列末尾（左）へ付く', () => {
     let doc = blankDoc(2);
     const [a, b] = doc.workspaceOrder;
     const ids = sequentialIds('fg');
@@ -64,9 +64,11 @@ describe('stock MOVE adapters', () => {
     doc = apply(doc, moveTextToStock(textId, 2, 3, doc.rasterWidth, doc.rasterHeight));
     doc = apply(doc, moveWorkspacePageToStock(a, 0, 10, 12, doc.rasterWidth, doc.rasterHeight));
     doc = apply(doc, moveWorkspacePageToStock(b, 0, 20, 12, doc.rasterWidth, doc.rasterHeight));
-    expect(doc.stock.slice(0, 2).every(isStockPageItem)).toBe(true);
-    expect(isStockTextItem(doc.stock[2]!)).toBe(true);
-    expect(doc.stock[2]).toMatchObject({ textId });
+    expect(isStockTextItem(doc.stock[0]!)).toBe(true);
+    expect(doc.stock[0]).toMatchObject({ textId });
+    expect(doc.stock.slice(1).every(isStockPageItem)).toBe(true);
+    expect(doc.stock[1]).toMatchObject({ pageId: a });
+    expect(doc.stock[2]).toMatchObject({ pageId: b });
   });
 
   test('next free stock page position tiles after existing pages', () => {

@@ -71,6 +71,8 @@ export type AppSettings = {
   historyDepth: number;
   navBarVisible: boolean;
   chromeFlip: boolean;
+  swapTopbarAndStock: boolean;
+  stockPdfButtonsOnPalette: boolean;
   pageTurnUnit: PageTurnUnit;
   toolFlyoutOnFirstTap: boolean;
   stockRevealOnBottomEdge: boolean;
@@ -95,6 +97,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   historyDepth: HISTORY_DEPTH,
   navBarVisible: true,
   chromeFlip: false,
+  swapTopbarAndStock: false,
+  stockPdfButtonsOnPalette: false,
   pageTurnUnit: 'page',
   toolFlyoutOnFirstTap: false,
   stockRevealOnBottomEdge: false,
@@ -359,6 +363,8 @@ export function parseAppSettings(raw: unknown): AppSettings {
     historyDepth?: unknown;
     navBarVisible?: unknown;
     chromeFlip?: unknown;
+    swapTopbarAndStock?: unknown;
+    stockPdfButtonsOnPalette?: unknown;
     pageTurnUnit?: unknown;
     toolFlyoutOnFirstTap?: unknown;
     stockRevealOnBottomEdge?: unknown;
@@ -389,6 +395,8 @@ export function parseAppSettings(raw: unknown): AppSettings {
     historyDepth: clampHistoryDepth(record.historyDepth),
     navBarVisible: record.navBarVisible !== false,
     chromeFlip: record.chromeFlip === true,
+    swapTopbarAndStock: record.swapTopbarAndStock === true,
+    stockPdfButtonsOnPalette: record.stockPdfButtonsOnPalette === true,
     pageTurnUnit: isPageTurnUnit(record.pageTurnUnit) ? record.pageTurnUnit : DEFAULT_APP_SETTINGS.pageTurnUnit,
     toolFlyoutOnFirstTap: record.toolFlyoutOnFirstTap === true,
     stockRevealOnBottomEdge: record.stockRevealOnBottomEdge === true,

@@ -8,7 +8,7 @@ export const EXTRACT_LINE_HEIGHT = 1.2;
 export const EXTRACT_GAP = 8;
 export const EXTRACT_MARGIN_CSS = 16;
 
-/** Vertical-rl: insert a column break every 10 characters. Keeps ASCII spaces; strips other whitespace. Idempotent if already wrapped. */
+/** Vertical-rl: insert a column break every 10 characters. Keeps ASCII spaces; strips other whitespace. Drops spaces that would sit at the start of a column. Idempotent if already wrapped. */
 export function wrapExtractedText(
   content: string,
   charsPerCol = EXTRACT_CHARS_PER_COL,
@@ -19,8 +19,19 @@ export function wrapExtractedText(
     return '';
   }
   const columns: string[] = [];
-  for (let i = 0; i < chars.length; i += limit) {
-    columns.push(chars.slice(i, i + limit).join(''));
+  let col = '';
+  for (const ch of chars) {
+    if (col.length === 0 && ch === ' ') {
+      continue;
+    }
+    col += ch;
+    if (col.length >= limit) {
+      columns.push(col);
+      col = '';
+    }
+  }
+  if (col.length > 0) {
+    columns.push(col);
   }
   return columns.join('\n');
 }
