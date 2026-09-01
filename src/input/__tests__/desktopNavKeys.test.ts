@@ -38,4 +38,11 @@ describe('desktopNavKeys', () => {
     setDesktopNavKeysForTest(true, true);
     expect(desktopNavForPointer(rightDown, 'down')).toBe('zoom');
   });
+
+  test('empty pointerType is treated as mouse for right-button pan', () => {
+    resetDesktopNavKeys();
+    expect(
+      desktopNavForPointer({ pointerType: '', button: 2, buttons: 2 } as PointerEvent, 'down'),
+    ).toBe('pan');
+  });
 });

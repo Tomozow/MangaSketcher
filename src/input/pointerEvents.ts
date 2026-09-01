@@ -1,4 +1,5 @@
 import type { PointerKind } from '../domain/types';
+import { isDesktopMousePointer } from './desktopNavKeys';
 
 export type WebPointerLike = Pick<
   PointerEvent,
@@ -31,7 +32,7 @@ export function pointerKindForWorkspace(
   phase: PointerPhase,
   nav: WorkspaceNavMode,
 ): PointerKind {
-  if (event.pointerType === 'mouse') {
+  if (isDesktopMousePointer(event.pointerType)) {
     if (nav === 'pan' || nav === 'zoom') {
       return 'finger';
     }

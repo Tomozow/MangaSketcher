@@ -1,5 +1,6 @@
 import { stockPointerPolicy } from '../../domain/pointers';
 import { PAN_SLOP } from '../../domain/workspaceGestures';
+import { isDesktopMousePointer, type DesktopNavMode } from '../../input/desktopNavKeys';
 import type { PointerKind, PageId } from '../../domain/types';
 import type { StockEffect, StockGestureStore, StockHit, StockSession } from './types';
 
@@ -13,6 +14,8 @@ export type StockPointerInput = {
   now: number;
   isPrimary: boolean;
   layout: 'free' | 'grid';
+  pointerType?: string;
+  desktopNav?: DesktopNavMode;
 };
 
 function fingerCount(store: StockGestureStore): number {
@@ -79,6 +82,22 @@ function stepFinger(
     return {
       session: { mode: 'pan', kind: 'finger', lastX: input.x, lastY: input.y },
       effects: [{ type: 'panBy', dx: input.x - session.lastX, dy: input.y - session.lastY }],
+    };
+  }
+
+  if (session.mode === 'zoomDrag') {
+    if (input.phase === 'up' || input.phase === 'cancel') {
+      return { session: { mode: 'idle' }, effects: [] };
+    }
+    const dy = input.y - session.lastY;
+    if (dy === 0) {
+      return { session, effects: [] };
+    }
+    const scaleBy = 2 ** (-dy / 160);
+    store.fingerPositions.set(session.pointerId, { x: session.anchorX, y: session.anchorY });
+    return {
+      session: { ...session, lastY: input.y },
+      effects: [{ type: 'pinchBy', scaleBy, midDx: 0, midDy: 0 }],
     };
   }
 
@@ -164,6 +183,30 @@ function stepFingerDown(
   }
 
   store.fingerPositions.set(input.pointerId, { x: input.x, y: input.y });
+
+  const desktopMouse = isDesktopMousePointer(input.pointerType);
+  if (desktopMouse && input.desktopNav === 'pan') {
+    return {
+      session: { mode: 'pan', kind: 'finger', lastX: input.x, lastY: input.y },
+      effects: [],
+      ignored: false,
+    };
+  }
+
+  if (input.layout === 'free' && desktopMouse && input.desktopNav === 'zoom') {
+    return {
+      session: {
+        mode: 'zoomDrag',
+        kind: 'finger',
+        pointerId: input.pointerId,
+        lastY: input.y,
+        anchorX: input.x,
+        anchorY: input.y,
+      },
+      effects: [],
+      ignored: false,
+    };
+  }
 
   const existingFingers = activeFingerIds(store).filter((id) => id !== input.pointerId);
   if (existingFingers.length >= 1) {

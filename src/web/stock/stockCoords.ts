@@ -4,6 +4,8 @@ import { THUMB_HEIGHT, THUMB_WIDTH } from '../ink/InkEngine';
 
 export const STOCK_FREE_THUMB_WIDTH = THUMB_WIDTH / 2;
 export const STOCK_FREE_THUMB_HEIGHT = THUMB_HEIGHT / 2;
+export const STOCK_FREE_PAGE_WIDTH = THUMB_WIDTH;
+export const STOCK_FREE_PAGE_HEIGHT = THUMB_HEIGHT;
 
 export function pointInRect(
   clientX: number,

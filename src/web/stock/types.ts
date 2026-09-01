@@ -22,6 +22,14 @@ export type StockSession =
     }
   | { mode: 'pan'; kind: 'finger'; lastX: number; lastY: number }
   | {
+      mode: 'zoomDrag';
+      kind: 'finger';
+      pointerId: number;
+      lastY: number;
+      anchorX: number;
+      anchorY: number;
+    }
+  | {
       mode: 'pinch';
       kind: 'finger';
       pointerId: number;

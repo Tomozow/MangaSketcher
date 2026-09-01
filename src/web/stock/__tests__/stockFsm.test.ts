@@ -103,6 +103,85 @@ describe('stock FSM page delete', () => {
     expect(up.effects).toEqual([{ type: 'showPageDelete', pageId: 'p1' }]);
   });
 
+  test('free では Ctrl+Space+drag で上方向にズームイン', () => {
+    const store = createStockGestureStore();
+    finger(store, 'down', {
+      layout: 'free',
+      pointerType: 'mouse',
+      desktopNav: 'zoom',
+      x: 40,
+      y: 80,
+    });
+    const zoomIn = finger(store, 'move', {
+      layout: 'free',
+      pointerType: 'mouse',
+      desktopNav: 'zoom',
+      x: 40,
+      y: 40,
+    });
+    expect(zoomIn.effects[0]).toMatchObject({ type: 'pinchBy' });
+    expect((zoomIn.effects[0] as { scaleBy: number }).scaleBy).toBeGreaterThan(1);
+  });
+
+  test('grid では Ctrl+Space でも通常の dragPage', () => {
+    const store = createStockGestureStore();
+    finger(store, 'down', {
+      layout: 'grid',
+      pointerType: 'mouse',
+      desktopNav: 'zoom',
+      now: 0,
+    });
+    const drag = finger(store, 'move', {
+      layout: 'grid',
+      pointerType: 'mouse',
+      desktopNav: 'zoom',
+      x: 20,
+      y: 0,
+      now: 30,
+    });
+    expect(drag.effects).toEqual([{ type: 'dragPage', pageId: 'p1' }]);
+  });
+
+  test('Space または右クリック相当の pan は grid/free とも即時パン', () => {
+    for (const layout of ['grid', 'free'] as const) {
+      const store = createStockGestureStore();
+      finger(store, 'down', {
+        layout,
+        pointerType: 'mouse',
+        desktopNav: 'pan',
+        x: 10,
+        y: 10,
+      });
+      const pan = finger(store, 'move', {
+        layout,
+        pointerType: 'mouse',
+        desktopNav: 'pan',
+        x: 40,
+        y: 18,
+      });
+      expect(pan.effects).toEqual([{ type: 'panBy', dx: 30, dy: 8 }]);
+    }
+  });
+
+  test('空の pointerType でも desktopNav pan は即時パン', () => {
+    const store = createStockGestureStore();
+    finger(store, 'down', {
+      layout: 'grid',
+      pointerType: '',
+      desktopNav: 'pan',
+      x: 10,
+      y: 10,
+    });
+    const pan = finger(store, 'move', {
+      layout: 'grid',
+      pointerType: '',
+      desktopNav: 'pan',
+      x: 25,
+      y: 10,
+    });
+    expect(pan.effects).toEqual([{ type: 'panBy', dx: 15, dy: 0 }]);
+  });
+
   test('grid でも 2本指で pinchBy する', () => {
     const store = createStockGestureStore();
     finger(store, 'down', {

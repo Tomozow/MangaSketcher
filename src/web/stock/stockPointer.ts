@@ -4,9 +4,11 @@ import {
   markPointerDown,
   markPointerUp,
   pointerIdFromWeb,
+  pointerKindForWorkspace,
   pressureFromWeb,
   createPressureState,
 } from '../../input/pointerEvents';
+import { bindDesktopNavKeys, desktopNavForPointer, isDesktopMousePointer } from '../../input/desktopNavKeys';
 import type { PageId } from '../../domain/types';
 import { getStockDragPageId, stepStockPointer } from './stockFsm';
 import type { StockGestureStore, StockHit } from './types';
@@ -33,8 +35,32 @@ export function createStockPointerPipeline(ctx: StockPointerContext): StockPoint
 
   const dispatch = (event: PointerEvent, phase: 'down' | 'move' | 'up' | 'cancel') => {
     const pointerId = pointerIdFromWeb(event);
-    const kind = kindTracker.classify(event);
+    const nav = desktopNavForPointer(event, phase);
+    const prevSession = store.sessions.get(pointerId);
+    let kind =
+      isDesktopMousePointer(event.pointerType)
+        ? pointerKindForWorkspace(event, phase, nav)
+        : kindTracker.classify(event);
+    if (
+      isDesktopMousePointer(event.pointerType) &&
+      prevSession &&
+      prevSession.mode !== 'idle' &&
+      'kind' in prevSession &&
+      (phase === 'move' || phase === 'up' || phase === 'cancel')
+    ) {
+      kind = prevSession.kind;
+    }
     if (kind === 'pencil' && phase === 'move' && isPencilHover(event, kind)) {
+      return;
+    }
+    if (
+      isDesktopMousePointer(event.pointerType) &&
+      phase === 'move' &&
+      event.buttons === 0 &&
+      prevSession &&
+      prevSession.mode !== 'idle'
+    ) {
+      dispatch(event, 'up');
       return;
     }
 
@@ -56,8 +82,10 @@ export function createStockPointerPipeline(ctx: StockPointerContext): StockPoint
       y: event.clientY,
       hit,
       now: now(),
-      isPrimary: event.isPrimary,
+      isPrimary: event.isPrimary || nav === 'pan' || nav === 'zoom',
       layout: ctx.layout,
+      pointerType: event.pointerType,
+      desktopNav: nav,
     });
     pressureFromWeb(event, pressureState);
 
@@ -74,12 +102,19 @@ export function createStockPointerPipeline(ctx: StockPointerContext): StockPoint
 
   const bind = (element: HTMLElement) => {
     element.style.touchAction = 'none';
+    const unbindDesktopNav = bindDesktopNavKeys();
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.target instanceof Element && event.target.closest('[data-page-delete-chrome]')) {
         return;
       }
-      if (event.pointerType === 'pen' || event.pointerType === 'touch') {
+      const nav = desktopNavForPointer(event, 'down');
+      if (
+        event.pointerType === 'pen' ||
+        event.pointerType === 'touch' ||
+        nav !== 'none' ||
+        (isDesktopMousePointer(event.pointerType) && (event.button === 0 || event.button === 2))
+      ) {
         event.preventDefault();
       }
       if (!event.isPrimary && event.pointerType === 'touch') {
@@ -95,7 +130,11 @@ export function createStockPointerPipeline(ctx: StockPointerContext): StockPoint
     };
 
     const onPointerMove = (event: PointerEvent) => {
-      if (event.pointerType === 'pen' || event.pointerType === 'touch') {
+      if (
+        event.pointerType === 'pen' ||
+        event.pointerType === 'touch' ||
+        (isDesktopMousePointer(event.pointerType) && event.buttons !== 0)
+      ) {
         event.preventDefault();
       }
       dispatch(event, 'move');
@@ -124,6 +163,7 @@ export function createStockPointerPipeline(ctx: StockPointerContext): StockPoint
     element.addEventListener('pointercancel', onPointerCancel, { passive: false });
 
     return () => {
+      unbindDesktopNav();
       element.removeEventListener('pointerdown', onPointerDown);
       element.removeEventListener('pointermove', onPointerMove);
       element.removeEventListener('pointerup', onPointerUp);

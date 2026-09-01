@@ -695,6 +695,14 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   background: #fff;
 }
 
+.ms-stockDragGhost {
+  position: fixed;
+  z-index: 1000;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  overflow: hidden;
+}
+
 .ms-pageDragThumbTemplate {
   position: absolute;
   inset: 0;
@@ -1084,26 +1092,42 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   position: relative;
 }
 
-.ms-stockGrid {
-  display: flex;
-  flex-flow: row wrap;
-  justify-content: flex-end;
-  align-content: flex-start;
-  align-items: flex-start;
-  gap: 0;
-  padding: 0;
+.ms-stockGridScroll {
   overflow-x: auto;
   overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.ms-stockGridScroll::-webkit-scrollbar {
+  display: none;
+}
+
+.ms-stockGrid {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  justify-content: end;
+  align-content: stretch;
+  align-items: stretch;
+  gap: 0;
+  padding: 0;
+  overflow: visible;
   height: 100%;
+  width: max-content;
+  min-width: 100%;
   touch-action: none;
 }
 
 .ms-stockThumb {
   position: relative;
-  flex: 0 0 auto;
   box-sizing: border-box;
-  height: calc(var(--ms-stock-sheet-h, 220px) / 2);
-  width: calc((var(--ms-stock-sheet-h, 220px) / 2) / var(--ms-thumb-aspect, var(--ms-page-aspect, 1.41667)));
+  min-width: 0;
+  min-height: 0;
+  width: calc(var(--ms-stock-sheet-h, 220px) / var(--ms-thumb-aspect, var(--ms-page-aspect, 1.41667)));
+  height: auto;
+  grid-row: 1 / span 2;
   overflow: hidden;
   background-color: transparent;
   background-size: 100% 100%;
@@ -1146,6 +1170,8 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 .ms-stockThumbClip,
 .ms-stockThumbText {
   order: 1;
+  grid-row: auto;
+  width: calc((var(--ms-stock-sheet-h, 220px) / 2) / var(--ms-thumb-aspect, var(--ms-page-aspect, 1.41667)));
   background-color: transparent;
   box-shadow: none;
   border: none;
@@ -1186,8 +1212,8 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 .ms-stockThumbFree {
   position: absolute;
   z-index: 1;
-  width: 72px;
-  height: 102px;
+  width: 144px;
+  height: 204px;
   overflow: hidden;
   background-color: transparent;
   background-size: 100% 100%;
@@ -1198,6 +1224,8 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 .ms-stockThumbFree.ms-stockThumbClip,
 .ms-stockThumbFree.ms-stockThumbText {
   z-index: 2;
+  width: 72px;
+  height: 102px;
   background-color: transparent;
   box-shadow: none;
   border: none;
@@ -2162,13 +2190,20 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   box-shadow: 0 0 0 2px rgba(196, 80, 80, 0.7);
 }
 
-.ms-stockSheet .ms-stockGrid,
 .ms-stockSheet .ms-stockSurface {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   min-height: 0;
+}
+
+.ms-stockSheet .ms-stockGrid {
+  position: relative;
+  inset: auto;
+  width: max-content;
+  min-width: 100%;
+  height: 100%;
 }
 
 #editor-root .ms-pdfDrawer {
