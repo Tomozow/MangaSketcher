@@ -2,7 +2,7 @@ import { PAGE_DISPLAY_H, PAGE_DISPLAY_W } from '../../domain/stripGeometry';
 import type { Rect } from '../../domain/types';
 
 /** Screen-pixel padding around the visible text box for text/select hit testing. */
-export const TEXT_HIT_PAD_CSS = 5;
+export const TEXT_HIT_PAD_CSS = 0;
 
 /** Inflate the stored raster box by TEXT_HIT_PAD_CSS on every side (page display px). */
 export function expandTextHitBox(box: Rect, rasterWidth: number, rasterHeight: number): Rect {

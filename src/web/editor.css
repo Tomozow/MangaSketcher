@@ -1646,10 +1646,15 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   opacity: 0.75;
 }
 
+@font-face {
+  font-family: 'IwaAntStd-B';
+  src: local('IwaAntStd-B'), local('I-OTFアンチックStd B');
+}
+
 .ms-pageTextBox {
   position: absolute;
   inset: 0;
-  font-family: 'I-OTFアンチックStd B', 'I-OTF アンチック Std B', 'I-OTF Antique Std B', sans-serif;
+  font-family: 'IwaAntStd-B', 'I-OTFアンチックStd B', 'I-OTF アンチック Std B', 'I-OTF Antique Std B', sans-serif;
   writing-mode: vertical-rl;
   text-orientation: mixed;
   overflow: hidden;

@@ -444,7 +444,10 @@ describe('Web workspace FSM', () => {
         worldY: 11,
         now: 150,
       });
-      expect(up.effects).toEqual([{ type: 'selectTexts', textIds: [] }]);
+      expect(up.effects).toEqual([
+        { type: 'completeMarquee', pageId: null, rect: { x: 10, y: 10, width: 2, height: 1 } },
+        { type: 'selectTexts', textIds: [] },
+      ]);
     });
 
     test('ページ外の empty をタップすると台紙に createText する', () => {
@@ -941,6 +944,7 @@ describe('Web workspace FSM', () => {
       pencil(store, 'move', { tool: 'select', hit: tiny, worldX: 12, worldY: 12 });
       const up = pencil(store, 'up', { tool: 'select', hit: tiny, worldX: 12, worldY: 12 });
       expect(up.effects).toEqual([
+        { type: 'completeMarquee', pageId: null, rect: { x: 10, y: 10, width: 2, height: 2 } },
         { type: 'selectClips', clipIds: [] },
         { type: 'selectTexts', textIds: [] },
       ]);
@@ -971,6 +975,7 @@ describe('Web workspace FSM', () => {
       pencil(store, 'down', { tool: 'select', hit: empty, worldX: 10, worldY: 10, selectedClipId: 'c1' });
       const up = pencil(store, 'up', { tool: 'select', hit: empty, worldX: 11, worldY: 11 });
       expect(up.effects).toEqual([
+        { type: 'completeMarquee', pageId: null, rect: { x: 10, y: 10, width: 1, height: 1 } },
         { type: 'selectClips', clipIds: [] },
         { type: 'selectTexts', textIds: [] },
       ]);

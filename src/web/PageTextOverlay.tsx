@@ -261,7 +261,7 @@ export function PageTextsOnFrame({
               style={{
                 color: text.color,
                 fontSize: cssFontSize,
-                lineHeight: 1.2,
+                lineHeight: 1,
               }}
             >
               {content}
@@ -386,7 +386,7 @@ export function PasteboardTextsLayer({
           >
             <div
               className={`${styles.pageTextBox} ${selected ? styles.pageTextBoxSelected : ''} ${isWhiteTextColor(text.color) ? styles.pageTextBoxWhite : ''}`}
-              style={{ color: text.color, fontSize, lineHeight: 1.2 }}
+              style={{ color: text.color, fontSize, lineHeight: 1 }}
             >
               {content}
             </div>

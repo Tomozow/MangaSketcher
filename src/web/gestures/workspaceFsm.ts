@@ -618,11 +618,13 @@ function stepLockedPencil(
 
   if (session.mode === 'marquee') {
     if (input.phase === 'up' || input.phase === 'cancel') {
+      const x1 = input.phase === 'up' ? input.worldX : session.x1;
+      const y1 = input.phase === 'up' ? input.worldY : session.y1;
       const rect = {
-        x: Math.min(session.x0, session.x1),
-        y: Math.min(session.y0, session.y1),
-        width: Math.abs(session.x1 - session.x0),
-        height: Math.abs(session.y1 - session.y0),
+        x: Math.min(session.x0, x1),
+        y: Math.min(session.y0, y1),
+        width: Math.abs(x1 - session.x0),
+        height: Math.abs(y1 - session.y0),
       };
       const tooSmall =
         rect.width < MIN_MARQUEE_RASTER_PX || rect.height < MIN_MARQUEE_RASTER_PX;
@@ -637,7 +639,9 @@ function stepLockedPencil(
       }
       return {
         session: { mode: 'idle' },
-        effects: tooSmall ? clear : [{ type: 'completeMarquee', pageId: null, rect }],
+        effects: tooSmall
+          ? [{ type: 'completeMarquee', pageId: null, rect }, ...clear]
+          : [{ type: 'completeMarquee', pageId: null, rect }],
       };
     }
     const next = { ...session, x1: input.worldX, y1: input.worldY };

@@ -3,7 +3,7 @@ import { PAGE_DISPLAY_H, PAGE_DISPLAY_W } from '../../../domain/stripGeometry';
 import { expandTextHitBox, TEXT_HIT_PAD_CSS } from '../textHit';
 
 describe('expandTextHitBox', () => {
-  test('pads the raster box by 5 CSS px on every side', () => {
+  test('does not inflate the raster box when pad is 0', () => {
     const rasterWidth = 1200;
     const rasterHeight = 1700;
     const box = { x: 100, y: 200, width: 40, height: 80 };

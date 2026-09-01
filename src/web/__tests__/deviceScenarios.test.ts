@@ -289,6 +289,7 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(pageTextOverlaySrc).not.toMatch(/<textarea/i);
     expect(pageTextOverlaySrc).toContain('pageTextBox');
     expect(editorCss).toMatch(/\.ms-pageTextBox[^{]*\{[^}]*writing-mode:\s*vertical-rl/);
+    expect(editorCss).toMatch(/\.ms-pageTextBox[^{]*\{[^}]*IwaAntStd-B/);
     expect(editorCss).toMatch(/\.ms-pageTextBox[^{]*\{[^}]*I-OTFアンチックStd B/);
     expect(editorCss).toMatch(/\.ms-pageTextBoxWhite[^{]*\{[^}]*-webkit-text-stroke:\s*0\.08em #000000/);
     expect(pageTextOverlaySrc).toContain('pageTextBoxWhite');
