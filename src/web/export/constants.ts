@@ -11,6 +11,15 @@ export const PROJECT_PACK_EXPORT_LABEL = 'プロジェクトファイルを書�
 export const EXPORT_CANCEL_LABEL = 'キャンセル';
 export const EXPORT_PROGRESS_ELLIPSIS = '\u2026';
 export const PDF_JPEG_QUALITY = 0.8;
+export const MINI_NAME_JPEG_QUALITY = 0.92;
+/** Longest edge of the mini-name JPEG, in pixels. */
+export const MINI_NAME_MAX_EDGE = 8192;
+/** Tile width in the sheet before fitting to MINI_NAME_MAX_EDGE. */
+export const MINI_NAME_TILE_WIDTH = 720;
+export const MINI_NAME_BLANK_FILL = '#EEEEEE';
+export const MINI_NAME_COVER_FILL = '#FFFFFF';
+export const MINI_NAME_SHEET_FILL = '#FFFFFF';
+export const MINI_NAME_NUMBER_FILL = '#1A1A1A';
 
 export function formatExportProgress(current: number, total: number): string {
   return `${current}/${total} ページ${EXPORT_PROGRESS_ELLIPSIS}`;

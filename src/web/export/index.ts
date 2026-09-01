@@ -28,6 +28,7 @@ export {
 export { WorkspaceExportAbortedError, WorkspaceExportError, isAbortError } from './errors';
 export { exportWorkspace } from './exportWorkspace';
 export { exportWorkspacePdf } from './exportWorkspacePdf';
+export { exportWorkspaceMiniJpg } from './exportWorkspaceMiniJpg';
 export type { ExportProgress, ExportWorkspaceDeps, InkExportSource } from './exportWorkspace';
 export {
   EXPORT_FORMAT_IDS,

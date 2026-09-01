@@ -33,6 +33,7 @@ import {
   PAGE_SCOPE_LABELS,
   PAGE_SCOPE_MODES,
   formatExportPageCount,
+  formatSkipsPagePicker,
   type ExportFormatId,
   type PageScopeMode,
 } from './export/exportFormat';
@@ -41,6 +42,7 @@ import { currentWorkspaceNumber, selectExportPages, sanitizeRangeInput } from '.
 import { runClipExport } from './export/runClipExport';
 import { runExportGeneration } from './export/runExportGeneration';
 import { exportWorkspacePdf } from './export/exportWorkspacePdf';
+import { exportWorkspaceMiniJpg } from './export/exportWorkspaceMiniJpg';
 
 export type ExportUiPhase = 'idle' | 'generating' | 'ready' | 'failed';
 
@@ -68,7 +70,9 @@ export function WorkspaceExportControls({
   const [highlightedFormat, setHighlightedFormat] = useState<ExportFormatId>(() =>
     getLastExportFormat(doc.projectId),
   );
-  const [pendingFormat, setPendingFormat] = useState<Exclude<ExportFormatId, 'pack'> | null>(null);
+  const [pendingFormat, setPendingFormat] = useState<Exclude<ExportFormatId, 'pack' | 'miniJpg'> | null>(
+    null,
+  );
   const [pageMode, setPageMode] = useState<PageScopeMode>('all');
   const [rangeStart, setRangeStart] = useState('1');
   const [rangeEnd, setRangeEnd] = useState('1');
@@ -219,6 +223,17 @@ export function WorkspaceExportControls({
           finishFile(exported);
           return;
         }
+        if (format === 'miniJpg') {
+          if (onBeforeExport) {
+            await onBeforeExport();
+          }
+          const exported = await exportWorkspaceMiniJpg(doc, inkEngine, {
+            signal: abort.signal,
+            onProgress,
+          });
+          finishFile(exported);
+          return;
+        }
         const exported = await runClipExport({
           doc,
           inkEngine,
@@ -287,8 +302,8 @@ export function WorkspaceExportControls({
 
   const chooseFormat = (format: ExportFormatId) => {
     setHighlightedFormat(format);
-    if (format === 'pack') {
-      void runGeneration('pack', undefined, 'all');
+    if (formatSkipsPagePicker(format)) {
+      void runGeneration(format, undefined, 'all');
       return;
     }
     const now = currentWorkspaceNumber(doc.workspaceOrder, doc.selectedPageId);
