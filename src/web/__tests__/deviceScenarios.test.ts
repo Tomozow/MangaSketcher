@@ -208,7 +208,8 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(pageInkOverlaySrc).toContain('クリップを複製');
     expect(pageInkOverlaySrc).toContain('クリップをコマに挿入');
     expect(pageInkOverlaySrc).toContain('ClipChromeOverlay');
-    expect(pageInkOverlaySrc).toContain('metrics.stack');
+    expect(pageInkOverlaySrc).toContain('chromeScreenPoseFromWorldAabbs');
+    expect(workspaceStripSrc).toContain('PasteboardClipsLayer');
   });
 
   test('クリップは透明背景の四角枠で線画と区別する', () => {

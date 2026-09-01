@@ -3,6 +3,7 @@ import {
   PAGE_DISPLAY_W,
   pageInkFrameAtWorld,
   pageLocalFromWorld,
+  textChromeScreenMetrics,
   type StripFrame,
 } from '../../domain/stripGeometry';
 import type { ClipId, PageId, Rect } from '../../domain/types';
@@ -35,6 +36,13 @@ export type ClipWorldBounds = {
   rotation: number;
 };
 
+export type WorldAabb = {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+};
+
 export function rasterToDisplayScale(rasterWidth: number, rasterHeight: number): { sx: number; sy: number } {
   return { sx: PAGE_DISPLAY_W / rasterWidth, sy: PAGE_DISPLAY_H / rasterHeight };
 }
@@ -55,6 +63,58 @@ export function clipWorldBounds(
     halfW,
     halfH,
     rotation: clip.rotation,
+  };
+}
+
+/** Axis-aligned bounds of a rotated clip (matches getBoundingClientRect of the frame). */
+export function clipWorldAxisAlignedBounds(bounds: ClipWorldBounds): WorldAabb {
+  const cos = Math.abs(Math.cos(bounds.rotation));
+  const sin = Math.abs(Math.sin(bounds.rotation));
+  const extX = bounds.halfW * cos + bounds.halfH * sin;
+  const extY = bounds.halfW * sin + bounds.halfH * cos;
+  return {
+    minX: bounds.cx - extX,
+    minY: bounds.cy - extY,
+    maxX: bounds.cx + extX,
+    maxY: bounds.cy + extY,
+  };
+}
+
+export function worldAabbFromRect(box: { x: number; y: number; width: number; height: number }): WorldAabb {
+  return {
+    minX: box.x,
+    minY: box.y,
+    maxX: box.x + box.width,
+    maxY: box.y + box.height,
+  };
+}
+
+/** Screen-space chrome origin relative to the workspace surface (outside CSS scale). */
+export function chromeScreenPoseFromWorldAabbs(
+  aabbs: readonly WorldAabb[],
+  zoom: number,
+  panX: number,
+  panY: number,
+): { left: number; top: number; button: number; gap: number } | null {
+  if (aabbs.length === 0) {
+    return null;
+  }
+  let minX = Infinity;
+  let minY = Infinity;
+  for (const box of aabbs) {
+    minX = Math.min(minX, box.minX);
+    minY = Math.min(minY, box.minY);
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(minY)) {
+    return null;
+  }
+  const metrics = textChromeScreenMetrics();
+  const z = Number.isFinite(zoom) && zoom > 0 ? zoom : 1;
+  return {
+    left: minX * z + panX,
+    top: minY * z + panY - metrics.stack,
+    button: metrics.button,
+    gap: metrics.gap,
   };
 }
 

@@ -1,8 +1,10 @@
 import { describe, expect, test } from 'vitest';
 
 import {
+  chromeScreenPoseFromWorldAabbs,
   clipInsertTarget,
   clipTouchesWorldRect,
+  clipWorldAxisAlignedBounds,
   clipWorldBounds,
   freeScaleFromCornerDrag,
   hitClipAt,
@@ -127,5 +129,27 @@ describe('clipGeometry', () => {
     const size = { width: 40, height: 40 };
     expect(clipInsertTarget(onPage, size, 1200, 1700, [pageFrame])?.pageId).toBe('p1');
     expect(clipInsertTarget({ ...onPage, x: 400, y: 20 }, size, 1200, 1700, [pageFrame])).toBeNull();
+  });
+
+  test('clipWorldAxisAlignedBounds matches the unrotated box and grows with rotation', () => {
+    const clip = { id: 'c1', x: 10, y: 20, scale: 1, rotation: 0 };
+    const size = { width: 100, height: 50 };
+    const bounds = clipWorldBounds(clip, size, 1200, 1700);
+    const aabb = clipWorldAxisAlignedBounds(bounds);
+    expect(aabb.minX).toBeCloseTo(clip.x);
+    expect(aabb.minY).toBeCloseTo(clip.y);
+    expect(aabb.maxX).toBeCloseTo(clip.x + bounds.halfW * 2);
+    expect(aabb.maxY).toBeCloseTo(clip.y + bounds.halfH * 2);
+
+    const rotated = clipWorldAxisAlignedBounds({ ...bounds, rotation: Math.PI / 4 });
+    expect(rotated.maxX - rotated.minX).toBeGreaterThan(aabb.maxX - aabb.minX);
+    expect(rotated.maxY - rotated.minY).toBeGreaterThan(aabb.maxY - aabb.minY);
+  });
+
+  test('chromeScreenPoseFromWorldAabbs maps world min to screen without measuring DOM', () => {
+    const pose = chromeScreenPoseFromWorldAabbs([{ minX: 10, minY: 40, maxX: 50, maxY: 80 }], 2, 5, 7);
+    expect(pose).not.toBeNull();
+    expect(pose!.left).toBe(10 * 2 + 5);
+    expect(pose!.top).toBe(40 * 2 + 7 - pose!.button - pose!.gap);
   });
 });

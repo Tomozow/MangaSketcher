@@ -1,27 +1,34 @@
 'use client';
 
-import { useLayoutEffect, useRef, useState, type RefObject } from 'react';
-import { buildStripFrames, stripLayoutFromDoc, textChromeScreenMetrics } from '@/src/domain/stripGeometry';
 import type { ClipId, TextId } from '@/src/domain/types';
 import type { EditorDocument } from '@/src/storage/types';
-import { CLIP_CHROME_ATTR, CLIP_COPY_ATTR, CLIP_DELETE_ATTR, CLIP_FRAME_ATTR, CLIP_ID_ATTR, CLIP_INSERT_ATTR } from './clip/constants';
-import { PAGE_TEXT_ID_ATTR, PAGE_TEXT_WRAP_ATTR } from './gestures/pageTextDom';
-import { clipAxisScale, clipInsertTarget, clipWorldBounds, rasterToDisplayScale, selectedClipIdsOf } from './clip/clipGeometry';
+import { CLIP_CHROME_ATTR, CLIP_COPY_ATTR, CLIP_DELETE_ATTR, CLIP_INSERT_ATTR } from './clip/constants';
+import {
+  chromeScreenPoseFromWorldAabbs,
+  clipInsertTarget,
+  clipWorldAxisAlignedBounds,
+  clipWorldBounds,
+  pageLocalRectToWorldRect,
+  selectedClipIdsOf,
+  worldAabbFromRect,
+  type WorldAabb,
+} from './clip/clipGeometry';
 import { withoutStockedClips } from '@/src/domain/stockItems';
-import { selectedTextIdsOf } from '@/src/domain/text';
+import { findText, selectedTextIdsOf } from '@/src/domain/text';
+import { buildStripFrames, stripLayoutFromDoc, type StripFrame } from '@/src/domain/stripGeometry';
 import { effectiveClipPose, type ClipLiveTransform } from './clip/clipLiveTransform';
+import { effectiveTextBox, type TextLiveTransform } from './text/textLiveTransform';
 import type { MarqueePreview, LassoPreview } from '@/src/web/useEditorController';
-import { PageInkCanvas } from '@/src/web/ink/PageInkCanvas';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
 import { styles } from '@/src/web/editorStyles';
 
 type PageInkOverlayProps = {
   doc: EditorDocument;
   engine: InkEngine;
-  inkFrame: number;
   marqueePreview: MarqueePreview | null;
   lassoPreview: LassoPreview | null;
   clipLiveTransforms: Readonly<Record<string, ClipLiveTransform>>;
+  textLiveTransforms?: Readonly<Record<string, TextLiveTransform>>;
   onDeleteClip: (clipId: ClipId) => void;
   onDuplicateClip: (clipId: ClipId) => void;
   onInsertClip: (clipId: ClipId) => void;
@@ -147,75 +154,76 @@ function ClipBoxChrome({
   );
 }
 
+function selectedTextWorldAabbs(
+  doc: EditorDocument,
+  frames: StripFrame[],
+  textIds: TextId[],
+  textLiveTransforms: Readonly<Record<string, TextLiveTransform>>,
+): WorldAabb[] {
+  const frameByPage = new Map<string, StripFrame>();
+  for (const frame of frames) {
+    if (frame.slot.kind === 'page') {
+      frameByPage.set(frame.slot.pageId, frame);
+    }
+  }
+  const aabbs: WorldAabb[] = [];
+  for (const textId of textIds) {
+    const found = findText(doc, textId);
+    if (!found) {
+      continue;
+    }
+    const live = textLiveTransforms[textId];
+    const onPasteboard =
+      live?.where === 'pasteboard' || (found.where === 'pasteboard' && live?.where !== 'page');
+    if (onPasteboard) {
+      aabbs.push(worldAabbFromRect(effectiveTextBox(found.node.box, live)));
+      continue;
+    }
+    const pageId = live?.where === 'page' && live.pageId ? live.pageId : found.pageId;
+    const frame = pageId ? frameByPage.get(pageId) : undefined;
+    if (!frame) {
+      continue;
+    }
+    const local = effectiveTextBox(found.node.box, live?.where === 'page' ? live : null);
+    aabbs.push(
+      worldAabbFromRect(
+        pageLocalRectToWorldRect(
+          frame.x,
+          frame.y,
+          frame.width,
+          frame.height,
+          local,
+          doc.rasterWidth,
+          doc.rasterHeight,
+        ),
+      ),
+    );
+  }
+  return aabbs;
+}
+
 function ClipChromeOverlay({
-  overlayRef,
+  pose,
   clipIds,
   textIds,
-  zoom,
-  panX,
-  panY,
-  layoutKey,
   onDeleteClip,
   onDuplicateClip,
   onInsertClip,
   canInsert,
 }: {
-  overlayRef: RefObject<HTMLDivElement | null>;
+  pose: { left: number; top: number; button: number; gap: number };
   clipIds: ClipId[];
   textIds: TextId[];
-  zoom: number;
-  panX: number;
-  panY: number;
-  layoutKey: unknown;
   canInsert: boolean;
   onDeleteClip: (clipId: ClipId) => void;
   onDuplicateClip: (clipId: ClipId) => void;
   onInsertClip: (clipId: ClipId) => void;
 }) {
-  const [pose, setPose] = useState<{ left: number; top: number; button: number; gap: number } | null>(null);
   const primaryId = clipIds[clipIds.length - 1];
-  const batch = clipIds.length + textIds.length > 1;
-
-  useLayoutEffect(() => {
-    const overlay = overlayRef.current;
-    if (!overlay || clipIds.length === 0) {
-      setPose(null);
-      return;
-    }
-    const root = overlay.parentElement ?? overlay;
-    const frames = clipIds
-      .map((id) => overlay.querySelector<HTMLElement>(`[${CLIP_FRAME_ATTR}][${CLIP_ID_ATTR}="${id}"]`))
-      .filter((el): el is HTMLElement => el !== null);
-    const wraps = textIds
-      .map((id) =>
-        root.querySelector<HTMLElement>(`[${PAGE_TEXT_WRAP_ATTR}][${PAGE_TEXT_ID_ATTR}="${id}"]`),
-      )
-      .filter((el): el is HTMLElement => el !== null);
-    const boxes = [...frames, ...wraps];
-    if (boxes.length === 0) {
-      setPose(null);
-      return;
-    }
-    const metrics = textChromeScreenMetrics();
-    const overlayRect = overlay.getBoundingClientRect();
-    let left = Infinity;
-    let top = Infinity;
-    for (const box of boxes) {
-      const boxRect = box.getBoundingClientRect();
-      left = Math.min(left, boxRect.left);
-      top = Math.min(top, boxRect.top);
-    }
-    setPose({
-      left: left - overlayRect.left,
-      top: top - overlayRect.top - metrics.stack,
-      button: metrics.button,
-      gap: metrics.gap,
-    });
-  }, [overlayRef, clipIds, textIds, zoom, panX, panY, layoutKey]);
-
-  if (!pose || !primaryId) {
+  if (!primaryId) {
     return null;
   }
+  const batch = clipIds.length + textIds.length > 1;
 
   return (
     <div className={styles.pageTextChromeLayer}>
@@ -237,20 +245,18 @@ function ClipChromeOverlay({
 export function PageInkOverlay({
   doc,
   engine,
-  inkFrame,
   marqueePreview,
   lassoPreview,
   clipLiveTransforms,
+  textLiveTransforms = {},
   onDeleteClip,
   onDuplicateClip,
   onInsertClip,
 }: PageInkOverlayProps) {
-  const overlayRef = useRef<HTMLDivElement>(null);
   const { frames } = buildStripFrames(doc.workspaceOrder, stripLayoutFromDoc(doc));
   const visibleClips = withoutStockedClips(doc.pasteboardClips, doc.stock, doc.trashClips);
   const selectedIds = selectedClipIdsOf(doc).filter((id) => visibleClips.some((clip) => clip.id === id));
   const selectedTextIds = selectedTextIdsOf(doc);
-  const selectedIdSet = new Set(selectedIds);
   const showWorldMarquee =
     marqueePreview != null &&
     marqueePreview.rect.width > 0 &&
@@ -292,8 +298,32 @@ export function PageInkOverlay({
     );
   });
 
+  const chromeAabbs: WorldAabb[] = [];
+  for (const clipId of selectedIds) {
+    const clip = visibleClips.find((item) => item.id === clipId);
+    if (!clip) {
+      continue;
+    }
+    const pose = effectiveClipPose(clip, clipLiveTransforms[clip.id]);
+    chromeAabbs.push(
+      clipWorldAxisAlignedBounds(
+        clipWorldBounds(
+          { ...clip, ...pose },
+          engine.getRasterDimensions(clip.rasterId),
+          doc.rasterWidth,
+          doc.rasterHeight,
+        ),
+      ),
+    );
+  }
+  chromeAabbs.push(...selectedTextWorldAabbs(doc, frames, selectedTextIds, textLiveTransforms));
+  const chromePose =
+    selectedIds.length > 0
+      ? chromeScreenPoseFromWorldAabbs(chromeAabbs, doc.workspaceZoom, doc.workspacePanX, doc.workspacePanY)
+      : null;
+
   return (
-    <div ref={overlayRef} className={styles.pageInkOverlay}>
+    <div className={styles.pageInkOverlay}>
       <div
         className={styles.pageTextTransform}
         aria-hidden
@@ -334,65 +364,12 @@ export function PageInkOverlay({
             <polygon points={lassoPreview.points.map((point) => `${point.x},${point.y}`).join(' ')} />
           </svg>
         ) : null}
-
-        {visibleClips.map((clip) => {
-          const pose = effectiveClipPose(clip, clipLiveTransforms[clip.id]);
-          const clipForLayout = { ...clip, ...pose };
-          const size = engine.getRasterDimensions(clip.rasterId);
-          const bounds = clipWorldBounds(
-            clipForLayout,
-            size,
-            doc.rasterWidth,
-            doc.rasterHeight,
-          );
-          const { sx, sy } = rasterToDisplayScale(doc.rasterWidth, doc.rasterHeight);
-          const { scaleX, scaleY } = clipAxisScale(pose);
-          const displayW = size.width * sx * scaleX;
-          const displayH = size.height * sy * scaleY;
-
-          return (
-            <div
-              key={clip.id}
-              className={`${styles.clipFrame} ${selectedIdSet.has(clip.id) ? styles.clipFrameSelected : ''}`}
-              {...{ [CLIP_FRAME_ATTR]: '', [CLIP_ID_ATTR]: clip.id }}
-              style={{
-                position: 'absolute',
-                left: bounds.cx,
-                top: bounds.cy,
-                width: displayW,
-                height: displayH,
-                transform: `translate(-50%, -50%) rotate(${pose.rotation}rad)`,
-              }}
-            >
-              <PageInkCanvas
-                engine={engine}
-                rasterId={clip.rasterId}
-                displayWidth={displayW}
-                displayHeight={displayH}
-                cssZoom={doc.workspaceZoom}
-                inkFrame={inkFrame}
-              />
-              {selectedIdSet.has(clip.id) ? (
-                <>
-                  <div className={styles.clipHandleRotate} aria-hidden />
-                  <div className={styles.clipHandleCorner} aria-hidden />
-                </>
-              ) : null}
-            </div>
-          );
-        })}
       </div>
-      {selectedIds.length > 0 ? (
+      {chromePose ? (
         <ClipChromeOverlay
-          overlayRef={overlayRef}
+          pose={chromePose}
           clipIds={selectedIds}
           textIds={selectedTextIds}
-          zoom={doc.workspaceZoom}
-          panX={doc.workspacePanX}
-          panY={doc.workspacePanY}
-          layoutKey={`${inkFrame}:${selectedIds.join(',')}:${selectedTextIds.join(',')}:${JSON.stringify(
-            selectedIds.map((id) => clipLiveTransforms[id] ?? null),
-          )}`}
           onDeleteClip={onDeleteClip}
           onDuplicateClip={onDuplicateClip}
           onInsertClip={onInsertClip}

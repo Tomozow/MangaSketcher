@@ -33,6 +33,7 @@ import { PageDragThumbnail } from '@/src/web/PageDragThumbnail';
 import { PageChromeOverlay } from '@/src/web/PageDeleteButton';
 import { PageInkCanvas } from '@/src/web/ink/PageInkCanvas';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
+import { PasteboardClipsLayer } from '@/src/web/clip/PasteboardClipsLayer';
 import { effectiveClipPose, type ClipLiveTransform } from '@/src/web/clip/clipLiveTransform';
 import {
   PageTextsOnFrame,
@@ -564,6 +565,25 @@ export function WorkspaceStrip({
           textLiveTransforms={textLiveTransforms}
           liveTextContent={liveTextContent}
         />
+        {inkEngine ? (
+          <PasteboardClipsLayer
+            clips={pasteboardClips}
+            selectedClipIds={
+              selectedClipIds.length > 0
+                ? selectedClipIds
+                : selectedClipId
+                  ? [selectedClipId]
+                  : []
+            }
+            clipLiveTransforms={clipLiveTransforms}
+            engine={inkEngine}
+            rasterWidth={rasterWidth}
+            rasterHeight={rasterHeight}
+            zoom={zoom}
+            inkFrame={inkFrame}
+            getClipRasterSize={getClipRasterSize}
+          />
+        ) : null}
       </div>
       {deletePageId ? (
         <PageChromeOverlay

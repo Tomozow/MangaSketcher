@@ -1802,6 +1802,7 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   pointer-events: none;
   z-index: 2;
   box-sizing: border-box;
+  isolation: isolate;
   background: transparent;
   border: 1.5px solid rgba(28, 28, 28, 0.55);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.22);

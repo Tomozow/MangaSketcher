@@ -463,10 +463,10 @@ export function EditorLayout({
               <PageInkOverlay
                 doc={doc}
                 engine={inkEngine}
-                inkFrame={inkFrame}
                 marqueePreview={marqueePreview}
                 lassoPreview={lassoPreview}
                 clipLiveTransforms={clipLiveTransforms}
+                textLiveTransforms={textLiveTransforms}
                 onDeleteClip={deleteClip}
                 onDuplicateClip={duplicateClip}
                 onInsertClip={insertClipOnPage}
