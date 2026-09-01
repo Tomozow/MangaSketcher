@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'vitest';
 import {
   STOCK_TEXT_THUMB_BASE_PX,
+  STOCK_TEXT_THUMB_FREE_BASE_PX,
+  STOCK_TEXT_THUMB_FREE_MIN_PX,
   STOCK_TEXT_THUMB_MIN_PX,
   fitStockTextThumbFontSize,
   stockTextThumbFitsBox,
@@ -17,5 +19,14 @@ describe('fitStockTextThumbFontSize', () => {
     expect(size).toBeLessThan(STOCK_TEXT_THUMB_BASE_PX);
     expect(size).toBeGreaterThanOrEqual(STOCK_TEXT_THUMB_MIN_PX);
     expect(stockTextThumbFitsBox(long, 48, 80, size)).toBe(true);
+  });
+
+  test('自由配置の基準は半分', () => {
+    expect(
+      fitStockTextThumbFontSize('あ', 24, 40, {
+        base: STOCK_TEXT_THUMB_FREE_BASE_PX,
+        min: STOCK_TEXT_THUMB_FREE_MIN_PX,
+      }),
+    ).toBe(STOCK_TEXT_THUMB_FREE_BASE_PX);
   });
 });

@@ -4,6 +4,7 @@ import {
   clipInsertTarget,
   clipTouchesWorldRect,
   clipWorldBounds,
+  freeScaleFromCornerDrag,
   hitClipAt,
   normalizeMarqueeRect,
   scaleFromCornerDrag,
@@ -19,6 +20,43 @@ describe('clipGeometry', () => {
   test('scaleFromCornerDrag respects MIN_CLIP_SCALE', () => {
     expect(scaleFromCornerDrag(1, 100, 1)).toBe(MIN_CLIP_SCALE);
     expect(scaleFromCornerDrag(1, 100, 150)).toBe(1.5);
+  });
+
+  test('freeScaleFromCornerDrag stretches axes independently with NW fixed', () => {
+    const clip = { id: 'c1', x: 0, y: 0, scale: 1, rotation: 0 };
+    const size = { width: 100, height: 100 };
+    const bounds = clipWorldBounds(clip, size, 1200, 1700);
+    const seX = bounds.cx + bounds.halfW;
+    const seY = bounds.cy + bounds.halfH;
+    const wide = freeScaleFromCornerDrag({
+      startX: clip.x,
+      startY: clip.y,
+      startScaleX: 1,
+      startScaleY: 1,
+      startHalfW: bounds.halfW,
+      startHalfH: bounds.halfH,
+      rotation: 0,
+      worldX: seX * 2,
+      worldY: seY,
+    });
+    expect(wide.scale).toBeCloseTo(2);
+    expect(wide.scaleY).toBeCloseTo(1);
+    expect(wide.x).toBeCloseTo(0);
+    expect(wide.y).toBeCloseTo(0);
+
+    const tall = freeScaleFromCornerDrag({
+      startX: clip.x,
+      startY: clip.y,
+      startScaleX: 1,
+      startScaleY: 1,
+      startHalfW: bounds.halfW,
+      startHalfH: bounds.halfH,
+      rotation: 0,
+      worldX: seX,
+      worldY: seY * 2,
+    });
+    expect(tall.scale).toBeCloseTo(1);
+    expect(tall.scaleY).toBeCloseTo(2);
   });
 
   test('hitClipAt returns corner handle when selected', () => {

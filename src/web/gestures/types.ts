@@ -118,10 +118,13 @@ export type WorkspaceSession =
       mode: 'scaleClip';
       kind: 'pencil';
       clipId: ClipId;
-      startScale: number;
-      startDist: number;
-      cx: number;
-      cy: number;
+      startX: number;
+      startY: number;
+      startScaleX: number;
+      startScaleY: number;
+      startHalfW: number;
+      startHalfH: number;
+      rotation: number;
     }
   | {
       mode: 'rotateClip';
@@ -213,7 +216,7 @@ export type WorkspaceEffect =
   | { type: 'commitTextResize'; textId: TextId; box: Rect }
   | { type: 'cancelTextResize'; textId: TextId }
   | { type: 'moveClip'; clipId: ClipId; x: number; y: number }
-  | { type: 'scaleClip'; clipId: ClipId; scale: number }
+  | { type: 'scaleClip'; clipId: ClipId; scale: number; scaleY?: number }
   | { type: 'rotateClip'; clipId: ClipId; rotation: number }
   | {
       type: 'clipTransformLive';
@@ -221,6 +224,7 @@ export type WorkspaceEffect =
       x?: number;
       y?: number;
       scale?: number;
+      scaleY?: number;
       rotation?: number;
     }
   | { type: 'commitClipTransform'; clipId: ClipId }

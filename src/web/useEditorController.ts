@@ -771,6 +771,7 @@ export function useEditorController(projectId: string): EditorController {
           x: pose.x,
           y: pose.y,
           scale: pose.scale,
+          scaleY: pose.scaleY,
           rotation: pose.rotation,
         });
         clipLiveRef.current.delete(clipId);
@@ -796,6 +797,7 @@ export function useEditorController(projectId: string): EditorController {
         local.y,
         pose.scale,
         pose.rotation,
+        pose.scaleY,
       );
       if (pageUndo.byteLength > 0) {
         inkUndoRef.current.set(page.rasterId, pageUndo.slice(0));
@@ -961,6 +963,7 @@ export function useEditorController(projectId: string): EditorController {
               x: live.x,
               y: live.y,
               scale: live.scale,
+              scaleY: live.scaleY,
               rotation: live.rotation,
             });
           }
@@ -1556,6 +1559,7 @@ export function useEditorController(projectId: string): EditorController {
           x: pose.x + CLIP_DUPLICATE_OFFSET,
           y: pose.y + CLIP_DUPLICATE_OFFSET,
           scale: pose.scale,
+          scaleY: pose.scaleY,
           rotation: pose.rotation,
         });
         lastId = nextClipId;

@@ -78,7 +78,12 @@ export function reduceWorkspaceEffects(
         actions.push({ type: 'transformClip', clipId: effect.clipId, x: effect.x, y: effect.y });
         break;
       case 'scaleClip':
-        actions.push({ type: 'transformClip', clipId: effect.clipId, scale: effect.scale });
+        actions.push({
+          type: 'transformClip',
+          clipId: effect.clipId,
+          scale: effect.scale,
+          scaleY: effect.scaleY,
+        });
         break;
       case 'rotateClip':
         actions.push({ type: 'transformClip', clipId: effect.clipId, rotation: effect.rotation });

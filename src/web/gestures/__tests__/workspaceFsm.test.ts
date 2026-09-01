@@ -1284,6 +1284,25 @@ describe('Web workspace FSM', () => {
       });
       expect(scaleMove.effects[0]).toMatchObject({ type: 'clipTransformLive', clipId: 'c1' });
       expect(scaleMove.effects[0]?.type === 'clipTransformLive' && scaleMove.effects[0].scale).toBeGreaterThan(1);
+      expect(scaleMove.effects[0]?.type === 'clipTransformLive' && scaleMove.effects[0].scaleY).toBeGreaterThan(1);
+
+      const wideStore = createWorkspaceGestureStore();
+      pencil(wideStore, 'down', {
+        tool: 'select',
+        hit: cornerHit,
+        worldX: 118,
+        worldY: 98,
+        ...raster,
+      });
+      const wideMove = pencil(wideStore, 'move', {
+        tool: 'select',
+        hit: cornerHit,
+        worldX: 136,
+        worldY: 98,
+        ...raster,
+      });
+      expect(wideMove.effects[0]?.type === 'clipTransformLive' && wideMove.effects[0].scale).toBeGreaterThan(1);
+      expect(wideMove.effects[0]?.type === 'clipTransformLive' && wideMove.effects[0].scaleY).toBeCloseTo(1);
 
       const rotateStore = createWorkspaceGestureStore();
       const rotateHit = { kind: 'clip' as const, clipId: 'c1', handle: 'rotate' as const };

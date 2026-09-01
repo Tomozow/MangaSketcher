@@ -132,7 +132,7 @@ describe('clip chrome actions', () => {
     );
     expect(doc.selectedClipId).toBe('c1');
     doc = reduceEditorDocument(doc, { type: 'deleteClip', clipIds: ['c1'] }, ids);
-    expect(doc.pasteboardClips).toHaveLength(0);
+    expect(doc.trashClips).toEqual(['c1']);
     expect(doc.selectedClipId).toBeNull();
   });
 
@@ -228,6 +228,49 @@ describe('clip chrome actions', () => {
     doc = reduceEditorDocument(doc, { type: 'moveClipToStock', clipId: 'c2', x: 80, y: 0 }, ids);
     expect(doc.stock.filter((s) => s.kind === 'clip')).toHaveLength(2);
     expect(doc.selectedClipIds).toEqual([]);
+  });
+
+  test('moveClipToStock bundles overlapping selected texts onto the clip', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      { type: 'commitMarqueeCut', pageId, clipId: 'c1', rasterId: 'p1:clip:c1', workspaceX: 10, workspaceY: 20 },
+      ids,
+    );
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'pasteboard' },
+        box: { x: 12, y: 22, width: 10, height: 16 },
+        content: '重なり',
+      },
+      ids,
+    );
+    const textId = doc.selectedTextId!;
+    doc = reduceEditorDocument(
+      doc,
+      { type: 'moveClipToStock', clipId: 'c1', x: 0, y: 0, attachedTexts: [{ textId, offsetX: 2, offsetY: 2 }] },
+      ids,
+    );
+    expect(doc.stock).toEqual([
+      { kind: 'clip', clipId: 'c1', x: 0, y: 0, attachedTexts: [{ textId, offsetX: 2, offsetY: 2 }] },
+    ]);
+    expect(doc.stock.some((item) => item.kind === 'text')).toBe(false);
+    doc = reduceEditorDocument(doc, { type: 'returnStockClip', clipId: 'c1', x: 40, y: 50 }, ids);
+    expect(doc.stock).toEqual([]);
+    expect(doc.pasteboardClips[0]).toMatchObject({ id: 'c1', x: 40, y: 50 });
+    expect(doc.pasteboardTexts.find((t) => t.id === textId)?.box).toMatchObject({ x: 42, y: 52 });
+    expect(doc.selectedClipIds).toEqual(['c1']);
+    expect(doc.selectedTextIds).toEqual([textId]);
+    expect(doc.tool).toBe('select');
   });
 });
 
@@ -402,6 +445,27 @@ describe('trash', () => {
     expect(history.present.stockPane).toBe('trash');
   });
 
+  test('整列に切り替えても自由のズームとパンを保持し、戻すと復元する', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    doc = reduceEditorDocument(doc, { type: 'setStockView', zoom: 2.5, panX: 40, panY: -12 }, ids);
+    doc = reduceEditorDocument(doc, { type: 'setUiLayout', stockLayout: 'grid' }, ids);
+    expect(doc.stockLayout).toBe('grid');
+    expect(doc.stockZoom).toBe(2.5);
+    expect(doc.stockPanX).toBe(40);
+    expect(doc.stockPanY).toBe(-12);
+    doc = reduceEditorDocument(doc, { type: 'setUiLayout', stockLayout: 'free' }, ids);
+    expect(doc.stockLayout).toBe('free');
+    expect(doc.stockZoom).toBe(2.5);
+    expect(doc.stockPanX).toBe(40);
+    expect(doc.stockPanY).toBe(-12);
+  });
+
   test('emptyTrash はゴミ箱のページを完全に削除する', () => {
     const ids = sequentialIds('id');
     let doc = createEditorDocument({
@@ -505,7 +569,7 @@ describe('select texts and bulk font size', () => {
     );
     doc = reduceEditorDocument(doc, { type: 'deleteSelection', textIds: [textA, textB], clipIds: ['c1'] }, ids);
     expect(doc.pages[pageId]!.texts).toHaveLength(0);
-    expect(doc.pasteboardClips).toHaveLength(0);
+    expect(doc.trashClips).toEqual(['c1']);
     expect(doc.selectedTextIds).toEqual([]);
     expect(doc.selectedClipIds).toEqual([]);
   });

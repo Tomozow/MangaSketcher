@@ -73,7 +73,7 @@ describe('stock MOVE adapters', () => {
 
   test('next free stock page position tiles after existing pages', () => {
     expect(nextFreeStockPagePosition([])).toEqual({ x: 8, y: 8 });
-    expect(nextFreeStockPagePosition([{ pageId: 'a', x: 8, y: 8 }])).toEqual({ x: 160, y: 8 });
+    expect(nextFreeStockPagePosition([{ pageId: 'a', x: 8, y: 8 }])).toEqual({ x: 88, y: 8 });
   });
 
   test('stock to workspace inserts at reading index', () => {

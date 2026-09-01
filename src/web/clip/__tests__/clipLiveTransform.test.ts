@@ -9,21 +9,24 @@ describe('clipLiveTransform', () => {
       x: 30,
       y: 20,
       scale: 1,
+      scaleY: 1,
       rotation: 0,
     });
-    expect(mergeClipLive(clip, { x: 30, y: 40, scale: 1, rotation: 0 }, { scale: 1.5 })).toEqual({
+    expect(mergeClipLive(clip, { x: 30, y: 40, scale: 1, scaleY: 1, rotation: 0 }, { scale: 1.5 })).toEqual({
       x: 30,
       y: 40,
       scale: 1.5,
+      scaleY: 1,
       rotation: 0,
     });
   });
 
   test('effectiveClipPose prefers live values', () => {
-    expect(effectiveClipPose(clip, { x: 5, y: 6, scale: 2, rotation: 0.1 })).toEqual({
+    expect(effectiveClipPose(clip, { x: 5, y: 6, scale: 2, scaleY: 3, rotation: 0.1 })).toEqual({
       x: 5,
       y: 6,
       scale: 2,
+      scaleY: 3,
       rotation: 0.1,
     });
   });

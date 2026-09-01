@@ -1148,8 +1148,10 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 .ms-stockGridScroll {
   overflow-x: auto;
   overflow-y: hidden;
+  overscroll-behavior: none;
   scrollbar-width: none;
   -ms-overflow-style: none;
+  transform: none;
 }
 
 .ms-stockGridScroll::-webkit-scrollbar {
@@ -1171,6 +1173,7 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   width: max-content;
   min-width: 100%;
   touch-action: none;
+  transform: none;
 }
 
 .ms-stockThumb {
@@ -1178,9 +1181,13 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   box-sizing: border-box;
   min-width: 0;
   min-height: 0;
-  width: calc(var(--ms-stock-sheet-h, 220px) / var(--ms-thumb-aspect, var(--ms-page-aspect, 1.41667)));
-  height: auto;
-  grid-row: 1 / span 2;
+  --ms-clip-col-w: calc((var(--ms-stock-sheet-h, 220px) / 2) / var(--ms-thumb-aspect, var(--ms-page-aspect, 1.41667)));
+  --ms-clip-row-h: calc(var(--ms-stock-sheet-h, 220px) / 2);
+  width: var(--ms-clip-col-w);
+  height: var(--ms-clip-row-h);
+  grid-row: auto;
+  align-self: center;
+  justify-self: center;
   overflow: hidden;
   background-color: transparent;
   background-size: 100% 100%;
@@ -1232,11 +1239,23 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 
 .ms-stockThumbClip,
 .ms-stockThumbText {
-  grid-row: auto;
-  width: calc((var(--ms-stock-sheet-h, 220px) / 2) / var(--ms-thumb-aspect, var(--ms-page-aspect, 1.41667)));
   background-color: transparent;
   box-shadow: none;
   border: none;
+}
+
+.ms-stockThumbClip {
+  width: min(
+    var(--ms-clip-col-w),
+    calc(var(--ms-clip-row-h, calc(var(--ms-stock-sheet-h, 220px) / 2)) * var(--ms-clip-w, 1) / var(--ms-clip-h, 1))
+  );
+  height: min(
+    var(--ms-clip-row-h, calc(var(--ms-stock-sheet-h, 220px) / 2)),
+    calc(var(--ms-clip-col-w) * var(--ms-clip-h, 1) / var(--ms-clip-w, 1))
+  );
+  max-width: var(--ms-clip-col-w);
+  align-self: center;
+  justify-self: center;
 }
 
 .ms-stockClipPad {
@@ -1249,6 +1268,22 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   border-radius: 8px;
 }
 
+.ms-stockThumbClip .ms-stockClipPad {
+  background-size: contain;
+  background-position: center;
+}
+
+.ms-stockThumbClip .ms-stockThumbInkHost {
+  background-size: contain;
+  background-position: center;
+}
+
+.ms-stockThumbClip .ms-stockPageInk,
+.ms-stockThumbClip .ms-stockPageInkImg {
+  object-fit: contain;
+  object-position: center;
+}
+
 .ms-stockPagePad {
   position: absolute;
   inset: 5px;
@@ -1257,7 +1292,7 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   background: #fff;
   background-size: 100% 100%;
   background-repeat: no-repeat;
-  border: 8px solid #e7e7dd;
+  border: 0px solid #e7e7dd;
   border-radius: 8px;
 }
 
@@ -1274,8 +1309,8 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 .ms-stockThumbFree {
   position: absolute;
   z-index: 1;
-  width: 144px;
-  height: 204px;
+  width: 72px;
+  height: 102px;
   overflow: hidden;
   background-color: transparent;
   background-size: 100% 100%;
@@ -1283,14 +1318,32 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   box-sizing: border-box;
 }
 
-.ms-stockThumbFree.ms-stockThumbClip,
-.ms-stockThumbFree.ms-stockThumbText {
+.ms-stockThumbFree.ms-stockThumbClip {
   z-index: 2;
   width: 72px;
   height: 102px;
   background-color: transparent;
   box-shadow: none;
   border: none;
+}
+
+.ms-stockThumbFree.ms-stockThumbText {
+  z-index: 2;
+  width: 36px;
+  height: 51px;
+  background-color: transparent;
+  box-shadow: none;
+  border: none;
+}
+
+.ms-stockThumbFree .ms-stockTextThumb {
+  font-size: 6px;
+}
+
+.ms-stockThumbFree.ms-stockThumbClip {
+  height: auto;
+  aspect-ratio: var(--ms-clip-ratio, 1);
+  max-height: none;
 }
 
 .ms-sidebar {

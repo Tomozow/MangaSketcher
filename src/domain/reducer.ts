@@ -6,7 +6,8 @@ import { pageTextToPasteboard, wrapExtractedText, workspaceFontSizeFromTool } fr
 import { joinVerticalBody, rangeSelectBody } from './pdfText';
 import { stampStroke, type StrokePoint } from './stroke';
 import { applyFontSizeToText, findText, resizeTextBox } from './text';
-import { findStockClip, findStockPage, findStockText, isStockClipItem, isStockPageItem, isStockTextItem } from './stockItems';
+import { cloneStockAttachedTexts, restoreAttachedTextBoxes } from './stockClipAttach';
+import { findStockClip, findStockPage, findStockText, isStockClipItem, isStockPageItem, isStockTextItem, stockedTextIds } from './stockItems';
 import { fitTextBoxToContent } from './textWrap';
 import { clampSplit, clampPdfDrawerHeight, clampPdfDrawerWidth } from './uiLayout';
 import {
@@ -22,6 +23,7 @@ import type {
   PdfTextItem,
   PointerEvent,
   Rect,
+  StockAttachedText,
   TextId,
   ToolId,
   ToolProperties,
@@ -43,7 +45,7 @@ export type DocumentAction =
   | { type: 'movePageToStock'; pageId: PageId; x: number; y: number }
   | { type: 'returnStockToWorkspace'; pageId: PageId; readingIndex: number }
   | { type: 'placeStock'; pageId: PageId; x: number; y: number }
-  | { type: 'moveClipToStock'; clipId: ClipId; x: number; y: number }
+  | { type: 'moveClipToStock'; clipId: ClipId; x: number; y: number; attachedTexts?: StockAttachedText[] }
   | { type: 'moveTextToStock'; textId: TextId; x: number; y: number }
   | { type: 'returnStockClip'; clipId: ClipId; x: number; y: number }
   | { type: 'returnStockText'; textId: TextId; x: number; y: number }
@@ -75,7 +77,7 @@ export type DocumentAction =
       erase: boolean;
     }
   | { type: 'marqueeCut'; pageId: PageId; rect: Rect; workspaceX: number; workspaceY: number }
-  | { type: 'transformClip'; clipId: ClipId; x?: number; y?: number; scale?: number; rotation?: number }
+  | { type: 'transformClip'; clipId: ClipId; x?: number; y?: number; scale?: number; scaleY?: number; rotation?: number }
   | { type: 'bakeClipOntoPage'; clipId: ClipId; pageId: PageId; pageLocalX: number; pageLocalY: number }
   | { type: 'selectClip'; clipId: ClipId | null }
   | {
@@ -146,12 +148,21 @@ function ensureTrashLists(doc: DocumentState): void {
   if (!doc.trashTexts) {
     doc.trashTexts = [];
   }
+  if (!doc.trashClipAttachedTexts) {
+    doc.trashClipAttachedTexts = {};
+  }
 }
 
 function addClipToTrash(doc: DocumentState, clipId: ClipId): void {
   ensureTrashLists(doc);
   if (!doc.pasteboardClips.some((clip) => clip.id === clipId)) {
     return;
+  }
+  const stocked = findStockClip(doc.stock, clipId);
+  if (stocked?.attachedTexts && stocked.attachedTexts.length > 0) {
+    doc.trashClipAttachedTexts![clipId] = cloneStockAttachedTexts(stocked.attachedTexts) ?? [];
+  } else {
+    delete doc.trashClipAttachedTexts![clipId];
   }
   doc.stock = doc.stock.filter((item) => !(isStockClipItem(item) && item.clipId === clipId));
   if (!doc.trashClips.includes(clipId)) {
@@ -277,7 +288,10 @@ export function reduceTestDocument(
         delete doc.pages[pageId];
       }
       const clipIds = new Set(doc.trashClips);
-      const textIds = new Set(doc.trashTexts);
+      const bundledTextIds = Object.values(doc.trashClipAttachedTexts ?? {}).flatMap((texts) =>
+        texts.map((item) => item.textId),
+      );
+      const textIds = new Set([...doc.trashTexts, ...bundledTextIds]);
       doc.pasteboardClips = doc.pasteboardClips.filter((clip) => !clipIds.has(clip.id));
       doc.pasteboardTexts = doc.pasteboardTexts.filter((text) => !textIds.has(text.id));
       if (doc.selectedClipId && clipIds.has(doc.selectedClipId)) {
@@ -289,6 +303,7 @@ export function reduceTestDocument(
       doc.trash = [];
       doc.trashClips = [];
       doc.trashTexts = [];
+      doc.trashClipAttachedTexts = {};
       return doc;
     }
     case 'reorderWorkspace': {
@@ -376,7 +391,14 @@ export function reduceTestDocument(
       if (findStockClip(doc.stock, action.clipId)) {
         return doc;
       }
-      doc.stock.push({ kind: 'clip', clipId: action.clipId, x: action.x, y: action.y });
+      const attached = cloneStockAttachedTexts(action.attachedTexts) ?? [];
+      doc.stock.push({
+        kind: 'clip',
+        clipId: action.clipId,
+        x: action.x,
+        y: action.y,
+        attachedTexts: attached.length > 0 ? attached : undefined,
+      });
       if (doc.selectedClipId === action.clipId) {
         doc.selectedClipId = null;
       }
@@ -387,7 +409,7 @@ export function reduceTestDocument(
       if (!found) {
         return doc;
       }
-      if (findStockText(doc.stock, action.textId)) {
+      if (findStockText(doc.stock, action.textId) || stockedTextIds(doc.stock).has(action.textId)) {
         return doc;
       }
       if (found.where === 'page' && found.pageId) {
@@ -423,11 +445,22 @@ export function reduceTestDocument(
       if (idx === -1) {
         return doc;
       }
-      doc.stock.splice(idx, 1);
+      const [removed] = doc.stock.splice(idx, 1);
       const clip = doc.pasteboardClips.find((c) => c.id === action.clipId);
       if (clip) {
         clip.x = action.x;
         clip.y = action.y;
+      }
+      restoreAttachedTextBoxes(
+        doc.pasteboardTexts,
+        action.x,
+        action.y,
+        removed && isStockClipItem(removed) ? removed.attachedTexts : undefined,
+      );
+      const attached = removed && isStockClipItem(removed) ? removed.attachedTexts : undefined;
+      if (attached && attached.length > 0) {
+        doc.selectedClipId = action.clipId;
+        doc.selectedTextId = attached[attached.length - 1]!.textId;
       }
       return doc;
     }
@@ -450,10 +483,19 @@ export function reduceTestDocument(
         return doc;
       }
       doc.trashClips.splice(idx, 1);
+      const attached = doc.trashClipAttachedTexts?.[action.clipId];
+      if (doc.trashClipAttachedTexts) {
+        delete doc.trashClipAttachedTexts[action.clipId];
+      }
       const clip = doc.pasteboardClips.find((c) => c.id === action.clipId);
       if (clip) {
         clip.x = action.x;
         clip.y = action.y;
+      }
+      restoreAttachedTextBoxes(doc.pasteboardTexts, action.x, action.y, attached);
+      if (attached && attached.length > 0) {
+        doc.selectedClipId = action.clipId;
+        doc.selectedTextId = attached[attached.length - 1]!.textId;
       }
       return doc;
     }
@@ -616,6 +658,9 @@ export function reduceTestDocument(
       if (action.scale !== undefined) {
         clip.scale = action.scale;
       }
+      if (action.scaleY !== undefined) {
+        clip.scaleY = action.scaleY;
+      }
       if (action.rotation !== undefined) {
         clip.rotation = action.rotation;
       }
@@ -628,7 +673,15 @@ export function reduceTestDocument(
         return doc;
       }
       const [clip] = doc.pasteboardClips.splice(clipIndex, 1);
-      compositeRaster(page.raster, clip.raster, action.pageLocalX, action.pageLocalY, clip.scale, clip.rotation);
+      compositeRaster(
+        page.raster,
+        clip.raster,
+        action.pageLocalX,
+        action.pageLocalY,
+        clip.scale,
+        clip.rotation,
+        clip.scaleY ?? clip.scale,
+      );
       if (doc.selectedClipId === action.clipId) {
         doc.selectedClipId = null;
       }

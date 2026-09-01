@@ -11,6 +11,7 @@ import {
 } from './types';
 import { cloneRaster, createRaster } from './raster';
 import { DEFAULT_UI_LAYOUT, normalizeUiLayout } from './uiLayout';
+import { cloneStockItem, cloneTrashClipAttachedTexts } from './stockItems';
 
 export type IdFactory = () => string;
 
@@ -109,10 +110,11 @@ export function cloneDocument(doc: DocumentState): DocumentState {
     ...doc,
     pages,
     workspaceOrder: [...doc.workspaceOrder],
-    stock: doc.stock.map((s) => ({ ...s })),
+    stock: doc.stock.map((s) => cloneStockItem(s)),
     trash: [...(doc.trash ?? [])],
     trashClips: [...(doc.trashClips ?? [])],
     trashTexts: [...(doc.trashTexts ?? [])],
+    trashClipAttachedTexts: cloneTrashClipAttachedTexts(doc.trashClipAttachedTexts),
     pasteboardClips: doc.pasteboardClips.map((c) => ({
       ...c,
       raster: cloneRaster(c.raster),
@@ -202,10 +204,11 @@ export function cloneEditorDocument(doc: EditorDocument): EditorDocument {
     ...doc,
     pages,
     workspaceOrder: [...doc.workspaceOrder],
-    stock: doc.stock.map((s) => ({ ...s })),
+    stock: doc.stock.map((s) => cloneStockItem(s)),
     trash: [...(doc.trash ?? [])],
     trashClips: [...(doc.trashClips ?? [])],
     trashTexts: [...(doc.trashTexts ?? [])],
+    trashClipAttachedTexts: cloneTrashClipAttachedTexts(doc.trashClipAttachedTexts),
     pasteboardClips: doc.pasteboardClips.map((c) => ({ ...c })),
     pasteboardTexts: doc.pasteboardTexts.map((t) => ({ ...t, box: { ...t.box } })),
     selectedClipIds: [...(doc.selectedClipIds ?? (doc.selectedClipId ? [doc.selectedClipId] : []))],

@@ -148,6 +148,34 @@ export function AppSettingsMenu({ settings, onChange }: AppSettingsMenuProps) {
             />
             トップメニューとストックウィンドウの位置を入れ替える
           </label>
+          <div className={styles.workspaceLayoutCheckGroup}>
+            <label className={styles.workspaceLayoutCheck}>
+              <input
+                type="checkbox"
+                checked={settings.stockRevealOnBottomEdge}
+                onChange={(event) => {
+                  const enabled = event.target.checked;
+                  onChange(
+                    enabled
+                      ? { stockRevealOnBottomEdge: true }
+                      : { stockRevealOnBottomEdge: false, stockHideAfterEdgeDrop: false },
+                  );
+                }}
+              />
+              {settings.swapTopbarAndStock
+                ? 'アイテムを上端にドラッグしたときだけストックを表示'
+                : 'アイテムを下端にドラッグしたときだけストックを表示'}
+            </label>
+            <label className={`${styles.workspaceLayoutCheck} ${styles.workspaceLayoutCheckNested}`}>
+              <input
+                type="checkbox"
+                checked={settings.stockRevealOnBottomEdge && settings.stockHideAfterEdgeDrop}
+                disabled={!settings.stockRevealOnBottomEdge}
+                onChange={(event) => onChange({ stockHideAfterEdgeDrop: event.target.checked })}
+              />
+              ドロップ後に自動で隠す
+            </label>
+          </div>
           <label className={styles.workspaceLayoutCheck}>
             <input
               type="checkbox"
@@ -165,33 +193,6 @@ export function AppSettingsMenu({ settings, onChange }: AppSettingsMenuProps) {
             />
             ツール切替の1タップ目でオプションを表示
           </label>
-
-          <div className={styles.workspaceLayoutCheckGroup}>
-            <label className={styles.workspaceLayoutCheck}>
-              <input
-                type="checkbox"
-                checked={settings.stockRevealOnBottomEdge}
-                onChange={(event) => {
-                  const enabled = event.target.checked;
-                  onChange(
-                    enabled
-                      ? { stockRevealOnBottomEdge: true }
-                      : { stockRevealOnBottomEdge: false, stockHideAfterEdgeDrop: false },
-                  );
-                }}
-              />
-              アイテムを下端にドラッグしたときだけストックを表示
-            </label>
-            <label className={`${styles.workspaceLayoutCheck} ${styles.workspaceLayoutCheckNested}`}>
-              <input
-                type="checkbox"
-                checked={settings.stockRevealOnBottomEdge && settings.stockHideAfterEdgeDrop}
-                disabled={!settings.stockRevealOnBottomEdge}
-                onChange={(event) => onChange({ stockHideAfterEdgeDrop: event.target.checked })}
-              />
-              ドロップ後に自動で隠す
-            </label>
-          </div>
 
           <fieldset className={styles.appSettingsFieldset}>
             <legend>ページ送りの単位</legend>

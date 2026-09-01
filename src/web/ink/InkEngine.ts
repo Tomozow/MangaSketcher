@@ -57,6 +57,34 @@ async function defaultCreateThumbBitmap(canvas: InkCanvas): Promise<ImageBitmap>
   return createImageBitmap(canvas);
 }
 
+function isClipRasterId(rasterId: string): boolean {
+  return rasterId.includes(':clip:');
+}
+
+export function fitClipThumbSize(srcW: number, srcH: number): { width: number; height: number } {
+  const w = Math.max(1, srcW);
+  const h = Math.max(1, srcH);
+  const scale = Math.min(THUMB_WIDTH / w, THUMB_HEIGHT / h);
+  return {
+    width: Math.max(1, Math.round(w * scale)),
+    height: Math.max(1, Math.round(h * scale)),
+  };
+}
+
+function drawInkOntoThumbCanvas(
+  ctx: Ink2DContext,
+  source: CanvasImageSource & { width: number; height: number },
+  destWidth: number,
+  destHeight: number,
+): void {
+  const srcW = source.width;
+  const srcH = source.height;
+  if (srcW <= 0 || srcH <= 0 || destWidth <= 0 || destHeight <= 0) {
+    return;
+  }
+  ctx.drawImage(source, 0, 0, destWidth, destHeight);
+}
+
 export class InkEngine {
   readonly hot = new Map<string, InkCanvas>();
   readonly encodedPng = new Map<string, ArrayBuffer>();
@@ -607,13 +635,28 @@ export class InkEngine {
    * Draw ink onto a 144×204 thumb context without creating a hot canvas when
    * the page is only encoded.
    */
-  private async drawInkSourceOntoThumb(ctx: Ink2DContext, rasterId: string): Promise<void> {
+  private async drawInkSourceOntoThumb(
+    ctx: Ink2DContext,
+    rasterId: string,
+    destWidth: number,
+    destHeight: number,
+  ): Promise<void> {
     const hot = this.hot.get(rasterId);
     if (hot) {
-      ctx.drawImage(hot as unknown as CanvasImageSource, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
+      drawInkOntoThumbCanvas(
+        ctx,
+        hot as unknown as CanvasImageSource & { width: number; height: number },
+        destWidth,
+        destHeight,
+      );
       const overlay = this.overlays.get(rasterId);
       if (overlay) {
-        ctx.drawImage(overlay as unknown as CanvasImageSource, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
+        drawInkOntoThumbCanvas(
+          ctx,
+          overlay as unknown as CanvasImageSource & { width: number; height: number },
+          destWidth,
+          destHeight,
+        );
       }
       return;
     }
@@ -636,7 +679,12 @@ export class InkEngine {
             ? new ImageData(snapshot.data, snapshot.width, snapshot.height)
             : ({ data: snapshot.data, width: snapshot.width, height: snapshot.height } as ImageData);
         srcCtx.putImageData(imageData, 0, 0);
-        ctx.drawImage(src as unknown as CanvasImageSource, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
+        drawInkOntoThumbCanvas(
+          ctx,
+          src as unknown as CanvasImageSource & { width: number; height: number },
+          destWidth,
+          destHeight,
+        );
       } catch {
         /* malformed snapshot */
       }
@@ -650,8 +698,8 @@ export class InkEngine {
     let bitmap: ImageBitmap | undefined;
     try {
       bitmap = await createImageBitmap(blob, {
-        resizeWidth: THUMB_WIDTH,
-        resizeHeight: THUMB_HEIGHT,
+        resizeWidth: destWidth,
+        resizeHeight: destHeight,
         resizeQuality: 'low',
       });
     } catch {
@@ -661,7 +709,7 @@ export class InkEngine {
         return;
       }
     }
-    ctx.drawImage(bitmap, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
+    drawInkOntoThumbCanvas(ctx, bitmap, destWidth, destHeight);
     bitmap.close();
   }
 
@@ -673,14 +721,18 @@ export class InkEngine {
     const generation = (this.thumbGeneration.get(rasterId) ?? 0) + 1;
     this.thumbGeneration.set(rasterId, generation);
 
-    const thumbCanvas = this.canvasFactory(THUMB_WIDTH, THUMB_HEIGHT);
+    const dest = isClipRasterId(rasterId)
+      ? fitClipThumbSize(this.getRasterDimensions(rasterId).width, this.getRasterDimensions(rasterId).height)
+      : { width: THUMB_WIDTH, height: THUMB_HEIGHT };
+
+    const thumbCanvas = this.canvasFactory(dest.width, dest.height);
     const ctx = thumbCanvas.getContext('2d');
     if (!ctx) {
       return undefined;
     }
 
     if (this.drawTemplate && this.isPageRasterId(rasterId)) {
-      this.drawTemplate(ctx, THUMB_WIDTH, THUMB_HEIGHT);
+      this.drawTemplate(ctx, dest.width, dest.height);
     }
 
     if ('imageSmoothingEnabled' in ctx) {
@@ -690,7 +742,7 @@ export class InkEngine {
       ctx.imageSmoothingQuality = 'low';
     }
 
-    await this.drawInkSourceOntoThumb(ctx, rasterId);
+    await this.drawInkSourceOntoThumb(ctx, rasterId, dest.width, dest.height);
     if (this.thumbGeneration.get(rasterId) !== generation) {
       return undefined;
     }
@@ -781,6 +833,7 @@ export class InkEngine {
     pageLocalY: number,
     scale: number,
     rotation: number,
+    scaleY: number = scale,
   ): ArrayBuffer {
     const clipDims = this.getRasterDimensions(clipRasterId);
     this.captureStrokeUndo(pageRasterId);
@@ -799,6 +852,7 @@ export class InkEngine {
       pageLocalY,
       scale,
       rotation,
+      scaleY,
     );
     const pageUndo = this.takeStrokeUndoPng(pageRasterId);
     this.disposeRaster(clipRasterId);

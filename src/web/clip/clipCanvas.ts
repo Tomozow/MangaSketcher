@@ -119,13 +119,14 @@ export function canvasBakeClipOntoPage(
   pageLocalY: number,
   scale: number,
   rotation: number,
+  scaleY: number = scale,
 ): void {
   const cx = pageLocalX + (clipWidth * scale) / 2;
-  const cy = pageLocalY + (clipHeight * scale) / 2;
+  const cy = pageLocalY + (clipHeight * scaleY) / 2;
   pageCtx.save();
   pageCtx.translate(cx, cy);
   pageCtx.rotate(rotation);
-  pageCtx.scale(scale, scale);
+  pageCtx.scale(scale, scaleY);
   pageCtx.drawImage(clipCanvas as unknown as CanvasImageSource, -clipWidth / 2, -clipHeight / 2);
   pageCtx.restore();
 }

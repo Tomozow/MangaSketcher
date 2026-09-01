@@ -30,6 +30,20 @@ describe('inkDisplayBackingSize', () => {
     expect(size.cssHeight).toBe(306);
   });
 
+  test('uses an explicit CSS height when free-transforming a clip', () => {
+    const size = inkDisplayBackingSize({
+      displayWidth: 216,
+      displayHeight: 100,
+      rasterWidth: 1200,
+      rasterHeight: 1700,
+      devicePixelRatio: 2,
+      cssZoom: 1,
+    });
+    expect(size.cssHeight).toBe(100);
+    expect(size.pixelW).toBe(432);
+    expect(size.pixelH).toBe(200);
+  });
+
   test('at rest on 2× is 432×612', () => {
     const size = inkDisplayBackingSize({
       displayWidth: 216,

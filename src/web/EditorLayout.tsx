@@ -43,7 +43,7 @@ import {
 } from '@/src/domain/uiLayout';
 import {
   STOCK_EDGE_REVEAL_HOLD_MS,
-  shouldRevealStockAtBottomEdge,
+  shouldRevealStockAtDockEdge,
 } from '@/src/web/stock/stockEdgeReveal';
 
 type EditorLayoutProps = {
@@ -244,7 +244,13 @@ export function EditorLayout({
         return;
       }
       const onMove = (event: PointerEvent) => {
-        if (shouldRevealStockAtBottomEdge(event.clientY, window.innerHeight)) {
+        if (
+          shouldRevealStockAtDockEdge(
+            event.clientY,
+            window.innerHeight,
+            appSettings.swapTopbarAndStock ? 'top' : 'bottom',
+          )
+        ) {
           setStockEdgeReveal(true);
         }
       };
@@ -265,7 +271,12 @@ export function EditorLayout({
       setStockEdgeReveal(false);
     }, STOCK_EDGE_REVEAL_HOLD_MS);
     return () => clearHideTimer();
-  }, [workspaceGrab, appSettings.stockRevealOnBottomEdge, appSettings.stockHideAfterEdgeDrop]);
+  }, [
+    workspaceGrab,
+    appSettings.stockRevealOnBottomEdge,
+    appSettings.stockHideAfterEdgeDrop,
+    appSettings.swapTopbarAndStock,
+  ]);
 
   const handleWorkspaceEffects = useCallback(
     (
@@ -413,7 +424,12 @@ export function EditorLayout({
               pages={doc.pages}
               pasteboardClips={withoutStockedClips(doc.pasteboardClips, doc.stock, doc.trashClips)}
               clipLiveTransforms={clipLiveTransforms}
-              pasteboardTexts={withoutStockedTexts(doc.pasteboardTexts, doc.stock, doc.trashTexts)}
+              pasteboardTexts={withoutStockedTexts(
+                doc.pasteboardTexts,
+                doc.stock,
+                doc.trashTexts,
+                doc.trashClipAttachedTexts,
+              )}
               selectedPageId={doc.selectedPageId}
               selectedClipId={doc.selectedClipId}
               selectedClipIds={doc.selectedClipIds}

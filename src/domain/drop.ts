@@ -1,13 +1,13 @@
 import type { DocumentAction } from './reducer';
 import { defaultTextBox } from './text';
-import type { ClipId, PageId, Rect, TextId } from './types';
+import type { ClipId, PageId, Rect, StockAttachedText, TextId } from './types';
 
 export type DragPayload =
   | { type: 'pdfText'; pdfPage: number; range: Rect; preview: string }
   | { type: 'workspacePage'; pageId: PageId; fromIndex: number }
   | { type: 'stockPage'; pageId: PageId }
   | { type: 'trashPage'; pageId: PageId }
-  | { type: 'clip'; clipId: ClipId }
+  | { type: 'clip'; clipId: ClipId; attachedTexts?: StockAttachedText[] }
   | { type: 'pasteboardText'; textId: TextId };
 
 export type DropTarget =
@@ -100,7 +100,7 @@ export function dropActions(
 
   if (payload.type === 'clip') {
     if (target.zone === 'stock') {
-      return [{ type: 'moveClipToStock', clipId: payload.clipId, x: target.x, y: target.y }];
+      return [{ type: 'moveClipToStock', clipId: payload.clipId, x: target.x, y: target.y, attachedTexts: payload.attachedTexts }];
     }
     if (target.zone === 'page') {
       return [

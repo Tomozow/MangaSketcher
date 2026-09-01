@@ -171,6 +171,7 @@ export function compositeRaster(
   destY: number,
   scale: number,
   rotation: number,
+  scaleY: number = scale,
 ): void {
   const cos = Math.cos(rotation);
   const sin = Math.sin(rotation);
@@ -183,11 +184,11 @@ export function compositeRaster(
         continue;
       }
       const lx = (x - cx) * scale;
-      const ly = (y - cy) * scale;
+      const ly = (y - cy) * scaleY;
       const rx = lx * cos - ly * sin;
       const ry = lx * sin + ly * cos;
       const tx = destX + cx * scale + rx;
-      const ty = destY + cy * scale + ry;
+      const ty = destY + cy * scaleY + ry;
       const existing = getPixel(dest, tx, ty);
       const srcA = pixel.a / 255;
       const dstA = existing.a / 255;

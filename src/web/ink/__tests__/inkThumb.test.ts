@@ -201,6 +201,28 @@ describe('InkEngine thumbnails (§9.7)', () => {
     expect(pixel.data[3]).toBeGreaterThan(0);
   });
 
+  test('clip thumbs keep source aspect and omit letterbox', async () => {
+    const rasterId = 'p1:clip:wide-thumb';
+    const clipW = 80;
+    const clipH = 20;
+    const engine = createThumbEngine();
+    engine.registerClipRaster(rasterId, clipW, clipH);
+    const hot = engine.getHotContext(rasterId)!;
+    hot.fillStyle = '#000000';
+    hot.fillRect(0, 0, clipW, clipH);
+
+    const thumb = await engine.generateThumb(rasterId);
+    expect(thumb).toBeDefined();
+    const fitted = { width: 144, height: 36 };
+    expect((thumb as unknown as FakeImageBitmap).width).toBe(fitted.width);
+    expect((thumb as unknown as FakeImageBitmap).height).toBe(fitted.height);
+    const ctx = (thumb as unknown as FakeImageBitmap).canvas.getContext('2d')!;
+    const top = ctx.getImageData(Math.floor(fitted.width / 2), 0, 1, 1).data;
+    const mid = ctx.getImageData(Math.floor(fitted.width / 2), Math.floor(fitted.height / 2), 1, 1).data;
+    expect(top[3]).toBeGreaterThan(0);
+    expect(mid[3]).toBeGreaterThan(0);
+  });
+
   test('generateThumb skips page template for clip rasters', async () => {
     const rasterId = 'p1:clip:thumb-clip';
     const engine = createThumbEngine();
@@ -208,10 +230,11 @@ describe('InkEngine thumbnails (§9.7)', () => {
     const thumb = await engine.generateThumb(rasterId);
     expect(thumb).toBeDefined();
     expect(engine.hot.has(rasterId)).toBe(false);
+    const fitted = { width: THUMB_WIDTH, height: THUMB_WIDTH };
     const alpha = countAlphaPixels(
       (thumb as unknown as FakeImageBitmap).canvas.getContext('2d')!,
-      THUMB_WIDTH,
-      THUMB_HEIGHT,
+      fitted.width,
+      fitted.height,
     );
     expect(alpha).toBe(0);
   });

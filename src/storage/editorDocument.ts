@@ -10,6 +10,7 @@ import {
 import { pageRasterId } from './rasterIds';
 import { randomId } from './randomId';
 import { clonePdfDocument } from '../domain/document';
+import { cloneStockItem, cloneTrashClipAttachedTexts } from '../domain/stockItems';
 import { normalizeUiLayout } from '../domain/uiLayout';
 
 export type IdFactory = () => string;
@@ -89,10 +90,11 @@ export function cloneEditorDocument(doc: EditorDocument): EditorDocument {
     ...doc,
     pages,
     workspaceOrder: [...doc.workspaceOrder],
-    stock: doc.stock.map((item) => ({ ...item })),
+    stock: doc.stock.map((item) => cloneStockItem(item)),
     trash: [...(doc.trash ?? [])],
     trashClips: [...(doc.trashClips ?? [])],
     trashTexts: [...(doc.trashTexts ?? [])],
+    trashClipAttachedTexts: cloneTrashClipAttachedTexts(doc.trashClipAttachedTexts),
     pasteboardClips: doc.pasteboardClips.map((clip) => ({ ...clip })),
     pasteboardTexts: doc.pasteboardTexts.map((text) => ({ ...text, box: { ...text.box } })),
     selectedClipIds: [...(doc.selectedClipIds ?? (doc.selectedClipId ? [doc.selectedClipId] : []))],

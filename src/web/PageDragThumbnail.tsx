@@ -17,6 +17,8 @@ type PageDragThumbnailProps = {
   texts?: readonly PageText[];
   rasterWidth?: number;
   rasterHeight?: number;
+  width?: number;
+  height?: number;
 };
 
 export function PageDragThumbnail({
@@ -28,6 +30,8 @@ export function PageDragThumbnail({
   texts,
   rasterWidth,
   rasterHeight,
+  width = THUMB_WIDTH,
+  height = THUMB_HEIGHT,
 }: PageDragThumbnailProps) {
   if (typeof document === 'undefined') {
     return null;
@@ -39,8 +43,8 @@ export function PageDragThumbnail({
       style={{
         left: clientX,
         top: clientY,
-        width: THUMB_WIDTH,
-        height: THUMB_HEIGHT,
+        width,
+        height,
         ...(grabOffset
           ? { transform: `translate(${-grabOffset.x}px, ${-grabOffset.y}px)` }
           : {}),

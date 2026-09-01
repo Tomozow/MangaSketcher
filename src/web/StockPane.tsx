@@ -4,7 +4,9 @@ import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState } from 
 import { createPortal } from 'react-dom';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
 import { PAGE_DISPLAY_H, PAGE_DISPLAY_W, buildStripFrames, stripLayoutFromDoc } from '@/src/domain/stripGeometry';
+import { assignOverlappingTextsToClips, attachedTextsToClipRasterTexts } from '@/src/domain/stockClipAttach';
 import {
+  findStockClip,
   isStockClipItem,
   isStockTextItem,
   parseStockThumbKey,
@@ -16,7 +18,6 @@ import { findText } from '@/src/domain/text';
 import type { PageId, PageText } from '@/src/domain/types';
 import type { EditorDocument } from '@/src/storage/types';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
-import { THUMB_HEIGHT, THUMB_WIDTH } from '@/src/web/ink/InkEngine';
 import { drawPageTextsOnThumb } from '@/src/web/ink/drawPageTextsOnThumb';
 import { PageDragThumbnail } from '@/src/web/PageDragThumbnail';
 import { PageChromeButtons } from '@/src/web/PageDeleteButton';
@@ -39,13 +40,18 @@ import {
   resolveWorkspaceInsertIndex,
   STOCK_FREE_PAGE_HEIGHT,
   STOCK_FREE_PAGE_WIDTH,
+  STOCK_FREE_TEXT_HEIGHT,
+  STOCK_FREE_TEXT_WIDTH,
   STOCK_FREE_THUMB_HEIGHT,
   STOCK_FREE_THUMB_WIDTH,
 } from '@/src/web/stock/stockCoords';
 import { reduceStockEffects } from '@/src/web/stock/stockEffects';
+import { scrollStockGridToBack, snapStockGridToPackedEnd } from '@/src/web/stock/stockGridScroll';
 import { createStockPointerPipeline, getStockDragPageId } from '@/src/web/stock/stockPointer';
-import { fitStockTextThumbFontSize, STOCK_TEXT_THUMB_BASE_PX } from '@/src/web/stock/stockTextThumbFit';
+import { fitStockTextThumbFontSize, STOCK_TEXT_THUMB_BASE_PX, STOCK_TEXT_THUMB_FREE_BASE_PX, STOCK_TEXT_THUMB_FREE_MIN_PX } from '@/src/web/stock/stockTextThumbFit';
 import type { StockHit } from '@/src/web/stock/types';
+import { clipWorldAabb } from '@/src/web/clip/clipGeometry';
+import { textWorldBox } from '@/src/web/gestures/elementInteraction';
 import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 import { styles } from './editorStyles';
 
@@ -236,6 +242,79 @@ type StockPageThumbProps = {
   inkEngine?: InkEngine | null;
 };
 
+function clipRasterRatioStyle(
+  clip: { rasterId: string } | undefined,
+  inkEngine?: InkEngine | null,
+): { ['--ms-clip-ratio']: string; ['--ms-clip-w']: string; ['--ms-clip-h']: string } {
+  const size = clip && inkEngine ? inkEngine.getRasterDimensions(clip.rasterId) : { width: 1, height: 1 };
+  const width = Math.max(1, size.width);
+  const height = Math.max(1, size.height);
+  return {
+    ['--ms-clip-ratio']: `${width} / ${height}`,
+    ['--ms-clip-w']: String(width),
+    ['--ms-clip-h']: String(height),
+  };
+}
+
+function clipGhostSize(
+  clip: { rasterId: string } | undefined,
+  inkEngine?: InkEngine | null,
+): { width: number; height: number } {
+  const size = clip && inkEngine ? inkEngine.getRasterDimensions(clip.rasterId) : { width: 1, height: 1 };
+  const srcW = Math.max(1, size.width);
+  const srcH = Math.max(1, size.height);
+  const scale = Math.min(STOCK_FREE_THUMB_WIDTH / srcW, STOCK_FREE_THUMB_HEIGHT / srcH);
+  return { width: srcW * scale, height: srcH * scale };
+}
+
+function clipThumbRaster(
+  clip: { rasterId: string } | undefined,
+  inkEngine: InkEngine | null | undefined,
+): { width: number; height: number } {
+  return clip && inkEngine ? inkEngine.getRasterDimensions(clip.rasterId) : { width: 1, height: 1 };
+}
+
+function clipStockThumbTexts(
+  attached: { textId: string; offsetX: number; offsetY: number }[] | undefined,
+  doc: EditorDocument,
+  clipScale: number,
+  clipRaster: { width: number; height: number },
+  clipScaleY?: number,
+): PageText[] {
+  return attachedTextsToClipRasterTexts(
+    attached,
+    doc.pasteboardTexts,
+    clipScale,
+    clipRaster,
+    doc.rasterWidth,
+    doc.rasterHeight,
+    clipScaleY ?? clipScale,
+  );
+}
+
+function sameStockThumbTexts(a: readonly PageText[], b: readonly PageText[]): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (a.length !== b.length) {
+    return false;
+  }
+  return a.every((text, index) => {
+    const other = b[index];
+    return (
+      other != null &&
+      text.id === other.id &&
+      text.content === other.content &&
+      text.fontSize === other.fontSize &&
+      text.color === other.color &&
+      text.box.x === other.box.x &&
+      text.box.y === other.box.y &&
+      text.box.width === other.box.width &&
+      text.box.height === other.box.height
+    );
+  });
+}
+
 function stockTransformCss(panX: number, panY: number, zoom: number): string {
   return `translate(${panX}px, ${panY}px) scale(${zoom})`;
 }
@@ -251,15 +330,15 @@ function composeStockThumbObjectUrl(
   rasterHeight: number,
 ): Promise<string | null> {
   const canvas = document.createElement('canvas');
-  canvas.width = THUMB_WIDTH;
-  canvas.height = THUMB_HEIGHT;
+  canvas.width = Math.max(1, thumb.width);
+  canvas.height = Math.max(1, thumb.height);
   const ctx = canvas.getContext('2d');
   if (!ctx) {
     return Promise.resolve(null);
   }
-  ctx.drawImage(thumb, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
+  ctx.drawImage(thumb, 0, 0, canvas.width, canvas.height);
   if (texts.length > 0 && rasterWidth > 0 && rasterHeight > 0) {
-    drawPageTextsOnThumb(ctx, texts, rasterWidth, rasterHeight, THUMB_WIDTH, THUMB_HEIGHT);
+    drawPageTextsOnThumb(ctx, texts, rasterWidth, rasterHeight, canvas.width, canvas.height);
   }
   return new Promise((resolve) => {
     canvas.toBlob((blob) => {
@@ -344,7 +423,7 @@ const StockPageThumb = memo(function StockPageThumb({
 }, (prev, next) => (
   prev.pageId === next.pageId &&
   prev.rasterId === next.rasterId &&
-  prev.texts === next.texts &&
+  sameStockThumbTexts(prev.texts, next.texts) &&
   prev.rasterWidth === next.rasterWidth &&
   prev.rasterHeight === next.rasterHeight &&
   prev.inkEngine === next.inkEngine
@@ -353,13 +432,17 @@ const StockPageThumb = memo(function StockPageThumb({
 function StockTextThumb({
   content,
   color,
+  compact,
 }: {
   content: string;
   color: string;
+  compact?: boolean;
 }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const preview = content.trim() || 'テキスト';
-  const [fontSize, setFontSize] = useState(STOCK_TEXT_THUMB_BASE_PX);
+  const base = compact ? STOCK_TEXT_THUMB_FREE_BASE_PX : STOCK_TEXT_THUMB_BASE_PX;
+  const min = compact ? STOCK_TEXT_THUMB_FREE_MIN_PX : undefined;
+  const [fontSize, setFontSize] = useState(base);
 
   useLayoutEffect(() => {
     const host = hostRef.current;
@@ -372,13 +455,15 @@ function StockTextThumb({
       const padY = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
       const width = Math.max(1, host.clientWidth - (Number.isFinite(padX) ? padX : 0));
       const height = Math.max(1, host.clientHeight - (Number.isFinite(padY) ? padY : 0));
-      setFontSize(fitStockTextThumbFontSize(preview, width, height));
+      setFontSize(
+        fitStockTextThumbFontSize(preview, width, height, compact ? { base, min } : undefined),
+      );
     };
     fit();
     const observer = new ResizeObserver(fit);
     observer.observe(host);
     return () => observer.disconnect();
-  }, [preview]);
+  }, [preview, compact, base, min]);
 
   return (
     <div ref={hostRef} className={styles.stockTextThumb} style={{ color, fontSize }}>
@@ -419,6 +504,8 @@ function StockItemDragGhost({
         texts={doc.pages[parsed.pageId]?.texts ?? EMPTY_TEXTS}
         rasterWidth={doc.rasterWidth}
         rasterHeight={doc.rasterHeight}
+        width={STOCK_FREE_PAGE_WIDTH}
+        height={STOCK_FREE_PAGE_HEIGHT}
       />
     );
   }
@@ -428,14 +515,24 @@ function StockItemDragGhost({
   const clip = parsed.kind === 'clip' ? doc.pasteboardClips.find((c) => c.id === parsed.clipId) : undefined;
   const text =
     parsed.kind === 'text' ? findText(doc, parsed.textId)?.node : undefined;
+  const clipRaster = parsed.kind === 'clip' ? clipThumbRaster(clip, inkEngine) : { width: 1, height: 1 };
+  const clipAttached =
+    parsed.kind === 'clip'
+      ? findStockClip(doc.stock, parsed.clipId)?.attachedTexts ?? doc.trashClipAttachedTexts?.[parsed.clipId]
+      : undefined;
+  const ghostSize =
+    parsed.kind === 'clip'
+      ? clipGhostSize(clip, inkEngine)
+      : { width: STOCK_FREE_TEXT_WIDTH, height: STOCK_FREE_TEXT_HEIGHT };
   return createPortal(
     <div
       className={`${styles.stockDragGhost} ${parsed.kind === 'clip' ? styles.stockThumbClip : styles.stockThumbText}`}
       style={{
         left: clientX,
         top: clientY,
-        width: STOCK_FREE_THUMB_WIDTH,
-        height: STOCK_FREE_THUMB_HEIGHT,
+        width: ghostSize.width,
+        height: ghostSize.height,
+        ...(parsed.kind === 'clip' ? clipRasterRatioStyle(clip, inkEngine) : {}),
         ...(grabOffset
           ? { transform: `translate(${-grabOffset.x}px, ${-grabOffset.y}px)` }
           : {}),
@@ -447,13 +544,13 @@ function StockItemDragGhost({
           <StockPageThumb
             pageId={parsed.clipId}
             rasterId={clip?.rasterId}
-            texts={EMPTY_TEXTS}
-            rasterWidth={doc.rasterWidth}
-            rasterHeight={doc.rasterHeight}
+            texts={clipStockThumbTexts(clipAttached, doc, clip?.scale ?? 1, clipRaster, clip?.scaleY)}
+            rasterWidth={clipRaster.width}
+            rasterHeight={clipRaster.height}
             inkEngine={inkEngine}
           />
         ) : (
-          <StockTextThumb content={text?.content ?? ''} color={text?.color ?? '#1A1A1A'} />
+          <StockTextThumb content={text?.content ?? ''} color={text?.color ?? '#1A1A1A'} compact />
         )}
       </div>
     </div>,
@@ -517,14 +614,51 @@ export function StockPane({
   const paneItems = trashPane
     ? [
         ...doc.trash.map((pageId) => ({ pageId, x: 0, y: 0 })),
-        ...(doc.trashClips ?? []).map((clipId) => ({ kind: 'clip' as const, clipId, x: 0, y: 0 })),
+        ...(doc.trashClips ?? []).map((clipId) => ({
+          kind: 'clip' as const,
+          clipId,
+          x: 0,
+          y: 0,
+          attachedTexts: doc.trashClipAttachedTexts?.[clipId],
+        })),
         ...(doc.trashTexts ?? []).map((textId) => ({ kind: 'text' as const, textId, x: 0, y: 0 })),
       ]
     : doc.stock;
   const gridCells = paneLayout === 'grid' ? stockGridPlacements(paneItems) : [];
 
   useLayoutEffect(() => {
-    if (viewGestureRef.current) {
+    viewGestureRef.current = false;
+    if (paneLayout === 'grid') {
+      const view = liveViewRef.current;
+      const present = docRef.current;
+      if (view.zoom !== present.stockZoom || view.panX !== present.stockPanX || view.panY !== present.stockPanY) {
+        dispatchRef.current({
+          type: 'setStockView',
+          zoom: view.zoom,
+          panX: view.panX,
+          panY: view.panY,
+        });
+      }
+      const surface = surfaceRef.current;
+      if (surface) {
+        snapStockGridToPackedEnd(surface);
+        const frame = requestAnimationFrame(() => {
+          snapStockGridToPackedEnd(surface);
+        });
+        return () => cancelAnimationFrame(frame);
+      }
+      return;
+    }
+    const present = docRef.current;
+    liveViewRef.current = { zoom: present.stockZoom, panX: present.stockPanX, panY: present.stockPanY };
+    const el = transformRef.current;
+    if (el) {
+      el.style.transform = stockTransformCss(present.stockPanX, present.stockPanY, present.stockZoom);
+    }
+  }, [paneLayout]);
+
+  useLayoutEffect(() => {
+    if (viewGestureRef.current || paneLayout === 'grid') {
       return;
     }
     liveViewRef.current = { zoom: doc.stockZoom, panX: doc.stockPanX, panY: doc.stockPanY };
@@ -532,7 +666,7 @@ export function StockPane({
     if (el) {
       el.style.transform = stockTransformCss(doc.stockPanX, doc.stockPanY, doc.stockZoom);
     }
-  }, [doc.stockZoom, doc.stockPanX, doc.stockPanY]);
+  }, [doc.stockZoom, doc.stockPanX, doc.stockPanY, paneLayout]);
 
   const syncDragPointer = useCallback(() => {
     const pipeline = pipelineRef.current;
@@ -635,7 +769,12 @@ export function StockPane({
       }
       const gridOrTrash = present.stockLayout === 'grid' || present.stockPane === 'trash';
       const viewSource = gridOrTrash
-        ? present
+        ? {
+            ...present,
+            stockZoom: 1,
+            stockPanX: 0,
+            stockPanY: 0,
+          }
         : {
             ...present,
             stockZoom: liveViewRef.current.zoom,
@@ -650,17 +789,19 @@ export function StockPane({
       );
       if (batch.view) {
         if (gridOrTrash) {
-          if (batch.view.zoom !== present.stockZoom) {
-            dispatchRef.current({
-              type: 'setStockView',
-              zoom: batch.view.zoom,
-              panX: 0,
-              panY: 0,
-            });
-          }
           const surface = surfaceRef.current;
           if (surface) {
-            surface.scrollLeft -= batch.view.panX - present.stockPanX;
+            let dx = 0;
+            for (const effect of effects) {
+              if (effect.type === 'panBy') {
+                dx += effect.dx;
+              } else if (effect.type === 'pinchBy') {
+                dx += effect.midDx;
+              }
+            }
+            if (dx !== 0) {
+              surface.scrollLeft -= dx;
+            }
           }
         } else {
           viewGestureRef.current = true;
@@ -679,7 +820,7 @@ export function StockPane({
           const stillViewing = [...pipeline.store.sessions.values()].some((session) =>
             isStockViewSessionMode(session.mode),
           );
-          if (!stillViewing) {
+          if (!stillViewing && !gridOrTrash) {
             viewGestureRef.current = false;
             const view = liveViewRef.current;
             if (
@@ -694,6 +835,9 @@ export function StockPane({
                 panY: view.panY,
               });
             }
+          }
+          if (!stillViewing) {
+            viewGestureRef.current = false;
           }
         }
         if (effect.type === 'showPageDelete' && present.stockPane !== 'trash') {
@@ -801,16 +945,29 @@ export function StockPane({
     };
   }, [applyStockEffects, resolveHit, syncDragPointer, captureStockFreeGrab, paneLayout, trashPane]);
 
+  const prevGridItemCountRef = useRef<number | null>(null);
   useLayoutEffect(() => {
-    if (paneLayout !== 'grid') {
+    if (paneLayout !== 'grid' || trashPane) {
+      prevGridItemCountRef.current = paneItems.length;
       return;
     }
     const surface = surfaceRef.current;
-    if (!surface) {
+    const prevCount = prevGridItemCountRef.current;
+    prevGridItemCountRef.current = paneItems.length;
+    if (!surface || prevCount == null || paneItems.length <= prevCount) {
       return;
     }
-    surface.scrollLeft = surface.scrollWidth - surface.clientWidth;
-  }, [paneLayout, paneItems.length, trashPane]);
+    const newest = paneItems[paneItems.length - 1];
+    if (!newest) {
+      return;
+    }
+    const key = stockThumbKey(newest);
+    scrollStockGridToBack(surface, key);
+    const frame = requestAnimationFrame(() => {
+      scrollStockGridToBack(surface, key);
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [paneLayout, paneItems, trashPane]);
 
   const finishCrossPaneDrop = useCallback((clientX: number, clientY: number) => {
     const present = docRef.current;
@@ -850,7 +1007,10 @@ export function StockPane({
       );
     };
     const pageThumbSize = { width: STOCK_FREE_PAGE_WIDTH, height: STOCK_FREE_PAGE_HEIGHT };
-    const itemThumbSize = { width: STOCK_FREE_THUMB_WIDTH, height: STOCK_FREE_THUMB_HEIGHT };
+    const clipThumbSize = { width: STOCK_FREE_THUMB_WIDTH, height: STOCK_FREE_THUMB_HEIGHT };
+    const textThumbSize = { width: STOCK_FREE_TEXT_WIDTH, height: STOCK_FREE_TEXT_HEIGHT };
+    const freeThumbSize = (kind: 'page' | 'clip' | 'text') =>
+      kind === 'page' ? pageThumbSize : kind === 'text' ? textThumbSize : clipThumbSize;
 
     if (overTrash && grab?.pageId) {
       for (const action of dropWorkspacePageToTrash(grab.pageId)) {
@@ -915,7 +1075,11 @@ export function StockPane({
       pointInRect(clientX, clientY, stockSurface.getBoundingClientRect());
 
     if (grab && overStockPane) {
-      const { x, y } = stockWorld(grab.pageId ? pageThumbSize : itemThumbSize);
+      const clips = grabClipIds(grab);
+      const texts = grabTextIds(grab);
+      const { x, y } = stockWorld(
+        grab.pageId ? pageThumbSize : texts.length > 0 && clips.length === 0 ? textThumbSize : clipThumbSize,
+      );
       if (grab.pageId && grab.fromIndex !== undefined) {
         for (const action of moveWorkspacePageToStock(
           grab.pageId,
@@ -928,8 +1092,42 @@ export function StockPane({
           dispatchRef.current(action);
         }
       } else {
-        const clips = grabClipIds(grab);
-        const texts = grabTextIds(grab);
+        const frames = buildStripFrames(present.workspaceOrder, stripLayoutFromDoc(present)).frames;
+        const clipCandidates = clips.flatMap((clipId) => {
+          const clip = present.pasteboardClips.find((item) => item.id === clipId);
+          if (!clip) {
+            return [];
+          }
+          const size = inkEngine?.getRasterDimensions(clip.rasterId) ?? { width: 1, height: 1 };
+          return [
+            {
+              clipId,
+              originX: clip.x,
+              originY: clip.y,
+              hitBox: clipWorldAabb(clip, size, present.rasterWidth, present.rasterHeight),
+            },
+          ];
+        });
+        const textCandidates = texts.flatMap((textId) => {
+          const found = findText(present, textId);
+          if (!found) {
+            return [];
+          }
+          return [
+            {
+              textId,
+              box: textWorldBox({
+                where: found.where,
+                pageId: found.pageId,
+                box: found.node.box,
+                frames,
+                rasterWidth: present.rasterWidth,
+                rasterHeight: present.rasterHeight,
+              }),
+            },
+          ];
+        });
+        const grouped = assignOverlappingTextsToClips(clipCandidates, textCandidates);
         const gap = 80;
         let slot = 0;
         for (const clipId of clips) {
@@ -939,12 +1137,13 @@ export function StockPane({
             y,
             present.rasterWidth,
             present.rasterHeight,
+            grouped.attachedByClip.get(clipId),
           )) {
             dispatchRef.current(action);
           }
           slot += 1;
         }
-        for (const textId of texts) {
+        for (const textId of grouped.leftoverTextIds) {
           for (const action of moveTextToStock(
             textId,
             x + slot * gap,
@@ -980,7 +1179,7 @@ export function StockPane({
         }
       }
       if (present.stockLayout === 'free') {
-        const thumbSize = stockDrag.kind === 'page' ? pageThumbSize : itemThumbSize;
+        const thumbSize = freeThumbSize(stockDrag.kind);
         const storedGrab = stockFreeGrabRef.current;
         const grabOffset =
           storedGrab && storedGrab.key === stockDragId
@@ -1146,10 +1345,7 @@ export function StockPane({
             storedGrab && stockDragId && storedGrab.key === stockDragId
               ? { x: storedGrab.grabOffsetWorldX, y: storedGrab.grabOffsetWorldY }
               : undefined;
-          const { x, y } = stockWorld(
-            stockDrag.kind === 'page' ? pageThumbSize : itemThumbSize,
-            grabOffset,
-          );
+          const { x, y } = stockWorld(freeThumbSize(stockDrag.kind), grabOffset);
           if (stockDrag.kind === 'page') {
             for (const action of placeStockPage(
               stockDrag.pageId,
@@ -1252,16 +1448,17 @@ export function StockPane({
     return <PageChromeButtons onDelete={() => confirmStockItemDelete(key)} />;
   };
 
-  const gridThumbMin = Math.max(GRID_THUMB_MIN_PX, GRID_THUMB_BASE_PX * doc.stockZoom);
+  const gridThumbMin = Math.max(GRID_THUMB_MIN_PX, GRID_THUMB_BASE_PX);
   const pageAspect =
     doc.rasterWidth > 0 ? doc.rasterHeight / doc.rasterWidth : PAGE_DISPLAY_H / PAGE_DISPLAY_W;
 
   if (paneLayout === 'grid') {
     return (
-      <div ref={surfaceRef} className={`${styles.stockSurface} ${styles.stockGridScroll}`}>
+      <div key="stock-grid" ref={surfaceRef} className={`${styles.stockSurface} ${styles.stockGridScroll}`}>
         <div
           className={styles.stockGrid}
           style={{
+            transform: 'none',
             ['--ms-stock-thumb-min' as string]: `${gridThumbMin}px`,
             ['--ms-page-aspect' as string]: String(pageAspect),
           }}
@@ -1275,21 +1472,22 @@ export function StockPane({
             : undefined;
           if (isStockClipItem(item)) {
             const clip = doc.pasteboardClips.find((c) => c.id === item.clipId);
+            const clipRaster = clipThumbRaster(clip, inkEngine);
             return (
               <div
                 key={key}
                 data-stock-item-key={key}
                 className={`${styles.stockThumb} ${styles.stockThumbClip} ${dragging ? styles.stockThumbDragging : ''}`}
-                style={gridStyle}
+                style={{ ...gridStyle, ...clipRasterRatioStyle(clip, inkEngine) }}
                 title={`クリップ ${item.clipId.slice(0, 8)}`}
               >
                 <div className={styles.stockClipPad}>
                   <StockPageThumb
                     pageId={item.clipId}
                     rasterId={clip?.rasterId}
-                    texts={EMPTY_TEXTS}
-                    rasterWidth={doc.rasterWidth}
-                    rasterHeight={doc.rasterHeight}
+                    texts={clipStockThumbTexts(item.attachedTexts, doc, clip?.scale ?? 1, clipRaster, clip?.scaleY)}
+                    rasterWidth={clipRaster.width}
+                    rasterHeight={clipRaster.height}
                     inkEngine={inkEngine}
                   />
                 </div>
@@ -1371,7 +1569,7 @@ export function StockPane({
   }
 
   return (
-    <div ref={surfaceRef} className={styles.stockSurface}>
+    <div key="stock-free" ref={surfaceRef} className={styles.stockSurface}>
       <div
         ref={transformRef}
         className={styles.stockTransform}
@@ -1388,21 +1586,28 @@ export function StockPane({
           const freeStyle = { left: item.x, top: item.y } as const;
           if (isStockClipItem(item)) {
             const clip = doc.pasteboardClips.find((c) => c.id === item.clipId);
+            const size = clipGhostSize(clip, inkEngine);
+            const clipRaster = clipThumbRaster(clip, inkEngine);
             return (
               <div
                 key={key}
                 data-stock-item-key={key}
                 className={`${styles.stockThumbFree} ${styles.stockThumbClip} ${dragging ? styles.stockThumbDragging : ''}`}
-                style={freeStyle}
+                style={{
+                  ...freeStyle,
+                  width: size.width,
+                  height: size.height,
+                  ...clipRasterRatioStyle(clip, inkEngine),
+                }}
                 title={`クリップ ${item.clipId.slice(0, 8)}`}
               >
                 <div className={styles.stockClipPad}>
                   <StockPageThumb
                     pageId={item.clipId}
                     rasterId={clip?.rasterId}
-                    texts={EMPTY_TEXTS}
-                    rasterWidth={doc.rasterWidth}
-                    rasterHeight={doc.rasterHeight}
+                    texts={clipStockThumbTexts(item.attachedTexts, doc, clip?.scale ?? 1, clipRaster, clip?.scaleY)}
+                    rasterWidth={clipRaster.width}
+                    rasterHeight={clipRaster.height}
                     inkEngine={inkEngine}
                   />
                 </div>
@@ -1424,6 +1629,7 @@ export function StockPane({
                   <StockTextThumb
                     content={text?.content ?? ''}
                     color={text?.color ?? '#1A1A1A'}
+                    compact
                   />
                 </div>
                 {stockItemChrome(key)}

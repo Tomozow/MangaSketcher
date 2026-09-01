@@ -12,9 +12,10 @@ import type { ClipId, PageId, PointerKind, SelectTargetFlags, TextId, ToolId } f
 import { clampRasterPoint } from '../../domain/stripGeometry';
 import {
   angleFromCenter,
+  clipAxisScale,
   clipWorldBounds,
+  freeScaleFromCornerDrag,
   rotationFromHandleDrag,
-  scaleFromCornerDrag,
 } from '../clip/clipGeometry';
 import type {
   WorkspaceEffect,
@@ -751,8 +752,25 @@ function stepLockedPencil(
   }
 
   if (session.mode === 'scaleClip') {
-    const dist = Math.hypot(input.worldX - session.cx, input.worldY - session.cy);
-    const scale = scaleFromCornerDrag(session.startScale, session.startDist, dist);
+    const pose = freeScaleFromCornerDrag({
+      startX: session.startX,
+      startY: session.startY,
+      startScaleX: session.startScaleX,
+      startScaleY: session.startScaleY,
+      startHalfW: session.startHalfW,
+      startHalfH: session.startHalfH,
+      rotation: session.rotation,
+      worldX: input.worldX,
+      worldY: input.worldY,
+    });
+    const live = {
+      type: 'clipTransformLive' as const,
+      clipId: session.clipId,
+      x: pose.x,
+      y: pose.y,
+      scale: pose.scale,
+      scaleY: pose.scaleY,
+    };
     if (input.phase === 'cancel') {
       return {
         session: { mode: 'idle' },
@@ -762,15 +780,12 @@ function stepLockedPencil(
     if (input.phase === 'up') {
       return {
         session: { mode: 'idle' },
-        effects: [
-          { type: 'clipTransformLive', clipId: session.clipId, scale },
-          { type: 'commitClipTransform', clipId: session.clipId },
-        ],
+        effects: [live, { type: 'commitClipTransform', clipId: session.clipId }],
       };
     }
     return {
       session,
-      effects: [{ type: 'clipTransformLive', clipId: session.clipId, scale }],
+      effects: [live],
     };
   }
 
@@ -911,16 +926,19 @@ function stepPencilDown(
           input.rasterWidth,
           input.rasterHeight,
         );
-        const startDist = Math.hypot(input.worldX - bounds.cx, input.worldY - bounds.cy);
+        const { scaleX, scaleY } = clipAxisScale(clip);
         return {
           session: {
             mode: 'scaleClip',
             kind: 'pencil',
             clipId: hit.clipId,
-            startScale: clip.scale,
-            startDist,
-            cx: bounds.cx,
-            cy: bounds.cy,
+            startX: clip.x,
+            startY: clip.y,
+            startScaleX: scaleX,
+            startScaleY: scaleY,
+            startHalfW: bounds.halfW,
+            startHalfH: bounds.halfH,
+            rotation: clip.rotation,
           },
           effects: [{ type: 'selectClip', clipId: hit.clipId }],
         };

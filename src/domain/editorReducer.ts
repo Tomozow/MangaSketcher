@@ -11,7 +11,8 @@ import {
   clampStoredPagesPerColumn,
 } from './stripGeometry';
 import { clampPdfPage, clampPdfZoom, keepPdfViewOnReload, pdfViewAfterLoad } from './pdfView';
-import { findStockClip, findStockPage, findStockText, isStockClipItem, isStockPageItem, isStockTextItem } from './stockItems';
+import { cloneStockAttachedTexts, restoreAttachedTextBoxes } from './stockClipAttach';
+import { findStockClip, findStockPage, findStockText, isStockClipItem, isStockPageItem, isStockTextItem, stockedTextIds } from './stockItems';
 import type {
   ClipId,
   EditorDocument,
@@ -20,6 +21,7 @@ import type {
   PasteboardText,
   PdfTextItem,
   Rect,
+  StockAttachedText,
   TextId,
   ToolId,
   ToolProperties,
@@ -88,7 +90,7 @@ export type EditorDocumentAction =
   | { type: 'movePageToStock'; pageId: PageId; x: number; y: number }
   | { type: 'returnStockToWorkspace'; pageId: PageId; readingIndex: number }
   | { type: 'placeStock'; pageId: PageId; x: number; y: number }
-  | { type: 'moveClipToStock'; clipId: ClipId; x: number; y: number }
+  | { type: 'moveClipToStock'; clipId: ClipId; x: number; y: number; attachedTexts?: StockAttachedText[] }
   | { type: 'moveTextToStock'; textId: TextId; x: number; y: number }
   | { type: 'returnStockClip'; clipId: ClipId; x: number; y: number }
   | { type: 'returnStockText'; textId: TextId; x: number; y: number }
@@ -113,7 +115,7 @@ export type EditorDocumentAction =
       workspaceY: number;
     }
   | { type: 'commitClipBake'; clipId: ClipId; pageId: PageId }
-  | { type: 'transformClip'; clipId: ClipId; x?: number; y?: number; scale?: number; rotation?: number }
+  | { type: 'transformClip'; clipId: ClipId; x?: number; y?: number; scale?: number; scaleY?: number; rotation?: number }
   | { type: 'deleteClip'; clipIds: ClipId[] }
   | {
       type: 'duplicateClip';
@@ -123,6 +125,7 @@ export type EditorDocumentAction =
       x: number;
       y: number;
       scale: number;
+      scaleY?: number;
       rotation: number;
     }
   | { type: 'selectClip'; clipId: ClipId | null }
@@ -211,6 +214,26 @@ function clipSelection(ids: ClipId[]): { selectedClipId: ClipId | null; selected
   };
 }
 
+function selectBundledClipAndTexts(
+  doc: EditorDocument,
+  clipId: ClipId,
+  attached: { textId: TextId }[] | undefined,
+): void {
+  if (!attached || attached.length === 0) {
+    return;
+  }
+  doc.tool = 'select';
+  Object.assign(doc, clipSelection([clipId]));
+  Object.assign(
+    doc,
+    textSelection(
+      attached
+        .map((item) => item.textId)
+        .filter((id) => doc.pasteboardTexts.some((text) => text.id === id)),
+    ),
+  );
+}
+
 function allTextIds(doc: EditorDocument): Set<TextId> {
   const ids = new Set<TextId>();
   for (const page of Object.values(doc.pages)) {
@@ -252,6 +275,35 @@ function takeEditorText(doc: EditorDocument, textId: TextId): PageText | Pastebo
   }
   const [item] = doc.pasteboardTexts.splice(pbIndex, 1);
   return item ?? null;
+}
+
+function ensureAttachedTextsOnPasteboard(doc: EditorDocument, attached: readonly StockAttachedText[]): void {
+  for (const att of attached) {
+    const found = findEditorText(doc, att.textId);
+    if (!found) {
+      continue;
+    }
+    if (found.where !== 'page') {
+      continue;
+    }
+    const taken = takeEditorText(doc, att.textId);
+    if (!taken) {
+      continue;
+    }
+    const converted = pageTextToPasteboard(
+      taken.box,
+      taken.fontSize,
+      doc.rasterWidth,
+      doc.rasterHeight,
+    );
+    doc.pasteboardTexts.push({
+      id: taken.id,
+      content: taken.content,
+      box: converted.box,
+      fontSize: converted.fontSize,
+      color: taken.color,
+    });
+  }
 }
 
 function putEditorText(
@@ -339,6 +391,18 @@ function ensureTrashLists(doc: EditorDocument): void {
   if (!doc.trashTexts) {
     doc.trashTexts = [];
   }
+  if (!doc.trashClipAttachedTexts) {
+    doc.trashClipAttachedTexts = {};
+  }
+}
+
+function stashClipAttachedTexts(doc: EditorDocument, clipId: ClipId, attached: StockAttachedText[] | undefined): void {
+  ensureTrashLists(doc);
+  if (!attached || attached.length === 0) {
+    delete doc.trashClipAttachedTexts![clipId];
+    return;
+  }
+  doc.trashClipAttachedTexts![clipId] = cloneStockAttachedTexts(attached) ?? [];
 }
 
 function addClipToTrash(doc: EditorDocument, clipId: ClipId): void {
@@ -346,6 +410,8 @@ function addClipToTrash(doc: EditorDocument, clipId: ClipId): void {
   if (!doc.pasteboardClips.some((clip) => clip.id === clipId)) {
     return;
   }
+  const stocked = findStockClip(doc.stock, clipId);
+  stashClipAttachedTexts(doc, clipId, stocked?.attachedTexts);
   doc.stock = doc.stock.filter((item) => !(isStockClipItem(item) && item.clipId === clipId));
   if (!doc.trashClips.includes(clipId)) {
     doc.trashClips.push(clipId);
@@ -468,10 +534,14 @@ export function reduceEditorDocument(
         delete doc.pages[pageId];
       }
       const clipIds = [...doc.trashClips];
-      const textIds = [...doc.trashTexts];
+      const bundledTextIds = Object.values(doc.trashClipAttachedTexts ?? {}).flatMap((texts) =>
+        texts.map((item) => item.textId),
+      );
+      const textIds = [...new Set([...doc.trashTexts, ...bundledTextIds])];
       doc.trash = [];
       doc.trashClips = [];
       doc.trashTexts = [];
+      doc.trashClipAttachedTexts = {};
       removeClipsById(doc, clipIds);
       removeTextsById(doc, textIds);
       return doc;
@@ -561,7 +631,15 @@ export function reduceEditorDocument(
       if (findStockClip(doc.stock, a.clipId)) {
         return doc;
       }
-      doc.stock.push({ kind: 'clip', clipId: a.clipId, x: a.x, y: a.y });
+      const attached = cloneStockAttachedTexts(a.attachedTexts) ?? [];
+      ensureAttachedTextsOnPasteboard(doc, attached);
+      doc.stock.push({
+        kind: 'clip',
+        clipId: a.clipId,
+        x: a.x,
+        y: a.y,
+        attachedTexts: attached.length > 0 ? attached : undefined,
+      });
       Object.assign(
         doc,
         clipSelection(
@@ -570,6 +648,13 @@ export function reduceEditorDocument(
           ),
         ),
       );
+      if (attached.length > 0) {
+        const hide = new Set(attached.map((item) => item.textId));
+        Object.assign(
+          doc,
+          textSelection(selectedTextIdsOf(doc).filter((id) => !hide.has(id))),
+        );
+      }
       return doc;
     }
     case 'moveTextToStock': {
@@ -577,7 +662,7 @@ export function reduceEditorDocument(
       if (!found) {
         return doc;
       }
-      if (findStockText(doc.stock, a.textId)) {
+      if (findStockText(doc.stock, a.textId) || stockedTextIds(doc.stock).has(a.textId)) {
         return doc;
       }
       if (found.where === 'page') {
@@ -611,12 +696,18 @@ export function reduceEditorDocument(
       if (idx === -1) {
         return doc;
       }
-      doc.stock.splice(idx, 1);
+      const [removed] = doc.stock.splice(idx, 1);
       const clip = doc.pasteboardClips.find((c) => c.id === a.clipId);
       if (clip) {
         clip.x = a.x;
         clip.y = a.y;
       }
+      restoreAttachedTextBoxes(doc.pasteboardTexts, a.x, a.y, removed && isStockClipItem(removed) ? removed.attachedTexts : undefined);
+      selectBundledClipAndTexts(
+        doc,
+        a.clipId,
+        removed && isStockClipItem(removed) ? removed.attachedTexts : undefined,
+      );
       return doc;
     }
     case 'returnStockText': {
@@ -638,11 +729,17 @@ export function reduceEditorDocument(
         return doc;
       }
       doc.trashClips.splice(idx, 1);
+      const attached = doc.trashClipAttachedTexts?.[a.clipId];
+      if (doc.trashClipAttachedTexts) {
+        delete doc.trashClipAttachedTexts[a.clipId];
+      }
       const clip = doc.pasteboardClips.find((c) => c.id === a.clipId);
       if (clip) {
         clip.x = a.x;
         clip.y = a.y;
       }
+      restoreAttachedTextBoxes(doc.pasteboardTexts, a.x, a.y, attached);
+      selectBundledClipAndTexts(doc, a.clipId, attached);
       return doc;
     }
     case 'returnTrashText': {
@@ -733,6 +830,9 @@ export function reduceEditorDocument(
       if (a.scale !== undefined) {
         clip.scale = a.scale;
       }
+      if (a.scaleY !== undefined) {
+        clip.scaleY = a.scaleY;
+      }
       if (a.rotation !== undefined) {
         clip.rotation = a.rotation;
       }
@@ -764,6 +864,7 @@ export function reduceEditorDocument(
         x: a.x,
         y: a.y,
         scale: a.scale,
+        scaleY: a.scaleY ?? a.scale,
         rotation: a.rotation,
       });
       Object.assign(doc, clipSelection([a.clipId]));

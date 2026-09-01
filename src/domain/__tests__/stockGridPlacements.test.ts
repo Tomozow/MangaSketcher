@@ -22,18 +22,18 @@ describe('stockGridPlacements', () => {
 
   test('後から入れたアイテムは左に付く', () => {
     expect(stockGridPlacements([clip('a'), page('p1')])).toEqual([
-      { column: 2, row: 1, rowSpan: 1 },
-      { column: 1, row: 1, rowSpan: 2 },
+      { column: 1, row: 1, rowSpan: 1 },
+      { column: 1, row: 2, rowSpan: 1 },
     ]);
   });
 
-  test('先頭のページは右の全高列、後続クリップは左へ', () => {
+  test('ページも1段でクリップと同じ列に積む', () => {
     const items = [page('p1'), clip('a'), clip('b'), clip('c')];
     expect(stockGridPlacements(items)).toEqual([
-      { column: 3, row: 1, rowSpan: 2 },
       { column: 2, row: 1, rowSpan: 1 },
       { column: 2, row: 2, rowSpan: 1 },
       { column: 1, row: 1, rowSpan: 1 },
+      { column: 1, row: 2, rowSpan: 1 },
     ]);
   });
 
@@ -46,11 +46,11 @@ describe('stockGridPlacements', () => {
     ]);
   });
 
-  test('フィット幅はページ列＋クリップ半幅列で数える', () => {
+  test('フィット幅は1段列を半ページ幅で数える', () => {
     expect(stockGridFitPageUnits([])).toBe(0);
-    expect(stockGridFitPageUnits([page('p1')])).toBe(1);
+    expect(stockGridFitPageUnits([page('p1')])).toBe(0.5);
     expect(stockGridFitPageUnits([clip('a'), clip('b'), clip('c')])).toBe(1);
-    expect(stockGridFitPageUnits([page('p1'), clip('a'), clip('b'), clip('c')])).toBe(2);
-    expect(stockGridFitPageUnits([clip('a'), page('p1')])).toBe(1.5);
+    expect(stockGridFitPageUnits([page('p1'), clip('a'), clip('b'), clip('c')])).toBe(1);
+    expect(stockGridFitPageUnits([clip('a'), page('p1')])).toBe(0.5);
   });
 });

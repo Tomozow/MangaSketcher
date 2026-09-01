@@ -64,6 +64,8 @@ export type InkClip = {
   x: number;
   y: number;
   scale: number;
+  /** Independent vertical scale; omitted means the same as `scale`. */
+  scaleY?: number;
   rotation: number;
 };
 
@@ -74,7 +76,16 @@ export type ClipMeta = {
   x: number;
   y: number;
   scale: number;
+  /** Independent vertical scale; omitted means the same as `scale`. */
+  scaleY?: number;
   rotation: number;
+};
+
+/** Text bundled onto a stocked clip; offsets are workspace coords from the clip origin. */
+export type StockAttachedText = {
+  textId: TextId;
+  offsetX: number;
+  offsetY: number;
 };
 
 export type StockItem = {
@@ -82,6 +93,7 @@ export type StockItem = {
   pageId?: PageId;
   clipId?: ClipId;
   textId?: TextId;
+  attachedTexts?: StockAttachedText[];
   x: number;
   y: number;
 };
@@ -172,6 +184,8 @@ export type DocumentState = {
   trashClips: ClipId[];
   /** Soft-deleted texts; still present in `pasteboardTexts`. */
   trashTexts: TextId[];
+  /** Clip→text offsets preserved while a bundled clip is in the trash. */
+  trashClipAttachedTexts?: Record<ClipId, StockAttachedText[]>;
   pasteboardClips: InkClip[];
   pasteboardTexts: PasteboardText[];
   selectedPageId: PageId | null;
@@ -215,6 +229,7 @@ export type EditorDocument = {
   trash: PageId[];
   trashClips: ClipId[];
   trashTexts: TextId[];
+  trashClipAttachedTexts?: Record<ClipId, StockAttachedText[]>;
   pasteboardClips: ClipMeta[];
   pasteboardTexts: PasteboardText[];
   selectedPageId: PageId | null;

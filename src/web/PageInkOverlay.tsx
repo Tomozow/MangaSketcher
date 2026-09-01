@@ -6,7 +6,7 @@ import type { ClipId, TextId } from '@/src/domain/types';
 import type { EditorDocument } from '@/src/storage/types';
 import { CLIP_CHROME_ATTR, CLIP_COPY_ATTR, CLIP_DELETE_ATTR, CLIP_FRAME_ATTR, CLIP_ID_ATTR, CLIP_INSERT_ATTR } from './clip/constants';
 import { PAGE_TEXT_ID_ATTR, PAGE_TEXT_WRAP_ATTR } from './gestures/pageTextDom';
-import { clipInsertTarget, clipWorldBounds, rasterToDisplayScale, selectedClipIdsOf } from './clip/clipGeometry';
+import { clipAxisScale, clipInsertTarget, clipWorldBounds, rasterToDisplayScale, selectedClipIdsOf } from './clip/clipGeometry';
 import { withoutStockedClips } from '@/src/domain/stockItems';
 import { selectedTextIdsOf } from '@/src/domain/text';
 import { effectiveClipPose, type ClipLiveTransform } from './clip/clipLiveTransform';
@@ -305,8 +305,9 @@ export function PageInkOverlay({
             doc.rasterHeight,
           );
           const { sx, sy } = rasterToDisplayScale(doc.rasterWidth, doc.rasterHeight);
-          const displayW = size.width * sx * pose.scale;
-          const displayH = size.height * sy * pose.scale;
+          const { scaleX, scaleY } = clipAxisScale(pose);
+          const displayW = size.width * sx * scaleX;
+          const displayH = size.height * sy * scaleY;
 
           return (
             <div
@@ -326,6 +327,7 @@ export function PageInkOverlay({
                 engine={engine}
                 rasterId={clip.rasterId}
                 displayWidth={displayW}
+                displayHeight={displayH}
                 cssZoom={doc.workspaceZoom}
                 inkFrame={inkFrame}
               />

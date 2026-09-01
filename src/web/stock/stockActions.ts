@@ -3,11 +3,10 @@ import type { EditorDocumentAction } from '../../domain/editorReducer';
 import { pageLocalFromWorld, type StripFrame } from '../../domain/stripGeometry';
 import { clampTextBoxOrigin } from '../../domain/text';
 import { isStockPageItem } from '../../domain/stockItems';
-import type { PageId, Rect, StockItem } from '../../domain/types';
+import type { PageId, Rect, StockAttachedText, StockItem } from '../../domain/types';
 import { textBoxForOwnerMove, textOwnerAtWorld } from '../gestures/elementInteraction';
+import { STOCK_FREE_PAGE_HEIGHT, STOCK_FREE_PAGE_WIDTH } from './stockCoords';
 
-const FREE_STOCK_PAGE_W = 144;
-const FREE_STOCK_PAGE_H = 204;
 const FREE_STOCK_GAP = 8;
 const FREE_STOCK_COLS = 4;
 
@@ -16,8 +15,8 @@ export function nextFreeStockPagePosition(stock: readonly StockItem[]): { x: num
   const col = count % FREE_STOCK_COLS;
   const row = Math.floor(count / FREE_STOCK_COLS);
   return {
-    x: FREE_STOCK_GAP + col * (FREE_STOCK_PAGE_W + FREE_STOCK_GAP),
-    y: FREE_STOCK_GAP + row * (FREE_STOCK_PAGE_H + FREE_STOCK_GAP),
+    x: FREE_STOCK_GAP + col * (STOCK_FREE_PAGE_WIDTH + FREE_STOCK_GAP),
+    y: FREE_STOCK_GAP + row * (STOCK_FREE_PAGE_HEIGHT + FREE_STOCK_GAP),
   };
 }
 
@@ -84,9 +83,10 @@ export function moveClipToStock(
   y: number,
   rasterWidth: number,
   rasterHeight: number,
+  attachedTexts?: StockAttachedText[],
 ): EditorDocumentAction[] {
   return dropActions(
-    { type: 'clip', clipId },
+    { type: 'clip', clipId, attachedTexts },
     { zone: 'stock', x, y },
     rasterWidth,
     rasterHeight,

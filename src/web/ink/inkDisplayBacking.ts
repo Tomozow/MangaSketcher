@@ -9,6 +9,7 @@ export function inkDisplayBackingScale(devicePixelRatio: number, cssZoom: number
 
 export function inkDisplayBackingSize(input: {
   displayWidth: number;
+  displayHeight?: number;
   rasterWidth: number;
   rasterHeight: number;
   devicePixelRatio: number;
@@ -17,7 +18,12 @@ export function inkDisplayBackingSize(input: {
   const displayWidth = Math.max(1, input.displayWidth);
   const rasterWidth = Math.max(1, input.rasterWidth);
   const rasterHeight = Math.max(1, input.rasterHeight);
-  const cssHeight = Math.max(1, Math.round((displayWidth * rasterHeight) / rasterWidth));
+  const cssHeight = Math.max(
+    1,
+    input.displayHeight != null
+      ? input.displayHeight
+      : Math.round((displayWidth * rasterHeight) / rasterWidth),
+  );
   const scale = inkDisplayBackingScale(input.devicePixelRatio, input.cssZoom);
   return {
     cssHeight,

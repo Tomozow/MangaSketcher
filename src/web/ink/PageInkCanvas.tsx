@@ -9,8 +9,10 @@ type PageInkCanvasProps = {
   engine: InkEngine;
   rasterId: string;
   className?: string;
-  /** CSS display width (spec: 216). Height follows raster aspect. */
+  /** CSS display width (spec: 216). Height follows raster aspect unless `displayHeight` is set. */
   displayWidth?: number;
+  /** When set, CSS height is free (clip free-transform). */
+  displayHeight?: number;
   /** Workspace CSS scale applied on an ancestor. Backing store follows this. */
   cssZoom?: number;
   /** Bumped while drawing so overlay composites repaint. */
@@ -99,6 +101,7 @@ export function PageInkCanvas({
   rasterId,
   className,
   displayWidth = 216,
+  displayHeight,
   cssZoom = 1,
   inkFrame = 0,
 }: PageInkCanvasProps) {
@@ -114,6 +117,7 @@ export function PageInkCanvas({
       const dims = engine.getRasterDimensions(rasterId);
       const { cssHeight, pixelW, pixelH } = inkDisplayBackingSize({
         displayWidth,
+        displayHeight,
         rasterWidth: dims.width,
         rasterHeight: dims.height,
         devicePixelRatio: dpr,
@@ -122,9 +126,9 @@ export function PageInkCanvas({
       if (el.width !== pixelW || el.height !== pixelH) {
         el.width = pixelW;
         el.height = pixelH;
-        el.style.width = `${displayWidth}px`;
-        el.style.height = `${cssHeight}px`;
       }
+      el.style.width = `${displayWidth}px`;
+      el.style.height = `${cssHeight}px`;
 
       const ctx = el.getContext('2d');
       if (!ctx) {
@@ -155,7 +159,7 @@ export function PageInkCanvas({
       }
       releaseInkDisplayKeepAlive();
     };
-  }, [engine, rasterId, displayWidth, cssZoom]);
+  }, [engine, rasterId, displayWidth, displayHeight, cssZoom]);
 
   useEffect(() => {
     painters.get(rasterId)?.();

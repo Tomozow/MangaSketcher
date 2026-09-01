@@ -1,4 +1,5 @@
-import type { ClipId, PageId, StockItem, TextId } from './types';
+import type { ClipId, PageId, StockAttachedText, StockItem, TextId } from './types';
+import { cloneStockAttachedTexts } from './stockClipAttach';
 
 export type StockPageItem = { kind?: 'page'; pageId: PageId; x: number; y: number };
 export type StockClipItem = { kind: 'clip'; clipId: ClipId; x: number; y: number };
@@ -24,36 +25,25 @@ export type StockGridCell = {
 
 /**
  * 2-row grid: array[0] is top-right (front), then bottom-right, then the column to the left.
- * The last array item sits on the left. Pages take a full-height column.
- * Adjacent clips/texts share a column (earlier index on top). An unpaired clip sits on top.
+ * The last array item sits on the left. Pages, clips, and texts are one row each.
+ * Adjacent items share a column (earlier index on top). An unpaired item sits on top.
  */
 export function stockGridPlacements(items: readonly StockItem[]): StockGridCell[] {
-  const cells: StockGridCell[] = items.map(() => ({ column: 1, row: 1, rowSpan: 2 }));
-  type Col =
-    | { kind: 'page'; index: number }
-    | { kind: 'clip'; top: number; bottom?: number };
+  const cells: StockGridCell[] = items.map(() => ({ column: 1, row: 1, rowSpan: 1 }));
+  type Col = { top: number; bottom?: number };
   const fromRight: Col[] = [];
   let i = 0;
   while (i < items.length) {
-    if (isStockPageItem(items[i]!)) {
-      fromRight.push({ kind: 'page', index: i });
-      i += 1;
-      continue;
-    }
-    if (i + 1 < items.length && !isStockPageItem(items[i + 1]!)) {
-      fromRight.push({ kind: 'clip', top: i, bottom: i + 1 });
+    if (i + 1 < items.length) {
+      fromRight.push({ top: i, bottom: i + 1 });
       i += 2;
       continue;
     }
-    fromRight.push({ kind: 'clip', top: i });
+    fromRight.push({ top: i });
     i += 1;
   }
   fromRight.reverse().forEach((col, offset) => {
     const column = offset + 1;
-    if (col.kind === 'page') {
-      cells[col.index] = { column, row: 1, rowSpan: 2 };
-      return;
-    }
     cells[col.top] = { column, row: 1, rowSpan: 1 };
     if (col.bottom !== undefined) {
       cells[col.bottom] = { column, row: 2, rowSpan: 1 };
@@ -62,22 +52,14 @@ export function stockGridPlacements(items: readonly StockItem[]): StockGridCell[
   return cells;
 }
 
-/** Page-width units for a fitted stock dock (clip columns are half a page). */
+/** Page-width units for a fitted stock dock (each column is half a page). */
 export function stockGridFitPageUnits(items: readonly StockItem[]): number {
   const placements = stockGridPlacements(items);
   let maxCol = 0;
-  const fullCols = new Set<number>();
-  placements.forEach((cell, index) => {
+  for (const cell of placements) {
     maxCol = Math.max(maxCol, cell.column);
-    if (isStockPageItem(items[index]!)) {
-      fullCols.add(cell.column);
-    }
-  });
-  let units = 0;
-  for (let column = 1; column <= maxCol; column += 1) {
-    units += fullCols.has(column) ? 1 : 0.5;
   }
-  return units;
+  return maxCol * 0.5;
 }
 
 /** Grid packs to the right: pages first (left), clips/texts in front (right). */
@@ -104,11 +86,44 @@ export function stockedClipIds(stock: readonly StockItem[]): Set<ClipId> {
   return ids;
 }
 
-export function stockedTextIds(stock: readonly StockItem[]): Set<TextId> {
+export function cloneStockItem(item: StockItem): StockItem {
+  return {
+    ...item,
+    attachedTexts: cloneStockAttachedTexts(item.attachedTexts),
+  };
+}
+
+export function cloneTrashClipAttachedTexts(
+  map: Record<string, StockAttachedText[]> | undefined,
+): Record<string, StockAttachedText[]> | undefined {
+  if (!map) {
+    return undefined;
+  }
+  return Object.fromEntries(
+    Object.entries(map).map(([clipId, texts]) => [clipId, cloneStockAttachedTexts(texts) ?? []]),
+  );
+}
+
+export function stockedTextIds(
+  stock: readonly StockItem[],
+  trashClipAttachedTexts?: Record<string, StockAttachedText[]>,
+): Set<TextId> {
   const ids = new Set<TextId>();
   for (const item of stock) {
     if (isStockTextItem(item)) {
       ids.add(item.textId);
+    }
+    if (isStockClipItem(item)) {
+      for (const attached of item.attachedTexts ?? []) {
+        ids.add(attached.textId);
+      }
+    }
+  }
+  if (trashClipAttachedTexts) {
+    for (const texts of Object.values(trashClipAttachedTexts)) {
+      for (const attached of texts) {
+        ids.add(attached.textId);
+      }
     }
   }
   return ids;
@@ -174,8 +189,9 @@ export function withoutStockedTexts<T extends { id: TextId }>(
   texts: readonly T[],
   stock: readonly StockItem[],
   trashTexts: readonly TextId[] = [],
+  trashClipAttachedTexts?: Record<string, StockAttachedText[]>,
 ): T[] {
-  const hidden = stockedTextIds(stock);
+  const hidden = stockedTextIds(stock, trashClipAttachedTexts);
   for (const id of trashTexts) {
     hidden.add(id);
   }

@@ -13,8 +13,15 @@ export type ClipMetaLike = {
   x: number;
   y: number;
   scale: number;
+  scaleY?: number;
   rotation: number;
 };
+
+export function clipAxisScale(clip: { scale: number; scaleY?: number }): { scaleX: number; scaleY: number } {
+  const scaleX = Number.isFinite(clip.scale) && clip.scale > 0 ? clip.scale : 1;
+  const scaleY = Number.isFinite(clip.scaleY) && (clip.scaleY as number) > 0 ? (clip.scaleY as number) : scaleX;
+  return { scaleX, scaleY };
+}
 
 export type ClipRasterSize = { width: number; height: number };
 
@@ -39,8 +46,9 @@ export function clipWorldBounds(
   rasterHeight: number,
 ): ClipWorldBounds {
   const { sx, sy } = rasterToDisplayScale(rasterWidth, rasterHeight);
-  const halfW = (size.width * sx * clip.scale) / 2;
-  const halfH = (size.height * sy * clip.scale) / 2;
+  const { scaleX, scaleY } = clipAxisScale(clip);
+  const halfW = (size.width * sx * scaleX) / 2;
+  const halfH = (size.height * sy * scaleY) / 2;
   return {
     cx: clip.x + halfW,
     cy: clip.y + halfH,
@@ -212,6 +220,47 @@ export function scaleFromCornerDrag(
   return Math.max(MIN_CLIP_SCALE, startScale * (currentDist / startDist));
 }
 
+/** SE-handle free scale: opposite (NW) corner stays, axes are independent. */
+export function freeScaleFromCornerDrag(input: {
+  startX: number;
+  startY: number;
+  startScaleX: number;
+  startScaleY: number;
+  startHalfW: number;
+  startHalfH: number;
+  rotation: number;
+  worldX: number;
+  worldY: number;
+}): { x: number; y: number; scale: number; scaleY: number } {
+  const startCx = input.startX + input.startHalfW;
+  const startCy = input.startY + input.startHalfH;
+  const cos = Math.cos(input.rotation);
+  const sin = Math.sin(input.rotation);
+  const nwX = startCx + -input.startHalfW * cos - -input.startHalfH * sin;
+  const nwY = startCy + -input.startHalfW * sin + -input.startHalfH * cos;
+  const local = worldToClipLocal(input.worldX, input.worldY, {
+    cx: nwX,
+    cy: nwY,
+    halfW: 0,
+    halfH: 0,
+    rotation: input.rotation,
+  });
+  const baseHalfW = input.startHalfW / input.startScaleX;
+  const baseHalfH = input.startHalfH / input.startScaleY;
+  const minHalfW = baseHalfW * MIN_CLIP_SCALE;
+  const minHalfH = baseHalfH * MIN_CLIP_SCALE;
+  const newHalfW = Math.max(minHalfW, local.x / 2);
+  const newHalfH = Math.max(minHalfH, local.y / 2);
+  const newCx = nwX + newHalfW * cos - newHalfH * sin;
+  const newCy = nwY + newHalfW * sin + newHalfH * cos;
+  return {
+    x: newCx - newHalfW,
+    y: newCy - newHalfH,
+    scale: newHalfW / baseHalfW,
+    scaleY: newHalfH / baseHalfH,
+  };
+}
+
 export function rotationFromHandleDrag(
   startRotation: number,
   startAngle: number,
@@ -232,6 +281,26 @@ export function clipWorldCorners(bounds: ClipWorldBounds): Array<{ x: number; y:
     x: bounds.cx + local.x * cos - local.y * sin,
     y: bounds.cy + local.x * sin + local.y * cos,
   }));
+}
+
+export function clipWorldAabb(
+  clip: ClipMetaLike,
+  size: ClipRasterSize,
+  rasterWidth: number,
+  rasterHeight: number,
+): Rect {
+  const corners = clipWorldCorners(clipWorldBounds(clip, size, rasterWidth, rasterHeight));
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const corner of corners) {
+    minX = Math.min(minX, corner.x);
+    minY = Math.min(minY, corner.y);
+    maxX = Math.max(maxX, corner.x);
+    maxY = Math.max(maxY, corner.y);
+  }
+  return { x: minX, y: minY, width: Math.max(0, maxX - minX), height: Math.max(0, maxY - minY) };
 }
 
 function projectAxis(
