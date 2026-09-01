@@ -5,7 +5,6 @@ import {
   type ProjectMeta,
 } from './types';
 import { cloneEditorDocument } from './editorDocument';
-import { collectRasterIds } from './rasterIds';
 import type { StorageDatabase } from './idb';
 import { getDefaultStorageDatabase } from './idb';
 import { requestPersistentStorage } from './persistentStorage';
@@ -134,12 +133,25 @@ export class AutosaveManager {
     }
     this.saveGen += 1;
     const gen = this.saveGen;
-    const dirty = new Set(dirtyRasterIds);
+    const dirty = new Set(this.pendingJob?.dirtyRasterIds);
+    if (this.queuedAfterRun) {
+      for (const id of this.queuedAfterRun.dirtyRasterIds) {
+        dirty.add(id);
+      }
+    }
+    for (const id of dirtyRasterIds) {
+      dirty.add(id);
+    }
+    const mergedViewOnly =
+      viewOnly &&
+      (this.pendingJob?.viewOnly ?? true) &&
+      (this.queuedAfterRun?.viewOnly ?? true) &&
+      dirty.size === 0;
     this.pendingJob = {
       saveGen: gen,
       doc: cloneEditorDocument(doc),
       dirtyRasterIds: dirty,
-      viewOnly,
+      viewOnly: mergedViewOnly,
     };
     this.setUnsaved(true);
     if (this.debounceTimer) {
@@ -148,7 +160,7 @@ export class AutosaveManager {
     const delays = this.getDelays();
     const documentMs = Number.isFinite(delays.documentMs) ? delays.documentMs : DOCUMENT_SAVE_DEBOUNCE_MS;
     const viewOnlyMs = Number.isFinite(delays.viewOnlyMs) ? delays.viewOnlyMs : VIEW_ONLY_SAVE_DEBOUNCE_MS;
-    const delay = viewOnly ? Math.max(0, viewOnlyMs) : Math.max(0, documentMs);
+    const delay = mergedViewOnly ? Math.max(0, viewOnlyMs) : Math.max(0, documentMs);
     this.debounceTimer = setTimeout(() => {
       this.debounceTimer = null;
       void this.runLatestJob();
@@ -193,9 +205,7 @@ export class AutosaveManager {
     this.runningJob = job;
     try {
       const encoded = this.getEncodedPng();
-      const rasterIds = job.viewOnly
-        ? [...job.dirtyRasterIds]
-        : [...new Set([...job.dirtyRasterIds, ...collectRasterIds(job.doc)])];
+      const rasterIds = [...job.dirtyRasterIds];
       for (const rasterId of rasterIds) {
         const png = encoded.get(rasterId);
         if (png && png.byteLength > 0) {

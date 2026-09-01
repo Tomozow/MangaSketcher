@@ -27,6 +27,7 @@ import {
   undoEditorHistory,
 } from '@/src/storage/history';
 import { copySharedTransparentPng } from '@/src/storage/transparentPng';
+import { dirtyRasterIdsForAction } from '@/src/storage/dirtyRasters';
 import { releaseDefaultStorageDatabase } from '@/src/storage/idb';
 import { hardNavigate } from '@/src/web/hardNavigate';
 import {
@@ -85,6 +86,13 @@ function takePendingInkUndo(
   const pending = new Map(inkUndo);
   inkUndo.clear();
   return pending;
+}
+
+function stashInkUndo(inkUndo: Map<string, InkUndoPixels>, rasterId: string, undo: InkUndoPixels): void {
+  if (undo instanceof ArrayBuffer && undo.byteLength === 0) {
+    return;
+  }
+  inkUndo.set(rasterId, undo);
 }
 
 export type MarqueePreview = {
@@ -701,8 +709,8 @@ export function useEditorController(projectId: string): EditorController {
     };
   }, [inkIdleScheduler]);
 
-  const persist = useCallback((nextHistory: EditorHistory, viewOnly: boolean, flushNow = false, skipSchedule = false) => {
-    const dirty = viewOnly ? [] : collectRasterIds(nextHistory.present);
+  const persist = useCallback((nextHistory: EditorHistory, viewOnly: boolean, dirtyRasterIds: string[], skipSchedule = false) => {
+    const dirty = viewOnly ? [] : dirtyRasterIds;
     const engine = inkApiRef.current?.engine;
     if (engine) {
       for (const [rasterId, png] of engine.encodedPng) {
@@ -725,9 +733,6 @@ export function useEditorController(projectId: string): EditorController {
         panY: pdf.panY,
         fingerprint: pdf.sourceFingerprint,
       });
-    }
-    if (flushNow) {
-      void autosaveRef.current?.flushRouteLeave();
     }
   }, [projectId]);
 
@@ -753,16 +758,12 @@ export function useEditorController(projectId: string): EditorController {
         }
         const nextPresent = reduceEditorDocument(prev.present, action, randomId);
         const nextHistory = pushEditorHistory(prev, nextPresent, pendingInkUndo, viewOnly, historyDepthRef.current);
-        const flushNow =
-          action.type === 'commitMarqueeCut' ||
-          action.type === 'transformClip' ||
-          action.type === 'commitClipBake' ||
-          action.type === 'deleteClip' ||
-          action.type === 'deleteSelection' ||
-          action.type === 'duplicateClip' ||
-          action.type === 'loadPdf' ||
-          (action.type === 'setPdfView' && action.currentPage !== undefined);
-        persist(nextHistory, viewOnly, flushNow, action.type === 'setToolProperties');
+        persist(
+          nextHistory,
+          viewOnly,
+          dirtyRasterIdsForAction(prev.present, nextPresent, action),
+          action.type === 'setToolProperties',
+        );
         return nextHistory;
       });
     },
@@ -839,9 +840,7 @@ export function useEditorController(projectId: string): EditorController {
         pose.rotation,
         pose.scaleY,
       );
-      if (pageUndo.byteLength > 0) {
-        inkUndoRef.current.set(page.rasterId, pageUndo.slice(0));
-      }
+      stashInkUndo(inkUndoRef.current, page.rasterId, pageUndo);
       dispatch({ type: 'commitClipBake', clipId, pageId: target.pageId });
       clipLiveRef.current.delete(clipId);
       bumpClipDragFrame();
@@ -944,10 +943,7 @@ export function useEditorController(projectId: string): EditorController {
                 present.rasterWidth,
                 present.rasterHeight,
               );
-              const pageUndo = cut.pageUndo;
-              if (pageUndo.byteLength > 0) {
-                inkUndoRef.current.set(page.rasterId, pageUndo.slice(0));
-              }
+              stashInkUndo(inkUndoRef.current, page.rasterId, cut.pageUndo);
               dispatch({
                 type: 'commitMarqueeCut',
                 pageId: frame.slot.pageId,
@@ -1069,10 +1065,7 @@ export function useEditorController(projectId: string): EditorController {
                 present.rasterWidth,
                 present.rasterHeight,
               );
-              const pageUndo = cut.pageUndo;
-              if (pageUndo.byteLength > 0) {
-                inkUndoRef.current.set(page.rasterId, pageUndo.slice(0));
-              }
+              stashInkUndo(inkUndoRef.current, page.rasterId, cut.pageUndo);
               dispatch({
                 type: 'commitMarqueeCut',
                 pageId: frame.slot.pageId,
@@ -1470,13 +1463,7 @@ export function useEditorController(projectId: string): EditorController {
 
   const commitInkBake = useCallback(
     (rasterId: string, undo: InkUndoPixels) => {
-      if (undo instanceof ArrayBuffer) {
-        if (undo.byteLength > 0) {
-          inkUndoRef.current.set(rasterId, undo.slice(0));
-        }
-      } else {
-        inkUndoRef.current.set(rasterId, undo);
-      }
+      stashInkUndo(inkUndoRef.current, rasterId, undo);
       dispatch({ type: 'commitInkBake', rasterId });
       bumpInkFrame();
     },
@@ -1494,10 +1481,7 @@ export function useEditorController(projectId: string): EditorController {
       if (!page) {
         return;
       }
-      const undo = api.engine.clearRaster(page.rasterId);
-      if (undo.byteLength > 0) {
-        inkUndoRef.current.set(page.rasterId, undo.slice(0));
-      }
+      stashInkUndo(inkUndoRef.current, page.rasterId, api.engine.clearRaster(page.rasterId));
       dispatch({ type: 'commitInkBake', rasterId: page.rasterId });
       bumpInkFrame();
     },
@@ -1948,7 +1932,7 @@ export function useEditorController(projectId: string): EditorController {
     }
     historyRef.current = next;
     setHistory(next);
-    autosaveRef.current?.scheduleSave(next.present, [], false);
+    autosaveRef.current?.scheduleSave(next.present, [...(next.future[0]?.inkUndo.keys() ?? [])], false);
     bumpInkFrame();
   }, [inkRestoreSink]);
 
@@ -1971,7 +1955,11 @@ export function useEditorController(projectId: string): EditorController {
     }
     historyRef.current = next;
     setHistory(next);
-    autosaveRef.current?.scheduleSave(next.present, [], false);
+    autosaveRef.current?.scheduleSave(
+      next.present,
+      [...(next.past[next.past.length - 1]?.inkUndo.keys() ?? [])],
+      false,
+    );
     bumpInkFrame();
   }, [inkRestoreSink]);
 

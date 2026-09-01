@@ -130,10 +130,10 @@ describe('InkEngine production pixel truth', () => {
     expect(countAlphaPixels(engine.getHotContext(rasterId)!, TEST_W, TEST_H)).toBeGreaterThan(0);
 
     const undo = engine.clearRaster(rasterId);
-    expect(undo.byteLength).toBe(8 + TEST_W * TEST_H * 4);
+    expect(undo instanceof ArrayBuffer).toBe(false);
     expect(countAlphaPixels(engine.getHotContext(rasterId)!, TEST_W, TEST_H)).toBe(0);
 
-    engine.restoreRasterFromPng(rasterId, undo);
+    engine.restoreRasterFromUndo(rasterId, undo);
     expect(countAlphaPixels(engine.getHotContext(rasterId)!, TEST_W, TEST_H)).toBeGreaterThan(0);
   });
 

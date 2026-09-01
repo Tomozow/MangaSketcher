@@ -7,6 +7,7 @@ import {
   inkAlphaBounds,
 } from '../clip/clipCanvas';
 import { encodedRasterDimensions, isPngBuffer, tryDecodeInkSnapshot } from './fakeCanvas';
+import type { InkUndoPixels } from '@/src/storage/types';
 
 /** §9.7 standard drag thumbnail size. */
 export const THUMB_WIDTH = 144;
@@ -524,18 +525,18 @@ export class InkEngine {
     return ctx;
   }
 
-  finishEraseDirect(rasterId: string): ArrayBuffer {
-    const undoPng = this.takeStrokeUndoPng(rasterId);
+  finishEraseDirect(rasterId: string): InkUndoPixels {
+    const undo = this.takeStrokeUndoSnapshot(rasterId);
     this.bumpHotRevision(rasterId);
     this.invalidateThumb(rasterId);
     void this.generateThumb(rasterId);
     this.startEncode(rasterId);
     this.callbacks.onBake?.(rasterId);
-    return undoPng;
+    return undo;
   }
 
   /** Clear all ink on a page/clip raster and return the pre-clear undo snapshot. */
-  clearRaster(rasterId: string): ArrayBuffer {
+  clearRaster(rasterId: string): InkUndoPixels {
     this.cancelPenOverlay(rasterId);
     const ctx = this.beginEraseDirect(rasterId);
     const dims = this.getRasterDimensions(rasterId);
@@ -787,7 +788,7 @@ export class InkEngine {
     pageRasterId: string,
     clipRasterId: string,
     rect: { x: number; y: number; width: number; height: number },
-  ): { pageUndo: ArrayBuffer; trim: { x: number; y: number; width: number; height: number } | null } {
+  ): { pageUndo: InkUndoPixels; trim: { x: number; y: number; width: number; height: number } | null } {
     const w = Math.max(1, Math.round(rect.width));
     const h = Math.max(1, Math.round(rect.height));
     this.registerClipRaster(clipRasterId, w, h);
@@ -813,7 +814,7 @@ export class InkEngine {
     }
     this.bumpHotRevision(pageRasterId);
     this.bumpHotRevision(clipRasterId);
-    const pageUndo = this.takeStrokeUndoPng(pageRasterId);
+    const pageUndo = this.takeStrokeUndoSnapshot(pageRasterId);
     this.invalidateThumb(pageRasterId);
     this.invalidateThumb(clipRasterId);
     this.startEncode(pageRasterId);
@@ -834,7 +835,7 @@ export class InkEngine {
     clipRasterId: string,
     points: Array<{ x: number; y: number }>,
     rect: { x: number; y: number; width: number; height: number },
-  ): { pageUndo: ArrayBuffer; trim: { x: number; y: number; width: number; height: number } | null } {
+  ): { pageUndo: InkUndoPixels; trim: { x: number; y: number; width: number; height: number } | null } {
     const w = Math.max(1, Math.round(rect.width));
     const h = Math.max(1, Math.round(rect.height));
     this.registerClipRaster(clipRasterId, w, h);
@@ -855,7 +856,7 @@ export class InkEngine {
     }
     this.bumpHotRevision(pageRasterId);
     this.bumpHotRevision(clipRasterId);
-    const pageUndo = this.takeStrokeUndoPng(pageRasterId);
+    const pageUndo = this.takeStrokeUndoSnapshot(pageRasterId);
     this.invalidateThumb(pageRasterId);
     this.invalidateThumb(clipRasterId);
     this.startEncode(pageRasterId);
@@ -868,7 +869,7 @@ export class InkEngine {
   }
 
   /**
-   * §9.4: transform-draw clip onto page, dispose clip raster. Returns page undo PNG.
+   * §9.4: transform-draw clip onto page, dispose clip raster. Returns page undo snapshot.
    */
   bakeClipOntoPage(
     pageRasterId: string,
@@ -878,7 +879,7 @@ export class InkEngine {
     scale: number,
     rotation: number,
     scaleY: number = scale,
-  ): ArrayBuffer {
+  ): InkUndoPixels {
     const clipDims = this.getRasterDimensions(clipRasterId);
     this.captureStrokeUndo(pageRasterId);
     const page = this.decode(pageRasterId);
@@ -898,7 +899,7 @@ export class InkEngine {
       rotation,
       scaleY,
     );
-    const pageUndo = this.takeStrokeUndoPng(pageRasterId);
+    const pageUndo = this.takeStrokeUndoSnapshot(pageRasterId);
     this.disposeRaster(clipRasterId);
     this.invalidateThumb(pageRasterId);
     void this.generateThumb(pageRasterId);
@@ -920,12 +921,18 @@ export class InkEngine {
     this.strokeUndoCanvas.set(rasterId, snapshot);
   }
 
-  /** Snapshot undo PNG captured at stroke start; clears the pending snapshot. */
-  takeStrokeUndoPng(rasterId: string): ArrayBuffer {
+  /** Canvas snapshot from stroke start; no getImageData. Empty buffer if missing. */
+  takeStrokeUndoSnapshot(rasterId: string): InkUndoPixels {
     const snapshot = this.strokeUndoCanvas.get(rasterId);
     this.strokeUndoCanvas.delete(rasterId);
-    if (!snapshot) {
-      return new ArrayBuffer(0);
+    return snapshot ?? new ArrayBuffer(0);
+  }
+
+  /** Snapshot undo PNG captured at stroke start; clears the pending snapshot. */
+  takeStrokeUndoPng(rasterId: string): ArrayBuffer {
+    const snapshot = this.takeStrokeUndoSnapshot(rasterId);
+    if (snapshot instanceof ArrayBuffer) {
+      return snapshot;
     }
     return this.canvasToUndoBuffer(snapshot);
   }

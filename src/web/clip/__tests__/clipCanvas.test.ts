@@ -70,6 +70,22 @@ describe('clip canvas bake (no cutRect)', () => {
     expect(engine.getRasterDimensions(clipId)).toEqual({ width: 6, height: 8 });
   });
 
+  test('marqueeCut undo snapshot restores page ink without a raw RGBA buffer', () => {
+    const engine = createTestEngine();
+    const pageId = 'p:page:undo';
+    const clipId = 'p:clip:undo';
+    engine.registerRaster(pageId);
+    const pageCtx = engine.getHotContext(pageId)!;
+    pageCtx.fillStyle = '#000000';
+    pageCtx.fillRect(4, 4, 8, 8);
+    const before = countAlphaPixels(pageCtx, W, H);
+    const cut = engine.marqueeCut(pageId, clipId, { x: 4, y: 4, width: 8, height: 8 });
+    expect(cut.pageUndo instanceof ArrayBuffer).toBe(false);
+    expect(countAlphaPixels(engine.getHotContext(pageId)!, W, H)).toBeLessThan(before);
+    engine.restoreRasterFromUndo(pageId, cut.pageUndo);
+    expect(countAlphaPixels(engine.getHotContext(pageId)!, W, H)).toBe(before);
+  });
+
   test('bakeClipOntoPage composites clip with transform', () => {
     const engine = createTestEngine();
     const pageId = 'p:page:1';
