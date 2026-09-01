@@ -1,5 +1,10 @@
 import { describe, expect, test } from 'vitest';
-import { inkDisplayBackingScale, inkDisplayBackingSize } from '../inkDisplayBacking';
+import {
+  INK_BACKING_ZOOM_SETTLE_MS,
+  inkDisplayBackingScale,
+  inkDisplayBackingSize,
+  nextSettledCssZoom,
+} from '../inkDisplayBacking';
 
 describe('inkDisplayBackingScale', () => {
   test('uses 2× on a 1× desktop so lines are not softer than the template', () => {
@@ -54,5 +59,19 @@ describe('inkDisplayBackingSize', () => {
     });
     expect(size.pixelW).toBe(432);
     expect(size.pixelH).toBe(612);
+  });
+});
+
+describe('nextSettledCssZoom', () => {
+  test('keeps the last committed backing while live zoom is still moving', () => {
+    expect(nextSettledCssZoom(2.4, 1, INK_BACKING_ZOOM_SETTLE_MS - 1)).toBe(1);
+  });
+
+  test('commits live zoom after the idle window', () => {
+    expect(nextSettledCssZoom(2.4, 1, INK_BACKING_ZOOM_SETTLE_MS)).toBe(2.4);
+  });
+
+  test('does not rebuild when live zoom matches the backing', () => {
+    expect(nextSettledCssZoom(1.5, 1.5, 10_000)).toBe(1.5);
   });
 });

@@ -451,6 +451,7 @@ export function EditorLayout({
               textLiveTransforms={textLiveTransforms}
               onDeleteText={deleteText}
               onDuplicateText={duplicateText}
+              onConfirmText={() => dispatch({ type: 'selectText', textId: null })}
               inkEngine={inkEngine}
               inkFrame={inkFrame}
               deletePageId={pageDelete?.source === 'workspace' ? pageDelete.pageId : null}

@@ -4,13 +4,11 @@ import { getDefaultStorageDatabase } from './idb';
 import type { OpfsStorage } from './opfs';
 import { getDefaultOpfsStorage } from './opfs';
 import {
-  buildProjectPackFileName,
-  buildProjectPackZip,
-  parseProjectPackZip,
-  ProjectPackError,
-  rasterZipPathForDocumentMember,
-  rewriteImportedDocument,
-} from './projectPack';
+  prepareImportedProjectFromZip,
+  type PreparedImportedProject,
+  type ProjectImportProgress,
+} from './prepareImportedProject';
+import { buildProjectPackFileName, buildProjectPackZip, ProjectPackError } from './projectPack';
 import {
   ProjectExportCheckpointError,
   requestProjectExportCheckpoint,
@@ -18,7 +16,6 @@ import {
 import { randomId } from './randomId';
 import { isStockPageItem } from '../domain/stockItems';
 import { collectRasterIds, pdfOpfsPath, rasterBelongsToProject } from './rasterIds';
-import { normalizePackRasterPng } from './compactInkPng';
 import {
   copySharedTransparentPng,
   encodeTransparentPngBuffer,
@@ -26,11 +23,19 @@ import {
 } from './transparentPng';
 import type { EditorDocument, PageText, ProjectMeta } from './types';
 
+export type { ProjectImportProgress } from './prepareImportedProject';
+
 export type ProjectStoreDeps = {
   db?: StorageDatabase;
   opfs?: OpfsStorage;
   now?: () => string;
   requestExportCheckpoint?: (projectId: string) => Promise<void>;
+  onImportProgress?: (progress: ProjectImportProgress) => void;
+  prepareImported?: (
+    zipBytes: Uint8Array,
+    newProjectId: string,
+    onProgress?: (progress: ProjectImportProgress) => void,
+  ) => Promise<PreparedImportedProject>;
 };
 
 function resolveDeps(deps: ProjectStoreDeps = {}) {
@@ -309,10 +314,17 @@ export async function importProjectPack(
   deps?: ProjectStoreDeps,
 ): Promise<ProjectMeta> {
   const { db, now } = resolveDeps(deps);
+  const onProgress = deps?.onImportProgress;
+  const prepareImported =
+    deps?.prepareImported ??
+    ((zipBytes, newProjectId, progress) =>
+      prepareImportedProjectFromZip(zipBytes, newProjectId, { onProgress: progress }));
+  onProgress?.({ phase: 'reading' });
   const bytes = new Uint8Array(await file.arrayBuffer());
-  let parsed;
+  const newProjectId = randomId();
+  let prepared: PreparedImportedProject;
   try {
-    parsed = parseProjectPackZip(bytes);
+    prepared = await prepareImported(bytes, newProjectId, onProgress);
   } catch (err) {
     if (err instanceof ProjectPackError) {
       throw err;
@@ -320,21 +332,14 @@ export async function importProjectPack(
     throw new ProjectPackError('インポートに失敗しました。');
   }
 
-  const newProjectId = randomId();
-  const document = rewriteImportedDocument(parsed.document, newProjectId);
-  const rasters = new Map<string, ArrayBuffer>();
-  for (const rasterId of collectRasterIds(document)) {
-    const zipPath = rasterZipPathForDocumentMember(document, rasterId);
-    const png = parsed.rasters.get(zipPath);
-    if (!png) {
-      throw new ProjectPackError('ラスターデータが不足しています。');
-    }
-    rasters.set(rasterId, normalizePackRasterPng(png.slice(0)));
-  }
-
-  const meta = toMeta(document, now());
+  const meta = toMeta(prepared.document, now());
+  onProgress?.({ phase: 'saving' });
   try {
-    await db.importProjectAtomic({ document, rasters, meta });
+    await db.importProjectAtomic({
+      document: prepared.document,
+      rasters: prepared.rasters,
+      meta,
+    });
   } catch (err) {
     if (err instanceof ProjectPackError) {
       throw err;

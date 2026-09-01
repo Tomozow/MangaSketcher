@@ -63,6 +63,7 @@ type WorkspaceStripProps = {
   liveTextContent?: LiveTextContent | null;
   onDeleteText: (textId: TextId) => void;
   onDuplicateText: (textId: TextId) => void;
+  onConfirmText?: () => void;
   tool: ToolId;
   zoom: number;
   panX: number;
@@ -103,6 +104,7 @@ export function WorkspaceStrip({
   liveTextContent,
   onDeleteText,
   onDuplicateText,
+  onConfirmText,
   tool,
   zoom,
   panX,
@@ -609,6 +611,7 @@ export function WorkspaceStrip({
           showConfirm={tool === 'text'}
           onDeleteText={onDeleteText}
           onDuplicateText={onDuplicateText}
+          onConfirmText={onConfirmText}
         />
       ) : null}
     </div>

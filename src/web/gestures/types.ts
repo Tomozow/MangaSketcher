@@ -111,6 +111,8 @@ export type WorkspaceSession =
       startWorldY: number;
       clipIds: ClipId[];
       textIds: TextId[];
+      /** Text tool: tap (no drag) collapses multi-select to this id. */
+      tapSelectTextId?: TextId;
     }
   | {
       mode: 'moveSelection';

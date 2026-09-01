@@ -115,6 +115,7 @@ function TextBoxChrome({
   showConfirm,
   onDeleteText,
   onDuplicateText,
+  onConfirmText,
 }: {
   textId: TextId;
   buttonPx: number;
@@ -124,6 +125,7 @@ function TextBoxChrome({
   showConfirm?: boolean;
   onDeleteText: (textId: TextId) => void;
   onDuplicateText: (textId: TextId) => void;
+  onConfirmText?: () => void;
 }) {
   const size = { width: buttonPx, height: buttonPx };
   const icon = Math.max(6, buttonPx * 0.6);
@@ -177,6 +179,10 @@ function TextBoxChrome({
           aria-label="テキストを確定"
           onPointerDown={(event) => {
             event.stopPropagation();
+            if (batch) {
+              event.preventDefault();
+              onConfirmText?.();
+            }
           }}
         >
           <svg viewBox="0 0 12 12" width={icon} height={icon} aria-hidden="true" focusable="false">
@@ -406,6 +412,7 @@ type TextChromeOverlayProps = {
   showConfirm?: boolean;
   onDeleteText: (textId: TextId) => void;
   onDuplicateText: (textId: TextId) => void;
+  onConfirmText?: () => void;
 };
 
 /** Screen-space chrome. Kept outside `transform: scale` so iPad does not inflate or trap it. */
@@ -419,6 +426,7 @@ export function TextChromeOverlay({
   showConfirm,
   onDeleteText,
   onDuplicateText,
+  onConfirmText,
 }: TextChromeOverlayProps) {
   const [pose, setPose] = useState<{ left: number; top: number; button: number; gap: number } | null>(null);
   const primaryId = textIds[textIds.length - 1];
@@ -472,6 +480,7 @@ export function TextChromeOverlay({
         showConfirm={showConfirm}
         onDeleteText={onDeleteText}
         onDuplicateText={onDuplicateText}
+        onConfirmText={onConfirmText}
       />
     </div>
   );

@@ -242,6 +242,7 @@ function pendingSelectionMove(
   clipIds: ClipId[],
   textIds: TextId[],
   extraEffects: WorkspaceEffect[] = [],
+  tapSelectTextId?: TextId,
 ): { session: WorkspaceSession; effects: WorkspaceEffect[] } {
   return {
     session: {
@@ -253,6 +254,7 @@ function pendingSelectionMove(
       startWorldY: input.worldY,
       clipIds,
       textIds,
+      ...(tapSelectTextId ? { tapSelectTextId } : {}),
     },
     effects: extraEffects,
   };
@@ -720,7 +722,12 @@ function stepLockedPencil(
       return { session: { mode: 'idle' }, effects: [] };
     }
     if (input.phase === 'up') {
-      return { session: { mode: 'idle' }, effects: [] };
+      return {
+        session: { mode: 'idle' },
+        effects: session.tapSelectTextId
+          ? [{ type: 'selectText', textId: session.tapSelectTextId }]
+          : [],
+      };
     }
     if (dist < TEXT_MOVE_SLOP) {
       return { session, effects: [] };
@@ -1091,7 +1098,7 @@ function stepPencilDown(
       const alreadySelected = selectedTexts.includes(hit.textId);
       const textIds = alreadySelected ? selectedTexts : [hit.textId];
       if (textIds.length > 1) {
-        return pendingSelectionMove(input, [], textIds);
+        return pendingSelectionMove(input, [], textIds, [], hit.textId);
       }
       const moveSession = textMoveSessionFromHit(hit);
       if (!moveSession) {

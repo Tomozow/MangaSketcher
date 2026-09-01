@@ -10,6 +10,7 @@ import {
   releaseDefaultStorageDatabase,
   renameProject,
   runStartupGc,
+  type ProjectImportProgress,
   type ProjectMeta,
 } from '@/src/storage';
 import { ProjectPackError } from '@/src/storage/projectPack';
@@ -33,9 +34,54 @@ import {
   subscribeShellUpdateStatus,
 } from '@/src/web/shellUpdate';
 import { useAppShellHeight } from '@/src/web/appShellHeight';
+import { prepareImportedProjectOffThread } from '@/src/web/projectImport/prepareImportedProjectOffThread';
 import styles from '@/app/page.module.css';
 
 const DEFAULT_PROJECT_NAME = '無題';
+
+function importProgressLabel(progress: ProjectImportProgress): string {
+  switch (progress.phase) {
+    case 'reading':
+      return 'ファイルを読み込んでいます…';
+    case 'unzip':
+      return 'パックを展開しています…';
+    case 'normalize':
+      if (progress.total && progress.current) {
+        return `画像を変換しています…（${progress.current}/${progress.total}）`;
+      }
+      return '画像を変換しています…';
+    case 'saving':
+      return '保存しています…';
+  }
+}
+
+function importProgressRatio(progress: ProjectImportProgress): number {
+  switch (progress.phase) {
+    case 'reading':
+      return 0.08;
+    case 'unzip':
+      return 0.22;
+    case 'normalize':
+      if (progress.total && progress.total > 0 && progress.current) {
+        return 0.22 + 0.68 * (progress.current / progress.total);
+      }
+      return 0.45;
+    case 'saving':
+      return 0.96;
+  }
+}
+
+function waitForPaint(): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => resolve());
+      });
+      return;
+    }
+    setTimeout(resolve, 0);
+  });
+}
 
 function formatUpdatedAt(iso: string): string {
   const date = new Date(iso);
@@ -90,6 +136,7 @@ export function ProjectList() {
   const objectUrlRef = useRef<ObjectUrlTracker | null>(null);
   const [shellStatus, setShellStatus] = useState(getShellUpdateStatus);
   const [exportGeneratingId, setExportGeneratingId] = useState<string | null>(null);
+  const [importProgress, setImportProgress] = useState<ProjectImportProgress | null>(null);
   const [pendingExport, setPendingExport] = useState<{
     projectId: string;
     projectName: string;
@@ -303,8 +350,18 @@ export function ProjectList() {
     }
     setError(null);
     setBusyId('__import__');
+    setImportProgress({ phase: 'reading' });
+    await waitForPaint();
     try {
-      await importProjectPack(file);
+      await importProjectPack(file, {
+        onImportProgress: setImportProgress,
+        prepareImported: (zipBytes, newProjectId, onProgress) =>
+          prepareImportedProjectOffThread(
+            zipBytes.slice().buffer as ArrayBuffer,
+            newProjectId,
+            onProgress,
+          ),
+      });
       await refresh();
     } catch (err) {
       setError(
@@ -314,6 +371,7 @@ export function ProjectList() {
       );
     } finally {
       setBusyId(null);
+      setImportProgress(null);
     }
   };
 
@@ -361,7 +419,7 @@ export function ProjectList() {
             disabled={loading || listBusy}
             onClick={handleImportPick}
           >
-            インポート
+            {importing ? 'インポート中…' : 'インポート'}
           </button>
           <input
             ref={importInputRef}
@@ -386,6 +444,26 @@ export function ProjectList() {
           <p className={styles.empty}>読み込み中…</p>
         ) : (
           <div className={styles.grid}>
+            {importProgress ? (
+              <article className={styles.card} aria-live="polite" aria-busy="true">
+                <div className={styles.cardOpen}>
+                  <div className={styles.cardThumb} aria-hidden>
+                    <span className={styles.miniPage} />
+                    <span className={styles.miniPage} />
+                    <span className={styles.importTrack}>
+                      <span
+                        className={styles.importFill}
+                        style={{ width: `${Math.round(importProgressRatio(importProgress) * 100)}%` }}
+                      />
+                    </span>
+                  </div>
+                  <div className={styles.cardMeta}>
+                    <strong className={styles.projectName}>インポート中</strong>
+                    <small className={styles.projectMeta}>{importProgressLabel(importProgress)}</small>
+                  </div>
+                </div>
+              </article>
+            ) : null}
             {projects.map((project) => {
               const rowBusy = busyId === project.id || exportGeneratingId === project.id;
               return (

@@ -1,9 +1,13 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import type { InkEngine } from './InkEngine';
-import { inkDisplayBackingSize } from './inkDisplayBacking';
+import {
+  INK_BACKING_ZOOM_SETTLE_MS,
+  inkDisplayBackingSize,
+  nextSettledCssZoom,
+} from './inkDisplayBacking';
 
 type PageInkCanvasProps = {
   engine: InkEngine;
@@ -13,7 +17,7 @@ type PageInkCanvasProps = {
   displayWidth?: number;
   /** When set, CSS height is free (clip free-transform). */
   displayHeight?: number;
-  /** Workspace CSS scale applied on an ancestor. Backing store follows this. */
+  /** Live workspace CSS scale on an ancestor. Backing follows after zoom settles. */
   cssZoom?: number;
   /** Bumped while drawing so overlay composites repaint. */
   inkFrame?: number;
@@ -94,7 +98,8 @@ export function scheduleInkDisplay(rasterId: string): void {
 
 /**
  * Display copy (§9.5): scales 1200×1700 hot canvas to a zoom-aware backing store.
- * CSS size stays 216×306; pixel buffer follows dpr, a 2× floor, and workspace zoom.
+ * CSS size stays 216×306; pixel buffer follows dpr, a 2× floor, and settled workspace zoom.
+ * Live pinch uses the ancestor CSS scale; this canvas does not resize until zoom is idle.
  */
 export function PageInkCanvas({
   engine,
@@ -106,6 +111,19 @@ export function PageInkCanvas({
   inkFrame = 0,
 }: PageInkCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [backingZoom, setBackingZoom] = useState(cssZoom);
+
+  useEffect(() => {
+    if (cssZoom === backingZoom) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      setBackingZoom((committed) =>
+        nextSettledCssZoom(cssZoom, committed, INK_BACKING_ZOOM_SETTLE_MS),
+      );
+    }, INK_BACKING_ZOOM_SETTLE_MS);
+    return () => window.clearTimeout(timer);
+  }, [cssZoom, backingZoom]);
 
   useEffect(() => {
     const paint = () => {
@@ -121,7 +139,7 @@ export function PageInkCanvas({
         rasterWidth: dims.width,
         rasterHeight: dims.height,
         devicePixelRatio: dpr,
-        cssZoom,
+        cssZoom: backingZoom,
       });
       if (el.width !== pixelW || el.height !== pixelH) {
         el.width = pixelW;
@@ -159,7 +177,7 @@ export function PageInkCanvas({
       }
       releaseInkDisplayKeepAlive();
     };
-  }, [engine, rasterId, displayWidth, displayHeight, cssZoom]);
+  }, [engine, rasterId, displayWidth, displayHeight, backingZoom]);
 
   useEffect(() => {
     painters.get(rasterId)?.();

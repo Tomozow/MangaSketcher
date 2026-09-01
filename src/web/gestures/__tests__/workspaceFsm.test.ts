@@ -340,6 +340,46 @@ describe('Web workspace FSM', () => {
       expect(up.effects).toEqual([{ type: 'selectText', textId: 'tx' }]);
     });
 
+    test('複数選択中に一つのテキストをタップするとそのテキストだけ selectText する', () => {
+      const store = createWorkspaceGestureStore();
+      pencilText(store, 'down', {
+        x: 10,
+        y: 10,
+        worldX: 110,
+        worldY: 90,
+        selectedTextIds: ['tx', 'ty'],
+      });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('pendingSelectionMove');
+      const up = pencilText(store, 'up', {
+        x: 12,
+        y: 11,
+        worldX: 112,
+        worldY: 91,
+        selectedTextIds: ['tx', 'ty'],
+      });
+      expect(up.effects).toEqual([{ type: 'selectText', textId: 'tx' }]);
+    });
+
+    test('複数選択中に未選択テキストをタップするとそのテキストだけ selectText する', () => {
+      const store = createWorkspaceGestureStore();
+      pencilText(store, 'down', {
+        x: 10,
+        y: 10,
+        worldX: 110,
+        worldY: 90,
+        selectedTextIds: ['ty', 'tz'],
+      });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('pendingTextMove');
+      const up = pencilText(store, 'up', {
+        x: 12,
+        y: 11,
+        worldX: 112,
+        worldY: 91,
+        selectedTextIds: ['ty', 'tz'],
+      });
+      expect(up.effects).toEqual([{ type: 'selectText', textId: 'tx' }]);
+    });
+
     test('複数選択中のテキストをドラッグすると選択中のテキスト全部を動かす', () => {
       const store = createWorkspaceGestureStore();
       pencilText(store, 'down', {

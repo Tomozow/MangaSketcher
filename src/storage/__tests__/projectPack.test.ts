@@ -305,6 +305,26 @@ describe('exportProjectPack / importProjectPack', () => {
     expect(pngColorType(stored!)).toBe(6);
     expect(imported.id).not.toBe(meta.id);
   });
+
+  test('import reports reading, unzip, normalize, and saving', async () => {
+    const db = new MemoryStorageDatabase();
+    const opfs = new MemoryOpfsStorage();
+    const { meta } = await createProject('progress', 2, { db, opfs });
+    const exported = await exportProjectPack(meta.id, { db, opfs, ...noopCheckpoint });
+    const phases: string[] = [];
+    await importProjectPack(exported, {
+      db,
+      opfs,
+      ...noopCheckpoint,
+      onImportProgress: (progress) => {
+        phases.push(progress.phase);
+      },
+    });
+    expect(phases[0]).toBe('reading');
+    expect(phases).toContain('unzip');
+    expect(phases).toContain('normalize');
+    expect(phases[phases.length - 1]).toBe('saving');
+  });
 });
 
 describe('pack layout', () => {

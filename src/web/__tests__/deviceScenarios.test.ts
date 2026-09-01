@@ -316,6 +316,7 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(textEditBarSrc).not.toContain('完了');
     expect(textEditBarSrc).toContain('PAGE_TEXT_CONFIRM_ATTR');
     expect(pageTextOverlaySrc).toContain('テキストを確定');
+    expect(pageTextOverlaySrc).toContain('onConfirmText');
     expect(textEditBarSrc).toContain('PAGE_TEXT_WRAP_ATTR');
     expect(editorLayoutSrc).toContain(
       "doc.tool === 'text' && selectedTextIdsOf(doc).length <= 1 ? textSelection : null",

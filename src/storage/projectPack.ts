@@ -1,4 +1,4 @@
-import { strFromU8, strToU8, unzipSync, zipSync, type UnzipFile, type Zippable } from 'fflate/browser';
+import { strFromU8, strToU8, unzip, unzipSync, zipSync, type UnzipFile, type Zippable } from 'fflate/browser';
 import { formatExportTimestamp, sanitizeExportStem } from '../web/export/sanitizeExportName';
 import { compactPackRasterPng } from './compactInkPng';
 import { assertStorableDocument, cloneEditorDocument } from './editorDocument';
@@ -179,38 +179,74 @@ export function validateImportedDocument(raw: unknown): EditorDocument {
   return stripPdfForPack(doc);
 }
 
+function unzipPackFilter(file: UnzipFile, entryCount: { n: number }): boolean {
+  const path = file.name;
+  if (path.endsWith('/')) {
+    return false;
+  }
+  if (!isAllowedPackPath(path)) {
+    throw new ProjectPackError('プロジェクトパックではありません。');
+  }
+  entryCount.n += 1;
+  if (entryCount.n > MAX_PACK_ENTRIES) {
+    throw new ProjectPackError('ZIPのエントリ数が多すぎます。');
+  }
+  const size = file.originalSize ?? file.size;
+  if (size > MAX_PACK_RASTER_BYTES) {
+    throw new ProjectPackError('ZIPのエントリが大きすぎます。');
+  }
+  return true;
+}
+
+function wrapUnzipError(err: unknown): ProjectPackError {
+  if (err instanceof ProjectPackError) {
+    return err;
+  }
+  return new ProjectPackError('ZIPファイルを読み込めませんでした。');
+}
+
 function safeUnzipPack(bytes: Uint8Array): Record<string, Uint8Array> {
   if (bytes.byteLength > MAX_PACK_ZIP_BYTES) {
     throw new ProjectPackError('ZIPファイルが大きすぎます。');
   }
-  let entryCount = 0;
+  const entryCount = { n: 0 };
   try {
     return unzipSync(bytes, {
       filter(file: UnzipFile) {
-        const path = file.name;
-        if (path.endsWith('/')) {
-          return false;
-        }
-        if (!isAllowedPackPath(path)) {
-          throw new ProjectPackError('プロジェクトパックではありません。');
-        }
-        entryCount += 1;
-        if (entryCount > MAX_PACK_ENTRIES) {
-          throw new ProjectPackError('ZIPのエントリ数が多すぎます。');
-        }
-        const size = file.originalSize ?? file.size;
-        if (size > MAX_PACK_RASTER_BYTES) {
-          throw new ProjectPackError('ZIPのエントリが大きすぎます。');
-        }
-        return true;
+        return unzipPackFilter(file, entryCount);
       },
     });
   } catch (err) {
-    if (err instanceof ProjectPackError) {
-      throw err;
-    }
-    throw new ProjectPackError('ZIPファイルを読み込めませんでした。');
+    throw wrapUnzipError(err);
   }
+}
+
+export function parseProjectPackZipAsync(bytes: Uint8Array): Promise<ParsedProjectPack> {
+  if (bytes.byteLength > MAX_PACK_ZIP_BYTES) {
+    return Promise.reject(new ProjectPackError('ZIPファイルが大きすぎます。'));
+  }
+  return new Promise((resolve, reject) => {
+    const entryCount = { n: 0 };
+    unzip(
+      bytes,
+      {
+        filter(file: UnzipFile) {
+          return unzipPackFilter(file, entryCount);
+        },
+      },
+      (err, data) => {
+        if (err) {
+          reject(wrapUnzipError(err));
+          return;
+        }
+        try {
+          resolve(parsedProjectPackFromEntries(data));
+        } catch (parseErr) {
+          reject(parseErr);
+        }
+      },
+    );
+  });
 }
 
 export function buildProjectPackZip(input: {
@@ -250,8 +286,7 @@ export function buildProjectPackZip(input: {
   return zipSync(files);
 }
 
-export function parseProjectPackZip(bytes: Uint8Array): ParsedProjectPack {
-  const entries = safeUnzipPack(bytes);
+function parsedProjectPackFromEntries(entries: Record<string, Uint8Array>): ParsedProjectPack {
   const paths = Object.keys(entries);
   if (paths.length === 0) {
     throw new ProjectPackError('プロジェクトパックではありません。');
@@ -343,6 +378,10 @@ export function parseProjectPackZip(bytes: Uint8Array): ParsedProjectPack {
   }
 
   return { manifest, document, rasters };
+}
+
+export function parseProjectPackZip(bytes: Uint8Array): ParsedProjectPack {
+  return parsedProjectPackFromEntries(safeUnzipPack(bytes));
 }
 
 export function rewriteImportedDocument(document: EditorDocument, newProjectId: ProjectId): EditorDocument {
