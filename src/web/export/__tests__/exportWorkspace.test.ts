@@ -196,8 +196,22 @@ describe('exportWorkspace', () => {
     expect(pngs).toHaveLength(20);
     expect(Object.keys(unzipped).some((path) => path.endsWith('text.txt'))).toBe(true);
     expect(file.name.startsWith('二十面_')).toBe(true);
+    expect(file.name.endsWith('.zip')).toBe(true);
+    expect(file.name.includes('_p')).toBe(false);
     const textEntry = Object.entries(unzipped).find(([path]) => path.endsWith('text.txt'))![1];
     expect(strFromU8(textEntry).split('===').length).toBeGreaterThan(20);
+  });
+
+  test('1 page is a png file named with p001', async () => {
+    const doc = createEditorDocument({
+      projectId: 'p',
+      name: '一枚',
+      pageCount: 1,
+      ids: sequentialIds('pg'),
+    });
+    const file = await exportWorkspace(doc, mockInk(rasterMap(doc, new ArrayBuffer(0))), stubComposeDeps());
+    expect(file.type).toBe('image/png');
+    expect(file.name).toBe('一枚_20260829-1522_p001.png');
   });
 
   test('template load failure fails the whole export', async () => {

@@ -21,6 +21,8 @@ function recordingContext() {
       fills.push({ text, x, y, font: ctx.font, fillStyle: ctx.fillStyle });
     },
     strokeText() {},
+    translate() {},
+    rotate() {},
   };
   return { ctx, fills };
 }
@@ -86,6 +88,8 @@ describe('drawPageTextsOnThumb', () => {
       fillText(text: string, x: number, y: number) {
         fills.push({ text, x, y, font: ctx.font, fillStyle: ctx.fillStyle });
       },
+      translate() {},
+      rotate() {},
     };
     drawPageTextsOnThumb(
       ctx,
@@ -127,6 +131,34 @@ describe('drawPageTextsOnThumb', () => {
     expect(fills.map((f) => f.text)).toEqual(['あ', 'い']);
     expect(fills[1]!.x).toBeLessThan(fills[0]!.x);
     expect(fills[1]!.y).toBeCloseTo(fills[0]!.y);
+  });
+
+  test('prolonged sound mark and ellipsis rotate a quarter turn', () => {
+    const rotates: number[] = [];
+    const { ctx, fills } = recordingContext();
+    ctx.rotate = (angle: number) => {
+      rotates.push(angle);
+    };
+    drawPageTextsOnThumb(
+      ctx,
+      [
+        {
+          content: 'あー…',
+          box: { x: 0, y: 0, width: 80, height: 400 },
+          fontSize: 40,
+          color: '#000',
+        },
+      ],
+      1200,
+      1700,
+      1200,
+      1700,
+    );
+    expect(fills.map((f) => f.text)).toEqual(['あ', 'ー', '…']);
+    expect(rotates).toEqual([Math.PI / 2, Math.PI / 2]);
+    expect(fills[1]!.x).toBe(0);
+    expect(fills[1]!.y).toBe(0);
+    expect(fills[0]!.x).not.toBe(0);
   });
 
   test('export dest=raster keeps fontSize unscaled', () => {

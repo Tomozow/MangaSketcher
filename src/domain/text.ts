@@ -228,3 +228,28 @@ export function verticalGlyphs(content: string): string[] {
   return [...content];
 }
 
+/**
+ * Canvas `fillText` は横組グリフのまま置く。画面の `text-orientation: mixed` では
+ * 伸ばし棒・三点リーダなどが列方向に回るので、焼き込みでも同じ向きにする。
+ */
+const VERTICAL_RL_ROTATE_CODEPOINTS = new Set<number>([
+  0x30fc, // ー
+  0xff70, // ｰ
+  0x2026, // …
+  0x2025, // ‥
+  0x22ef, // ⋯
+  0x2014, // —
+  0x2015, // ―
+  0x2013, // –
+  0x2010, // ‐
+  0x2212, // −
+  0xff0d, // －
+  0x301c, // 〜
+  0xff5e, // ～
+]);
+
+export function shouldRotateForVerticalRl(glyph: string): boolean {
+  const codePoint = glyph.codePointAt(0);
+  return codePoint != null && VERTICAL_RL_ROTATE_CODEPOINTS.has(codePoint);
+}
+

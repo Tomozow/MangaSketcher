@@ -13,6 +13,7 @@ export {
   DOWNLOAD_OBJECT_URL_REVOKE_MS,
   EXPORT_BUTTON_LABEL,
   PROJECT_PACK_EXPORT_LABEL,
+  EXPORT_CANCEL_LABEL,
   EXPORT_DOWNLOAD_LABEL,
   EXPORT_FAILED_MESSAGE,
   EXPORT_PROGRESS_ELLIPSIS,
@@ -26,7 +27,15 @@ export {
 } from './constants';
 export { WorkspaceExportAbortedError, WorkspaceExportError, isAbortError } from './errors';
 export { exportWorkspace } from './exportWorkspace';
+export { exportWorkspacePdf } from './exportWorkspacePdf';
 export type { ExportProgress, ExportWorkspaceDeps, InkExportSource } from './exportWorkspace';
+export {
+  EXPORT_FORMAT_IDS,
+  EXPORT_FORMAT_LABELS,
+  PAGE_SCOPE_LABELS,
+  formatExportPageCount,
+} from './exportFormat';
+export type { ExportFormatId, PageScopeMode } from './exportFormat';
 export {
   canShareExportFile,
   clickDownloadAnchor,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { exportProjectPack } from '@/src/storage';
 import type { EditorDocument } from '@/src/storage/types';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
@@ -9,11 +9,11 @@ import { IconExport } from './chromeIcons';
 import {
   canShareExportFile,
   EXPORT_BUTTON_LABEL,
+  EXPORT_CANCEL_LABEL,
   EXPORT_DOWNLOAD_LABEL,
   EXPORT_FAILED_MESSAGE,
   EXPORT_PROGRESS_ELLIPSIS,
   EXPORT_SHARE_LABEL,
-  PROJECT_PACK_EXPORT_LABEL,
   formatExportProgress,
   revokeExportObjectUrl,
   shareExportFile,
@@ -22,10 +22,29 @@ import {
   type ExportProgress,
   type ObjectUrlTracker,
 } from './export';
+import {
+  EXPORT_BACK_LABEL,
+  EXPORT_CONFIRM_LABEL,
+  EXPORT_FORMAT_IDS,
+  EXPORT_FORMAT_LABELS,
+  EXPORT_PAGES_DIALOG_LABEL,
+  EXPORT_RANGE_END_LABEL,
+  EXPORT_RANGE_START_LABEL,
+  PAGE_SCOPE_LABELS,
+  PAGE_SCOPE_MODES,
+  formatExportPageCount,
+  type ExportFormatId,
+  type PageScopeMode,
+} from './export/exportFormat';
+import { getLastExportFormat, setLastExportFormat } from './export/lastExportFormat';
+import { currentWorkspaceNumber, selectExportPages, sanitizeRangeInput } from './export/selectExportPages';
+import { runClipExport } from './export/runClipExport';
 import { runExportGeneration } from './export/runExportGeneration';
-import { ClipExportControls, mergeExportPhases } from './ClipExportControls';
+import { exportWorkspacePdf } from './export/exportWorkspacePdf';
 
 export type ExportUiPhase = 'idle' | 'generating' | 'ready' | 'failed';
+
+type PanelView = 'formats' | 'pages';
 
 type WorkspaceExportControlsProps = {
   doc: EditorDocument;
@@ -41,12 +60,18 @@ export function WorkspaceExportControls({
   onBeforeExport,
 }: WorkspaceExportControlsProps) {
   const [phase, setPhase] = useState<ExportUiPhase>('idle');
-  const [clipPhase, setClipPhase] = useState<ExportUiPhase>('idle');
   const [progress, setProgress] = useState<ExportProgress | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [canShare, setCanShare] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [clipHost, setClipHost] = useState<HTMLElement | null>(null);
+  const [panelView, setPanelView] = useState<PanelView>('formats');
+  const [highlightedFormat, setHighlightedFormat] = useState<ExportFormatId>(() =>
+    getLastExportFormat(doc.projectId),
+  );
+  const [pendingFormat, setPendingFormat] = useState<Exclude<ExportFormatId, 'pack'> | null>(null);
+  const [pageMode, setPageMode] = useState<PageScopeMode>('all');
+  const [rangeStart, setRangeStart] = useState('1');
+  const [rangeEnd, setRangeEnd] = useState('1');
   const objectUrlRef = useRef<ObjectUrlTracker | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const mountedRef = useRef(true);
@@ -57,14 +82,14 @@ export function WorkspaceExportControls({
   }, []);
 
   useEffect(() => {
-    onPhaseChange?.(mergeExportPhases(phase, clipPhase));
-  }, [phase, clipPhase, onPhaseChange]);
+    onPhaseChange?.(phase);
+  }, [phase, onPhaseChange]);
 
   useEffect(() => {
-    if (phase !== 'idle' || clipPhase !== 'idle') {
+    if (phase !== 'idle') {
       setMenuOpen(false);
     }
-  }, [phase, clipPhase]);
+  }, [phase]);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -90,6 +115,10 @@ export function WorkspaceExportControls({
     };
   }, []);
 
+  useEffect(() => {
+    setHighlightedFormat(getLastExportFormat(doc.projectId));
+  }, [doc.projectId]);
+
   const discardReady = useCallback(() => {
     revokeExportObjectUrl(objectUrlRef.current, { unusedOnly: true });
     objectUrlRef.current = null;
@@ -98,90 +127,122 @@ export function WorkspaceExportControls({
     setProgress(null);
   }, []);
 
-  const handleExport = useCallback(async () => {
-    if (phase === 'generating') {
-      return;
-    }
-    abortRef.current?.abort();
-    const abort = new AbortController();
-    abortRef.current = abort;
-    discardReady();
-    updatePhase('generating');
+  const selection = useMemo(
+    () =>
+      selectExportPages({
+        workspaceOrder: doc.workspaceOrder,
+        selectedPageId: doc.selectedPageId,
+        mode: pageMode,
+        rangeStartRaw: rangeStart,
+        rangeEndRaw: rangeEnd,
+      }),
+    [doc.selectedPageId, doc.workspaceOrder, pageMode, rangeEnd, rangeStart],
+  );
 
-    if (!inkEngine) {
-      updatePhase('failed');
-      return;
-    }
+  const finishFile = useCallback(
+    (exported: File) => {
+      if (abortRef.current?.signal.aborted || !mountedRef.current) {
+        return;
+      }
+      setFile(exported);
+      setCanShare(canShareExportFile(exported));
+      setProgress(null);
+      updatePhase('ready');
+    },
+    [updatePhase],
+  );
 
-    try {
-      const exported = await runExportGeneration({
-        doc,
-        inkEngine,
-        onBeforeExport,
-        signal: abort.signal,
-        onProgress: (next) => {
+  const runGeneration = useCallback(
+    async (format: ExportFormatId, pageIds: EditorDocument['workspaceOrder'] | undefined, pick: PageScopeMode) => {
+      if (phase === 'generating') {
+        return;
+      }
+      abortRef.current?.abort();
+      const abort = new AbortController();
+      abortRef.current = abort;
+      discardReady();
+      setMenuOpen(false);
+      updatePhase('generating');
+      setLastExportFormat(doc.projectId, format);
+
+      if (format !== 'pack' && !inkEngine) {
+        updatePhase('failed');
+        return;
+      }
+
+      try {
+        if (format === 'pack') {
+          if (onBeforeExport) {
+            await onBeforeExport();
+          }
+          if (abort.signal.aborted || !mountedRef.current) {
+            return;
+          }
+          const exported = await exportProjectPack(doc.projectId, {
+            requestExportCheckpoint: async () => {},
+          });
+          finishFile(exported);
+          return;
+        }
+        if (!inkEngine) {
+          updatePhase('failed');
+          return;
+        }
+        const onProgress = (next: ExportProgress) => {
           if (mountedRef.current && !abort.signal.aborted) {
             setProgress(next);
           }
-        },
-      });
-      if (abort.signal.aborted || !mountedRef.current) {
-        return;
-      }
-      setFile(exported);
-      setCanShare(canShareExportFile(exported));
-      setProgress(null);
-      updatePhase('ready');
-    } catch (err) {
-      if (!mountedRef.current || abort.signal.aborted || err instanceof WorkspaceExportAbortedError) {
-        if (mountedRef.current && abort.signal.aborted) {
-          updatePhase('idle');
+        };
+        if (format === 'png') {
+          const exported = await runExportGeneration({
+            doc,
+            inkEngine,
+            onBeforeExport,
+            signal: abort.signal,
+            onProgress,
+            pageIds,
+            pick,
+          });
+          finishFile(exported);
+          return;
         }
-        return;
-      }
-      setProgress(null);
-      updatePhase('failed');
-    }
-  }, [discardReady, doc, inkEngine, onBeforeExport, phase, updatePhase]);
-
-  const handlePackExport = useCallback(async () => {
-    if (phase === 'generating') {
-      return;
-    }
-    abortRef.current?.abort();
-    const abort = new AbortController();
-    abortRef.current = abort;
-    discardReady();
-    updatePhase('generating');
-
-    try {
-      if (onBeforeExport) {
-        await onBeforeExport();
-      }
-      if (abort.signal.aborted || !mountedRef.current) {
-        return;
-      }
-      const exported = await exportProjectPack(doc.projectId, {
-        requestExportCheckpoint: async () => {},
-      });
-      if (abort.signal.aborted || !mountedRef.current) {
-        return;
-      }
-      setFile(exported);
-      setCanShare(canShareExportFile(exported));
-      setProgress(null);
-      updatePhase('ready');
-    } catch (err) {
-      if (!mountedRef.current || abort.signal.aborted || err instanceof WorkspaceExportAbortedError) {
-        if (mountedRef.current && abort.signal.aborted) {
-          updatePhase('idle');
+        if (format === 'pdf') {
+          if (onBeforeExport) {
+            await onBeforeExport();
+          }
+          const exported = await exportWorkspacePdf(doc, inkEngine, {
+            signal: abort.signal,
+            onProgress,
+            pageIds,
+            pick,
+          });
+          finishFile(exported);
+          return;
         }
-        return;
+        const exported = await runClipExport({
+          doc,
+          inkEngine,
+          mode: (pageIds?.length ?? 0) === 1 ? 'single' : 'zip',
+          pageIds,
+          pick,
+          onBeforeExport,
+          signal: abort.signal,
+          onProgress,
+        });
+        finishFile(exported);
+      } catch (err) {
+        if (!mountedRef.current || abort.signal.aborted || err instanceof WorkspaceExportAbortedError) {
+          if (mountedRef.current && abort.signal.aborted) {
+            updatePhase('idle');
+          }
+          return;
+        }
+        setProgress(null);
+        updatePhase('failed');
       }
-      setProgress(null);
-      updatePhase('failed');
-    }
-  }, [discardReady, doc.projectId, onBeforeExport, phase, updatePhase]);
+    },
+    [discardReady, doc, finishFile, inkEngine, onBeforeExport, phase, updatePhase],
+  );
 
   const handleShare = useCallback(async () => {
     if (!file) {
@@ -209,6 +270,46 @@ export function WorkspaceExportControls({
     objectUrlRef.current = startExportDownload(file);
   }, [file]);
 
+  const openPanel = () => {
+    if (phase === 'generating') {
+      return;
+    }
+    if (phase === 'ready') {
+      discardReady();
+      updatePhase('idle');
+    }
+    setHighlightedFormat(getLastExportFormat(doc.projectId));
+    setPanelView('formats');
+    setPendingFormat(null);
+    setPageMode('all');
+    setMenuOpen((open) => !open);
+  };
+
+  const chooseFormat = (format: ExportFormatId) => {
+    setHighlightedFormat(format);
+    if (format === 'pack') {
+      void runGeneration('pack', undefined, 'all');
+      return;
+    }
+    const now = currentWorkspaceNumber(doc.workspaceOrder, doc.selectedPageId);
+    const initial = String(now ?? 1);
+    setRangeStart(initial);
+    setRangeEnd(initial);
+    setPageMode('all');
+    setPendingFormat(format);
+    setPanelView('pages');
+  };
+
+  const choosePageMode = (mode: PageScopeMode) => {
+    if (mode === 'range') {
+      const now = currentWorkspaceNumber(doc.workspaceOrder, doc.selectedPageId);
+      const initial = String(now ?? 1);
+      setRangeStart(initial);
+      setRangeEnd(initial);
+    }
+    setPageMode(mode);
+  };
+
   return (
     <div ref={rootRef} className={styles.workspaceExportControls}>
       <button
@@ -216,57 +317,109 @@ export function WorkspaceExportControls({
         className={`${styles.chromeIcon} ${phase === 'generating' || menuOpen ? styles.chromeIconPressed : ''}`}
         aria-label={EXPORT_BUTTON_LABEL}
         aria-expanded={menuOpen}
-        aria-haspopup="menu"
+        aria-haspopup="dialog"
         title={EXPORT_BUTTON_LABEL}
         disabled={phase === 'generating'}
-        onClick={() => {
-          setMenuOpen((open) => !open);
-        }}
+        onClick={openPanel}
       >
         <IconExport />
       </button>
       <div
-        className={`${styles.exportMenu} ${menuOpen && phase === 'idle' && clipPhase === 'idle' ? '' : styles.isHidden}`}
-        role="menu"
-        aria-label="書き出し"
-        hidden={!(menuOpen && phase === 'idle' && clipPhase === 'idle')}
+        className={`${styles.exportMenu} ${menuOpen && phase === 'idle' ? '' : styles.isHidden}`}
+        role="dialog"
+        aria-label={panelView === 'formats' ? EXPORT_BUTTON_LABEL : EXPORT_PAGES_DIALOG_LABEL}
+        hidden={!(menuOpen && phase === 'idle')}
       >
-          <button
-            type="button"
-            role="menuitem"
-            className={styles.exportMenuItem}
-            onClick={() => {
-              setMenuOpen(false);
-              void handleExport();
-            }}
-          >
-            {EXPORT_BUTTON_LABEL}
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            className={styles.exportMenuItem}
-            onClick={() => {
-              setMenuOpen(false);
-              void handlePackExport();
-            }}
-          >
-            {PROJECT_PACK_EXPORT_LABEL}
-          </button>
-          <div ref={setClipHost} />
+        {panelView === 'formats'
+          ? EXPORT_FORMAT_IDS.map((format) => (
+              <button
+                key={format}
+                type="button"
+                className={`${styles.exportMenuItem} ${highlightedFormat === format ? styles.chromeIconPressed : ''}`}
+                aria-pressed={highlightedFormat === format}
+                onClick={() => chooseFormat(format)}
+              >
+                {EXPORT_FORMAT_LABELS[format]}
+              </button>
+            ))
+          : (
+              <>
+                {PAGE_SCOPE_MODES.map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    className={`${styles.exportMenuItem} ${pageMode === mode ? styles.chromeIconPressed : ''}`}
+                    aria-pressed={pageMode === mode}
+                    disabled={mode === 'current' && selection.currentDisabled}
+                    onClick={() => choosePageMode(mode)}
+                  >
+                    {PAGE_SCOPE_LABELS[mode]}
+                  </button>
+                ))}
+                {pageMode === 'range' ? (
+                  <div className={styles.exportRangeRow}>
+                    <label>
+                      {EXPORT_RANGE_START_LABEL}
+                      <input
+                        inputMode="numeric"
+                        value={rangeStart}
+                        onChange={(event) => setRangeStart(sanitizeRangeInput(event.target.value))}
+                      />
+                    </label>
+                    <label>
+                      {EXPORT_RANGE_END_LABEL}
+                      <input
+                        inputMode="numeric"
+                        value={rangeEnd}
+                        onChange={(event) => setRangeEnd(sanitizeRangeInput(event.target.value))}
+                      />
+                    </label>
+                  </div>
+                ) : null}
+                <div className={styles.exportPageCount}>{formatExportPageCount(selection.count)}</div>
+                <button
+                  type="button"
+                  className={styles.exportMenuItem}
+                  disabled={!selection.canExport || !pendingFormat}
+                  onClick={() => {
+                    if (!pendingFormat) {
+                      return;
+                    }
+                    void runGeneration(pendingFormat, selection.pageIds, pageMode);
+                  }}
+                >
+                  {EXPORT_CONFIRM_LABEL}
+                </button>
+                <button
+                  type="button"
+                  className={styles.exportMenuItem}
+                  onClick={() => {
+                    setPanelView('formats');
+                    setPendingFormat(null);
+                    setPageMode('all');
+                  }}
+                >
+                  {EXPORT_BACK_LABEL}
+                </button>
+              </>
+            )}
       </div>
-      <ClipExportControls
-        doc={doc}
-        inkEngine={inkEngine}
-        onPhaseChange={setClipPhase}
-        onBeforeExport={onBeforeExport}
-        triggerHost={clipHost}
-        itemClassName={styles.exportMenuItem}
-        onPick={() => setMenuOpen(false)}
-      />
       {phase === 'generating' ? (
         <div className={styles.workspaceExportStatus} aria-live="polite">
           {progress ? formatExportProgress(progress.current, progress.total) : EXPORT_PROGRESS_ELLIPSIS}
+          <div className={styles.workspaceExportActions}>
+            <button
+              type="button"
+              className={styles.iconButton}
+              onClick={() => {
+                abortRef.current?.abort();
+                setProgress(null);
+                updatePhase('idle');
+              }}
+            >
+              {EXPORT_CANCEL_LABEL}
+            </button>
+          </div>
         </div>
       ) : null}
       {phase === 'ready' && file ? (

@@ -19,6 +19,8 @@ import type {
 import { MAX_WORKSPACE_EXPORT_PAGES, padPageIndex } from './constants';
 import { throwIfAborted, WorkspaceExportAbortedError, WorkspaceExportError } from './errors';
 import type { ExportProgress, InkExportSource } from './exportWorkspace';
+import type { PageScopeMode } from './exportFormat';
+import { buildPageExportFileName, folderNameFromExportFileName } from './buildPageExportFileName';
 import { formatExportTimestamp, sanitizeExportStem } from './sanitizeExportName';
 import { waitForInkEncodes, type EncodeWaitClock } from './waitForInkEncode';
 
@@ -36,15 +38,24 @@ export function buildClipExportNames(
   timestamp: string,
   mode: ClipExportMode,
   pageNumber: number,
+  pick: PageScopeMode = mode === 'single' ? 'current' : 'all',
+  count = mode === 'single' ? 1 : 2,
+  firstNumber = pageNumber,
+  lastNumber = pageNumber,
 ): { fileName: string; folderName: string } {
+  const fileName = buildPageExportFileName({
+    format: 'clip',
+    stem,
+    timestamp,
+    pick: mode === 'single' ? 'current' : pick,
+    count: mode === 'single' ? 1 : count,
+    firstNumber,
+    lastNumber,
+  });
   if (mode === 'single') {
-    return {
-      fileName: `${stem}_${timestamp}_p${padPageIndex(pageNumber)}.clip`,
-      folderName: '',
-    };
+    return { fileName, folderName: '' };
   }
-  const folderName = `${stem}_${timestamp}_clip`;
-  return { fileName: `${folderName}.zip`, folderName };
+  return { fileName, folderName: folderNameFromExportFileName(fileName) };
 }
 
 async function createDefaultClipWorker(): Promise<ClipWorkerLike> {
@@ -66,6 +77,8 @@ export type RunClipExportInput = {
   doc: EditorDocument;
   inkEngine: InkExportSource;
   mode: ClipExportMode;
+  pageIds?: PageId[];
+  pick?: PageScopeMode;
   onBeforeExport?: () => Promise<void>;
   signal?: AbortSignal;
   onProgress?: (progress: ExportProgress) => void;
@@ -82,17 +95,21 @@ export async function runClipExport(input: RunClipExportInput): Promise<File> {
 
   const snapshot = cloneEditorDocument(input.doc);
   const order = snapshot.workspaceOrder;
+  const pick = input.pick ?? (input.mode === 'single' ? 'current' : 'all');
 
   let pageIds: PageId[];
-  let singlePageNumber = 1;
-  if (input.mode === 'single') {
+  if (input.pageIds) {
+    pageIds = input.pageIds;
+    if (pageIds.length === 0 || pageIds.length > MAX_WORKSPACE_EXPORT_PAGES) {
+      throw new WorkspaceExportError();
+    }
+  } else if (input.mode === 'single') {
     const selected = snapshot.selectedPageId;
     const orderIndex = selected ? order.indexOf(selected) : -1;
     if (!selected || orderIndex < 0) {
       throw new WorkspaceExportError();
     }
     pageIds = [selected];
-    singlePageNumber = orderIndex + 1;
   } else {
     if (order.length === 0 || order.length > MAX_WORKSPACE_EXPORT_PAGES) {
       throw new WorkspaceExportError();
@@ -100,10 +117,14 @@ export async function runClipExport(input: RunClipExportInput): Promise<File> {
     pageIds = [...order];
   }
   for (const pageId of pageIds) {
-    if (!snapshot.pages[pageId]) {
+    if (!snapshot.pages[pageId] || !order.includes(pageId)) {
       throw new WorkspaceExportError();
     }
   }
+
+  const mode: ClipExportMode = pageIds.length === 1 ? 'single' : 'zip';
+  const firstNumber = order.indexOf(pageIds[0]!) + 1;
+  const lastNumber = order.indexOf(pageIds[pageIds.length - 1]!) + 1;
 
   const rasterIds = pageIds.map((pageId) => snapshot.pages[pageId]!.rasterId);
   input.inkEngine.flushPendingEncodes();
@@ -116,15 +137,24 @@ export async function runClipExport(input: RunClipExportInput): Promise<File> {
 
   const timestamp = formatExportTimestamp(input.now ?? new Date());
   const stem = sanitizeExportStem(snapshot.name);
-  const names = buildClipExportNames(stem, timestamp, input.mode, singlePageNumber);
+  const names = buildClipExportNames(
+    stem,
+    timestamp,
+    mode,
+    firstNumber,
+    pick,
+    pageIds.length,
+    firstNumber,
+    lastNumber,
+  );
   const entryNames =
-    input.mode === 'zip'
+    mode === 'zip'
       ? pageIds.map((_, i) => `${padPageIndex(i + 1)}.clip`)
       : [names.fileName];
 
   const start: ClipExportStartMessage = {
     type: 'start',
-    mode: input.mode,
+    mode,
     rasterWidth: snapshot.rasterWidth,
     rasterHeight: snapshot.rasterHeight,
     folderName: names.folderName,
@@ -166,7 +196,7 @@ export async function runClipExport(input: RunClipExportInput): Promise<File> {
       throw err;
     });
 
-    const type = input.mode === 'zip' ? 'application/zip' : 'application/octet-stream';
+    const type = mode === 'zip' ? 'application/zip' : 'application/octet-stream';
     return new File([blob], names.fileName, { type, lastModified: Date.now() });
   } finally {
     worker.terminate();

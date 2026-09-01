@@ -62,4 +62,15 @@ describe('buildExportText', () => {
     ];
     expect(buildExportText(doc)).toBe('=== 001 ===\n上 下\n');
   });
+
+  test('subset uses workspace numbers in headings', () => {
+    const doc = createEditorDocument({
+      projectId: 'p',
+      name: 'n',
+      pageCount: 3,
+      ids: sequentialIds('pg'),
+    });
+    const [, b, c] = doc.workspaceOrder;
+    expect(buildExportText(doc, [b!, c!]).startsWith('=== 002 ===')).toBe(true);
+  });
 });

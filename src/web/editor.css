@@ -371,6 +371,41 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   cursor: not-allowed;
 }
 
+.ms-exportRangeRow {
+  display: flex;
+  flex-direction: row;
+  gap: 8px;
+  padding: 4px 8px 8px;
+}
+
+.ms-exportRangeRow label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 11px;
+  min-width: 0;
+  flex: 1;
+}
+
+.ms-exportRangeRow input {
+  min-height: 44px;
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 10px;
+  border: 1px solid var(--ms-chrome-hair);
+  background: var(--ms-chrome);
+  color: var(--ms-chrome-fg);
+  padding: 0 10px;
+  font: inherit;
+  font-size: 13px;
+}
+
+.ms-exportPageCount {
+  padding: 4px 12px 8px;
+  font-size: 12px;
+  color: var(--ms-chrome-muted);
+}
+
 .ms-exportMenu .ms-clipExportButtons {
   display: flex;
   flex-direction: column;

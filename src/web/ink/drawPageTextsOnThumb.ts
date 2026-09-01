@@ -1,4 +1,4 @@
-import { isTextContentEmpty, verticalGlyphs } from '../../domain/text';
+import { isTextContentEmpty, shouldRotateForVerticalRl, verticalGlyphs } from '../../domain/text';
 import type { PageText, Rect } from '../../domain/types';
 import { pageTextCanvasFont } from '../pageTextFont';
 import {
@@ -17,6 +17,8 @@ type ThumbTextContext = {
   clip(): void;
   fillText(text: string, x: number, y: number): void;
   strokeText?(text: string, x: number, y: number): void;
+  translate(x: number, y: number): void;
+  rotate(angle: number): void;
   font: string;
   fillStyle: string;
   strokeStyle?: string;
@@ -100,12 +102,36 @@ export function drawPageTextsOnThumb(
         break;
       }
       const gx = colX + colW / 2;
-      if (outline) {
-        ctx.strokeText!(glyph, gx, y);
-      }
-      ctx.fillText(glyph, gx, y);
+      paintVerticalGlyph(ctx, glyph, gx, y, fontPx, outline);
       y += fontPx;
     }
     ctx.restore();
   }
+}
+
+function paintVerticalGlyph(
+  ctx: ThumbTextContext,
+  glyph: string,
+  gx: number,
+  y: number,
+  fontPx: number,
+  outline: boolean,
+): void {
+  if (shouldRotateForVerticalRl(glyph)) {
+    ctx.save();
+    ctx.translate(gx, y + fontPx / 2);
+    ctx.rotate(Math.PI / 2);
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    if (outline) {
+      ctx.strokeText!(glyph, 0, 0);
+    }
+    ctx.fillText(glyph, 0, 0);
+    ctx.restore();
+    return;
+  }
+  if (outline) {
+    ctx.strokeText!(glyph, gx, y);
+  }
+  ctx.fillText(glyph, gx, y);
 }

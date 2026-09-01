@@ -177,6 +177,8 @@ export const styles = {
   workspaceExportActions: 'ms-workspaceExportActions',
   exportMenu: 'ms-exportMenu',
   exportMenuItem: 'ms-exportMenuItem',
+  exportRangeRow: 'ms-exportRangeRow',
+  exportPageCount: 'ms-exportPageCount',
   isHidden: 'ms-isHidden',
   clipExportButtons: 'ms-clipExportButtons',
   pairDivider: 'ms-pairDivider',

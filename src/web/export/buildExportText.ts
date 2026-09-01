@@ -7,13 +7,17 @@ export function flattenTextContentLine(content: string): string {
   return content.replace(/\r\n/g, ' ').replace(/\r/g, ' ').replace(/\n/g, ' ');
 }
 
-export function buildExportText(doc: Pick<EditorDocument, 'workspaceOrder' | 'pages'>): string {
-  if (doc.workspaceOrder.length === 0) {
+export function buildExportText(
+  doc: Pick<EditorDocument, 'workspaceOrder' | 'pages'>,
+  pageIds: readonly string[] = doc.workspaceOrder,
+): string {
+  if (pageIds.length === 0) {
     return '';
   }
-  const blocks = doc.workspaceOrder.map((pageId, index) => {
+  const blocks = pageIds.map((pageId) => {
     const page = doc.pages[pageId];
-    const heading = `=== ${padPageIndex(index + 1)} ===`;
+    const workspaceNumber = doc.workspaceOrder.indexOf(pageId) + 1;
+    const heading = `=== ${padPageIndex(workspaceNumber > 0 ? workspaceNumber : 1)} ===`;
     if (!page) {
       return heading;
     }

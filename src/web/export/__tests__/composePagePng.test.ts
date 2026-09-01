@@ -22,6 +22,8 @@ function recordingContext() {
     rect() {},
     clip() {},
     fillText() {},
+    translate() {},
+    rotate() {},
     fillRect(x, y, w, h) {
       fills.push({ x, y, w, h, fillStyle: ctx.fillStyle });
     },

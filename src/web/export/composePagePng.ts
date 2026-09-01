@@ -1,7 +1,7 @@
 import { TEMPLATE_PAGE_NUMBER_COVER } from '../../domain/types';
 import { drawPageTextsOnThumb, type ThumbText } from '../ink/drawPageTextsOnThumb';
 import { isPngBuffer } from '../ink/fakeCanvas';
-import { PAGE_TEMPLATE_URL } from './constants';
+import { PAGE_TEMPLATE_URL, PDF_JPEG_QUALITY } from './constants';
 import { WorkspaceExportError } from './errors';
 
 export type ExportCanvas = OffscreenCanvas | HTMLCanvasElement;
@@ -19,6 +19,8 @@ export type ExportComposeContext = {
   clip(): void;
   fillText(text: string, x: number, y: number): void;
   strokeText?(text: string, x: number, y: number): void;
+  translate(x: number, y: number): void;
+  rotate(angle: number): void;
   font: string;
   textBaseline: CanvasTextBaseline;
   textAlign: CanvasTextAlign;
@@ -74,23 +76,33 @@ export function paintExportPageLayers(
   drawPageTextsOnThumb(ctx, texts, width, height, width, height);
 }
 
-export function canvasToPngBlob(canvas: ExportCanvas): Promise<Blob> {
+export function canvasToImageBlob(
+  canvas: ExportCanvas,
+  type: 'image/png' | 'image/jpeg',
+  quality?: number,
+): Promise<Blob> {
   if (typeof HTMLCanvasElement !== 'undefined' && canvas instanceof HTMLCanvasElement) {
     return new Promise((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (!blob || blob.size === 0) {
-          reject(new WorkspaceExportError());
-          return;
-        }
-        resolve(blob);
-      }, 'image/png');
+      canvas.toBlob(
+        (blob) => {
+          if (!blob || blob.size === 0) {
+            reject(new WorkspaceExportError());
+            return;
+          }
+          resolve(blob);
+        },
+        type,
+        quality,
+      );
     });
   }
   const offscreen = canvas as OffscreenCanvas;
   if (typeof offscreen.convertToBlob !== 'function') {
     return Promise.reject(new WorkspaceExportError());
   }
-  return offscreen.convertToBlob({ type: 'image/png' }).then((blob) => {
+  const options: ImageEncodeOptions =
+    type === 'image/jpeg' ? { type, quality } : { type };
+  return offscreen.convertToBlob(options).then((blob) => {
     if (!blob || blob.size === 0) {
       throw new WorkspaceExportError();
     }
@@ -98,19 +110,34 @@ export function canvasToPngBlob(canvas: ExportCanvas): Promise<Blob> {
   });
 }
 
+export function canvasToPngBlob(canvas: ExportCanvas): Promise<Blob> {
+  return canvasToImageBlob(canvas, 'image/png');
+}
+
 export async function canvasToPngBytes(canvas: ExportCanvas): Promise<Uint8Array> {
   const blob = await canvasToPngBlob(canvas);
   return new Uint8Array(await blob.arrayBuffer());
 }
 
-export async function composePagePng(input: {
-  canvas: ExportCanvas;
-  template: CanvasImageSource;
-  inkBitmap?: CanvasImageSource | null;
-  texts: readonly ThumbText[];
-  width: number;
-  height: number;
-}): Promise<Uint8Array> {
+export async function canvasToJpegBytes(
+  canvas: ExportCanvas,
+  quality = PDF_JPEG_QUALITY,
+): Promise<Uint8Array> {
+  const blob = await canvasToImageBlob(canvas, 'image/jpeg', quality);
+  return new Uint8Array(await blob.arrayBuffer());
+}
+
+function paintThenEncode(
+  input: {
+    canvas: ExportCanvas;
+    template: CanvasImageSource;
+    inkBitmap?: CanvasImageSource | null;
+    texts: readonly ThumbText[];
+    width: number;
+    height: number;
+  },
+  encode: (canvas: ExportCanvas) => Promise<Uint8Array>,
+): Promise<Uint8Array> {
   const ctx = input.canvas.getContext('2d');
   if (!ctx) {
     throw new WorkspaceExportError();
@@ -122,7 +149,29 @@ export async function composePagePng(input: {
     inkBitmap: input.inkBitmap,
     texts: input.texts,
   });
-  return canvasToPngBytes(input.canvas);
+  return encode(input.canvas);
+}
+
+export async function composePagePng(input: {
+  canvas: ExportCanvas;
+  template: CanvasImageSource;
+  inkBitmap?: CanvasImageSource | null;
+  texts: readonly ThumbText[];
+  width: number;
+  height: number;
+}): Promise<Uint8Array> {
+  return paintThenEncode(input, canvasToPngBytes);
+}
+
+export async function composePageJpeg(input: {
+  canvas: ExportCanvas;
+  template: CanvasImageSource;
+  inkBitmap?: CanvasImageSource | null;
+  texts: readonly ThumbText[];
+  width: number;
+  height: number;
+}): Promise<Uint8Array> {
+  return paintThenEncode(input, canvasToJpegBytes);
 }
 
 export function loadPageTemplateImage(src = PAGE_TEMPLATE_URL): Promise<HTMLImageElement> {

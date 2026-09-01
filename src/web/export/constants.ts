@@ -8,7 +8,9 @@ export const EXPORT_SHARE_LABEL = '"ファイル"に保存';
 export const EXPORT_DOWNLOAD_LABEL = 'ダウンロード';
 export const EXPORT_BUTTON_LABEL = '書き出し';
 export const PROJECT_PACK_EXPORT_LABEL = 'プロジェクトファイルを書き出し';
+export const EXPORT_CANCEL_LABEL = 'キャンセル';
 export const EXPORT_PROGRESS_ELLIPSIS = '\u2026';
+export const PDF_JPEG_QUALITY = 0.8;
 
 export function formatExportProgress(current: number, total: number): string {
   return `${current}/${total} ページ${EXPORT_PROGRESS_ELLIPSIS}`;

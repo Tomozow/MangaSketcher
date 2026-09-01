@@ -32,6 +32,7 @@
     "@rollup/rollup-win32-x64-msvc": "^4.63.0",
     "fflate": "^0.8.3",
     "next": "^15.5.24",
+    "pdf-lib": "^1.17.1",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "sql.js": "^1.14.2"

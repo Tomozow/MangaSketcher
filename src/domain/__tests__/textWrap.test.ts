@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { drawPageTextsOnThumb, type ThumbText } from '../../web/ink/drawPageTextsOnThumb';
 import type { Rect } from '../types';
+import { shouldRotateForVerticalRl } from '../text';
 import {
   TEXT_WRAP_LINE_HEIGHT,
   convertWrapToExplicitNewlines,
@@ -17,14 +18,30 @@ const RASTER_H = 1700;
 /** Run the real renderer at raster scale 1:1 and record fillText calls. */
 function renderedCalls(text: ThumbText): Call[] {
   const calls: Call[] = [];
+  let ox = 0;
+  let oy = 0;
+  const stack: { x: number; y: number }[] = [];
   const ctx = {
-    save() {},
-    restore() {},
+    save() {
+      stack.push({ x: ox, y: oy });
+    },
+    restore() {
+      const prev = stack.pop();
+      if (prev) {
+        ox = prev.x;
+        oy = prev.y;
+      }
+    },
     beginPath() {},
     rect() {},
     clip() {},
+    translate(x: number, y: number) {
+      ox += x;
+      oy += y;
+    },
+    rotate() {},
     fillText(glyph: string, x: number, y: number) {
-      calls.push({ glyph, x, y });
+      calls.push({ glyph, x: ox + x, y: oy + y });
     },
     font: '',
     fillStyle: '',
@@ -50,7 +67,12 @@ function callsFromLines(lines: string[], box: Rect, fontSize: number): Call[] {
     }
     let y = box.y;
     for (const glyph of [...lines[i]!]) {
-      out.push({ glyph, x: colX + colW / 2, y });
+      const gx = colX + colW / 2;
+      if (shouldRotateForVerticalRl(glyph)) {
+        out.push({ glyph, x: gx, y: y + fontPx / 2 });
+      } else {
+        out.push({ glyph, x: gx, y });
+      }
       y += fontPx;
     }
   }
