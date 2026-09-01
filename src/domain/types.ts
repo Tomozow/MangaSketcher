@@ -3,7 +3,11 @@ export type ClipId = string;
 export type TextId = string;
 export type ProjectId = string;
 
-export type ToolId = 'pen' | 'eraser' | 'text' | 'select';
+export type ToolId = 'pen' | 'eraser' | 'text' | 'select' | 'lasso';
+
+export function isSelectionTool(tool: ToolId): tool is 'select' | 'lasso' {
+  return tool === 'select' || tool === 'lasso';
+}
 
 export type PointerKind = 'finger' | 'pencil';
 

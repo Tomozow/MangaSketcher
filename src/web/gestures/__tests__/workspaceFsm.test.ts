@@ -846,7 +846,7 @@ describe('Web workspace FSM', () => {
 
   describe('select / marquee', () => {
     test('select / eraser でも + の tap は appendPage する', () => {
-      for (const tool of ['select', 'eraser'] as const) {
+      for (const tool of ['select', 'eraser', 'lasso'] as const) {
         const store = createWorkspaceGestureStore();
         pencil(store, 'down', { tool, hit: { kind: 'append' }, x: 10, y: 10, now: 100 });
         const up = pencil(store, 'up', { tool, hit: { kind: 'append' }, x: 11, y: 11, now: 150 });
@@ -1363,6 +1363,91 @@ describe('Web workspace FSM', () => {
       pencilText(store, 'down', { hit: handle, worldX: 10, worldY: 20 });
       const cancel = pencilText(store, 'cancel', { hit: handle, worldX: 30, worldY: 60 });
       expect(cancel.effects).toEqual([{ type: 'cancelTextResize', textId: 'tx' }]);
+    });
+  });
+
+  describe('lasso', () => {
+    test('pencil lasso on page starts a path; finger still pans', () => {
+      const store = createWorkspaceGestureStore();
+      const down = pencil(store, 'down', { tool: 'lasso', worldX: 10, worldY: 10 });
+      expect(down.effects[0]).toEqual({
+        type: 'lassoPreview',
+        points: [{ x: 10, y: 10 }],
+      });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('lasso');
+
+      finger(store, 'down', { pointerId: 2, x: 0, y: 0, now: 1 });
+      const pan = finger(store, 'move', { pointerId: 2, x: 30, y: 0, now: 2 });
+      expect(pan.effects[0]).toMatchObject({ type: 'panBy', dx: 30, dy: 0 });
+    });
+
+    test('lasso up emits completeLasso in world space', () => {
+      const store = createWorkspaceGestureStore();
+      pencil(store, 'down', { tool: 'lasso', worldX: 10, worldY: 10 });
+      pencil(store, 'move', { tool: 'lasso', worldX: 40, worldY: 10 });
+      pencil(store, 'move', { tool: 'lasso', worldX: 40, worldY: 40 });
+      const up = pencil(store, 'up', { tool: 'lasso', worldX: 10, worldY: 40 });
+      expect(up.effects[0]).toMatchObject({
+        type: 'completeLasso',
+        points: [
+          { x: 10, y: 10 },
+          { x: 40, y: 10 },
+          { x: 40, y: 40 },
+          { x: 10, y: 40 },
+        ],
+      });
+    });
+
+    test('lasso can start off-page', () => {
+      const store = createWorkspaceGestureStore();
+      const empty = { kind: 'empty' as const };
+      const down = pencil(store, 'down', { tool: 'lasso', hit: empty, worldX: -20, worldY: -10 });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('lasso');
+      expect(down.effects[0]).toMatchObject({
+        type: 'lassoPreview',
+        points: [{ x: -20, y: -10 }],
+      });
+    });
+
+    test('lasso on a clip body starts moveClip', () => {
+      const store = createWorkspaceGestureStore();
+      const clip = { id: 'c1', x: 100, y: 80, scale: 1, rotation: 0, rasterId: 'r1' };
+      const clipHit = { kind: 'clip' as const, clipId: 'c1', handle: 'body' as const };
+      const down = pencil(store, 'down', {
+        tool: 'lasso',
+        hit: clipHit,
+        worldX: 150,
+        worldY: 120,
+        selectTargets: { text: true, ink: true, clip: true },
+        getClipMeta: () => clip,
+        getClipRasterSize: () => ({ width: 40, height: 40 }),
+      });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('moveClip');
+      expect(down.effects).toEqual([{ type: 'selectClip', clipId: 'c1' }]);
+    });
+
+    test('lasso on pageText grabs text when the text filter is on', () => {
+      const store = createWorkspaceGestureStore();
+      const down = pencil(store, 'down', {
+        tool: 'lasso',
+        hit: pageText,
+        x: 10,
+        y: 10,
+        selectTargets: { text: true, ink: true, clip: true },
+      });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('pendingTextMove');
+      expect(down.effects.some((e) => e.type === 'selectText')).toBe(false);
+    });
+
+    test('tiny lasso clears selection', () => {
+      const store = createWorkspaceGestureStore();
+      pencil(store, 'down', { tool: 'lasso', hit: pageHit, worldX: 10, worldY: 10 });
+      const up = pencil(store, 'up', { tool: 'lasso', hit: pageHit, worldX: 11, worldY: 11 });
+      expect(up.effects).toEqual([
+        { type: 'completeLasso', points: [{ x: 10, y: 10 }, { x: 11, y: 11 }] },
+        { type: 'selectClips', clipIds: [] },
+        { type: 'selectTexts', textIds: [] },
+      ]);
     });
   });
 

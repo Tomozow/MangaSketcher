@@ -47,6 +47,7 @@ export type WorkspaceSessionMode =
   | 'penOverlay'
   | 'eraseDirect'
   | 'marquee'
+  | 'lasso'
   | 'moveClip'
   | 'scaleClip'
   | 'rotateClip'
@@ -94,6 +95,11 @@ export type WorkspaceSession =
       y0: number;
       x1: number;
       y1: number;
+    }
+  | {
+      mode: 'lasso';
+      kind: 'pencil';
+      points: Array<{ x: number; y: number }>;
     }
   | { mode: 'moveClip'; kind: 'pencil'; clipId: ClipId; offsetX: number; offsetY: number }
   | {
@@ -200,6 +206,8 @@ export type WorkspaceEffect =
   | { type: 'commitEraseDirect'; pageId: PageId }
   | { type: 'marqueePreview'; pageId: PageId | null; rect: { x: number; y: number; width: number; height: number } }
   | { type: 'completeMarquee'; pageId: PageId | null; rect: { x: number; y: number; width: number; height: number } }
+  | { type: 'lassoPreview'; points: Array<{ x: number; y: number }> }
+  | { type: 'completeLasso'; points: Array<{ x: number; y: number }> }
   | { type: 'createText'; pageId: PageId; x: number; y: number }
   | { type: 'createText'; pasteboard: true; x: number; y: number }
   | { type: 'selectText'; textId: TextId }

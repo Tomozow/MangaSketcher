@@ -7,6 +7,8 @@ import {
   freeScaleFromCornerDrag,
   hitClipAt,
   normalizeMarqueeRect,
+  polygonAabb,
+  rectTouchesPolygon,
   scaleFromCornerDrag,
 } from '../clipGeometry';
 import { MIN_CLIP_SCALE } from '../constants';
@@ -15,6 +17,26 @@ import { PAGE_DISPLAY_H, PAGE_DISPLAY_W, type StripFrame } from '../../../domain
 describe('clipGeometry', () => {
   test('normalizeMarqueeRect orders corners', () => {
     expect(normalizeMarqueeRect(10, 20, 4, 16)).toEqual({ x: 4, y: 16, width: 6, height: 4 });
+  });
+
+  test('polygonAabb is null below 3 points and otherwise spans the path', () => {
+    expect(polygonAabb([{ x: 0, y: 0 }, { x: 4, y: 4 }])).toBeNull();
+    expect(polygonAabb([{ x: 2, y: 8 }, { x: 10, y: 1 }, { x: 4, y: 4 }])).toEqual({
+      x: 2,
+      y: 1,
+      width: 8,
+      height: 7,
+    });
+  });
+
+  test('rectTouchesPolygon selects boxes inside the lasso', () => {
+    const triangle = [
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+      { x: 0, y: 20 },
+    ];
+    expect(rectTouchesPolygon({ x: 2, y: 2, width: 4, height: 4 }, triangle)).toBe(true);
+    expect(rectTouchesPolygon({ x: 16, y: 16, width: 4, height: 4 }, triangle)).toBe(false);
   });
 
   test('scaleFromCornerDrag respects MIN_CLIP_SCALE', () => {

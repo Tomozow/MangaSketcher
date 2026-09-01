@@ -209,6 +209,147 @@ export function normalizeMarqueeRect(
   };
 }
 
+export type PolyPoint = { x: number; y: number };
+
+/** Axis-aligned bounds of a polygon. Null when fewer than 3 points. */
+export function polygonAabb(points: readonly PolyPoint[]): Rect | null {
+  if (points.length < 3) {
+    return null;
+  }
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const point of points) {
+    if (point.x < minX) minX = point.x;
+    if (point.y < minY) minY = point.y;
+    if (point.x > maxX) maxX = point.x;
+    if (point.y > maxY) maxY = point.y;
+  }
+  if (!Number.isFinite(minX) || maxX <= minX || maxY <= minY) {
+    return null;
+  }
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+export function pointInPolygon(x: number, y: number, points: readonly PolyPoint[]): boolean {
+  let inside = false;
+  for (let i = 0, j = points.length - 1; i < points.length; j = i, i += 1) {
+    const a = points[i]!;
+    const b = points[j]!;
+    const intersect = a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y || Number.EPSILON) + a.x;
+    if (intersect) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
+function segmentsIntersect(a: PolyPoint, b: PolyPoint, c: PolyPoint, d: PolyPoint): boolean {
+  const cross = (p: PolyPoint, q: PolyPoint, r: PolyPoint) =>
+    (q.x - p.x) * (r.y - p.y) - (q.y - p.y) * (r.x - p.x);
+  const d1 = cross(a, b, c);
+  const d2 = cross(a, b, d);
+  const d3 = cross(c, d, a);
+  const d4 = cross(c, d, b);
+  const ab = (d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0);
+  const cd = (d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0);
+  return ab && cd;
+}
+
+function closedEdges(points: readonly PolyPoint[]): Array<[PolyPoint, PolyPoint]> {
+  if (points.length < 2) {
+    return [];
+  }
+  const edges: Array<[PolyPoint, PolyPoint]> = [];
+  for (let i = 0; i < points.length; i += 1) {
+    edges.push([points[i]!, points[(i + 1) % points.length]!]);
+  }
+  return edges;
+}
+
+/** True when an axis-aligned rect shares any area with the polygon. */
+export function rectTouchesPolygon(rect: Rect, points: readonly PolyPoint[]): boolean {
+  if (points.length < 3 || !(rect.width > 0) || !(rect.height > 0)) {
+    return false;
+  }
+  const corners: PolyPoint[] = [
+    { x: rect.x, y: rect.y },
+    { x: rect.x + rect.width, y: rect.y },
+    { x: rect.x + rect.width, y: rect.y + rect.height },
+    { x: rect.x, y: rect.y + rect.height },
+  ];
+  for (const corner of corners) {
+    if (pointInPolygon(corner.x, corner.y, points)) {
+      return true;
+    }
+  }
+  for (const point of points) {
+    if (
+      point.x >= rect.x &&
+      point.x <= rect.x + rect.width &&
+      point.y >= rect.y &&
+      point.y <= rect.y + rect.height
+    ) {
+      return true;
+    }
+  }
+  for (const [a, b] of closedEdges(corners)) {
+    for (const [c, d] of closedEdges(points)) {
+      if (segmentsIntersect(a, b, c, d)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** True when the clip OBB shares any area with the polygon. */
+export function clipTouchesPolygon(
+  clip: ClipMetaLike,
+  size: ClipRasterSize,
+  rasterWidth: number,
+  rasterHeight: number,
+  points: readonly PolyPoint[],
+): boolean {
+  if (points.length < 3) {
+    return false;
+  }
+  const bounds = clipWorldBounds(clip, size, rasterWidth, rasterHeight);
+  const corners = clipWorldCorners(bounds);
+  for (const corner of corners) {
+    if (pointInPolygon(corner.x, corner.y, points)) {
+      return true;
+    }
+  }
+  for (const point of points) {
+    const local = worldToClipLocal(point.x, point.y, bounds);
+    if (Math.abs(local.x) <= bounds.halfW && Math.abs(local.y) <= bounds.halfH) {
+      return true;
+    }
+  }
+  for (const [a, b] of closedEdges(corners)) {
+    for (const [c, d] of closedEdges(points)) {
+      if (segmentsIntersect(a, b, c, d)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+export function worldPointsToPageLocal(
+  frame: { x: number; y: number; width: number; height: number },
+  points: readonly PolyPoint[],
+  rasterWidth: number,
+  rasterHeight: number,
+): PolyPoint[] {
+  return points.map((point) => ({
+    x: ((point.x - frame.x) / frame.width) * rasterWidth,
+    y: ((point.y - frame.y) / frame.height) * rasterHeight,
+  }));
+}
+
 export function scaleFromCornerDrag(
   startScale: number,
   startDist: number,

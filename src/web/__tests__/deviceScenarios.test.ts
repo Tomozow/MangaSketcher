@@ -235,6 +235,18 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(editorCss).toMatch(/\.ms-inkSizePreview[^{]*\{[^}]*place-items:\s*center/);
   });
 
+  test('投げ縄ツールはツールレールにあり、切り出したクリップは四角形になる', () => {
+    const sidebarSrc = readFileSync(join(here, '../CompactSidebar.tsx'), 'utf8');
+    expect(sidebarSrc).toContain("id: 'lasso'");
+    expect(sidebarSrc).toContain("label: '縄'");
+    expect(sidebarSrc).toContain('selectionTool');
+    expect(sidebarSrc).toContain('クリップは四角形になります');
+    expect(pageInkOverlaySrc).toContain('lassoPreview');
+    const controllerSrc = readFileSync(join(here, '../useEditorController.ts'), 'utf8');
+    expect(controllerSrc).toContain('lassoCut');
+    expect(editorCss).toMatch(/\.ms-lassoPreview[^{]*\{[^}]*pointer-events:\s*none/);
+  });
+
   test('ワークスペース左に拡大縮小とページ移動のナビがある', () => {
     const navSrc = readFileSync(join(here, '../WorkspaceNav.tsx'), 'utf8');
     expect(editorLayoutSrc).toContain('WorkspaceNav');
@@ -307,7 +319,9 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(editorLayoutSrc).toContain(
       "doc.tool === 'text' && selectedTextIdsOf(doc).length <= 1 ? textSelection : null",
     );
-    expect(workspaceStripSrc).toContain('tool === \'text\' || (tool === \'select\' && resolvedSelectTargets.text)');
+    expect(workspaceStripSrc).toContain(
+      'tool === \'text\' || (isSelectionTool(tool) && resolvedSelectTargets.text)',
+    );
     expect(
       planTextCommit({
         draft: '確定文',

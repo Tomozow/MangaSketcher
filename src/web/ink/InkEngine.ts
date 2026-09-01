@@ -1,5 +1,7 @@
 import {
   canvasBakeClipOntoPage,
+  canvasClearLassoPolygon,
+  canvasCopyLassoRegion,
   canvasCopyPageRect,
   cropCanvasToRect,
   inkAlphaBounds,
@@ -804,6 +806,48 @@ export class InkEngine {
       return { pageUndo: new ArrayBuffer(0), trim: null };
     }
     pageCtx.clearRect(Math.round(rect.x), Math.round(rect.y), w, h);
+    if (trim.x !== 0 || trim.y !== 0 || trim.width !== clip.width || trim.height !== clip.height) {
+      const cropped = cropCanvasToRect(clip, trim, (cw, ch) => this.canvasFactory(cw, ch));
+      this.hot.set(clipRasterId, cropped);
+      this.rasterDimensions.set(clipRasterId, { width: trim.width, height: trim.height });
+    }
+    this.bumpHotRevision(pageRasterId);
+    this.bumpHotRevision(clipRasterId);
+    const pageUndo = this.takeStrokeUndoPng(pageRasterId);
+    this.invalidateThumb(pageRasterId);
+    this.invalidateThumb(clipRasterId);
+    this.startEncode(pageRasterId);
+    this.startEncode(clipRasterId);
+    void this.generateThumb(pageRasterId);
+    void this.generateThumb(clipRasterId);
+    this.callbacks.onBake?.(pageRasterId);
+    this.callbacks.onBake?.(clipRasterId);
+    return { pageUndo, trim };
+  }
+
+  /**
+   * Cut page ink inside a polygon, then crop the clip to a rectangle (ink AABB).
+   * Empty ink → no clip (`trim` null).
+   */
+  lassoCut(
+    pageRasterId: string,
+    clipRasterId: string,
+    points: Array<{ x: number; y: number }>,
+    rect: { x: number; y: number; width: number; height: number },
+  ): { pageUndo: ArrayBuffer; trim: { x: number; y: number; width: number; height: number } | null } {
+    const w = Math.max(1, Math.round(rect.width));
+    const h = Math.max(1, Math.round(rect.height));
+    this.registerClipRaster(clipRasterId, w, h);
+    const page = this.decode(pageRasterId);
+    const clip = this.decode(clipRasterId);
+    canvasCopyLassoRegion(page, clip, points, rect, (cw, ch) => this.canvasFactory(cw, ch));
+    const trim = inkAlphaBounds(clip);
+    if (!trim) {
+      this.disposeRaster(clipRasterId);
+      return { pageUndo: new ArrayBuffer(0), trim: null };
+    }
+    this.captureStrokeUndo(pageRasterId);
+    canvasClearLassoPolygon(page, points);
     if (trim.x !== 0 || trim.y !== 0 || trim.width !== clip.width || trim.height !== clip.height) {
       const cropped = cropCanvasToRect(clip, trim, (cw, ch) => this.canvasFactory(cw, ch));
       this.hot.set(clipRasterId, cropped);

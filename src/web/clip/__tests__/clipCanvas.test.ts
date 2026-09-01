@@ -86,10 +86,65 @@ describe('clip canvas bake (no cutRect)', () => {
     expect(engine.hot.has(clipId)).toBe(false);
   });
 
+  test('lassoCut keeps only ink inside the polygon and crops to a rectangle', () => {
+    const engine = createTestEngine();
+    const pageId = 'p:page:lasso';
+    const clipId = 'p:clip:lasso';
+    engine.registerRaster(pageId);
+    const pageCtx = engine.getHotContext(pageId)!;
+    pageCtx.fillStyle = '#000000';
+    pageCtx.fillRect(4, 4, 20, 20);
+    const beforePage = countAlphaPixels(pageCtx, W, H);
+
+    const points = [
+      { x: 4, y: 4 },
+      { x: 24, y: 4 },
+      { x: 4, y: 24 },
+    ];
+    const result = engine.lassoCut(pageId, clipId, points, { x: 3, y: 3, width: 22, height: 22 });
+    expect(result.trim).not.toBeNull();
+    const clipDims = engine.getRasterDimensions(clipId);
+    expect(clipDims.width).toBe(result.trim!.width);
+    expect(clipDims.height).toBe(result.trim!.height);
+
+    const afterPage = countAlphaPixels(engine.getHotContext(pageId)!, W, H);
+    const clipCtx = engine.getHotContext(clipId)!;
+    const clipPixels = countAlphaPixels(clipCtx, clipCtx.canvas.width, clipCtx.canvas.height);
+    expect(afterPage).toBeLessThan(beforePage);
+    expect(clipPixels).toBeGreaterThan(0);
+    expect(clipPixels).toBeLessThan(beforePage);
+  });
+
+  test('lassoCut does not create a clip or erase the page when the polygon has no ink', () => {
+    const engine = createTestEngine();
+    const pageId = 'p:page:lasso-empty';
+    const clipId = 'p:clip:lasso-empty';
+    engine.registerRaster(pageId);
+    const pageCtx = engine.getHotContext(pageId)!;
+    pageCtx.fillStyle = '#000000';
+    pageCtx.fillRect(40, 40, 8, 8);
+    const beforePage = countAlphaPixels(pageCtx, W, H);
+    const result = engine.lassoCut(
+      pageId,
+      clipId,
+      [
+        { x: 2, y: 2 },
+        { x: 12, y: 2 },
+        { x: 2, y: 12 },
+      ],
+      { x: 1, y: 1, width: 12, height: 12 },
+    );
+    expect(result.trim).toBeNull();
+    expect(engine.hot.has(clipId)).toBe(false);
+    expect(countAlphaPixels(engine.getHotContext(pageId)!, W, H)).toBe(beforePage);
+  });
+
   test('production clip path does not import cutRect', async () => {
     const mod = await import('../clipCanvas');
     expect(Object.keys(mod).sort()).toEqual([
       'canvasBakeClipOntoPage',
+      'canvasClearLassoPolygon',
+      'canvasCopyLassoRegion',
       'canvasCopyPageRect',
       'canvasMarqueeCut',
       'cropCanvasToRect',

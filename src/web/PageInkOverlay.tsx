@@ -10,7 +10,7 @@ import { clipAxisScale, clipInsertTarget, clipWorldBounds, rasterToDisplayScale,
 import { withoutStockedClips } from '@/src/domain/stockItems';
 import { selectedTextIdsOf } from '@/src/domain/text';
 import { effectiveClipPose, type ClipLiveTransform } from './clip/clipLiveTransform';
-import type { MarqueePreview } from '@/src/web/useEditorController';
+import type { MarqueePreview, LassoPreview } from '@/src/web/useEditorController';
 import { PageInkCanvas } from '@/src/web/ink/PageInkCanvas';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
 import { styles } from '@/src/web/editorStyles';
@@ -20,6 +20,7 @@ type PageInkOverlayProps = {
   engine: InkEngine;
   inkFrame: number;
   marqueePreview: MarqueePreview | null;
+  lassoPreview: LassoPreview | null;
   clipLiveTransforms: Readonly<Record<string, ClipLiveTransform>>;
   onDeleteClip: (clipId: ClipId) => void;
   onDuplicateClip: (clipId: ClipId) => void;
@@ -238,6 +239,7 @@ export function PageInkOverlay({
   engine,
   inkFrame,
   marqueePreview,
+  lassoPreview,
   clipLiveTransforms,
   onDeleteClip,
   onDuplicateClip,
@@ -253,6 +255,26 @@ export function PageInkOverlay({
     marqueePreview != null &&
     marqueePreview.rect.width > 0 &&
     marqueePreview.rect.height > 0;
+  let lassoBox: { x: number; y: number; width: number; height: number } | null = null;
+  if (lassoPreview && lassoPreview.points.length > 1) {
+    let minX = lassoPreview.points[0]!.x;
+    let minY = lassoPreview.points[0]!.y;
+    let maxX = minX;
+    let maxY = minY;
+    for (let i = 1; i < lassoPreview.points.length; i += 1) {
+      const point = lassoPreview.points[i]!;
+      if (point.x < minX) minX = point.x;
+      if (point.y < minY) minY = point.y;
+      if (point.x > maxX) maxX = point.x;
+      if (point.y > maxY) maxY = point.y;
+    }
+    lassoBox = {
+      x: minX,
+      y: minY,
+      width: Math.max(1, maxX - minX),
+      height: Math.max(1, maxY - minY),
+    };
+  }
   const canInsert = selectedIds.some((id) => {
     const clip = doc.pasteboardClips.find((item) => item.id === id);
     if (!clip) {
@@ -292,6 +314,24 @@ export function PageInkOverlay({
               height: marqueePreview.rect.height,
             }}
           />
+        ) : null}
+
+        {lassoBox && lassoPreview ? (
+          <svg
+            className={styles.lassoPreview}
+            width={lassoBox.width}
+            height={lassoBox.height}
+            viewBox={`${lassoBox.x} ${lassoBox.y} ${lassoBox.width} ${lassoBox.height}`}
+            style={{
+              left: lassoBox.x,
+              top: lassoBox.y,
+              width: lassoBox.width,
+              height: lassoBox.height,
+            }}
+            aria-hidden
+          >
+            <polygon points={lassoPreview.points.map((point) => `${point.x},${point.y}`).join(' ')} />
+          </svg>
         ) : null}
 
         {visibleClips.map((clip) => {

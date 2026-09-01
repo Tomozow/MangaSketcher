@@ -9,12 +9,14 @@ import {
   type GestureHit,
 } from '../../domain/workspaceGestures';
 import type { ClipId, PageId, PointerKind, SelectTargetFlags, TextId, ToolId } from '../../domain/types';
+import { isSelectionTool } from '../../domain/types';
 import { clampRasterPoint } from '../../domain/stripGeometry';
 import {
   angleFromCenter,
   clipAxisScale,
   clipWorldBounds,
   freeScaleFromCornerDrag,
+  polygonAabb,
   rotationFromHandleDrag,
 } from '../clip/clipGeometry';
 import type {
@@ -206,6 +208,35 @@ function startWorldMarquee(input: WorkspacePointerInput): {
   };
 }
 
+const LASSO_POINT_MIN_DIST = 0.75;
+
+function appendLassoPoint(
+  points: Array<{ x: number; y: number }>,
+  x: number,
+  y: number,
+): Array<{ x: number; y: number }> {
+  const last = points[points.length - 1];
+  if (last && Math.hypot(x - last.x, y - last.y) < LASSO_POINT_MIN_DIST) {
+    return points;
+  }
+  return [...points, { x, y }];
+}
+
+function startWorldLasso(input: WorkspacePointerInput): {
+  session: WorkspaceSession;
+  effects: WorkspaceEffect[];
+} {
+  const points = [{ x: input.worldX, y: input.worldY }];
+  return {
+    session: {
+      mode: 'lasso',
+      kind: 'pencil',
+      points,
+    },
+    effects: [{ type: 'lassoPreview', points }],
+  };
+}
+
 function pendingSelectionMove(
   input: WorkspacePointerInput,
   clipIds: ClipId[],
@@ -227,6 +258,129 @@ function pendingSelectionMove(
   };
 }
 
+function tryStartSelectionObject(
+  input: WorkspacePointerInput,
+  hit: WorkspaceHit,
+): { session: WorkspaceSession; effects: WorkspaceEffect[] } | null {
+  const targets = selectTargetsOf(input);
+  if (targets.text && isTextHandleHit(hit)) {
+    return {
+      session: {
+        mode: 'resizeText',
+        kind: 'pencil',
+        textId: hit.textId,
+        owner: hit.owner,
+        pageId: hit.pageId,
+        startWorldBox: hit.worldBox,
+      },
+      effects: [{ type: 'selectText', textId: hit.textId }],
+    };
+  }
+  if (targets.text && isTextBodyHit(hit)) {
+    const selectedTexts = selectedTextIdsOfInput(input);
+    const selectedClips = selectedClipIdsOfInput(input);
+    const alreadySelected = selectedTexts.includes(hit.textId);
+    const textIds = alreadySelected ? selectedTexts : [hit.textId];
+    const clipIds = alreadySelected ? selectedClips : [];
+    if (textIds.length + clipIds.length > 1) {
+      return pendingSelectionMove(
+        input,
+        clipIds,
+        textIds,
+        alreadySelected ? [] : [{ type: 'selectText', textId: hit.textId }],
+      );
+    }
+    const moveSession = textMoveSessionFromHit(hit);
+    if (!moveSession) {
+      return { session: { mode: 'idle' }, effects: [] };
+    }
+    return {
+      session: {
+        mode: 'pendingTextMove',
+        kind: 'pencil',
+        startX: input.x,
+        startY: input.y,
+        ...moveSession,
+      },
+      effects: [],
+    };
+  }
+  if (targets.clip && isClipHit(hit)) {
+    const clip = input.getClipMeta(hit.clipId);
+    if (!clip) {
+      return { session: { mode: 'idle' }, effects: [] };
+    }
+    if (isClipHandleHit(hit) && hit.handle === 'corner') {
+      const bounds = clipWorldBounds(
+        clip,
+        input.getClipRasterSize(hit.clipId),
+        input.rasterWidth,
+        input.rasterHeight,
+      );
+      const { scaleX, scaleY } = clipAxisScale(clip);
+      return {
+        session: {
+          mode: 'scaleClip',
+          kind: 'pencil',
+          clipId: hit.clipId,
+          startX: clip.x,
+          startY: clip.y,
+          startScaleX: scaleX,
+          startScaleY: scaleY,
+          startHalfW: bounds.halfW,
+          startHalfH: bounds.halfH,
+          rotation: clip.rotation,
+        },
+        effects: [{ type: 'selectClip', clipId: hit.clipId }],
+      };
+    }
+    if (isClipHandleHit(hit) && hit.handle === 'rotate') {
+      const bounds = clipWorldBounds(
+        clip,
+        input.getClipRasterSize(hit.clipId),
+        input.rasterWidth,
+        input.rasterHeight,
+      );
+      return {
+        session: {
+          mode: 'rotateClip',
+          kind: 'pencil',
+          clipId: hit.clipId,
+          startRotation: clip.rotation,
+          startAngle: angleFromCenter(bounds.cx, bounds.cy, input.worldX, input.worldY),
+          cx: bounds.cx,
+          cy: bounds.cy,
+        },
+        effects: [{ type: 'selectClip', clipId: hit.clipId }],
+      };
+    }
+    const selectedClips = selectedClipIdsOfInput(input);
+    const selectedTexts = selectedTextIdsOfInput(input);
+    const alreadySelected = selectedClips.includes(hit.clipId);
+    const clipIds = alreadySelected ? selectedClips : [hit.clipId];
+    const textIds = alreadySelected ? selectedTexts : [];
+    if (clipIds.length + textIds.length > 1) {
+      return pendingSelectionMove(
+        input,
+        clipIds,
+        textIds,
+        alreadySelected ? [] : [{ type: 'selectClip', clipId: hit.clipId }],
+      );
+    }
+    return {
+      session: {
+        mode: 'moveClip',
+        kind: 'pencil',
+        clipId: hit.clipId,
+        offsetX: input.worldX - clip.x,
+        offsetY: input.worldY - clip.y,
+      },
+      effects: [{ type: 'selectClip', clipId: hit.clipId }],
+    };
+  }
+  return null;
+}
+
 function preferWorkspaceHit(
   tool: ToolId,
   kind: PointerKind,
@@ -236,7 +390,7 @@ function preferWorkspaceHit(
   if (hit.kind === 'pageNumber' || hit.kind === 'append') {
     return hit;
   }
-  if (kind === 'pencil' && tool === 'select' && !selectTargets?.text) {
+  if (kind === 'pencil' && isSelectionTool(tool) && !selectTargets?.text) {
     if (hit.kind === 'pageText') {
       return {
         kind: 'page',
@@ -657,6 +811,39 @@ function stepLockedPencil(
     };
   }
 
+  if (session.mode === 'lasso') {
+    if (input.phase === 'up' || input.phase === 'cancel') {
+      const points =
+        input.phase === 'up'
+          ? appendLassoPoint(session.points, input.worldX, input.worldY)
+          : session.points;
+      const worldAabb = polygonAabb(points);
+      const tooSmall =
+        !worldAabb ||
+        worldAabb.width < MIN_MARQUEE_RASTER_PX ||
+        worldAabb.height < MIN_MARQUEE_RASTER_PX;
+      const targets = selectTargetsOf(input);
+      const clear: WorkspaceEffect[] = [];
+      if (targets.clip) {
+        clear.push({ type: 'selectClips', clipIds: [] });
+      }
+      if (targets.text) {
+        clear.push({ type: 'selectTexts', textIds: [] });
+      }
+      return {
+        session: { mode: 'idle' },
+        effects: tooSmall
+          ? [{ type: 'completeLasso', points }, ...clear]
+          : [{ type: 'completeLasso', points }],
+      };
+    }
+    const points = appendLassoPoint(session.points, input.worldX, input.worldY);
+    return {
+      session: { ...session, points },
+      effects: [{ type: 'lassoPreview', points }],
+    };
+  }
+
   if (session.mode === 'resizeText') {
     if (input.phase === 'cancel') {
       return {
@@ -874,125 +1061,13 @@ function stepPencilDown(
     return { session: { mode: 'idle' }, effects: [] };
   }
 
-  if (intent.type === 'selectMarquee') {
-    const targets = selectTargetsOf(input);
-    if (targets.text && isTextHandleHit(hit)) {
-      return {
-        session: {
-          mode: 'resizeText',
-          kind: 'pencil',
-          textId: hit.textId,
-          owner: hit.owner,
-          pageId: hit.pageId,
-          startWorldBox: hit.worldBox,
-        },
-        effects: [{ type: 'selectText', textId: hit.textId }],
-      };
-    }
-    if (targets.text && isTextBodyHit(hit)) {
-      const selectedTexts = selectedTextIdsOfInput(input);
-      const selectedClips = selectedClipIdsOfInput(input);
-      const alreadySelected = selectedTexts.includes(hit.textId);
-      const textIds = alreadySelected ? selectedTexts : [hit.textId];
-      const clipIds = alreadySelected ? selectedClips : [];
-      if (textIds.length + clipIds.length > 1) {
-        return pendingSelectionMove(
-          input,
-          clipIds,
-          textIds,
-          alreadySelected ? [] : [{ type: 'selectText', textId: hit.textId }],
-        );
-      }
-      const moveSession = textMoveSessionFromHit(hit);
-      if (!moveSession) {
-        return { session: { mode: 'idle' }, effects: [] };
-      }
-      return {
-        session: {
-          mode: 'pendingTextMove',
-          kind: 'pencil',
-          startX: input.x,
-          startY: input.y,
-          ...moveSession,
-        },
-        effects: [],
-      };
-    }
-    if (targets.clip && isClipHit(hit)) {
-      const clip = input.getClipMeta(hit.clipId);
-      if (!clip) {
-        return { session: { mode: 'idle' }, effects: [] };
-      }
-      if (isClipHandleHit(hit) && hit.handle === 'corner') {
-        const bounds = clipWorldBounds(
-          clip,
-          input.getClipRasterSize(hit.clipId),
-          input.rasterWidth,
-          input.rasterHeight,
-        );
-        const { scaleX, scaleY } = clipAxisScale(clip);
-        return {
-          session: {
-            mode: 'scaleClip',
-            kind: 'pencil',
-            clipId: hit.clipId,
-            startX: clip.x,
-            startY: clip.y,
-            startScaleX: scaleX,
-            startScaleY: scaleY,
-            startHalfW: bounds.halfW,
-            startHalfH: bounds.halfH,
-            rotation: clip.rotation,
-          },
-          effects: [{ type: 'selectClip', clipId: hit.clipId }],
-        };
-      }
-      if (isClipHandleHit(hit) && hit.handle === 'rotate') {
-        const bounds = clipWorldBounds(
-          clip,
-          input.getClipRasterSize(hit.clipId),
-          input.rasterWidth,
-          input.rasterHeight,
-        );
-        return {
-          session: {
-            mode: 'rotateClip',
-            kind: 'pencil',
-            clipId: hit.clipId,
-            startRotation: clip.rotation,
-            startAngle: angleFromCenter(bounds.cx, bounds.cy, input.worldX, input.worldY),
-            cx: bounds.cx,
-            cy: bounds.cy,
-          },
-          effects: [{ type: 'selectClip', clipId: hit.clipId }],
-        };
-      }
-      const selectedClips = selectedClipIdsOfInput(input);
-      const selectedTexts = selectedTextIdsOfInput(input);
-      const alreadySelected = selectedClips.includes(hit.clipId);
-      const clipIds = alreadySelected ? selectedClips : [hit.clipId];
-      const textIds = alreadySelected ? selectedTexts : [];
-      if (clipIds.length + textIds.length > 1) {
-        return pendingSelectionMove(
-          input,
-          clipIds,
-          textIds,
-          alreadySelected ? [] : [{ type: 'selectClip', clipId: hit.clipId }],
-        );
-      }
-      return {
-        session: {
-          mode: 'moveClip',
-          kind: 'pencil',
-          clipId: hit.clipId,
-          offsetX: input.worldX - clip.x,
-          offsetY: input.worldY - clip.y,
-        },
-        effects: [{ type: 'selectClip', clipId: hit.clipId }],
-      };
+  if (intent.type === 'selectMarquee' || intent.type === 'drawLasso') {
+    const objectSession = tryStartSelectionObject(input, hit);
+    if (objectSession) {
+      return objectSession;
     }
     if (isPageBodyHit(hit) || hit.kind === 'empty' || hit.kind === 'slot') {
-      return startWorldMarquee(input);
+      return intent.type === 'drawLasso' ? startWorldLasso(input) : startWorldMarquee(input);
     }
     return { session: { mode: 'idle' }, effects: [] };
   }

@@ -1771,6 +1771,22 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   pointer-events: none;
 }
 
+.ms-lassoPreview {
+  position: absolute;
+  left: 0;
+  top: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.ms-lassoPreview polygon {
+  fill: rgba(196, 92, 38, 0.12);
+  stroke: var(--ms-accent);
+  stroke-width: 1;
+  stroke-dasharray: 4 3;
+  stroke-linejoin: round;
+}
+
 .ms-clipFrame {
   pointer-events: none;
   z-index: 2;
@@ -2084,6 +2100,13 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  color: var(--ms-chrome-muted);
+}
+
+.ms-toolFlyoutHint {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.45;
   color: var(--ms-chrome-muted);
 }
 

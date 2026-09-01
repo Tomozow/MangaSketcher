@@ -471,6 +471,9 @@ describe('シナリオ: ポインタ分担（指はパン、ペンはインク�
     expect(resolvePointerIntent('select', { kind: 'pencil', phase: 'move' })).toEqual({
       type: 'selectMarquee',
     });
+    expect(resolvePointerIntent('lasso', { kind: 'pencil', phase: 'move' })).toEqual({
+      type: 'drawLasso',
+    });
     expect(brushRadius(4, 0.5, 'pencil')).toBe(2);
     expect(brushRadius(4, 0.5, 'finger')).toBe(4);
     expect(brushRadius(4, 0.5, 'pencil', false)).toBe(4);

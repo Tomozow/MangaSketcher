@@ -11,6 +11,7 @@ import {
   type StripFrame,
 } from '../../domain/stripGeometry';
 import type { ClipId, ClipMeta, PageId, PageText, PasteboardText, SelectTargetFlags, TextId, ToolId } from '../../domain/types';
+import { isSelectionTool } from '../../domain/types';
 import { hitClipAt } from '../clip/clipGeometry';
 import { pageInkLocalFromClient, resolveAppendDomHit, resolvePageDomHit } from './pageInkDom';
 import {
@@ -240,8 +241,8 @@ export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceH
     return resolvePageWorkspaceHit(input, worldX, worldY, frames) ?? { kind: 'empty' };
   }
 
-  const selectText = input.tool !== 'select' || input.selectTargets?.text !== false;
-  const selectClip = input.tool !== 'select' || input.selectTargets?.clip !== false;
+  const selectText = !isSelectionTool(input.tool) || input.selectTargets?.text !== false;
+  const selectClip = !isSelectionTool(input.tool) || input.selectTargets?.clip !== false;
 
   if (selectText) {
     const renderedTextHit = hitRenderedTextFromDomStack(input, rect, frames, worldX, worldY);

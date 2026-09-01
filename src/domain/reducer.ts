@@ -16,6 +16,7 @@ import {
   clampStoredPagesPerColumn,
 } from './stripGeometry';
 import { clampPdfPage, clampPdfZoom, keepPdfViewOnReload, pdfViewAfterLoad } from './pdfView';
+import { isSelectionTool } from './types';
 import type {
   ClipId,
   DocumentState,
@@ -540,7 +541,7 @@ export function reduceTestDocument(
     }
     case 'setTool':
       doc.tool = action.tool;
-      if (action.tool !== 'select') {
+      if (!isSelectionTool(action.tool)) {
         doc.selectedClipId = null;
       }
       return doc;

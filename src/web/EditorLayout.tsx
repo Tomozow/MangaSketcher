@@ -12,7 +12,7 @@ import type { EditorDocument, EditorHistory } from '@/src/storage/types';
 import type { AutosaveStatus } from '@/src/storage/autosave';
 import type { WorkspaceEffect } from '@/src/web/gestures';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
-import type { MarqueePreview, ClipLiveTransform, TextLiveTransform } from '@/src/web/useEditorController';
+import type { MarqueePreview, LassoPreview, ClipLiveTransform, TextLiveTransform } from '@/src/web/useEditorController';
 import { colors } from '@/src/theme/tokens';
 import { styles } from './editorStyles';
 import { CompactSidebar } from './CompactSidebar';
@@ -79,6 +79,7 @@ type EditorLayoutProps = {
   inkEngine: InkEngine | null;
   inkFrame: number;
   marqueePreview: MarqueePreview | null;
+  lassoPreview: LassoPreview | null;
   clipLiveTransforms: Readonly<Record<string, ClipLiveTransform>>;
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
   autosaveStatus: AutosaveStatus;
@@ -120,6 +121,7 @@ export function EditorLayout({
   inkEngine,
   inkFrame,
   marqueePreview,
+  lassoPreview,
   clipLiveTransforms,
   textLiveTransforms,
   autosaveStatus,
@@ -463,6 +465,7 @@ export function EditorLayout({
                 engine={inkEngine}
                 inkFrame={inkFrame}
                 marqueePreview={marqueePreview}
+                lassoPreview={lassoPreview}
                 clipLiveTransforms={clipLiveTransforms}
                 onDeleteClip={deleteClip}
                 onDuplicateClip={duplicateClip}

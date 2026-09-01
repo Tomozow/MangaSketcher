@@ -3,15 +3,24 @@ import { describe, expect, test } from 'vitest';
 import { isStylusBarrelToggle, nextPenEraserTool, toolIdFromShortcutKey } from '../toolShortcuts';
 
 describe('toolShortcuts', () => {
-  test('B/E/T/C map to pen/eraser/text/select', () => {
+  test('B/E/T/C/L map to pen/eraser/text/select/lasso', () => {
     expect(toolIdFromShortcutKey({ code: 'KeyB', ctrlKey: false, metaKey: false, altKey: false })).toBe('pen');
     expect(toolIdFromShortcutKey({ code: 'KeyE', ctrlKey: false, metaKey: false, altKey: false })).toBe('eraser');
     expect(toolIdFromShortcutKey({ code: 'KeyT', ctrlKey: false, metaKey: false, altKey: false })).toBe('text');
     expect(toolIdFromShortcutKey({ code: 'KeyC', ctrlKey: false, metaKey: false, altKey: false })).toBe('select');
+    expect(toolIdFromShortcutKey({ code: 'KeyL', ctrlKey: false, metaKey: false, altKey: false })).toBe('lasso');
   });
 
   test('uses remapped shortcut codes', () => {
-    const shortcuts = { pen: 'KeyQ', eraser: 'KeyW', text: 'KeyR', select: 'KeyF', undo: 'KeyZ', redo: 'KeyX' };
+    const shortcuts = {
+      pen: 'KeyQ',
+      eraser: 'KeyW',
+      text: 'KeyR',
+      select: 'KeyF',
+      lasso: 'KeyG',
+      undo: 'KeyZ',
+      redo: 'KeyX',
+    };
     expect(toolIdFromShortcutKey({ code: 'KeyQ', ctrlKey: false, metaKey: false, altKey: false }, shortcuts)).toBe(
       'pen',
     );

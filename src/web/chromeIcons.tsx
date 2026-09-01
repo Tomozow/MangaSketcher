@@ -140,6 +140,15 @@ export function IconSelect(props: IconProps) {
   );
 }
 
+export function IconLasso(props: IconProps) {
+  return (
+    <StrokeIcon {...props}>
+      <path d="M8 17c-1.7 0-3-1.4-3-3.2C5 10 8.2 7 12.4 7 16.4 7 19 9.4 19 12.2c0 2.4-1.8 4.3-4.4 4.3H11" />
+      <path d="M8 17c-1.2 1.4-1.5 3.2-.4 4" />
+    </StrokeIcon>
+  );
+}
+
 export function IconUndo(props: IconProps) {
   return (
     <StrokeIcon {...props}>

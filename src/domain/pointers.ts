@@ -9,12 +9,14 @@ export type PointerIntent =
   | { type: 'drawInk' }
   | { type: 'eraseInk' }
   | { type: 'textEdit' }
-  | { type: 'selectMarquee' };
+  | { type: 'selectMarquee' }
+  | { type: 'drawLasso' };
 
 /**
  * Finger: pan, pinch, page ops, PDF drag, long-press reorder.
- * Pencil: draw, erase, text, selection rect. Stock thumbs: drag (move / take out).
+ * Pencil: draw, erase, text, selection rect, lasso. Stock thumbs: drag (move / take out).
  * Select tool: Pencil draws the rect; finger still pans.
+ * Lasso tool: Pencil draws a freeform path; the resulting clip is a rectangle.
  */
 export function resolvePointerIntent(
   tool: ToolId,
@@ -37,6 +39,8 @@ export function resolvePointerIntent(
       return { type: 'textEdit' };
     case 'select':
       return { type: 'selectMarquee' };
+    case 'lasso':
+      return { type: 'drawLasso' };
     default: {
       const _exhaustive: never = tool;
       return _exhaustive;

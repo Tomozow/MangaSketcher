@@ -26,6 +26,7 @@ import type {
   ToolId,
   ToolProperties,
 } from './types';
+import { isSelectionTool } from './types';
 
 const VIEW_ONLY = new Set<string>([
   'selectPage',
@@ -1147,7 +1148,7 @@ function reduceEditorDocumentViewOnly(
       return {
         ...state,
         tool: action.tool,
-        ...clipSelection(action.tool !== 'select' ? [] : (state.selectedClipIds ?? (state.selectedClipId ? [state.selectedClipId] : []))),
+        ...clipSelection(isSelectionTool(action.tool) ? (state.selectedClipIds ?? (state.selectedClipId ? [state.selectedClipId] : [])) : []),
       };
     case 'setToolProperties':
       return { ...state, tools: { ...state.tools, ...action.patch } };

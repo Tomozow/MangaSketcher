@@ -1,4 +1,5 @@
 import type { Rect } from '../../domain/types';
+import type { PolyPoint } from './clipGeometry';
 
 type Ink2DContext = CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D;
 type InkCanvas = OffscreenCanvas;
@@ -85,6 +86,72 @@ export function canvasCopyPageRect(pageCanvas: InkCanvas, clipCanvas: InkCanvas,
   const h = Math.max(1, Math.round(rect.height));
   clipCtx.clearRect(0, 0, clipCanvas.width, clipCanvas.height);
   clipCtx.drawImage(pageCanvas as unknown as CanvasImageSource, x0, y0, w, h, 0, 0, w, h);
+}
+
+function tracePolygon(ctx: Ink2DContext, points: readonly PolyPoint[], offsetX: number, offsetY: number): void {
+  const first = points[0];
+  if (!first) {
+    return;
+  }
+  ctx.beginPath();
+  ctx.moveTo(first.x - offsetX, first.y - offsetY);
+  for (let i = 1; i < points.length; i += 1) {
+    const point = points[i]!;
+    ctx.lineTo(point.x - offsetX, point.y - offsetY);
+  }
+  ctx.closePath();
+}
+
+/**
+ * Copy a page rect onto a clip canvas and keep only pixels inside the polygon.
+ * Does not modify the page.
+ */
+export function canvasCopyLassoRegion(
+  pageCanvas: InkCanvas,
+  clipCanvas: InkCanvas,
+  points: readonly PolyPoint[],
+  rect: Rect,
+  maskFactory: (width: number, height: number) => InkCanvas,
+): void {
+  if (points.length < 3) {
+    return;
+  }
+  canvasCopyPageRect(pageCanvas, clipCanvas, rect);
+  const w = Math.max(1, Math.round(rect.width));
+  const h = Math.max(1, Math.round(rect.height));
+  const mask = maskFactory(w, h);
+  const maskCtx = mask.getContext('2d');
+  if (!maskCtx) {
+    throw new Error('canvasCopyLassoRegion: mask 2d context unavailable');
+  }
+  maskCtx.fillStyle = '#ffffff';
+  tracePolygon(maskCtx, points, rect.x, rect.y);
+  maskCtx.fill();
+  const clipCtx = clipCanvas.getContext('2d');
+  if (!clipCtx) {
+    throw new Error('canvasCopyLassoRegion: clip 2d context unavailable');
+  }
+  clipCtx.save();
+  clipCtx.globalCompositeOperation = 'destination-in';
+  clipCtx.drawImage(mask as unknown as CanvasImageSource, 0, 0);
+  clipCtx.restore();
+}
+
+/** Erase page ink inside the polygon. */
+export function canvasClearLassoPolygon(pageCanvas: InkCanvas, points: readonly PolyPoint[]): void {
+  if (points.length < 3) {
+    return;
+  }
+  const pageCtx = pageCanvas.getContext('2d');
+  if (!pageCtx) {
+    throw new Error('canvasClearLassoPolygon: 2d context unavailable');
+  }
+  pageCtx.save();
+  pageCtx.globalCompositeOperation = 'destination-out';
+  pageCtx.fillStyle = '#000000';
+  tracePolygon(pageCtx, points, 0, 0);
+  pageCtx.fill();
+  pageCtx.restore();
 }
 
 /**

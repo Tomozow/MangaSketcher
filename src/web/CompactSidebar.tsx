@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
-import { selectTargetFlagsOf, type ToolId } from '@/src/domain/types';
+import { isSelectionTool, selectTargetFlagsOf, type ToolId } from '@/src/domain/types';
 import { findText, selectedTextIdsOf } from '@/src/domain/text';
 import { inkPalette } from '@/src/theme/tokens';
 import type { EditorDocument, EditorHistory } from '@/src/storage/types';
@@ -22,6 +22,7 @@ import { styles } from './editorStyles';
 import { useAppSettings } from './useAppSettings';
 import {
   IconEraser,
+  IconLasso,
   IconPen,
   IconRedo,
   IconSelect,
@@ -34,6 +35,7 @@ const TOOLS: { id: ToolId; label: string }[] = [
   { id: 'eraser', label: '消' },
   { id: 'text', label: '文' },
   { id: 'select', label: '選' },
+  { id: 'lasso', label: '縄' },
 ];
 
 const TOOL_FLYOUT_TITLES: Record<ToolId, string> = {
@@ -41,6 +43,7 @@ const TOOL_FLYOUT_TITLES: Record<ToolId, string> = {
   eraser: '消しゴム',
   text: 'テキスト',
   select: '選択',
+  lasso: '投げ縄',
 };
 
 const SELECT_FILTERS: { key: 'selectText' | 'selectInk' | 'selectClip'; label: string }[] = [
@@ -83,6 +86,9 @@ function ToolGlyph({ id }: { id: ToolId }) {
   }
   if (id === 'text') {
     return <IconText />;
+  }
+  if (id === 'lasso') {
+    return <IconLasso />;
   }
   return <IconSelect />;
 }
@@ -153,28 +159,29 @@ export function CompactSidebar({
 
   const selectTargets = selectTargetFlagsOf(doc.tools);
   const selectedTextIds = selectedTextIdsOf(doc);
+  const selectionTool = isSelectionTool(doc.tool);
   const primarySelectedText =
-    doc.tool === 'select' && selectedTextIds.length > 0
+    selectionTool && selectedTextIds.length > 0
       ? findText(doc, selectedTextIds[selectedTextIds.length - 1]!)
       : null;
   const showSelectTextSize = Boolean(primarySelectedText);
-  const showSize = doc.tool !== 'select' || showSelectTextSize;
+  const showSize = !selectionTool || showSelectTextSize;
   const showColor = doc.tool === 'pen' || doc.tool === 'text';
 
   const activeColor = useMemo(() => {
     if (doc.tool === 'text') {
       return doc.tools.textColor;
     }
-    if (doc.tool === 'eraser' || doc.tool === 'select') {
+    if (doc.tool === 'eraser' || selectionTool) {
       return '#FFFFFF';
     }
     return doc.tools.penColor;
-  }, [doc.tool, doc.tools.penColor, doc.tools.textColor]);
+  }, [doc.tool, doc.tools.penColor, doc.tools.textColor, selectionTool]);
 
   const sizeValue =
     doc.tool === 'text'
       ? doc.tools.textFontSize
-      : doc.tool === 'select' && primarySelectedText
+      : selectionTool && primarySelectedText
         ? primarySelectedText.node.fontSize
         : doc.tools.penSize;
 
@@ -183,7 +190,7 @@ export function CompactSidebar({
       dispatch({ type: 'setToolProperties', patch: { textFontSize: value } });
       return;
     }
-    if (doc.tool === 'select' && selectedTextIds.length > 0) {
+    if (selectionTool && selectedTextIds.length > 0) {
       dispatch({ type: 'setTextsFontSize', textIds: selectedTextIds, fontSize: value });
       return;
     }
@@ -275,7 +282,7 @@ export function CompactSidebar({
       <aside className={styles.toolFlyout} aria-label={`${TOOL_FLYOUT_TITLES[doc.tool]}の設定`}>
         <h4 className={styles.toolFlyoutTitle}>{TOOL_FLYOUT_TITLES[doc.tool]}</h4>
 
-        {doc.tool === 'select' ? (
+        {selectionTool ? (
           <div className={styles.selectFilterRow} role="group" aria-label="選択対象">
             {SELECT_FILTERS.map((filter) => {
               const on =
@@ -298,6 +305,10 @@ export function CompactSidebar({
               );
             })}
           </div>
+        ) : null}
+
+        {doc.tool === 'lasso' ? (
+          <p className={styles.toolFlyoutHint}>囲んで選択・切り取ります。線画クリップは四角形になります。</p>
         ) : null}
 
         {doc.tool === 'pen' || doc.tool === 'eraser' ? (

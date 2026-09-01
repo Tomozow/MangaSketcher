@@ -41,6 +41,7 @@ export default function Editor({ projectId }: EditorProps) {
     ink,
     inkFrame,
     marqueePreview,
+    lassoPreview,
     clipLiveTransforms,
     textLiveTransforms,
     autosaveStatus,
@@ -147,6 +148,7 @@ export default function Editor({ projectId }: EditorProps) {
         inkEngine={ink?.engine ?? null}
         inkFrame={inkFrame}
         marqueePreview={marqueePreview}
+        lassoPreview={lassoPreview}
         clipLiveTransforms={clipLiveTransforms}
         textLiveTransforms={textLiveTransforms}
         autosaveStatus={autosaveStatus}

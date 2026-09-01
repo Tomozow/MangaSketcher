@@ -51,7 +51,7 @@ import {
 } from '@/src/web/text/textLiveTransform';
 import { stockedClipIds, stockedTextIds } from '@/src/domain/stockItems';
 import { visiblePageRasterIds, workspaceVisibleRasterIdsKey } from '@/src/web/visibleRasterIds';
-import { clipTouchesWorldRect, clipInsertTarget, pageLocalRectToWorld, selectedClipIdsOf, worldRectToPageLocalRect } from './clip/clipGeometry';
+import { clipTouchesPolygon, clipTouchesWorldRect, clipInsertTarget, intersectRects, pageLocalRectToWorld, polygonAabb, rectTouchesPolygon, selectedClipIdsOf, worldPointsToPageLocal, worldRectToPageLocalRect } from './clip/clipGeometry';
 import { CLIP_DUPLICATE_OFFSET, MIN_MARQUEE_RASTER_PX } from './clip/constants';
 import { clipRasterId } from '@/src/storage/rasterIds';
 import {
@@ -92,10 +92,30 @@ export type MarqueePreview = {
   rect: { x: number; y: number; width: number; height: number };
 };
 
+export type LassoPreview = {
+  points: Array<{ x: number; y: number }>;
+};
+
 function collectTextIdsInWorldRect(
   present: EditorDocument,
   frames: StripFrame[],
   worldRect: Rect,
+): TextId[] {
+  return collectTextIdsWhere(present, frames, (box) => rectsOverlap(box, worldRect));
+}
+
+function collectTextIdsInWorldPolygon(
+  present: EditorDocument,
+  frames: StripFrame[],
+  points: Array<{ x: number; y: number }>,
+): TextId[] {
+  return collectTextIdsWhere(present, frames, (box) => rectTouchesPolygon(box, points));
+}
+
+function collectTextIdsWhere(
+  present: EditorDocument,
+  frames: StripFrame[],
+  hits: (box: Rect) => boolean,
 ): TextId[] {
   const ids: TextId[] = [];
   const frameByPage = new Map<PageId, StripFrame>();
@@ -111,7 +131,7 @@ function collectTextIdsInWorldRect(
     }
     for (const text of page.texts) {
       const world = pageBoxToWorld(frame, text.box, present.rasterWidth, present.rasterHeight);
-      if (rectsOverlap(world, worldRect)) {
+      if (hits(world)) {
         ids.push(text.id);
       }
     }
@@ -124,7 +144,7 @@ function collectTextIdsInWorldRect(
     if (hiddenTexts.has(text.id)) {
       continue;
     }
-    if (rectsOverlap(text.box, worldRect)) {
+    if (hits(text.box)) {
       ids.push(text.id);
     }
   }
@@ -144,6 +164,7 @@ type EditorController = {
   ink: InkEngineApi | null;
   inkFrame: number;
   marqueePreview: MarqueePreview | null;
+  lassoPreview: LassoPreview | null;
   clipLiveTransforms: Readonly<Record<string, ClipLiveTransform>>;
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
   autosaveStatus: AutosaveStatus;
@@ -251,6 +272,8 @@ function isClipCanvasEffect(effect: WorkspaceEffect): boolean {
   return (
     effect.type === 'marqueePreview' ||
     effect.type === 'completeMarquee' ||
+    effect.type === 'lassoPreview' ||
+    effect.type === 'completeLasso' ||
     effect.type === 'dropClipOnPage'
   );
 }
@@ -314,6 +337,9 @@ export function useEditorController(projectId: string): EditorController {
   const [marqueePreview, setMarqueePreview] = useState<MarqueePreview | null>(null);
   const marqueeRafRef = useRef(0);
   const pendingMarqueeRef = useRef<MarqueePreview | null>(null);
+  const [lassoPreview, setLassoPreview] = useState<LassoPreview | null>(null);
+  const lassoRafRef = useRef(0);
+  const pendingLassoRef = useRef<LassoPreview | null>(null);
   const clipLiveRef = useRef<Map<string, ClipLiveTransform>>(new Map());
   const selectionMoveRef = useRef<{
     clips: Array<{ clipId: ClipId; x: number; y: number }>;
@@ -438,6 +464,17 @@ export function useEditorController(projectId: string): EditorController {
     });
   }, []);
 
+  const scheduleLassoPreview = useCallback((preview: LassoPreview | null) => {
+    pendingLassoRef.current = preview;
+    if (lassoRafRef.current) {
+      return;
+    }
+    lassoRafRef.current = requestAnimationFrame(() => {
+      lassoRafRef.current = 0;
+      setLassoPreview(pendingLassoRef.current);
+    });
+  }, []);
+
   const bumpClipDragFrame = useCallback(() => {
     if (clipDragRafRef.current) {
       return;
@@ -466,6 +503,9 @@ export function useEditorController(projectId: string): EditorController {
       }
       if (marqueeRafRef.current) {
         cancelAnimationFrame(marqueeRafRef.current);
+      }
+      if (lassoRafRef.current) {
+        cancelAnimationFrame(lassoRafRef.current);
       }
       if (clipDragRafRef.current) {
         cancelAnimationFrame(clipDragRafRef.current);
@@ -930,12 +970,137 @@ export function useEditorController(projectId: string): EditorController {
           }
           continue;
         }
+        if (effect.type === 'lassoPreview') {
+          scheduleLassoPreview({ points: effect.points });
+          continue;
+        }
+        if (effect.type === 'completeLasso') {
+          pendingLassoRef.current = null;
+          if (lassoRafRef.current) {
+            cancelAnimationFrame(lassoRafRef.current);
+            lassoRafRef.current = 0;
+          }
+          setLassoPreview(null);
+          const worldAabb = polygonAabb(effect.points);
+          if (
+            !worldAabb ||
+            worldAabb.width < MIN_MARQUEE_RASTER_PX ||
+            worldAabb.height < MIN_MARQUEE_RASTER_PX
+          ) {
+            continue;
+          }
+          const targets = selectTargetFlagsOf(present.tools);
+          const textIdsInPoly = targets.text
+            ? collectTextIdsInWorldPolygon(present, frames, effect.points)
+            : [];
+          const clipIdsInPoly = targets.clip
+            ? present.pasteboardClips
+                .filter((clip) => !stockedClipIds(present.stock).has(clip.id))
+                .filter((clip) => !(present.trashClips ?? []).includes(clip.id))
+                .filter((clip) => {
+                  const pose = effectiveClipPose(clip, clipLiveRef.current.get(clip.id));
+                  return clipTouchesPolygon(
+                    { ...clip, ...pose },
+                    api.engine.getRasterDimensions(clip.rasterId),
+                    present.rasterWidth,
+                    present.rasterHeight,
+                    effect.points,
+                  );
+                })
+                .map((clip) => clip.id)
+            : [];
+          const cutClipIds: string[] = [];
+          if (targets.ink) {
+            for (const frame of frames) {
+              if (frame.slot.kind !== 'page') {
+                continue;
+              }
+              const page = present.pages[frame.slot.pageId];
+              if (!page) {
+                continue;
+              }
+              const localPoints = worldPointsToPageLocal(
+                frame,
+                effect.points,
+                present.rasterWidth,
+                present.rasterHeight,
+              );
+              const localAabb = polygonAabb(localPoints);
+              if (!localAabb) {
+                continue;
+              }
+              const padded = {
+                x: localAabb.x - 1,
+                y: localAabb.y - 1,
+                width: localAabb.width + 2,
+                height: localAabb.height + 2,
+              };
+              const localRect = intersectRects(padded, {
+                x: 0,
+                y: 0,
+                width: present.rasterWidth,
+                height: present.rasterHeight,
+              });
+              if (
+                !localRect ||
+                localRect.width < MIN_MARQUEE_RASTER_PX ||
+                localRect.height < MIN_MARQUEE_RASTER_PX
+              ) {
+                continue;
+              }
+              const clipId = randomId();
+              const rasterId = `${present.projectId}:clip:${clipId}`;
+              const cut = api.engine.lassoCut(page.rasterId, rasterId, localPoints, localRect);
+              if (!cut.trim) {
+                continue;
+              }
+              const trimmedRect = {
+                x: localRect.x + cut.trim.x,
+                y: localRect.y + cut.trim.y,
+                width: cut.trim.width,
+                height: cut.trim.height,
+              };
+              const world = pageLocalRectToWorld(
+                frame.x,
+                frame.y,
+                frame.width,
+                frame.height,
+                trimmedRect,
+                present.rasterWidth,
+                present.rasterHeight,
+              );
+              const pageUndo = cut.pageUndo;
+              if (pageUndo.byteLength > 0) {
+                inkUndoRef.current.set(page.rasterId, pageUndo.slice(0));
+              }
+              dispatch({
+                type: 'commitMarqueeCut',
+                pageId: frame.slot.pageId,
+                clipId,
+                rasterId,
+                workspaceX: world.x,
+                workspaceY: world.y,
+              });
+              cutClipIds.push(clipId);
+            }
+            if (cutClipIds.length > 0) {
+              bumpInkFrame();
+            }
+          }
+          if (targets.clip || cutClipIds.length > 0) {
+            dispatch({ type: 'selectClips', clipIds: [...clipIdsInPoly, ...cutClipIds] });
+          }
+          if (targets.text) {
+            dispatch({ type: 'selectTexts', textIds: textIdsInPoly });
+          }
+          continue;
+        }
         if (effect.type === 'dropClipOnPage') {
           bakeClipOntoPage(effect.clipId, present);
         }
       }
     },
-    [bakeClipOntoPage, bumpInkFrame, dispatch, scheduleMarqueePreview],
+    [bakeClipOntoPage, bumpInkFrame, dispatch, scheduleLassoPreview, scheduleMarqueePreview],
   );
 
   const applyClipLiveEffects = useCallback(
@@ -1902,6 +2067,7 @@ export function useEditorController(projectId: string): EditorController {
     ink: history ? ink : null,
     inkFrame: inkFrame + ink.rasterLayoutGen,
     marqueePreview,
+    lassoPreview,
     clipLiveTransforms,
     textLiveTransforms,
     autosaveStatus,

@@ -41,6 +41,25 @@ function blendDestinationOut(dst: Rgba, src: Rgba, alpha: number): Rgba {
   return { r: dst.r, g: dst.g, b: dst.b, a: Math.round(outA * 255) };
 }
 
+function blendDestinationIn(dst: Rgba, src: Rgba, alpha: number): Rgba {
+  const sa = (src.a / 255) * alpha;
+  const outA = (dst.a / 255) * sa;
+  return { r: dst.r, g: dst.g, b: dst.b, a: Math.round(outA * 255) };
+}
+
+function pointInPolygon(x: number, y: number, path: { x: number; y: number }[]): boolean {
+  let inside = false;
+  for (let i = 0, j = path.length - 1; i < path.length; j = i, i += 1) {
+    const a = path[i]!;
+    const b = path[j]!;
+    const intersect = a.y > y !== b.y > y && x < ((b.x - a.x) * (y - a.y)) / (b.y - a.y || Number.EPSILON) + a.x;
+    if (intersect) {
+      inside = !inside;
+    }
+  }
+  return inside;
+}
+
 export class FakeCanvas2DContext {
   fillStyle = '#000000';
   strokeStyle = '#000000';
@@ -141,12 +160,47 @@ export class FakeCanvas2DContext {
     this.path.push({ x, y });
   }
 
+  closePath(): void {
+    const first = this.path[0];
+    const last = this.path[this.path.length - 1];
+    if (!first || !last) {
+      return;
+    }
+    if (first.x !== last.x || first.y !== last.y) {
+      this.path.push({ x: first.x, y: first.y });
+    }
+  }
+
   arc(x: number, y: number, radius: number, _start: number, _end: number): void {
     this.paintDisk(x, y, radius, parseColor(this.fillStyle));
   }
 
   fill(): void {
-    // arc() paints immediately in this minimal impl
+    if (this.path.length < 3) {
+      return;
+    }
+    const color = parseColor(this.fillStyle);
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (const point of this.path) {
+      if (point.x < minX) minX = point.x;
+      if (point.y < minY) minY = point.y;
+      if (point.x > maxX) maxX = point.x;
+      if (point.y > maxY) maxY = point.y;
+    }
+    const x0 = Math.floor(minX);
+    const y0 = Math.floor(minY);
+    const x1 = Math.ceil(maxX);
+    const y1 = Math.ceil(maxY);
+    for (let py = y0; py < y1; py += 1) {
+      for (let px = x0; px < x1; px += 1) {
+        if (pointInPolygon(px + 0.5, py + 0.5, this.path)) {
+          this.paintPixel(px, py, color);
+        }
+      }
+    }
   }
 
   stroke(): void {
@@ -216,7 +270,7 @@ export class FakeCanvas2DContext {
             b: srcData[i + 2]!,
             a: srcData[i + 3]!,
           };
-          if (src.a > 0) {
+          if (src.a > 0 || this.globalCompositeOperation === 'destination-in') {
             const px = this.offsetX + (dx + x) * this.scaleX;
             const py = this.offsetY + (dy + y) * this.scaleY;
             this.paintPixel(Math.floor(px), Math.floor(py), src);
@@ -246,7 +300,7 @@ export class FakeCanvas2DContext {
           b: srcData[i + 2]!,
           a: srcData[i + 3]!,
         };
-        if (src.a > 0) {
+        if (src.a > 0 || this.globalCompositeOperation === 'destination-in') {
           this.paintPixel(Math.floor(destX + x), Math.floor(destY + y), src);
         }
       }
@@ -322,7 +376,9 @@ export class FakeCanvas2DContext {
     const next =
       this.globalCompositeOperation === 'destination-out'
         ? blendDestinationOut(dst, src, this.globalAlpha)
-        : blendSourceOver(dst, src, this.globalAlpha);
+        : this.globalCompositeOperation === 'destination-in'
+          ? blendDestinationIn(dst, src, this.globalAlpha)
+          : blendSourceOver(dst, src, this.globalAlpha);
     this.canvas.writePixel(x, y, next);
   }
 }

@@ -12,6 +12,7 @@ import {
 import { PAGE_INK_FRAME_ATTR, PAGE_INK_PLANE_ATTR, PAGE_NUMBER_BAND_ATTR, APPEND_SLOT_ATTR, pageInkLocalFromClient, pageInkLocalFromFrameRect, pageFrameMapRect } from '@/src/web/gestures/pageInkDom';
 import {
   TEMPLATE_PAGE_NUMBER_COVER,
+  isSelectionTool,
   selectTargetFlagsOf,
   type ClipId,
   type ClipMeta,
@@ -132,7 +133,7 @@ export function WorkspaceStrip({
   const [dragPointer, setDragPointer] = useState<{ x: number; y: number } | null>(null);
   const layout = stripLayoutFromDoc(stripLayout ?? {});
   const resolvedSelectTargets = selectTargets ?? selectTargetFlagsOf(undefined);
-  const showTextSelection = tool === 'text' || (tool === 'select' && resolvedSelectTargets.text);
+  const showTextSelection = tool === 'text' || (isSelectionTool(tool) && resolvedSelectTargets.text);
   const visibleSelectedTextIds = showTextSelection
     ? selectedTextIds && selectedTextIds.length > 0
       ? selectedTextIds

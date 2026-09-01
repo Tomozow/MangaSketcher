@@ -62,6 +62,7 @@ describe('resolveWorkspaceHit ink tool priority', () => {
     expect(resolveWorkspaceHit({ ...shared, tool: 'select' }).kind).toBe('clip');
     expect(resolveWorkspaceHit({ ...shared, tool: 'pen' }).kind).toBe('page');
     expect(resolveWorkspaceHit({ ...shared, tool: 'eraser' }).kind).toBe('page');
+    expect(resolveWorkspaceHit({ ...shared, tool: 'lasso' }).kind).toBe('clip');
     expect(resolveWorkspaceHit({ ...shared, tool: 'eraser', selectedClipId: 'clip1' }).kind).toBe(
       'page',
     );
@@ -72,6 +73,13 @@ describe('resolveWorkspaceHit ink tool priority', () => {
       resolveWorkspaceHit({
         ...shared,
         tool: 'select',
+        selectTargets: { text: true, ink: true, clip: false },
+      }).kind,
+    ).toBe('page');
+    expect(
+      resolveWorkspaceHit({
+        ...shared,
+        tool: 'lasso',
         selectTargets: { text: true, ink: true, clip: false },
       }).kind,
     ).toBe('page');
