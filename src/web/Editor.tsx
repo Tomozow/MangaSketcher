@@ -146,7 +146,6 @@ export default function Editor({ projectId }: EditorProps) {
         onExtractPdfText={onExtractPdfText}
         inkEngine={ink?.engine ?? null}
         inkFrame={inkFrame}
-        rasterLayoutGen={ink?.rasterLayoutGen ?? 0}
         marqueePreview={marqueePreview}
         clipLiveTransforms={clipLiveTransforms}
         textLiveTransforms={textLiveTransforms}

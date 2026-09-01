@@ -10,6 +10,8 @@ type PageDragThumbnailProps = {
   pageId: PageId;
   clientX: number;
   clientY: number;
+  /** Screen offset from the thumbnail top-left to the grab point. */
+  grabOffset?: { x: number; y: number };
   /** §9.7 template+ink thumb when InkEngine is wired; template-only fallback otherwise. */
   thumb?: ImageBitmap;
   texts?: readonly PageText[];
@@ -21,6 +23,7 @@ export function PageDragThumbnail({
   pageId,
   clientX,
   clientY,
+  grabOffset,
   thumb,
   texts,
   rasterWidth,
@@ -38,6 +41,9 @@ export function PageDragThumbnail({
         top: clientY,
         width: THUMB_WIDTH,
         height: THUMB_HEIGHT,
+        ...(grabOffset
+          ? { transform: `translate(${-grabOffset.x}px, ${-grabOffset.y}px)` }
+          : {}),
       }}
       aria-hidden
     >

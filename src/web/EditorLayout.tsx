@@ -41,6 +41,10 @@ import {
   PDF_DRAWER_BOTTOM_GAP_PX,
   PDF_DRAWER_TOP_PX,
 } from '@/src/domain/uiLayout';
+import {
+  STOCK_EDGE_REVEAL_HOLD_MS,
+  shouldRevealStockAtBottomEdge,
+} from '@/src/web/stock/stockEdgeReveal';
 
 type EditorLayoutProps = {
   doc: EditorDocument;
@@ -74,7 +78,6 @@ type EditorLayoutProps = {
   onExtractPdfText: (payload: PdfExtractPayload) => void;
   inkEngine: InkEngine | null;
   inkFrame: number;
-  rasterLayoutGen: number;
   marqueePreview: MarqueePreview | null;
   clipLiveTransforms: Readonly<Record<string, ClipLiveTransform>>;
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
@@ -116,7 +119,6 @@ export function EditorLayout({
   onExtractPdfText,
   inkEngine,
   inkFrame,
-  rasterLayoutGen,
   marqueePreview,
   clipLiveTransforms,
   textLiveTransforms,
@@ -132,6 +134,10 @@ export function EditorLayout({
   const [workspaceGrab, setWorkspaceGrab] = useState<WorkspaceGrab | null>(null);
   const suppressTrashToggleRef = useRef(false);
   const [stockOpen, setStockOpen] = useState(false);
+  const [stockEdgeReveal, setStockEdgeReveal] = useState(false);
+  const stockEdgeRevealRef = useRef(false);
+  const stockEdgeHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  stockEdgeRevealRef.current = stockEdgeReveal;
   const [pageDelete, setPageDelete] = useState<{ pageId: PageId; source: 'workspace' | 'stock' } | null>(
     null,
   );
@@ -224,10 +230,42 @@ export function EditorLayout({
   }, [pageDelete]);
 
   useEffect(() => {
+    const clearHideTimer = () => {
+      if (stockEdgeHideTimerRef.current != null) {
+        clearTimeout(stockEdgeHideTimerRef.current);
+        stockEdgeHideTimerRef.current = null;
+      }
+    };
+
     if (workspaceGrab) {
-      setStockOpen(true);
+      clearHideTimer();
+      if (!appSettings.stockRevealOnBottomEdge) {
+        setStockEdgeReveal(false);
+        return;
+      }
+      const onMove = (event: PointerEvent) => {
+        if (shouldRevealStockAtBottomEdge(event.clientY, window.innerHeight)) {
+          setStockEdgeReveal(true);
+        }
+      };
+      document.addEventListener('pointermove', onMove);
+      return () => document.removeEventListener('pointermove', onMove);
     }
-  }, [workspaceGrab]);
+
+    if (!stockEdgeRevealRef.current) {
+      return;
+    }
+    if (!appSettings.stockHideAfterEdgeDrop) {
+      setStockOpen(true);
+      setStockEdgeReveal(false);
+      return;
+    }
+    stockEdgeHideTimerRef.current = setTimeout(() => {
+      stockEdgeHideTimerRef.current = null;
+      setStockEdgeReveal(false);
+    }, STOCK_EDGE_REVEAL_HOLD_MS);
+    return () => clearHideTimer();
+  }, [workspaceGrab, appSettings.stockRevealOnBottomEdge, appSettings.stockHideAfterEdgeDrop]);
 
   const handleWorkspaceEffects = useCallback(
     (
@@ -293,7 +331,7 @@ export function EditorLayout({
     [onTextDraftChange],
   );
 
-  const stockVisible = stockOpen || Boolean(workspaceGrab);
+  const stockVisible = stockOpen || stockEdgeReveal;
   const pdfVisible = doc.pdfViewerVisible;
   const bodyRef = useRef<HTMLDivElement>(null);
   const saveKind =
@@ -416,9 +454,9 @@ export function EditorLayout({
         <AppSettingsMenu settings={appSettings} onChange={updateAppSettings} />
         <button
           type="button"
-          className={`${styles.chromeIcon} ${stockVisible ? styles.chromeIconPressed : ''}`}
+          className={`${styles.chromeIcon} ${stockOpen ? styles.chromeIconPressed : ''}`}
           aria-label="ストック"
-          aria-pressed={stockVisible}
+          aria-pressed={stockOpen}
           title="ストック"
           onClick={() => setStockOpen((open) => !open)}
         >
@@ -486,7 +524,6 @@ export function EditorLayout({
             }}
             getPageThumb={getPageThumb}
             inkEngine={inkEngine}
-            rasterLayoutGen={rasterLayoutGen}
             deletePageId={pageDelete?.source === 'stock' ? pageDelete.pageId : null}
             onShowPageDelete={(pageId) => {
               if (!pageId) {

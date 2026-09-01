@@ -12,9 +12,11 @@ import {
   stockPagesThenForeground,
   stockThumbKey,
 } from '@/src/domain/stockItems';
+import { findText } from '@/src/domain/text';
 import type { PageId, PageText } from '@/src/domain/types';
 import type { EditorDocument } from '@/src/storage/types';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
+import { THUMB_HEIGHT, THUMB_WIDTH } from '@/src/web/ink/InkEngine';
 import { drawPageTextsOnThumb } from '@/src/web/ink/drawPageTextsOnThumb';
 import { PageDragThumbnail } from '@/src/web/PageDragThumbnail';
 import { PageChromeButtons } from '@/src/web/PageDeleteButton';
@@ -44,7 +46,87 @@ import { reduceStockEffects } from '@/src/web/stock/stockEffects';
 import { createStockPointerPipeline, getStockDragPageId } from '@/src/web/stock/stockPointer';
 import { fitStockTextThumbFontSize, STOCK_TEXT_THUMB_BASE_PX } from '@/src/web/stock/stockTextThumbFit';
 import type { StockHit } from '@/src/web/stock/types';
+import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 import { styles } from './editorStyles';
+
+// #region agent log
+const DEBUG_STOCK_FREE_INGEST =
+  'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426';
+
+function debugStockFreeViewport() {
+  const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+  return {
+    innerW: typeof window !== 'undefined' ? window.innerWidth : 0,
+    innerH: typeof window !== 'undefined' ? window.innerHeight : 0,
+    vvOffsetLeft: vv?.offsetLeft ?? 0,
+    vvOffsetTop: vv?.offsetTop ?? 0,
+    vvPageLeft: vv?.pageLeft ?? 0,
+    vvPageTop: vv?.pageTop ?? 0,
+    vvScale: vv?.scale ?? 1,
+    vvW: vv?.width ?? 0,
+    vvH: vv?.height ?? 0,
+  };
+}
+
+function debugStockFreeGeom(
+  clientX: number,
+  clientY: number,
+  surface: HTMLElement | null,
+  panX: number,
+  panY: number,
+  zoom: number,
+  itemKey: string | null,
+) {
+  const surfaceRect = surface?.getBoundingClientRect() ?? null;
+  const transformEl = surface?.querySelector(`.${styles.stockTransform}`) as HTMLElement | null;
+  const transformRect = transformEl?.getBoundingClientRect() ?? null;
+  const itemEl = itemKey
+    ? (document.querySelector(`[data-stock-item-key="${itemKey}"]`) as HTMLElement | null)
+    : null;
+  const itemRect = itemEl?.getBoundingClientRect() ?? null;
+  const localX = surfaceRect ? clientX - surfaceRect.left : null;
+  const localY = surfaceRect ? clientY - surfaceRect.top : null;
+  const rawWorld =
+    localX != null && localY != null && zoom !== 0
+      ? { x: (localX - panX) / zoom, y: (localY - panY) / zoom }
+      : null;
+  return {
+    surface: surfaceRect
+      ? { left: surfaceRect.left, top: surfaceRect.top, w: surfaceRect.width, h: surfaceRect.height }
+      : null,
+    transform: transformRect
+      ? {
+          left: transformRect.left,
+          top: transformRect.top,
+          w: transformRect.width,
+          h: transformRect.height,
+        }
+      : null,
+    itemRect: itemRect
+      ? {
+          left: itemRect.left,
+          top: itemRect.top,
+          w: itemRect.width,
+          h: itemRect.height,
+          cx: itemRect.left + itemRect.width / 2,
+          cy: itemRect.top + itemRect.height / 2,
+        }
+      : null,
+    localX,
+    localY,
+    rawWorld,
+    pointerToItemTL: itemRect
+      ? { x: clientX - itemRect.left, y: clientY - itemRect.top }
+      : null,
+    pointerToItemCenter: itemRect
+      ? {
+          x: clientX - (itemRect.left + itemRect.width / 2),
+          y: clientY - (itemRect.top + itemRect.height / 2),
+        }
+      : null,
+  };
+}
+// #endregion
 
 const GRID_THUMB_BASE_PX = 56;
 const GRID_THUMB_MIN_PX = 36;
@@ -97,9 +179,22 @@ function grabTextIds(grab: WorkspaceGrab): string[] {
   return grab.textId ? [grab.textId] : [];
 }
 
+function pointOverStockUi(clientX: number, clientY: number, surface: HTMLElement | null): boolean {
+  const region = document.querySelector('[data-ms-region="stock"]');
+  if (region && pointInRect(clientX, clientY, region.getBoundingClientRect())) {
+    return true;
+  }
+  if (surface && pointInRect(clientX, clientY, surface.getBoundingClientRect())) {
+    return true;
+  }
+  const trashDrop = document.querySelector<HTMLElement>(`[${STOCK_TRASH_DROP_ATTR}]`);
+  return Boolean(trashDrop && pointInRect(clientX, clientY, trashDrop.getBoundingClientRect()));
+}
+
 function stockDragGhostKeys(
   workspaceGrab: WorkspaceGrab | null,
   draggedStockPageId: string | null,
+  workspaceClipTextOverStock: boolean,
 ): string[] {
   if (draggedStockPageId) {
     return [draggedStockPageId];
@@ -109,6 +204,9 @@ function stockDragGhostKeys(
   }
   if (workspaceGrab.pageId) {
     return [workspaceGrab.pageId];
+  }
+  if (!workspaceClipTextOverStock) {
+    return [];
   }
   return [
     ...grabClipIds(workspaceGrab).map((id) => `clip:${id}`),
@@ -124,7 +222,6 @@ export type StockPaneProps = {
   onDroppedToTrash?: () => void;
   getPageThumb?: (pageId: PageId) => ImageBitmap | undefined;
   inkEngine?: InkEngine | null;
-  rasterLayoutGen?: number;
   deletePageId?: PageId | null;
   onShowPageDelete?: (pageId: PageId | null) => void;
   onDeletePage?: (pageId: PageId) => void;
@@ -137,82 +234,111 @@ type StockPageThumbProps = {
   rasterWidth: number;
   rasterHeight: number;
   inkEngine?: InkEngine | null;
-  rasterLayoutGen: number;
 };
 
+function stockTransformCss(panX: number, panY: number, zoom: number): string {
+  return `translate(${panX}px, ${panY}px) scale(${zoom})`;
+}
+
+function isStockViewSessionMode(mode: string): boolean {
+  return mode === 'pan' || mode === 'pinch' || mode === 'zoomDrag';
+}
+
+function composeStockThumbObjectUrl(
+  thumb: ImageBitmap,
+  texts: readonly PageText[],
+  rasterWidth: number,
+  rasterHeight: number,
+): Promise<string | null> {
+  const canvas = document.createElement('canvas');
+  canvas.width = THUMB_WIDTH;
+  canvas.height = THUMB_HEIGHT;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return Promise.resolve(null);
+  }
+  ctx.drawImage(thumb, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
+  if (texts.length > 0 && rasterWidth > 0 && rasterHeight > 0) {
+    drawPageTextsOnThumb(ctx, texts, rasterWidth, rasterHeight, THUMB_WIDTH, THUMB_HEIGHT);
+  }
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        resolve(null);
+        return;
+      }
+      resolve(URL.createObjectURL(blob));
+    }, 'image/png');
+  });
+}
+
 const StockPageThumb = memo(function StockPageThumb({
-  pageId,
   rasterId,
   texts,
   rasterWidth,
   rasterHeight,
   inkEngine,
-  rasterLayoutGen,
 }: StockPageThumbProps) {
-  const hostRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [src, setSrc] = useState<string | null>(null);
 
-  useLayoutEffect(() => {
-    const host = hostRef.current;
-    const canvas = canvasRef.current;
-    if (!host || !canvas || !inkEngine || !rasterId) {
+  useEffect(() => {
+    if (!inkEngine || !rasterId) {
+      setSrc(null);
       return;
     }
 
-    const paint = () => {
-      const cssW = Math.max(1, Math.round(host.clientWidth));
-      const cssH = Math.max(1, Math.round(host.clientHeight));
-      const maxEdge = 320;
-      const scale = Math.min(2, maxEdge / Math.max(cssW, cssH));
-      const pixelW = Math.max(1, Math.round(cssW * scale));
-      const pixelH = Math.max(1, Math.round(cssH * scale));
-      if (canvas.width !== pixelW || canvas.height !== pixelH) {
-        canvas.width = pixelW;
-        canvas.height = pixelH;
-      }
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
+    let cancelled = false;
+    let objectUrl: string | null = null;
+
+    const applyFromCache = async () => {
+      const thumb = inkEngine.getThumb(rasterId);
+      if (!thumb) {
         return;
       }
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = 'low';
-      canvas.style.width = `${cssW}px`;
-      canvas.style.height = `${cssH}px`;
-      inkEngine.paintDisplay(ctx, rasterId, pixelW, pixelH);
-      if (texts.length > 0 && rasterWidth > 0 && rasterHeight > 0) {
-        drawPageTextsOnThumb(ctx, texts, rasterWidth, rasterHeight, pixelW, pixelH);
+      const url = await composeStockThumbObjectUrl(thumb, texts, rasterWidth, rasterHeight);
+      if (cancelled) {
+        if (url) {
+          URL.revokeObjectURL(url);
+        }
+        return;
       }
-      ctx.globalCompositeOperation = 'destination-over';
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, pixelW, pixelH);
-      ctx.globalCompositeOperation = 'source-over';
-      try {
-        host.style.backgroundImage = `url(${canvas.toDataURL('image/png')})`;
-        host.style.backgroundSize = '100% 100%';
-        host.style.backgroundRepeat = 'no-repeat';
-      } catch {
-        /* toDataURL can throw if the canvas is tainted or empty */
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
       }
+      objectUrl = url;
+      setSrc(url);
     };
 
-    paint();
-    const frame = requestAnimationFrame(paint);
-    const observer = new ResizeObserver(paint);
-    observer.observe(host);
+    if (!inkEngine.getThumb(rasterId)) {
+      void inkEngine.generateThumb(rasterId);
+    } else {
+      void applyFromCache();
+    }
+
+    const unsubscribe = inkEngine.subscribeThumbReady((id) => {
+      if (id === rasterId) {
+        void applyFromCache();
+      }
+    });
+
     return () => {
-      cancelAnimationFrame(frame);
-      observer.disconnect();
+      cancelled = true;
+      unsubscribe();
+      if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
+      }
     };
-  }, [inkEngine, rasterId, rasterWidth, rasterHeight, pageId, texts, rasterLayoutGen]);
+  }, [inkEngine, rasterId, texts, rasterWidth, rasterHeight]);
 
   if (!inkEngine || !rasterId) {
     return null;
   }
 
   return (
-    <div ref={hostRef} className={styles.stockThumbInkHost}>
-      <canvas ref={canvasRef} className={styles.stockPageInk} aria-hidden />
+    <div className={styles.stockThumbInkHost}>
+      {src ? (
+        <img className={styles.stockPageInkImg} src={src} alt="" draggable={false} />
+      ) : null}
     </div>
   );
 }, (prev, next) => (
@@ -221,8 +347,7 @@ const StockPageThumb = memo(function StockPageThumb({
   prev.texts === next.texts &&
   prev.rasterWidth === next.rasterWidth &&
   prev.rasterHeight === next.rasterHeight &&
-  prev.inkEngine === next.inkEngine &&
-  prev.rasterLayoutGen === next.rasterLayoutGen
+  prev.inkEngine === next.inkEngine
 ));
 
 function StockTextThumb({
@@ -266,17 +391,17 @@ function StockItemDragGhost({
   itemKey,
   clientX,
   clientY,
+  grabOffset,
   doc,
   inkEngine,
-  rasterLayoutGen,
   getPageThumb,
 }: {
   itemKey: string;
   clientX: number;
   clientY: number;
+  grabOffset?: { x: number; y: number };
   doc: EditorDocument;
   inkEngine?: InkEngine | null;
-  rasterLayoutGen: number;
   getPageThumb?: (pageId: PageId) => ImageBitmap | undefined;
 }) {
   const parsed = parseStockThumbKey(itemKey);
@@ -289,6 +414,7 @@ function StockItemDragGhost({
         pageId={parsed.pageId}
         clientX={clientX}
         clientY={clientY}
+        grabOffset={grabOffset}
         thumb={getPageThumb?.(parsed.pageId)}
         texts={doc.pages[parsed.pageId]?.texts ?? EMPTY_TEXTS}
         rasterWidth={doc.rasterWidth}
@@ -300,7 +426,8 @@ function StockItemDragGhost({
     return null;
   }
   const clip = parsed.kind === 'clip' ? doc.pasteboardClips.find((c) => c.id === parsed.clipId) : undefined;
-  const text = parsed.kind === 'text' ? doc.pasteboardTexts.find((t) => t.id === parsed.textId) : undefined;
+  const text =
+    parsed.kind === 'text' ? findText(doc, parsed.textId)?.node : undefined;
   return createPortal(
     <div
       className={`${styles.stockDragGhost} ${parsed.kind === 'clip' ? styles.stockThumbClip : styles.stockThumbText}`}
@@ -309,6 +436,9 @@ function StockItemDragGhost({
         top: clientY,
         width: STOCK_FREE_THUMB_WIDTH,
         height: STOCK_FREE_THUMB_HEIGHT,
+        ...(grabOffset
+          ? { transform: `translate(${-grabOffset.x}px, ${-grabOffset.y}px)` }
+          : {}),
       }}
       aria-hidden
     >
@@ -321,7 +451,6 @@ function StockItemDragGhost({
             rasterWidth={doc.rasterWidth}
             rasterHeight={doc.rasterHeight}
             inkEngine={inkEngine}
-            rasterLayoutGen={rasterLayoutGen}
           />
         ) : (
           <StockTextThumb content={text?.content ?? ''} color={text?.color ?? '#1A1A1A'} />
@@ -340,16 +469,33 @@ export function StockPane({
   onDroppedToTrash,
   getPageThumb,
   inkEngine,
-  rasterLayoutGen = 0,
   deletePageId = null,
   onShowPageDelete,
   onDeletePage,
 }: StockPaneProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
+  const transformRef = useRef<HTMLDivElement>(null);
   const pipelineRef = useRef<ReturnType<typeof createStockPointerPipeline> | null>(null);
+  const liveViewRef = useRef({ zoom: doc.stockZoom, panX: doc.stockPanX, panY: doc.stockPanY });
+  const viewGestureRef = useRef(false);
   const [draggedStockPageId, setDraggedStockPageId] = useState<PageId | null>(null);
   const [dragPointer, setDragPointer] = useState<{ x: number; y: number } | null>(null);
+  const [overStockUi, setOverStockUi] = useState(false);
   const [stockDeleteKey, setStockDeleteKey] = useState<string | null>(null);
+  const [stockGrabScreen, setStockGrabScreen] = useState<{ key: string; x: number; y: number } | null>(null);
+  // #region agent log
+  const stockFreeGrabRef = useRef<{
+    key: string;
+    itemX: number;
+    itemY: number;
+    grabOffsetWorldX: number;
+    grabOffsetWorldY: number;
+    grabOffsetScreenX: number;
+    grabOffsetScreenY: number;
+    itemRectW: number;
+    itemRectH: number;
+  } | null>(null);
+  // #endregion
 
   const docRef = useRef(doc);
   docRef.current = doc;
@@ -375,6 +521,17 @@ export function StockPane({
         ...(doc.trashTexts ?? []).map((textId) => ({ kind: 'text' as const, textId, x: 0, y: 0 })),
       ]
     : stockPagesThenForeground(doc.stock);
+
+  useLayoutEffect(() => {
+    if (viewGestureRef.current) {
+      return;
+    }
+    liveViewRef.current = { zoom: doc.stockZoom, panX: doc.stockPanX, panY: doc.stockPanY };
+    const el = transformRef.current;
+    if (el) {
+      el.style.transform = stockTransformCss(doc.stockPanX, doc.stockPanY, doc.stockZoom);
+    }
+  }, [doc.stockZoom, doc.stockPanX, doc.stockPanY]);
 
   const syncDragPointer = useCallback(() => {
     const pipeline = pipelineRef.current;
@@ -412,6 +569,62 @@ export function StockPane({
     return { kind: 'empty' };
   }, []);
 
+  const captureStockFreeGrab = useCallback((clientX: number, clientY: number, itemKey: string) => {
+    const present = docRef.current;
+    if (present.stockLayout !== 'free' || present.stockPane === 'trash') {
+      return;
+    }
+    const item = present.stock.find((entry) => stockThumbKey(entry) === itemKey);
+    if (!item) {
+      return;
+    }
+    const view = liveViewRef.current;
+    const geom = debugStockFreeGeom(
+      clientX,
+      clientY,
+      surfaceRef.current,
+      view.panX,
+      view.panY,
+      view.zoom,
+      itemKey,
+    );
+    const zoom = view.zoom || 1;
+    const grabOffsetScreenX = geom.itemRect ? clientX - geom.itemRect.left : 0;
+    const grabOffsetScreenY = geom.itemRect ? clientY - geom.itemRect.top : 0;
+    stockFreeGrabRef.current = {
+      key: itemKey,
+      itemX: item.x,
+      itemY: item.y,
+      grabOffsetWorldX: grabOffsetScreenX / zoom,
+      grabOffsetWorldY: grabOffsetScreenY / zoom,
+      grabOffsetScreenX,
+      grabOffsetScreenY,
+      itemRectW: geom.itemRect?.w ?? 0,
+      itemRectH: geom.itemRect?.h ?? 0,
+    };
+    setStockGrabScreen({ key: itemKey, x: grabOffsetScreenX, y: grabOffsetScreenY });
+    // #region agent log
+    ipadDebugLog({
+      sessionId: '18f9a4',
+      ingest: DEBUG_STOCK_FREE_INGEST,
+      runId: 'post-fix',
+      hypothesisId: 'A',
+      location: 'StockPane.tsx:grabDown',
+      message: 'stock free grab down',
+      timestamp: Date.now(),
+      data: {
+        key: itemKey,
+        pointer: { x: clientX, y: clientY },
+        item: { x: item.x, y: item.y },
+        liveView: view,
+        grabOffsetWorld: { x: grabOffsetScreenX / zoom, y: grabOffsetScreenY / zoom },
+        grabOffsetScreen: { x: grabOffsetScreenX, y: grabOffsetScreenY },
+        geom,
+      },
+    });
+    // #endregion
+  }, []);
+
   const applyStockEffects = useCallback(
     (effects: Parameters<typeof reduceStockEffects>[1]) => {
       const present = docRef.current;
@@ -419,14 +632,23 @@ export function StockPane({
       if (!pipeline || effects.length === 0) {
         return;
       }
+      const gridOrTrash = present.stockLayout === 'grid' || present.stockPane === 'trash';
+      const viewSource = gridOrTrash
+        ? present
+        : {
+            ...present,
+            stockZoom: liveViewRef.current.zoom,
+            stockPanX: liveViewRef.current.panX,
+            stockPanY: liveViewRef.current.panY,
+          };
       const batch = reduceStockEffects(
-        present,
+        viewSource,
         effects,
         pipeline.store.fingerPositions,
         surfaceRef.current?.getBoundingClientRect() ?? null,
       );
       if (batch.view) {
-        if (present.stockLayout === 'grid' || present.stockPane === 'trash') {
+        if (gridOrTrash) {
           if (batch.view.zoom !== present.stockZoom) {
             dispatchRef.current({
               type: 'setStockView',
@@ -440,18 +662,39 @@ export function StockPane({
             surface.scrollLeft -= batch.view.panX - present.stockPanX;
           }
         } else {
-          dispatchRef.current({
-            type: 'setStockView',
-            zoom: batch.view.zoom,
-            panX: batch.view.panX,
-            panY: batch.view.panY,
-          });
+          viewGestureRef.current = true;
+          liveViewRef.current = batch.view;
+          const el = transformRef.current;
+          if (el) {
+            el.style.transform = stockTransformCss(batch.view.panX, batch.view.panY, batch.view.zoom);
+          }
         }
       }
       for (const action of batch.actions) {
         dispatchRef.current(action);
       }
       for (const effect of effects) {
+        if (effect.type === 'commitView') {
+          const stillViewing = [...pipeline.store.sessions.values()].some((session) =>
+            isStockViewSessionMode(session.mode),
+          );
+          if (!stillViewing) {
+            viewGestureRef.current = false;
+            const view = liveViewRef.current;
+            if (
+              view.zoom !== present.stockZoom ||
+              view.panX !== present.stockPanX ||
+              view.panY !== present.stockPanY
+            ) {
+              dispatchRef.current({
+                type: 'setStockView',
+                zoom: view.zoom,
+                panX: view.panX,
+                panY: view.panY,
+              });
+            }
+          }
+        }
         if (effect.type === 'showPageDelete' && present.stockPane !== 'trash') {
           const parsed = parseStockThumbKey(effect.pageId);
           if (parsed?.kind === 'page') {
@@ -465,6 +708,32 @@ export function StockPane({
         if (effect.type === 'dragPage') {
           setStockDeleteKey(null);
           onShowPageDeleteRef.current?.(null);
+          // #region agent log
+          if (present.stockLayout === 'free' && present.stockPane !== 'trash') {
+            const pos = [...pipeline.store.fingerPositions.values()].at(-1);
+            if (pos && stockFreeGrabRef.current?.key !== effect.pageId) {
+              captureStockFreeGrab(pos.x, pos.y, effect.pageId);
+            }
+            const grab = stockFreeGrabRef.current;
+            ipadDebugLog({
+              sessionId: '18f9a4',
+              ingest: DEBUG_STOCK_FREE_INGEST,
+              runId: 'post-fix',
+              hypothesisId: 'A',
+              location: 'StockPane.tsx:dragStart',
+              message: 'stock free drag start',
+              timestamp: Date.now(),
+              data: {
+                key: effect.pageId,
+                pointer: pos ?? null,
+                liveView: liveViewRef.current,
+                grab,
+                docPan: { x: present.stockPanX, y: present.stockPanY },
+                docZoom: present.stockZoom,
+              },
+            });
+          }
+          // #endregion
         }
       }
       if (batch.draggedPageId !== undefined) {
@@ -477,7 +746,7 @@ export function StockPane({
         setDragPointer(null);
       }
     },
-    [syncDragPointer],
+    [syncDragPointer, captureStockFreeGrab],
   );
 
   useEffect(() => {
@@ -496,7 +765,14 @@ export function StockPane({
     const onPointerMove = () => {
       syncDragPointer();
     };
+    const onPointerDownGrab = (event: PointerEvent) => {
+      const hit = resolveHit(event.clientX, event.clientY);
+      if (hit.kind === 'thumb') {
+        captureStockFreeGrab(event.clientX, event.clientY, hit.pageId);
+      }
+    };
     surface.addEventListener('pointermove', onPointerMove);
+    surface.addEventListener('pointerdown', onPointerDownGrab);
 
     const onWheel = (event: WheelEvent) => {
       if (paneLayout !== 'grid') {
@@ -516,12 +792,13 @@ export function StockPane({
     const unbind = pipeline.bind(surface);
     return () => {
       surface.removeEventListener('pointermove', onPointerMove);
+      surface.removeEventListener('pointerdown', onPointerDownGrab);
       surface.removeEventListener('wheel', onWheel);
       unbind();
       pipeline.reset();
       pipelineRef.current = null;
     };
-  }, [applyStockEffects, resolveHit, syncDragPointer, paneLayout, trashPane]);
+  }, [applyStockEffects, resolveHit, syncDragPointer, captureStockFreeGrab, paneLayout, trashPane]);
 
   useLayoutEffect(() => {
     if (paneLayout !== 'grid') {
@@ -550,20 +827,25 @@ export function StockPane({
       pointInRect(clientX, clientY, stockSurface.getBoundingClientRect());
     const overTrash = overTrashButton || overTrashPane;
 
-    const stockWorld = (thumbSize?: { width: number; height: number }) => {
+    const stockWorld = (
+      thumbSize?: { width: number; height: number },
+      grabOffset?: { x: number; y: number },
+    ) => {
       if (!stockSurface) {
         return { x: 0, y: 0 };
       }
       const stockRect = stockSurface.getBoundingClientRect();
+      const view = liveViewRef.current;
       return clientToStockWorld(
         clientX,
         clientY,
         stockRect,
-        present.stockPanX,
-        present.stockPanY,
-        present.stockZoom,
+        view.panX,
+        view.panY,
+        view.zoom,
         present.stockLayout,
         thumbSize,
+        grabOffset,
       );
     };
     const pageThumbSize = { width: STOCK_FREE_PAGE_WIDTH, height: STOCK_FREE_PAGE_HEIGHT };
@@ -697,7 +979,74 @@ export function StockPane({
         }
       }
       if (present.stockLayout === 'free') {
-        const { x, y } = stockWorld(stockDrag.kind === 'page' ? pageThumbSize : itemThumbSize);
+        const thumbSize = stockDrag.kind === 'page' ? pageThumbSize : itemThumbSize;
+        const storedGrab = stockFreeGrabRef.current;
+        const grabOffset =
+          storedGrab && storedGrab.key === stockDragId
+            ? { x: storedGrab.grabOffsetWorldX, y: storedGrab.grabOffsetWorldY }
+            : undefined;
+        const { x, y } = stockWorld(thumbSize, grabOffset);
+        // #region agent log
+        {
+          const view = liveViewRef.current;
+          const geom = debugStockFreeGeom(
+            clientX,
+            clientY,
+            stockSurface,
+            view.panX,
+            view.panY,
+            view.zoom,
+            stockDragId,
+          );
+          const grabDrop =
+            storedGrab && geom.rawWorld
+              ? {
+                  x: geom.rawWorld.x - storedGrab.grabOffsetWorldX,
+                  y: geom.rawWorld.y - storedGrab.grabOffsetWorldY,
+                }
+              : null;
+          const predictedTL = geom.surface
+            ? {
+                x: geom.surface.left + view.panX + x * view.zoom,
+                y: geom.surface.top + view.panY + y * view.zoom,
+              }
+            : null;
+          const grabPointError =
+            predictedTL && storedGrab
+              ? {
+                  x: predictedTL.x + storedGrab.grabOffsetScreenX - clientX,
+                  y: predictedTL.y + storedGrab.grabOffsetScreenY - clientY,
+                }
+              : null;
+          ipadDebugLog({
+            sessionId: '18f9a4',
+            ingest: DEBUG_STOCK_FREE_INGEST,
+            runId: 'post-fix',
+            hypothesisId: 'A',
+            location: 'StockPane.tsx:freeDrop',
+            message: 'stock free drop',
+            timestamp: Date.now(),
+            data: {
+              key: stockDragId,
+              kind: stockDrag.kind,
+              origin: grabOffset ? 'grab' : 'center',
+              pointer: { x: clientX, y: clientY },
+              liveView: view,
+              thumbSize,
+              drop: { x, y },
+              grab: storedGrab,
+              grabDrop,
+              dropMinusGrab: grabDrop ? { x: x - grabDrop.x, y: y - grabDrop.y } : null,
+              predictedTL,
+              grabPointError,
+              geom,
+              vv: debugStockFreeViewport(),
+            },
+          });
+          stockFreeGrabRef.current = null;
+          setStockGrabScreen(null);
+        }
+        // #endregion
         if (stockDrag.kind === 'page') {
           for (const action of placeStockPage(
             stockDrag.pageId,
@@ -791,15 +1140,14 @@ export function StockPane({
           present.stockLayout === 'free' &&
           present.stockPane !== 'trash'
         ) {
-          const { x, y } = clientToStockWorld(
-            clientX,
-            clientY,
-            stockRect,
-            present.stockPanX,
-            present.stockPanY,
-            present.stockZoom,
-            present.stockLayout,
+          const storedGrab = stockFreeGrabRef.current;
+          const grabOffset =
+            storedGrab && stockDragId && storedGrab.key === stockDragId
+              ? { x: storedGrab.grabOffsetWorldX, y: storedGrab.grabOffsetWorldY }
+              : undefined;
+          const { x, y } = stockWorld(
             stockDrag.kind === 'page' ? pageThumbSize : itemThumbSize,
+            grabOffset,
           );
           if (stockDrag.kind === 'page') {
             for (const action of placeStockPage(
@@ -831,6 +1179,7 @@ export function StockPane({
   useEffect(() => {
     if (!workspaceGrab && !draggedStockPageId) {
       setTrashDropHover(false);
+      setOverStockUi(false);
       return;
     }
     const onMove = (event: PointerEvent) => {
@@ -845,6 +1194,7 @@ export function StockPane({
         surface != null &&
         pointInRect(event.clientX, event.clientY, surface.getBoundingClientRect());
       setTrashDropHover(overButton || overPane);
+      setOverStockUi(pointOverStockUi(event.clientX, event.clientY, surface));
     };
     document.addEventListener('pointermove', onMove);
     return () => {
@@ -870,7 +1220,7 @@ export function StockPane({
     };
   }, [workspaceGrab, draggedStockPageId, finishCrossPaneDrop]);
 
-  const dragGhostKeys = stockDragGhostKeys(workspaceGrab, draggedStockPageId);
+  const dragGhostKeys = stockDragGhostKeys(workspaceGrab, draggedStockPageId, overStockUi);
 
   const confirmStockItemDelete = (key: string) => {
     const parsed = parseStockThumbKey(key);
@@ -935,7 +1285,6 @@ export function StockPane({
                     rasterWidth={doc.rasterWidth}
                     rasterHeight={doc.rasterHeight}
                     inkEngine={inkEngine}
-                    rasterLayoutGen={rasterLayoutGen}
                   />
                 </div>
                 {stockItemChrome(key)}
@@ -984,7 +1333,6 @@ export function StockPane({
                 rasterWidth={doc.rasterWidth}
                 rasterHeight={doc.rasterHeight}
                 inkEngine={inkEngine}
-                rasterLayoutGen={rasterLayoutGen}
               />
             </div>
             {stockItemChrome(key)}
@@ -998,9 +1346,13 @@ export function StockPane({
                 itemKey={itemKey}
                 clientX={dragPointer.x + index * 12}
                 clientY={dragPointer.y + index * 12}
+                grabOffset={
+                  stockGrabScreen && stockGrabScreen.key === itemKey
+                    ? { x: stockGrabScreen.x, y: stockGrabScreen.y }
+                    : undefined
+                }
                 doc={doc}
                 inkEngine={inkEngine}
-                rasterLayoutGen={rasterLayoutGen}
                 getPageThumb={getPageThumb}
               />
             ))
@@ -1013,9 +1365,9 @@ export function StockPane({
   return (
     <div ref={surfaceRef} className={styles.stockSurface}>
       <div
+        ref={transformRef}
         className={styles.stockTransform}
         style={{
-          transform: `translate(${doc.stockPanX}px, ${doc.stockPanY}px) scale(${doc.stockZoom})`,
           transformOrigin: '0 0',
           position: 'relative',
           width: '100%',
@@ -1044,7 +1396,6 @@ export function StockPane({
                     rasterWidth={doc.rasterWidth}
                     rasterHeight={doc.rasterHeight}
                     inkEngine={inkEngine}
-                    rasterLayoutGen={rasterLayoutGen}
                   />
                 </div>
                 {stockItemChrome(key)}
@@ -1095,7 +1446,6 @@ export function StockPane({
                 rasterWidth={doc.rasterWidth}
                 rasterHeight={doc.rasterHeight}
                 inkEngine={inkEngine}
-                rasterLayoutGen={rasterLayoutGen}
               />
             </div>
             {stockItemChrome(key)}
@@ -1110,9 +1460,13 @@ export function StockPane({
               itemKey={itemKey}
               clientX={dragPointer.x + index * 12}
               clientY={dragPointer.y + index * 12}
+              grabOffset={
+                stockGrabScreen && stockGrabScreen.key === itemKey
+                  ? { x: stockGrabScreen.x, y: stockGrabScreen.y }
+                  : undefined
+              }
               doc={doc}
               inkEngine={inkEngine}
-              rasterLayoutGen={rasterLayoutGen}
               getPageThumb={getPageThumb}
             />
           ))

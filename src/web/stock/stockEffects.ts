@@ -63,6 +63,7 @@ export function reduceStockEffects(
         draggedPageId = effect.pageId;
         break;
       case 'showPageDelete':
+      case 'commitView':
         break;
       default:
         break;

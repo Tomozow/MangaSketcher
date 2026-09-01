@@ -49,7 +49,8 @@ import {
   mergeTextLive,
   sanitizeTextBox,
 } from '@/src/web/text/textLiveTransform';
-import { isStockPageItem, stockedClipIds, stockedTextIds } from '@/src/domain/stockItems';
+import { stockedClipIds, stockedTextIds } from '@/src/domain/stockItems';
+import { visiblePageRasterIds, workspaceVisibleRasterIdsKey } from '@/src/web/visibleRasterIds';
 import { clipTouchesWorldRect, clipInsertTarget, pageLocalRectToWorld, selectedClipIdsOf, worldRectToPageLocalRect } from './clip/clipGeometry';
 import { CLIP_DUPLICATE_OFFSET, MIN_MARQUEE_RASTER_PX } from './clip/constants';
 import { clipRasterId } from '@/src/storage/rasterIds';
@@ -211,33 +212,6 @@ function collectRasterIds(doc: EditorDocument): string[] {
   return ids;
 }
 
-function visiblePageRasterIds(doc: EditorDocument): string[] {
-  const ids: string[] = [];
-  const pushPage = (pageId: PageId) => {
-    const rasterId = doc.pages[pageId]?.rasterId;
-    if (rasterId) {
-      ids.push(rasterId);
-    }
-  };
-  for (const pageId of doc.workspaceOrder) {
-    pushPage(pageId);
-  }
-  for (const item of doc.stock) {
-    if (isStockPageItem(item)) {
-      pushPage(item.pageId);
-    }
-  }
-  if (doc.stockPane === 'trash') {
-    for (const pageId of doc.trash) {
-      pushPage(pageId);
-    }
-  }
-  for (const clip of doc.pasteboardClips) {
-    ids.push(clip.rasterId);
-  }
-  return ids;
-}
-
 function documentRasterIdsKey(doc: EditorDocument): string {
   const pageRasterIds = Object.values(doc.pages)
     .map((page) => page.rasterId)
@@ -248,17 +222,6 @@ function documentRasterIdsKey(doc: EditorDocument): string {
     .sort()
     .join('\0');
   return `${pageRasterIds}|${clipRasterIds}`;
-}
-
-function workspaceVisibleRasterIdsKey(doc: EditorDocument): string {
-  const workspace = doc.workspaceOrder.map((pageId) => doc.pages[pageId]?.rasterId ?? '');
-  const stock = doc.stock.map((item) =>
-    isStockPageItem(item) ? (doc.pages[item.pageId]?.rasterId ?? '') : '',
-  );
-  const trash =
-    doc.stockPane === 'trash' ? doc.trash.map((pageId) => doc.pages[pageId]?.rasterId ?? '') : [];
-  const clips = doc.pasteboardClips.map((clip) => clip.rasterId);
-  return `${workspace.join('\0')}|${stock.join('\0')}|${trash.join('\0')}|${clips.join('\0')}`;
 }
 
 function isClipLiveEffect(effect: WorkspaceEffect): boolean {

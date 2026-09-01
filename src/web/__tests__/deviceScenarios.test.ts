@@ -230,6 +230,9 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(sidebarSrc).toContain('penSizePresets');
     expect(sidebarSrc).toContain('eraserSizePresets');
     expect(sidebarSrc).toContain('onChangePressure');
+    expect(sidebarSrc).toContain('InkSizePreview');
+    expect(sidebarSrc).toContain('showInkSizePreview');
+    expect(editorCss).toMatch(/\.ms-inkSizePreview[^{]*\{[^}]*place-items:\s*center/);
   });
 
   test('ワークスペース左に拡大縮小とページ移動のナビがある', () => {

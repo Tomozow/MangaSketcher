@@ -73,6 +73,8 @@ export type AppSettings = {
   chromeFlip: boolean;
   pageTurnUnit: PageTurnUnit;
   toolFlyoutOnFirstTap: boolean;
+  stockRevealOnBottomEdge: boolean;
+  stockHideAfterEdgeDrop: boolean;
   penSizePresets: PenSizePresets;
   penOpacityPresets: PenSizePresets;
   penSizePresetIndex: number;
@@ -95,6 +97,8 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   chromeFlip: false,
   pageTurnUnit: 'page',
   toolFlyoutOnFirstTap: false,
+  stockRevealOnBottomEdge: false,
+  stockHideAfterEdgeDrop: false,
   penSizePresets: [...DEFAULT_PEN_SIZE_PRESETS],
   penOpacityPresets: [...DEFAULT_PEN_OPACITY_PRESETS],
   penSizePresetIndex: DEFAULT_PEN_SIZE_PRESET_INDEX,
@@ -357,6 +361,8 @@ export function parseAppSettings(raw: unknown): AppSettings {
     chromeFlip?: unknown;
     pageTurnUnit?: unknown;
     toolFlyoutOnFirstTap?: unknown;
+    stockRevealOnBottomEdge?: unknown;
+    stockHideAfterEdgeDrop?: unknown;
     penSizePresets?: unknown;
     penOpacityPresets?: unknown;
     penSizePresetIndex?: unknown;
@@ -385,6 +391,9 @@ export function parseAppSettings(raw: unknown): AppSettings {
     chromeFlip: record.chromeFlip === true,
     pageTurnUnit: isPageTurnUnit(record.pageTurnUnit) ? record.pageTurnUnit : DEFAULT_APP_SETTINGS.pageTurnUnit,
     toolFlyoutOnFirstTap: record.toolFlyoutOnFirstTap === true,
+    stockRevealOnBottomEdge: record.stockRevealOnBottomEdge === true,
+    stockHideAfterEdgeDrop:
+      record.stockRevealOnBottomEdge === true && record.stockHideAfterEdgeDrop !== false,
     penSizePresets: parsePenSizePresets(record.penSizePresets),
     penOpacityPresets: parsePenOpacityPresets(record.penOpacityPresets),
     penSizePresetIndex: parsePenSizePresetIndex(record.penSizePresetIndex),

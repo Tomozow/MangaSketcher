@@ -15,6 +15,7 @@ import {
   type ShortcutMap,
 } from '@/src/storage/appSettings';
 import { historyControlsDisabled } from './historyControls';
+import { InkSizePreview, INK_SIZE_PREVIEW_HIDE_MS, inkSizePreviewDiameterPx } from './InkSizePreview';
 import { PenSizePresetRow } from './PenSizePresets';
 import { ValueSlider } from './ValueSlider';
 import { styles } from './editorStyles';
@@ -99,6 +100,46 @@ export function CompactSidebar({
   const [appSettings, updateAppSettings] = useAppSettings();
   const [flyoutOpen, setFlyoutOpen] = useState(false);
   const selectedToolRef = useRef(doc.tool);
+  const previewHideRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [inkSizePreview, setInkSizePreview] = useState<{
+    key: number;
+    kind: 'pen' | 'eraser';
+    diameter: number;
+    color: string;
+    opacity: number;
+    size: number;
+  } | null>(null);
+
+  const showInkSizePreview = (
+    kind: 'pen' | 'eraser',
+    size: number,
+    color: string,
+    opacity: number,
+  ) => {
+    setInkSizePreview((prev) => ({
+      key: (prev?.key ?? 0) + 1,
+      kind,
+      diameter: inkSizePreviewDiameterPx(size, doc.workspaceZoom),
+      color,
+      opacity,
+      size,
+    }));
+    if (previewHideRef.current) {
+      clearTimeout(previewHideRef.current);
+    }
+    previewHideRef.current = setTimeout(() => {
+      setInkSizePreview(null);
+      previewHideRef.current = null;
+    }, INK_SIZE_PREVIEW_HIDE_MS);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (previewHideRef.current) {
+        clearTimeout(previewHideRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (selectedToolRef.current === doc.tool) {
@@ -167,6 +208,17 @@ export function CompactSidebar({
       : appSettings.penPressureOpacity[inkPresetIndex]!;
 
   return (
+    <>
+    {inkSizePreview ? (
+      <InkSizePreview
+        key={inkSizePreview.key}
+        kind={inkSizePreview.kind}
+        diameter={inkSizePreview.diameter}
+        color={inkSizePreview.color}
+        opacity={inkSizePreview.opacity}
+        size={inkSizePreview.size}
+      />
+    ) : null}
     <div className={styles.leftChrome}>
       {leading}
       <div className={styles.toolRailCluster}>
@@ -257,31 +309,37 @@ export function CompactSidebar({
             pressureOpacity={inkPressureOpacity}
             onSelect={(index) => {
               if (doc.tool === 'eraser') {
+                const eraserSize = appSettings.eraserSizePresets[index]!;
+                const eraserOpacity = appSettings.eraserOpacityPresets[index]!;
                 updateAppSettings({ eraserSizePresetIndex: index });
                 dispatch({
                   type: 'setToolProperties',
                   patch: {
-                    eraserSize: appSettings.eraserSizePresets[index]!,
-                    eraserOpacity: appSettings.eraserOpacityPresets[index]!,
+                    eraserSize,
+                    eraserOpacity,
                     eraserPressureAffectsSize: appSettings.eraserPressureSize[index]!,
                     eraserPressureAffectsOpacity: appSettings.eraserPressureOpacity[index]!,
                   },
                 });
+                showInkSizePreview('eraser', eraserSize, '#FFFFFF', eraserOpacity);
                 return;
               }
               const sizeOn = appSettings.penPressureSize[index]!;
               const opacityOn = appSettings.penPressureOpacity[index]!;
+              const penSize = appSettings.penSizePresets[index]!;
+              const penOpacity = appSettings.penOpacityPresets[index]!;
               updateAppSettings({ penSizePresetIndex: index });
               dispatch({
                 type: 'setToolProperties',
                 patch: {
-                  penSize: appSettings.penSizePresets[index]!,
-                  penOpacity: appSettings.penOpacityPresets[index]!,
+                  penSize,
+                  penOpacity,
                   pressureAffectsSize: sizeOn,
                   pressureAffectsOpacity: opacityOn,
                   pressureEnabled: sizeOn || opacityOn,
                 },
               });
+              showInkSizePreview('pen', penSize, doc.tools.penColor, penOpacity);
             }}
             onChangeSize={(index, value) => {
               if (doc.tool === 'eraser') {
@@ -290,6 +348,7 @@ export function CompactSidebar({
                   eraserSizePresetIndex: index,
                 });
                 dispatch({ type: 'setToolProperties', patch: { eraserSize: value } });
+                showInkSizePreview('eraser', value, '#FFFFFF', doc.tools.eraserOpacity);
                 return;
               }
               updateAppSettings({
@@ -297,6 +356,7 @@ export function CompactSidebar({
                 penSizePresetIndex: index,
               });
               dispatch({ type: 'setToolProperties', patch: { penSize: value } });
+              showInkSizePreview('pen', value, doc.tools.penColor, doc.tools.penOpacity);
             }}
             onChangeOpacity={(index, value) => {
               if (doc.tool === 'eraser') {
@@ -376,5 +436,6 @@ export function CompactSidebar({
       ) : null}
       </div>
     </div>
+    </>
   );
 }

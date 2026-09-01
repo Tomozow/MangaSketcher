@@ -80,6 +80,14 @@ describe('appSettings', () => {
     });
     expect(parseAppSettings({ toolFlyoutOnFirstTap: true }).toolFlyoutOnFirstTap).toBe(true);
     expect(parseAppSettings({}).toolFlyoutOnFirstTap).toBe(false);
+    expect(parseAppSettings({ stockRevealOnBottomEdge: true }).stockRevealOnBottomEdge).toBe(true);
+    expect(parseAppSettings({}).stockRevealOnBottomEdge).toBe(false);
+    expect(parseAppSettings({}).stockHideAfterEdgeDrop).toBe(false);
+    expect(parseAppSettings({ stockHideAfterEdgeDrop: true }).stockHideAfterEdgeDrop).toBe(false);
+    expect(parseAppSettings({ stockRevealOnBottomEdge: true }).stockHideAfterEdgeDrop).toBe(true);
+    expect(parseAppSettings({ stockRevealOnBottomEdge: true, stockHideAfterEdgeDrop: false }).stockHideAfterEdgeDrop).toBe(
+      false,
+    );
     expect(parseAppSettings({ pageTurnUnit: 'nope' }).pageTurnUnit).toBe('page');
     expect(parseAppSettings({ historyDepth: 999 }).historyDepth).toBe(200);
     expect(parseAppSettings({ inkIdleMs: 10 }).inkIdleMs).toBe(200);

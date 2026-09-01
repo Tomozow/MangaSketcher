@@ -90,6 +90,7 @@ export class InkEngine {
   /** Visible strip rasters kept decoded (§9.6); never LRU-evicted. */
   private readonly pinnedHotRasterIds = new Set<string>();
   private readonly rasterDimensions = new Map<string, { width: number; height: number }>();
+  private readonly thumbReadyListeners = new Set<(rasterId: string) => void>();
 
   constructor(options: {
     rasterWidth: number;
@@ -585,21 +586,100 @@ export class InkEngine {
     return this.thumbs.get(rasterId);
   }
 
+  subscribeThumbReady(listener: (rasterId: string) => void): () => void {
+    this.thumbReadyListeners.add(listener);
+    return () => {
+      this.thumbReadyListeners.delete(listener);
+    };
+  }
+
+  private notifyThumbReady(rasterId: string): void {
+    for (const listener of this.thumbReadyListeners) {
+      listener(rasterId);
+    }
+  }
+
+  private isPageRasterId(rasterId: string): boolean {
+    return rasterId.includes(':page:');
+  }
+
+  /**
+   * Draw ink onto a 144×204 thumb context without creating a hot canvas when
+   * the page is only encoded.
+   */
+  private async drawInkSourceOntoThumb(ctx: Ink2DContext, rasterId: string): Promise<void> {
+    const hot = this.hot.get(rasterId);
+    if (hot) {
+      ctx.drawImage(hot as unknown as CanvasImageSource, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
+      const overlay = this.overlays.get(rasterId);
+      if (overlay) {
+        ctx.drawImage(overlay as unknown as CanvasImageSource, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
+      }
+      return;
+    }
+
+    const png = this.encodedPng.get(rasterId);
+    if (!png || png.byteLength === 0) {
+      return;
+    }
+
+    const snapshot = tryDecodeInkSnapshot(png);
+    if (snapshot) {
+      const src = this.canvasFactory(snapshot.width, snapshot.height);
+      const srcCtx = src.getContext('2d');
+      if (!srcCtx) {
+        return;
+      }
+      try {
+        const imageData =
+          typeof ImageData !== 'undefined'
+            ? new ImageData(snapshot.data, snapshot.width, snapshot.height)
+            : ({ data: snapshot.data, width: snapshot.width, height: snapshot.height } as ImageData);
+        srcCtx.putImageData(imageData, 0, 0);
+        ctx.drawImage(src as unknown as CanvasImageSource, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
+      } catch {
+        /* malformed snapshot */
+      }
+      return;
+    }
+
+    if (!isPngBuffer(png) || typeof createImageBitmap === 'undefined') {
+      return;
+    }
+    const blob = new Blob([png.slice(0)], { type: 'image/png' });
+    let bitmap: ImageBitmap | undefined;
+    try {
+      bitmap = await createImageBitmap(blob, {
+        resizeWidth: THUMB_WIDTH,
+        resizeHeight: THUMB_HEIGHT,
+        resizeQuality: 'low',
+      });
+    } catch {
+      try {
+        bitmap = await createImageBitmap(blob);
+      } catch {
+        return;
+      }
+    }
+    ctx.drawImage(bitmap, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
+    bitmap.close();
+  }
+
   /**
    * §9.7: composite template + ink at 144×204. Text is not baked (DOM-only).
+   * Does not decode into hot when the raster is only in encodedPng.
    */
   async generateThumb(rasterId: string): Promise<ImageBitmap | undefined> {
     const generation = (this.thumbGeneration.get(rasterId) ?? 0) + 1;
     this.thumbGeneration.set(rasterId, generation);
 
-    const page = this.decode(rasterId);
     const thumbCanvas = this.canvasFactory(THUMB_WIDTH, THUMB_HEIGHT);
     const ctx = thumbCanvas.getContext('2d');
     if (!ctx) {
       return undefined;
     }
 
-    if (this.drawTemplate) {
+    if (this.drawTemplate && this.isPageRasterId(rasterId)) {
       this.drawTemplate(ctx, THUMB_WIDTH, THUMB_HEIGHT);
     }
 
@@ -610,7 +690,10 @@ export class InkEngine {
       ctx.imageSmoothingQuality = 'low';
     }
 
-    ctx.drawImage(page as unknown as CanvasImageSource, 0, 0, THUMB_WIDTH, THUMB_HEIGHT);
+    await this.drawInkSourceOntoThumb(ctx, rasterId);
+    if (this.thumbGeneration.get(rasterId) !== generation) {
+      return undefined;
+    }
 
     let bitmap: ImageBitmap;
     try {
@@ -628,6 +711,7 @@ export class InkEngine {
       prev.close();
     }
     this.thumbs.set(rasterId, bitmap);
+    this.notifyThumbReady(rasterId);
     return bitmap;
   }
 

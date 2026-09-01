@@ -182,6 +182,14 @@ describe('stock FSM page delete', () => {
     expect(pan.effects).toEqual([{ type: 'panBy', dx: 15, dy: 0 }]);
   });
 
+  test('パンを離すと commitView', () => {
+    const store = createStockGestureStore();
+    finger(store, 'down', { now: 0, hit: { kind: 'empty' } });
+    finger(store, 'move', { x: 20, y: 0, now: 30, hit: { kind: 'empty' } });
+    const up = finger(store, 'up', { x: 24, y: 0, now: 40, hit: { kind: 'empty' } });
+    expect(up.effects).toEqual([{ type: 'commitView' }]);
+  });
+
   test('grid でも 2本指で pinchBy する', () => {
     const store = createStockGestureStore();
     finger(store, 'down', {

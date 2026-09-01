@@ -176,4 +176,43 @@ describe('InkEngine thumbnails (§9.7)', () => {
     expect(after.canvas.getContext('2d')!.getImageData(inkX, inkY, 1, 1).data[0]).toBe(192);
     expect(before.isClosed()).toBe(true);
   });
+
+  test('generateThumb from encodedPng does not create a hot canvas', async () => {
+    const rasterId = 'p1:page:thumb-encoded';
+    const engine = createThumbEngine();
+    const source = new FakeOffscreenCanvas(TEST_W, TEST_H);
+    const sourceCtx = source.getContext('2d')!;
+    sourceCtx.fillStyle = '#000000';
+    sourceCtx.fillRect(6, 6, 10, 10);
+    const encoded = await source.convertToBlob().then((blob) => blob.arrayBuffer());
+    engine.registerRaster(rasterId, encoded);
+    expect(engine.hot.has(rasterId)).toBe(false);
+
+    const thumb = await engine.generateThumb(rasterId);
+    expect(thumb).toBeDefined();
+    expect(engine.hot.has(rasterId)).toBe(false);
+    expect(engine.getThumb(rasterId)).toBe(thumb);
+
+    const inkX = Math.floor((8 / TEST_W) * THUMB_WIDTH);
+    const inkY = Math.floor((8 / TEST_H) * THUMB_HEIGHT);
+    const pixel = (thumb as unknown as FakeImageBitmap).canvas
+      .getContext('2d')!
+      .getImageData(inkX, inkY, 1, 1);
+    expect(pixel.data[3]).toBeGreaterThan(0);
+  });
+
+  test('generateThumb skips page template for clip rasters', async () => {
+    const rasterId = 'p1:clip:thumb-clip';
+    const engine = createThumbEngine();
+    engine.registerClipRaster(rasterId, TEST_W, TEST_H);
+    const thumb = await engine.generateThumb(rasterId);
+    expect(thumb).toBeDefined();
+    expect(engine.hot.has(rasterId)).toBe(false);
+    const alpha = countAlphaPixels(
+      (thumb as unknown as FakeImageBitmap).canvas.getContext('2d')!,
+      THUMB_WIDTH,
+      THUMB_HEIGHT,
+    );
+    expect(alpha).toBe(0);
+  });
 });

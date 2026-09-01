@@ -29,6 +29,7 @@ export function clientToStockWorld(
   zoom: number,
   layout: 'free' | 'grid',
   thumbSize?: { width: number; height: number },
+  grabOffset?: { x: number; y: number },
 ): { x: number; y: number } {
   if (layout === 'grid') {
     return { x: 0, y: 0 };
@@ -36,6 +37,9 @@ export function clientToStockWorld(
   const localX = clientX - surfaceRect.left;
   const localY = clientY - surfaceRect.top;
   const { x, y } = screenToWorld(localX, localY, panX, panY, zoom);
+  if (grabOffset) {
+    return { x: x - grabOffset.x, y: y - grabOffset.y };
+  }
   const halfW = (thumbSize?.width ?? STOCK_FREE_THUMB_WIDTH) / 2;
   const halfH = (thumbSize?.height ?? STOCK_FREE_THUMB_HEIGHT) / 2;
   return { x: x - halfW, y: y - halfH };

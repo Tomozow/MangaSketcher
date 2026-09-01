@@ -77,7 +77,7 @@ function stepFinger(
 ): { session: StockSession; effects: StockEffect[] } {
   if (session.mode === 'pan') {
     if (input.phase === 'up' || input.phase === 'cancel') {
-      return { session: { mode: 'idle' }, effects: [] };
+      return { session: { mode: 'idle' }, effects: [{ type: 'commitView' }] };
     }
     return {
       session: { mode: 'pan', kind: 'finger', lastX: input.x, lastY: input.y },
@@ -87,7 +87,7 @@ function stepFinger(
 
   if (session.mode === 'zoomDrag') {
     if (input.phase === 'up' || input.phase === 'cancel') {
-      return { session: { mode: 'idle' }, effects: [] };
+      return { session: { mode: 'idle' }, effects: [{ type: 'commitView' }] };
     }
     const dy = input.y - session.lastY;
     if (dy === 0) {
@@ -110,7 +110,7 @@ function stepFinger(
 
   if (session.mode === 'pinch') {
     if (input.phase === 'up' || input.phase === 'cancel') {
-      return { session: { mode: 'idle' }, effects: [] };
+      return { session: { mode: 'idle' }, effects: [{ type: 'commitView' }] };
     }
     const partnerId = session.partnerId;
     const partner = store.sessions.get(partnerId);
