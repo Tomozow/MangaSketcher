@@ -51,7 +51,6 @@ import {
   sanitizeTextBox,
 } from '@/src/web/text/textLiveTransform';
 import { stockedClipIds, stockedTextIds } from '@/src/domain/stockItems';
-import { visiblePageRasterIds, workspaceVisibleRasterIdsKey } from '@/src/web/visibleRasterIds';
 import { clipTouchesPolygon, clipTouchesWorldRect, clipInsertTarget, intersectRects, pageLocalRectToWorld, polygonAabb, rectTouchesPolygon, selectedClipIdsOf, worldPointsToPageLocal, worldRectToPageLocalRect } from './clip/clipGeometry';
 import { CLIP_DUPLICATE_OFFSET, MIN_MARQUEE_RASTER_PX } from './clip/constants';
 import { clipRasterId } from '@/src/storage/rasterIds';
@@ -531,16 +530,10 @@ export function useEditorController(projectId: string): EditorController {
   }, []);
 
   const rasterIdsKey = history ? documentRasterIdsKey(history.present) : '';
-  const visibleRasterIdsKey = history ? workspaceVisibleRasterIdsKey(history.present) : '';
 
   const rasterIds = useMemo(
     () => (history ? collectRasterIds(history.present) : []),
     [history, rasterIdsKey],
-  );
-
-  const visibleRasterIds = useMemo(
-    () => (history ? visiblePageRasterIds(history.present) : []),
-    [history, visibleRasterIdsKey],
   );
 
   const inkAutosaveSink = useMemo((): InkAutosaveSink => {
@@ -566,7 +559,6 @@ export function useEditorController(projectId: string): EditorController {
     rasterHeight: history?.present.rasterHeight ?? DEFAULT_RASTER_HEIGHT,
     emptyPng,
     rasterIds,
-    visibleRasterIds,
     encodedByRasterId: bootEncodedPng,
     drawTemplate,
     autosaveSink: inkAutosaveSink,

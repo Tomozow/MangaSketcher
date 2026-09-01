@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
   buildStripFrames,
   NUMBER_BAND,
@@ -34,6 +34,7 @@ import { PageChromeOverlay } from '@/src/web/PageDeleteButton';
 import { PageInkCanvas } from '@/src/web/ink/PageInkCanvas';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
 import { PasteboardClipsLayer } from '@/src/web/clip/PasteboardClipsLayer';
+import { clipWorldAxisAlignedBounds, clipWorldBounds } from '@/src/web/clip/clipGeometry';
 import { effectiveClipPose, type ClipLiveTransform } from '@/src/web/clip/clipLiveTransform';
 import {
   PageTextsOnFrame,
@@ -43,6 +44,10 @@ import {
   type LiveTextContent,
 } from '@/src/web/PageTextOverlay';
 import type { TextLiveTransform } from '@/src/web/text/textLiveTransform';
+import {
+  cullWorkspaceInkRasters,
+  pageInkWorldAabb,
+} from '@/src/web/workspaceViewportCulling';
 import { styles } from './editorStyles';
 
 const TEMPLATE_URL = '/page_template.jpg';
@@ -149,6 +154,139 @@ export function WorkspaceStrip({
     () => buildStripFrames(workspaceOrder, layout),
     [workspaceOrder, layout.pagesPerColumn, layout.pairGap, layout.showPairDivider, layout.columnGap],
   );
+
+  const [surfaceSize, setSurfaceSize] = useState({ width: 0, height: 0 });
+  useLayoutEffect(() => {
+    const el = surfaceRef.current;
+    if (!el) {
+      return;
+    }
+    const apply = () => {
+      const width = el.clientWidth;
+      const height = el.clientHeight;
+      setSurfaceSize((prev) =>
+        prev.width === width && prev.height === height ? prev : { width, height },
+      );
+    };
+    apply();
+    if (typeof ResizeObserver === 'undefined') {
+      return;
+    }
+    const observer = new ResizeObserver(apply);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const resolvedSelectedClipIds =
+    selectedClipIds.length > 0 ? selectedClipIds : selectedClipId ? [selectedClipId] : [];
+
+  const alwaysDisplayRasterIds = useMemo(() => {
+    const ids: string[] = [];
+    const seen = new Set<string>();
+    const add = (rasterId: string | undefined) => {
+      if (!rasterId || seen.has(rasterId)) {
+        return;
+      }
+      seen.add(rasterId);
+      ids.push(rasterId);
+    };
+    if (grabbedPageId) {
+      add(pages[grabbedPageId]?.rasterId);
+    }
+    for (const clipId of resolvedSelectedClipIds) {
+      add(pasteboardClips.find((clip) => clip.id === clipId)?.rasterId);
+    }
+    if (inkEngine) {
+      for (const pageId of workspaceOrder) {
+        const rasterId = pages[pageId]?.rasterId;
+        if (rasterId && inkEngine.hasPenOverlay(rasterId)) {
+          add(rasterId);
+        }
+      }
+      for (const clip of pasteboardClips) {
+        if (inkEngine.hasPenOverlay(clip.rasterId)) {
+          add(clip.rasterId);
+        }
+      }
+    }
+    return ids;
+  }, [
+    grabbedPageId,
+    pages,
+    resolvedSelectedClipIds,
+    pasteboardClips,
+    inkEngine,
+    workspaceOrder,
+    inkFrame,
+  ]);
+
+  const inkCull = useMemo(() => {
+    const pageItems = frames.flatMap((frame) => {
+      if (frame.slot.kind !== 'page') {
+        return [];
+      }
+      const rasterId = pages[frame.slot.pageId]?.rasterId;
+      if (!rasterId) {
+        return [];
+      }
+      return [{ rasterId, aabb: pageInkWorldAabb(frame) }];
+    });
+    const clipItems = pasteboardClips.map((clip) => {
+      const pose = effectiveClipPose(clip, clipLiveTransforms[clip.id]);
+      const size = getClipRasterSize(clip.id);
+      return {
+        rasterId: clip.rasterId,
+        aabb: clipWorldAxisAlignedBounds(
+          clipWorldBounds({ ...clip, ...pose }, size, rasterWidth, rasterHeight),
+        ),
+      };
+    });
+    return cullWorkspaceInkRasters({
+      surfaceWidth: surfaceSize.width,
+      surfaceHeight: surfaceSize.height,
+      panX,
+      panY,
+      zoom,
+      pairGap: layout.pairGap,
+      columnGap: layout.columnGap,
+      pages: pageItems,
+      clips: clipItems,
+      alwaysDisplayRasterIds,
+    });
+  }, [
+    frames,
+    pages,
+    pasteboardClips,
+    clipLiveTransforms,
+    getClipRasterSize,
+    rasterWidth,
+    rasterHeight,
+    surfaceSize.width,
+    surfaceSize.height,
+    panX,
+    panY,
+    zoom,
+    layout.pairGap,
+    layout.columnGap,
+    alwaysDisplayRasterIds,
+  ]);
+
+  const displayInkKey = inkCull.displayRasterIds.join('\0');
+  const displayInkRasterIds = useMemo(
+    () => new Set(inkCull.displayRasterIds),
+    [displayInkKey, inkCull.displayRasterIds],
+  );
+  const pinRasterKey = inkCull.pinRasterIds.join('\0');
+
+  useLayoutEffect(() => {
+    if (!inkEngine) {
+      return;
+    }
+    inkEngine.setPinnedHotRasterIds(inkCull.pinRasterIds);
+    for (const rasterId of inkCull.pinRasterIds) {
+      inkEngine.decode(rasterId);
+    }
+  }, [inkEngine, pinRasterKey, inkCull.pinRasterIds]);
 
   const syncDragPointer = useCallback(() => {
     const pipeline = pipelineRef.current;
@@ -515,7 +653,7 @@ export function WorkspaceStrip({
                 {...{ [PAGE_INK_FRAME_ATTR]: pageId }}
               >
                 <div className={styles.pageInkPlane} {...{ [PAGE_INK_PLANE_ATTR]: '' }}>
-                  {inkEngine && rasterId ? (
+                  {inkEngine && rasterId && displayInkRasterIds.has(rasterId) ? (
                     <PageInkCanvas
                       engine={inkEngine}
                       rasterId={rasterId}
@@ -570,13 +708,7 @@ export function WorkspaceStrip({
         {inkEngine ? (
           <PasteboardClipsLayer
             clips={pasteboardClips}
-            selectedClipIds={
-              selectedClipIds.length > 0
-                ? selectedClipIds
-                : selectedClipId
-                  ? [selectedClipId]
-                  : []
-            }
+            selectedClipIds={resolvedSelectedClipIds}
             clipLiveTransforms={clipLiveTransforms}
             engine={inkEngine}
             rasterWidth={rasterWidth}
@@ -584,6 +716,7 @@ export function WorkspaceStrip({
             zoom={zoom}
             inkFrame={inkFrame}
             getClipRasterSize={getClipRasterSize}
+            displayInkRasterIds={displayInkRasterIds}
           />
         ) : null}
       </div>

@@ -2,8 +2,8 @@ import { withoutStockedClips } from '@/src/domain/stockItems';
 import type { EditorDocument } from '@/src/storage/types';
 
 /**
- * Rasters that should stay hot-decoded (§9.6): workspace pages plus
- * pasteboard clips that are actually on the workspace (not stock/trash).
+ * Workspace-document rasters (not viewport): pages on the strip plus
+ * pasteboard clips that are not stock/trash.
  */
 export function visiblePageRasterIds(doc: EditorDocument): string[] {
   const ids: string[] = [];

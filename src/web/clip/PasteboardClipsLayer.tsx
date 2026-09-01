@@ -18,6 +18,7 @@ type PasteboardClipsLayerProps = {
   zoom: number;
   inkFrame: number;
   getClipRasterSize: (clipId: ClipId) => { width: number; height: number };
+  displayInkRasterIds: ReadonlySet<string>;
 };
 
 export function PasteboardClipsLayer({
@@ -30,6 +31,7 @@ export function PasteboardClipsLayer({
   zoom,
   inkFrame,
   getClipRasterSize,
+  displayInkRasterIds,
 }: PasteboardClipsLayerProps) {
   const selectedIdSet = new Set(selectedClipIds);
   const { sx, sy } = rasterToDisplayScale(rasterWidth, rasterHeight);
@@ -59,14 +61,16 @@ export function PasteboardClipsLayer({
               transform: `translate(-50%, -50%) rotate(${pose.rotation}rad)`,
             }}
           >
-            <PageInkCanvas
-              engine={engine}
-              rasterId={clip.rasterId}
-              displayWidth={displayW}
-              displayHeight={displayH}
-              cssZoom={zoom}
-              inkFrame={inkFrame}
-            />
+            {displayInkRasterIds.has(clip.rasterId) ? (
+              <PageInkCanvas
+                engine={engine}
+                rasterId={clip.rasterId}
+                displayWidth={displayW}
+                displayHeight={displayH}
+                cssZoom={zoom}
+                inkFrame={inkFrame}
+              />
+            ) : null}
             {selectedIdSet.has(clip.id) ? (
               <>
                 <div className={styles.clipHandleRotate} aria-hidden />

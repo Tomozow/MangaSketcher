@@ -18,8 +18,6 @@ export type UseInkEngineOptions = {
   emptyPng: ArrayBuffer;
   /** All raster ids for the open document. */
   rasterIds: string[];
-  /** Visible strip ids — decoded first (§9.6). */
-  visibleRasterIds?: string[];
   /** Boot-time encoded PNG per raster id. */
   encodedByRasterId?: ReadonlyMap<string, ArrayBuffer>;
   drawTemplate?: DrawTemplate;
@@ -48,7 +46,7 @@ export type InkEngineApi = {
 
 /**
  * React mount point for InkEngine. Editor wires reducer + gestures later.
- * Boots decode from encodedPng with visible-page priority (§9.6).
+ * Viewport pin/decode is owned by WorkspaceStrip so pan does not re-register rasters.
  */
 export function useInkEngine(options: UseInkEngineOptions): InkEngineApi {
   const autosaveRef = useRef(options.autosaveSink);
@@ -85,28 +83,12 @@ export function useInkEngine(options: UseInkEngineOptions): InkEngineApi {
   }, [engine]);
 
   useLayoutEffect(() => {
-    const visible = options.visibleRasterIds ?? [];
-    const visibleSet = new Set(visible);
-    const bootOrder = [...visible, ...options.rasterIds.filter((id) => !visibleSet.has(id))];
-
-    engine.setPinnedHotRasterIds(visible);
-
-    for (const rasterId of bootOrder) {
+    for (const rasterId of options.rasterIds) {
       const encoded = options.encodedByRasterId?.get(rasterId);
       engine.registerRaster(rasterId, encoded);
     }
-
-    for (const rasterId of bootOrder) {
-      if (visibleSet.has(rasterId)) {
-        engine.decode(rasterId);
-      }
-    }
     setRasterLayoutGen((n) => n + 1);
-  }, [engine, options.rasterIds, options.encodedByRasterId, options.visibleRasterIds]);
-
-  useEffect(() => {
-    engine.setPinnedHotRasterIds(options.visibleRasterIds ?? []);
-  }, [engine, options.visibleRasterIds]);
+  }, [engine, options.rasterIds, options.encodedByRasterId]);
 
   const takeStrokeUndoPng = useCallback(
     (rasterId: string) => engine.takeStrokeUndoPng(rasterId),

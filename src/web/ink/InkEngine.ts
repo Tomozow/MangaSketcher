@@ -428,6 +428,10 @@ export class InkEngine {
     return this.overlayCtx.get(rasterId) ?? this.overlays.get(rasterId)?.getContext('2d') ?? null;
   }
 
+  hasPenOverlay(rasterId: string): boolean {
+    return this.overlays.has(rasterId);
+  }
+
   /** §9.5 display copy: hot page + live pen overlay at CSS size. */
   paintDisplay(ctx: Ink2DContext, rasterId: string, width: number, height: number): void {
     const page = this.decode(rasterId);
