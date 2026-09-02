@@ -5,6 +5,8 @@ import {
   undoEditorHistory,
 } from '../history';
 import { createEditorDocument } from '../editorDocument';
+import { reduceEditorDocument } from '../../domain/editorReducer';
+import { sequentialIds } from '../../domain/document';
 import { HISTORY_DEPTH } from '../types';
 
 function inkSink(store: Map<string, ArrayBuffer>) {
@@ -152,5 +154,65 @@ describe('EditorHistory', () => {
     const stored = history.past.at(-1)?.inkUndo.get(rasterId);
     expect(stored).toBeInstanceOf(ArrayBuffer);
     expect(new Uint8Array(stored as ArrayBuffer)[0]).toBe(7);
+  });
+
+  test('does not store text selection on the undo stack and keeps live selection after undo', () => {
+    const ids = sequentialIds('tx');
+    let doc = createEditorDocument({ name: 'h', pageCount: 1 });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId },
+        box: { x: 10, y: 10, width: 40, height: 80 },
+        content: '本文',
+      },
+      ids,
+    );
+    const textId = doc.selectedTextId!;
+    let history = createEditorHistory(doc);
+    history = pushEditorHistory(
+      history,
+      { ...history.present, inkGeneration: 1 },
+      new Map(),
+      false,
+    );
+
+    expect(history.past.at(-1)?.doc.selectedTextId).toBeNull();
+    expect(history.past.at(-1)?.doc.selectedTextIds).toEqual([]);
+    expect(history.present.selectedTextId).toBe(textId);
+
+    const undone = undoEditorHistory(history, inkSink(new Map()))!;
+    expect(undone.present.inkGeneration).toBe(0);
+    expect(undone.present.selectedTextId).toBe(textId);
+    expect(undone.future[0]?.doc.selectedTextId).toBeNull();
+
+    const redone = redoEditorHistory(undone, inkSink(new Map()))!;
+    expect(redone.present.inkGeneration).toBe(1);
+    expect(redone.present.selectedTextId).toBe(textId);
+  });
+
+  test('clears text selection after undo when the selected text is gone', () => {
+    const ids = sequentialIds('tx');
+    const empty = createEditorDocument({ name: 'h', pageCount: 1 });
+    const pageId = empty.workspaceOrder[0]!;
+    const withText = reduceEditorDocument(
+      empty,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId },
+        box: { x: 10, y: 10, width: 40, height: 80 },
+      },
+      ids,
+    );
+    let history = createEditorHistory(empty);
+    history = pushEditorHistory(history, withText, new Map(), false);
+    expect(history.present.selectedTextId).not.toBeNull();
+
+    const undone = undoEditorHistory(history, inkSink(new Map()))!;
+    expect(undone.present.pages[pageId]!.texts).toHaveLength(0);
+    expect(undone.present.selectedTextId).toBeNull();
+    expect(undone.present.selectedTextIds).toEqual([]);
   });
 });

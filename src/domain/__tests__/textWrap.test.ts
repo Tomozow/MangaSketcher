@@ -3,8 +3,9 @@ import { drawPageTextsOnThumb, type ThumbText } from '../../web/ink/drawPageText
 import type { Rect } from '../types';
 import { shouldRotateForVerticalRl } from '../text';
 import {
-  TEXT_WRAP_LINE_HEIGHT,
+  verticalColumnPitch,
   convertWrapToExplicitNewlines,
+  expandTextBoxWidthToColumns,
   fitTextBoxToContent,
   verticalTextContentSize,
   wrapPageTextToLines,
@@ -58,7 +59,7 @@ function renderedCalls(text: ThumbText): Call[] {
  */
 function callsFromLines(lines: string[], box: Rect, fontSize: number): Call[] {
   const fontPx = Math.max(1, Number.isFinite(fontSize) ? fontSize : 12);
-  const colW = fontPx * TEXT_WRAP_LINE_HEIGHT;
+  const colW = verticalColumnPitch(fontPx);
   const out: Call[] = [];
   let colX = box.x + box.width - colW;
   for (let i = 0; i < lines.length; i++) {
@@ -80,8 +81,9 @@ function callsFromLines(lines: string[], box: Rect, fontSize: number): Call[] {
 }
 
 function expectParity(content: string, box: Rect, fontSize: number): string[] {
-  const lines = wrapPageTextToLines(content, box, fontSize);
-  const expected = callsFromLines(lines, box, fontSize);
+  const laidOut = expandTextBoxWidthToColumns(box, content, fontSize);
+  const lines = wrapPageTextToLines(content, laidOut, fontSize);
+  const expected = callsFromLines(lines, laidOut, fontSize);
   const actual = renderedCalls({ content, box, fontSize, color: '#000' });
   expect(actual).toEqual(expected);
   return lines;
@@ -127,11 +129,9 @@ describe('wrapPageTextToLines', () => {
     expect(lines).toEqual(['あ', '', 'い']);
   });
 
-  test('glyphs past the left edge are dropped like the renderer', () => {
-    // colW 43.2, break when the whole column exits box.x → 5 columns × 3 glyphs
+  test('glyphs past the left edge stay visible when the box is widened to 1.5em columns', () => {
     const lines = expectParity('あいうえおかきくけこさしすせそたち', box, 36);
-    expect(lines.join('')).toBe('あいうえおかきくけこさしすせそ');
-    expect(lines).toHaveLength(5);
+    expect(lines.join('')).toBe('あいうえおかきくけこさしすせそたち');
   });
 
   test('font larger than box height renders one glyph per column with a leading empty column', () => {
@@ -211,18 +211,41 @@ describe('fitTextBoxToContent', () => {
     const one = verticalTextContentSize('あ'.repeat(10), fontSize);
     const two = verticalTextContentSize('あ'.repeat(11), fontSize);
     expect(two.width).toBe(one.width);
-    expect(two.width).toBe(Math.ceil(fontSize * TEXT_WRAP_LINE_HEIGHT));
+    expect(two.width).toBe(Math.ceil(verticalColumnPitch(fontSize)));
     expect(one.height).toBe(10 * fontSize);
     expect(two.height).toBe(11 * fontSize);
     expect(verticalTextContentSize('あ', fontSize).height).toBe(fontSize);
     expect(verticalTextContentSize('あ'.repeat(3), fontSize).height).toBe(3 * fontSize);
     expect(verticalTextContentSize(`${'あ'.repeat(10)}\nあ`, fontSize).width).toBe(
-      Math.ceil(2 * fontSize * TEXT_WRAP_LINE_HEIGHT),
+      Math.ceil(2 * verticalColumnPitch(fontSize)),
     );
   });
 
   test('empty content leaves the box unchanged', () => {
     const box: Rect = { x: 10, y: 20, width: 30, height: 40 };
     expect(fitTextBoxToContent(box, '   ', 36)).toEqual(box);
+  });
+});
+
+describe('expandTextBoxWidthToColumns', () => {
+  test('widens a 1.2em box to 1.5em for a single column', () => {
+    const fontSize = 36;
+    const box: Rect = { x: 400, y: 80, width: Math.ceil(fontSize * 1.2), height: fontSize };
+    const next = expandTextBoxWidthToColumns(box, 'あ', fontSize);
+    expect(next.width).toBe(Math.ceil(verticalColumnPitch(fontSize)));
+    expect(next.x + next.width).toBeCloseTo(box.x + box.width);
+    expect(next.y).toBe(box.y);
+    expect(next.height).toBe(box.height);
+  });
+
+  test('does not widen a zero-width box', () => {
+    const box: Rect = { x: 10, y: 20, width: 0, height: 40 };
+    expect(expandTextBoxWidthToColumns(box, 'あ', 36)).toEqual(box);
+  });
+
+  test('leaves a wide enough box unchanged', () => {
+    const fontSize = 36;
+    const box: Rect = { x: 10, y: 20, width: 200, height: fontSize };
+    expect(expandTextBoxWidthToColumns(box, 'あ', fontSize)).toEqual(box);
   });
 });

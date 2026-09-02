@@ -1,5 +1,10 @@
 import { cloneEditorDocument } from './editorDocument';
+import { withLiveTextSelection, withoutTextSelection } from '../domain/text';
 import { HISTORY_DEPTH, type EditorDocument, type EditorHistory, type EditorHistoryEntry, type InkUndoPixels } from './types';
+
+function cloneHistoryStackDocument(doc: EditorDocument): EditorDocument {
+  return withoutTextSelection(cloneEditorDocument(doc));
+}
 
 export function createEditorHistory(doc: EditorDocument): EditorHistory {
   return {
@@ -61,7 +66,7 @@ export function pushEditorHistory(
     };
   }
   const pastEntry: EditorHistoryEntry = {
-    doc: cloneEditorDocument(history.present),
+    doc: cloneHistoryStackDocument(history.present),
     inkUndo: cloneInkUndo(inkUndo),
   };
   const past = [...history.past, pastEntry];
@@ -126,11 +131,11 @@ export function undoEditorHistory(
     ink.invalidateThumb(rasterId);
   }
   const futureEntry: EditorHistoryEntry = {
-    doc: cloneEditorDocument(history.present),
+    doc: cloneHistoryStackDocument(history.present),
     inkUndo: futureInkUndo,
   };
   return {
-    present: cloneEditorDocument(entry.doc),
+    present: withLiveTextSelection(cloneEditorDocument(entry.doc), history.present),
     past,
     future: [futureEntry, ...history.future],
   };
@@ -160,11 +165,11 @@ export function redoEditorHistory(
     ink.invalidateThumb(rasterId);
   }
   const pastEntry: EditorHistoryEntry = {
-    doc: cloneEditorDocument(history.present),
+    doc: cloneHistoryStackDocument(history.present),
     inkUndo: pastInkUndo,
   };
   return {
-    present: cloneEditorDocument(entry.doc),
+    present: withLiveTextSelection(cloneEditorDocument(entry.doc), history.present),
     past: [...history.past, pastEntry],
     future,
   };

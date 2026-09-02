@@ -1237,7 +1237,8 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   align-items: center;
   justify-content: center;
   font-size: 14px;
-  line-height: 1.2;
+  font-family: 'GenEiAntique', '源暎アンチック v6', 'GenEi Antique v6', sans-serif;
+  line-height: 1.5;
   writing-mode: vertical-rl;
   text-orientation: mixed;
   text-align: center;
@@ -1570,7 +1571,7 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   position: absolute;
   box-sizing: border-box;
   pointer-events: none;
-  overflow: hidden;
+  overflow: visible;
   z-index: 2;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
@@ -1658,25 +1659,32 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 }
 
 @font-face {
-  font-family: 'IwaAntStd-B';
-  src: local('IwaAntStd-B'), local('I-OTFアンチックStd B');
+  font-family: 'GenEiAntique';
+  src:
+    local('源暎アンチック v6'),
+    local('GenEi Antique v6'),
+    url('/fonts/GenEiAntiqueNv6-M.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
 }
 
 .ms-pageTextBox {
   position: absolute;
   inset: 0;
-  font-family: 'IwaAntStd-B', 'I-OTFアンチックStd B', 'I-OTF アンチック Std B', 'I-OTF Antique Std B', sans-serif;
+  font-family: 'GenEiAntique', '源暎アンチック v6', 'GenEi Antique v6', sans-serif;
   writing-mode: vertical-rl;
   text-orientation: mixed;
-  overflow: hidden;
+  overflow: visible;
   white-space: pre-wrap;
   word-break: break-all;
-  box-sizing: border-box;
+  box-sizing: content-box;
   border: none;
   outline: none;
   pointer-events: none;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+  line-height: 1.5;
 }
 
 .ms-pageTextBoxSelected {
@@ -1718,6 +1726,7 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   user-select: text;
   color: var(--ms-text);
   background: #fff;
+  font-family: 'GenEiAntique', '源暎アンチック v6', 'GenEi Antique v6', sans-serif;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
 }
 

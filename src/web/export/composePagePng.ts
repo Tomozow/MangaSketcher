@@ -1,6 +1,7 @@
 import { TEMPLATE_PAGE_NUMBER_COVER } from '../../domain/types';
 import { drawPageTextsOnThumb, type ThumbText } from '../ink/drawPageTextsOnThumb';
 import { isPngBuffer } from '../ink/fakeCanvas';
+import { pageTextCanvasFont } from '../pageTextFont';
 import { PAGE_TEMPLATE_URL, PDF_JPEG_QUALITY } from './constants';
 import { WorkspaceExportError } from './errors';
 
@@ -51,9 +52,10 @@ export function paintExportPageLayers(
     template: CanvasImageSource;
     inkBitmap?: CanvasImageSource | null;
     texts: readonly ThumbText[];
+    workspaceNumber?: number;
   },
 ): void {
-  const { width, height, template, inkBitmap, texts } = input;
+  const { width, height, template, inkBitmap, texts, workspaceNumber } = input;
   if ('imageSmoothingEnabled' in ctx) {
     ctx.imageSmoothingEnabled = true;
   }
@@ -74,6 +76,27 @@ export function paintExportPageLayers(
     ctx.drawImage(inkBitmap, 0, 0, width, height);
   }
   drawPageTextsOnThumb(ctx, texts, width, height, width, height);
+  if (workspaceNumber != null) {
+    drawExportWorkspaceNumber(ctx, workspaceNumber, width, height);
+  }
+}
+
+export function drawExportWorkspaceNumber(
+  ctx: ExportComposeContext,
+  workspaceNumber: number,
+  width: number,
+  height: number,
+): void {
+  const coverH = TEMPLATE_PAGE_NUMBER_COVER.height * height;
+  ctx.font = pageTextCanvasFont(coverH);
+  ctx.fillStyle = '#000000';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(
+    String(workspaceNumber),
+    width / 2,
+    (TEMPLATE_PAGE_NUMBER_COVER.y + TEMPLATE_PAGE_NUMBER_COVER.height / 2) * height,
+  );
 }
 
 export function canvasToImageBlob(
@@ -135,6 +158,7 @@ function paintThenEncode(
     texts: readonly ThumbText[];
     width: number;
     height: number;
+    workspaceNumber?: number;
   },
   encode: (canvas: ExportCanvas) => Promise<Uint8Array>,
 ): Promise<Uint8Array> {
@@ -148,6 +172,7 @@ function paintThenEncode(
     template: input.template,
     inkBitmap: input.inkBitmap,
     texts: input.texts,
+    workspaceNumber: input.workspaceNumber,
   });
   return encode(input.canvas);
 }
@@ -170,6 +195,7 @@ export async function composePageJpeg(input: {
   texts: readonly ThumbText[];
   width: number;
   height: number;
+  workspaceNumber: number;
 }): Promise<Uint8Array> {
   return paintThenEncode(input, canvasToJpegBytes);
 }

@@ -1,5 +1,6 @@
 import { isTextContentEmpty, shouldRotateForVerticalRl, verticalGlyphs } from '../../domain/text';
 import type { PageText, Rect } from '../../domain/types';
+import { expandTextBoxWidthToColumns, verticalColumnPitch } from '../../domain/textWrap';
 import { pageTextCanvasFont } from '../pageTextFont';
 import {
   isWhiteTextColor,
@@ -28,8 +29,6 @@ type ThumbTextContext = {
   textBaseline: CanvasTextBaseline;
   textAlign: CanvasTextAlign;
 };
-
-const LINE_HEIGHT = 1.2;
 
 function destRect(box: Rect, scaleX: number, scaleY: number): Rect {
   return {
@@ -61,9 +60,10 @@ export function drawPageTextsOnThumb(
     if (isTextContentEmpty(text.content)) {
       continue;
     }
-    const box = destRect(text.box, scaleX, scaleY);
+    const layoutBox = expandTextBoxWidthToColumns(text.box, text.content, Number.isFinite(text.fontSize) ? text.fontSize : 12);
+    const box = destRect(layoutBox, scaleX, scaleY);
     const fontPx = Math.max(1, (Number.isFinite(text.fontSize) ? text.fontSize : 12) * scaleX);
-    const colW = fontPx * LINE_HEIGHT;
+    const colW = verticalColumnPitch(fontPx);
     if (box.width <= 0 || box.height <= 0) {
       continue;
     }

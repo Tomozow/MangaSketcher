@@ -1,6 +1,6 @@
-/** Iwata Antique Std B (PostScript IwaAntStd-B) when installed; otherwise the next family. */
-export const PAGE_TEXT_FONT_STACK =
-  '"IwaAntStd-B", "I-OTFアンチックStd B", "I-OTF アンチック Std B", "I-OTF Antique Std B", sans-serif';
+/** Bundled 源暎アンチック v6 Medium (`public/fonts/GenEiAntiqueNv6-M.ttf`). */
+export const PAGE_TEXT_FONT_FAMILY = 'GenEiAntique';
+export const PAGE_TEXT_FONT_STACK = `"${PAGE_TEXT_FONT_FAMILY}", "源暎アンチック v6", "GenEi Antique v6", sans-serif`;
 
 export function pageTextCanvasFont(px: number): string {
   return `${px}px ${PAGE_TEXT_FONT_STACK}`;

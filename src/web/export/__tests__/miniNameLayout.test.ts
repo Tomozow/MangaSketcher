@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'vitest';
 import { createEditorDocument, sequentialIds } from '../../../domain/document';
+import { PAGE_DISPLAY_H, PAGE_NUMBER_BAND } from '../../../domain/stripGeometry';
 import {
   buildMiniNameFileName,
   formatMiniNameCoverDateTime,
@@ -25,6 +26,21 @@ describe('miniNameSheetLayout', () => {
     expect(page1.x + page1.width).toBeCloseTo(coverTiles[0]!.x);
     expect(layout.width).toBeGreaterThan(1);
     expect(layout.height).toBeGreaterThan(1);
+  });
+
+  test('ignores workspace columnGap between rows', () => {
+    const doc = createEditorDocument({
+      projectId: 'p',
+      name: 'n',
+      pageCount: 7,
+      ids: sequentialIds('pg'),
+    });
+    doc.pagesPerColumn = 3;
+    doc.columnGap = PAGE_DISPLAY_H;
+    const layout = miniNameSheetLayout(doc);
+    const ys = [...new Set(layout.tiles.map((tile) => Math.round(tile.y * 1000) / 1000))].sort((a, b) => a - b);
+    expect(ys.length).toBeGreaterThanOrEqual(2);
+    expect(ys[1]! - ys[0]!).toBeCloseTo((PAGE_DISPLAY_H + PAGE_NUMBER_BAND) * layout.pixelScale);
   });
 
   test('file name is stem_timestamp_mininame.jpg', () => {

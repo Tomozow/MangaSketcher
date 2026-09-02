@@ -32,6 +32,7 @@ export type ComposeExportedPage = (input: {
   texts: EditorDocument['pages'][string]['texts'];
   width: number;
   height: number;
+  workspaceNumber: number;
 }) => Promise<Uint8Array>;
 
 export type ExportWorkspaceDeps = {
@@ -118,6 +119,7 @@ export async function composeSelectedPages(
       if (copy.byteLength > 0) {
         inkBitmap = await decodePng(copy);
       }
+      const workspaceNumber = snapshot.workspaceOrder.indexOf(pageId) + 1;
       const bytes = await composePage({
         canvas,
         template,
@@ -125,9 +127,10 @@ export async function composeSelectedPages(
         texts: page.texts,
         width,
         height,
+        workspaceNumber,
       });
       pages.push({
-        workspaceNumber: snapshot.workspaceOrder.indexOf(pageId) + 1,
+        workspaceNumber,
         bytes,
       });
     } catch (err) {

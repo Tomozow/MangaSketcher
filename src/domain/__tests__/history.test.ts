@@ -37,4 +37,37 @@ describe('reduceEditorHistory', () => {
     expect(history.past).toHaveLength(0);
     expect(history.present.workspaceZoom).toBe(1.25);
   });
+
+  test('does not store text selection on past entries', () => {
+    const ids = sequentialIds('a');
+    let history = createEditorHistory(
+      createEditorDocument({
+        projectId: 'p1',
+        name: 'sel',
+        pageCount: 1,
+        ids: sequentialIds('page'),
+      }),
+    );
+    const pageId = history.present.workspaceOrder[0]!;
+    history = reduceEditorHistory(
+      history,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId },
+        box: { x: 8, y: 8, width: 40, height: 80 },
+        content: 'あ',
+      },
+      ids,
+    );
+    const textId = history.present.selectedTextId;
+    expect(textId).toBeTruthy();
+    expect(history.past[0]!.doc.selectedTextId).toBeNull();
+
+    history = reduceEditorHistory(history, { type: 'rename', name: 'after' }, ids);
+    expect(history.past.at(-1)!.doc.selectedTextId).toBeNull();
+
+    history = reduceEditorHistory(history, { type: 'undo' }, ids);
+    expect(history.present.selectedTextId).toBe(textId);
+    expect(history.present.name).not.toBe('after');
+  });
 });

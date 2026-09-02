@@ -357,6 +357,8 @@ describe('text attachment placement', () => {
     const many = doc.pages[pageId]!.texts[0]!;
     expect(many.box.width).toBe(one.box.width);
     expect(many.box.height).toBeGreaterThan(one.box.height);
+    expect(reduceEditorDocument(doc, { type: 'editText', textId, content: many.content }, ids)).toBe(doc);
+    expect(reduceEditorDocument(doc, { type: 'deleteText', textId: 'missing' }, ids)).toBe(doc);
   });
 });
 

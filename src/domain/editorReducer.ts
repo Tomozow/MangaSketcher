@@ -473,6 +473,16 @@ export function reduceEditorDocument(
     return reduceEditorDocumentViewOnly(state, action);
   }
 
+  if (action.type === 'editText') {
+    const found = findEditorText(state, action.textId);
+    if (!found || found.node.content === action.content) {
+      return state;
+    }
+  }
+  if (action.type === 'deleteText' && !findEditorText(state, action.textId)) {
+    return state;
+  }
+
   const doc = cloneEditorDocument(state);
   const a = action as StatefulEditorAction;
 

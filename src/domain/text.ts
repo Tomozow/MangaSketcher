@@ -11,7 +11,7 @@ import { DEFAULT_TOOL_PROPERTIES } from './types';
 
 type SelectedTextDocument = TextDocument & Pick<EditorDocument, 'selectedTextId'>;
 
-/** One vertical column: width = glyph cell (same 1.2 as TEXT_WRAP_LINE_HEIGHT). */
+/** One vertical column: width = glyph cell (same 1.5em as TEXT_WRAP_LINE_HEIGHT). */
 export function defaultTextBox(
   rw: number,
   rh: number,
@@ -19,7 +19,7 @@ export function defaultTextBox(
 ): Pick<Rect, 'width' | 'height'> {
   const fontPx = Math.max(1, Number.isFinite(fontSize) ? fontSize : DEFAULT_TOOL_PROPERTIES.textFontSize);
   return {
-    width: Math.min(rw, Math.ceil(fontPx * 1.2)),
+    width: Math.min(rw, Math.ceil(fontPx * 1.5)),
     height: Math.min(rh, Math.ceil(fontPx)),
   };
 }
@@ -200,6 +200,34 @@ export function selectedTextIdsOf(doc: {
     return [...doc.selectedTextIds];
   }
   return doc.selectedTextId ? [doc.selectedTextId] : [];
+}
+
+export function textSelectionState(ids: TextId[]): {
+  selectedTextId: TextId | null;
+  selectedTextIds: TextId[];
+} {
+  const selectedTextIds = [...new Set(ids)];
+  return {
+    selectedTextIds,
+    selectedTextId: selectedTextIds[selectedTextIds.length - 1] ?? null,
+  };
+}
+
+export function withoutTextSelection<T extends { selectedTextId: TextId | null; selectedTextIds?: TextId[] }>(
+  doc: T,
+): T {
+  return { ...doc, ...textSelectionState([]) };
+}
+
+/** Keep the live UI selection if those texts still exist on `doc`. */
+export function withLiveTextSelection<T extends TextDocument & { selectedTextId: TextId | null; selectedTextIds?: TextId[] }>(
+  doc: T,
+  live: { selectedTextId: TextId | null; selectedTextIds?: readonly TextId[] | null },
+): T {
+  return {
+    ...doc,
+    ...textSelectionState(selectedTextIdsOf(live).filter((id) => findText(doc, id))),
+  };
 }
 
 export function rectsOverlap(a: Rect, b: Rect): boolean {

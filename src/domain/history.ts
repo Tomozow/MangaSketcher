@@ -1,7 +1,12 @@
 import { cloneDocument, cloneEditorDocument, type IdFactory } from './document';
 import { reduceTestDocument, type DocumentAction } from './reducer';
 import { reduceEditorDocument, type EditorDocumentAction } from './editorReducer';
+import { withLiveTextSelection, withoutTextSelection } from './text';
 import type { EditorHistoryState, HistoryState } from './types';
+
+function cloneEditorHistoryStackDocument(doc: EditorHistoryState['present']): EditorHistoryState['present'] {
+  return withoutTextSelection(cloneEditorDocument(doc));
+}
 
 const VIEW_ONLY = new Set([
   'selectPage',
@@ -76,10 +81,10 @@ export function reduceEditorHistory(
     const past = [...history.past];
     const entry = past.pop()!;
     return {
-      present: entry.doc,
+      present: withLiveTextSelection(entry.doc, history.present),
       past,
       future: [
-        { doc: cloneEditorDocument(history.present), inkUndo: {} },
+        { doc: cloneEditorHistoryStackDocument(history.present), inkUndo: {} },
         ...history.future,
       ],
     };
@@ -90,10 +95,10 @@ export function reduceEditorHistory(
     }
     const [entry, ...future] = history.future;
     return {
-      present: entry.doc,
+      present: withLiveTextSelection(entry.doc, history.present),
       past: [
         ...history.past,
-        { doc: cloneEditorDocument(history.present), inkUndo: {} },
+        { doc: cloneEditorHistoryStackDocument(history.present), inkUndo: {} },
       ],
       future,
     };
@@ -106,7 +111,7 @@ export function reduceEditorHistory(
 
   let past = [
     ...history.past,
-    { doc: cloneEditorDocument(history.present), inkUndo: {} },
+    { doc: cloneEditorHistoryStackDocument(history.present), inkUndo: {} },
   ];
   if (past.length > HISTORY_DEPTH) {
     past = past.slice(past.length - HISTORY_DEPTH);

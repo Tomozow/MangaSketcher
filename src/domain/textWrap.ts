@@ -1,10 +1,14 @@
 import { isTextContentEmpty, verticalGlyphs } from './text';
 import type { Rect } from './types';
 
-/** Must match LINE_HEIGHT in src/web/ink/drawPageTextsOnThumb.ts (column width = fontPx * 1.2). */
-export const TEXT_WRAP_LINE_HEIGHT = 1.2;
+/** Column pitch in vertical-rl (must match CSS `line-height: 1.5` and canvas wrap). */
+export const TEXT_WRAP_LINE_HEIGHT = 1.5;
 /** Must match the overflow epsilon in drawPageTextsOnThumb. */
 export const TEXT_WRAP_EPSILON = 0.01;
+
+export function verticalColumnPitch(fontPx: number): number {
+  return fontPx * TEXT_WRAP_LINE_HEIGHT;
+}
 
 function effectiveFontPx(fontSize: number): number {
   return Math.max(1, Number.isFinite(fontSize) ? fontSize : 12);
@@ -26,7 +30,7 @@ export function wrapPageTextToLines(content: string, box: Rect, fontSize: number
   }
 
   const fontPx = effectiveFontPx(fontSize);
-  const colW = fontPx * TEXT_WRAP_LINE_HEIGHT;
+  const colW = verticalColumnPitch(fontPx);
   let colX = box.x + box.width - colW;
   let y = box.y;
   const lines: string[] = [''];
@@ -63,7 +67,7 @@ export function wrapPageTextToLines(content: string, box: Rect, fontSize: number
  * an auto-wrap engine (CSP .clip text layers).
  */
 export function convertWrapToExplicitNewlines(content: string, box: Rect, fontSize: number): string {
-  return wrapPageTextToLines(content, box, fontSize).join('\r\n');
+  return wrapPageTextToLines(content, expandTextBoxWidthToColumns(box, content, fontSize), fontSize).join('\r\n');
 }
 
 export function verticalTextContentSize(
@@ -71,7 +75,7 @@ export function verticalTextContentSize(
   fontSize: number,
 ): { width: number; height: number } {
   const fontPx = effectiveFontPx(fontSize);
-  const colW = fontPx * TEXT_WRAP_LINE_HEIGHT;
+  const colW = verticalColumnPitch(fontPx);
   const lines = wrapPageTextToLines(
     content,
     { x: 0, y: 0, width: colW * 4096, height: fontPx * 65536 },
@@ -99,5 +103,34 @@ export function fitTextBoxToContent(box: Rect, content: string, fontSize: number
     width: size.width,
     height: size.height,
   };
+}
+
+/**
+ * Grow width (keeping the right edge) so every column produced by wrapping
+ * inside the current height fits. Used when CSS `line-height: 1.5` needs more
+ * horizontal room than an older 1.2em-wide box.
+ */
+export function expandTextBoxWidthToColumns(box: Rect, content: string, fontSize: number): Rect {
+  if (isTextContentEmpty(content)) {
+    return box;
+  }
+  const fontPx = effectiveFontPx(fontSize);
+  const colW = verticalColumnPitch(fontPx);
+  const height = Math.max(0, Number.isFinite(box.height) ? box.height : 0);
+  const width = Math.max(0, Number.isFinite(box.width) ? box.width : 0);
+  if (width <= 0 || height <= 0) {
+    return box;
+  }
+  const lines = wrapPageTextToLines(
+    content,
+    { x: 0, y: 0, width: colW * 4096, height },
+    fontSize,
+  );
+  const needed = Math.ceil(Math.max(1, lines.length) * colW);
+  if (needed <= width + 0.01) {
+    return box;
+  }
+  const right = (Number.isFinite(box.x) ? box.x : 0) + width;
+  return { ...box, x: right - needed, width: needed };
 }
 

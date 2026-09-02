@@ -17,7 +17,7 @@ import {
   type StripFrame,
 } from '@/src/domain/stripGeometry';
 import type { EditorDocument } from '@/src/storage/types';
-import { fitTextBoxToContent } from '@/src/domain/textWrap';
+import { expandTextBoxWidthToColumns, fitTextBoxToContent } from '@/src/domain/textWrap';
 import {
   effectiveTextBox,
   sanitizeTextBox,
@@ -37,6 +37,7 @@ import { styles } from '@/src/web/editorStyles';
 import { pageBoxToWorld } from '@/src/web/gestures/elementInteraction';
 import { useLiveTextContent, type LiveTextContent } from '@/src/web/liveTextContentStore';
 import { isWhiteTextColor } from '@/src/web/text/whiteTextColor';
+
 type PageTextOverlayProps = {
   doc: EditorDocument;
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
@@ -70,6 +71,18 @@ function rasterSize(value: number, fallback: number): number {
 
 function rasterPct(value: number, raster: number): string {
   return `${(value / raster) * 100}%`;
+}
+
+/** Size the wrap in em so width tracks `line-height: 1.5` of this font-size. */
+function textWrapEmStyle(box: Rect, fontPx: number, cssFontSize: number, rw: number, rh: number) {
+  const fs = Math.max(1, fontPx);
+  return {
+    left: rasterPct(box.x, rw),
+    top: rasterPct(box.y, rh),
+    width: `${box.width / fs}em`,
+    height: `${box.height / fs}em`,
+    fontSize: cssFontSize,
+  };
 }
 
 function DeleteMark({ icon, batch }: { icon: number; batch: boolean }) {
@@ -240,11 +253,12 @@ export function PageTextsOnFrame({
         const fontSize = Number.isFinite(text.fontSize) ? text.fontSize : 12;
         const resizeScale = box0.width / Math.max(1, sanitizeTextBox(text.box).width);
         const content = liveTextContent?.id === text.id ? liveTextContent.content : text.content;
+        const layoutFont = fontSize * resizeScale;
         const box =
           liveTextContent?.id === text.id
-            ? fitTextBoxToContent(box0, content, fontSize * resizeScale)
-            : box0;
-        const cssFontSize = displayTextFontSize(fontSize * resizeScale, scaleX);
+            ? fitTextBoxToContent(box0, content, layoutFont)
+            : expandTextBoxWidthToColumns(box0, content, layoutFont);
+        const cssFontSize = displayTextFontSize(layoutFont, scaleX);
         return (
           <div
             key={text.id}
@@ -254,19 +268,13 @@ export function PageTextsOnFrame({
               [PAGE_TEXT_PAGE_ATTR]: pageId,
             }}
             className={`${styles.pageTextWrap} ${selected ? styles.pageTextWrapSelected : ''}`}
-            style={{
-              left: rasterPct(box.x, rw),
-              top: rasterPct(box.y, rh),
-              width: rasterPct(box.width, rw),
-              height: rasterPct(box.height, rh),
-            }}
+            style={textWrapEmStyle(box, layoutFont, cssFontSize, rw, rh)}
           >
             <div
               className={`${styles.pageTextBox} ${selected ? styles.pageTextBoxSelected : ''} ${isWhiteTextColor(text.color) ? styles.pageTextBoxWhite : ''}`}
               style={{
                 color: text.color,
-                fontSize: cssFontSize,
-                lineHeight: 1,
+                lineHeight: 1.5,
               }}
             >
               {content}
@@ -378,7 +386,10 @@ export function PasteboardTextsLayer({
         const selected = selectedIdSet.has(text.id);
         const content = liveTextContent?.id === text.id ? liveTextContent.content : text.content;
         const box =
-          liveTextContent?.id === text.id ? fitTextBoxToContent(itemBox, content, fontSize) : itemBox;
+          liveTextContent?.id === text.id
+            ? fitTextBoxToContent(itemBox, content, fontSize)
+            : expandTextBoxWidthToColumns(itemBox, content, fontSize);
+        const fs = Math.max(1, fontSize);
         return (
           <div
             key={text.id}
@@ -387,11 +398,17 @@ export function PasteboardTextsLayer({
               [PAGE_TEXT_ID_ATTR]: text.id,
             }}
             className={`${styles.pasteboardTextWrap} ${selected ? styles.pageTextWrapSelected : ''}`}
-            style={{ left: box.x, top: box.y, width: box.width, height: box.height }}
+            style={{
+              left: box.x,
+              top: box.y,
+              width: `${box.width / fs}em`,
+              height: `${box.height / fs}em`,
+              fontSize,
+            }}
           >
             <div
               className={`${styles.pageTextBox} ${selected ? styles.pageTextBoxSelected : ''} ${isWhiteTextColor(text.color) ? styles.pageTextBoxWhite : ''}`}
-              style={{ color: text.color, fontSize, lineHeight: 1 }}
+              style={{ color: text.color, lineHeight: 1.5 }}
             >
               {content}
             </div>

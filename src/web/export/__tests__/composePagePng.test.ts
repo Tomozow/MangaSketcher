@@ -1,14 +1,25 @@
 import { describe, expect, test } from 'vitest';
 import { TEMPLATE_PAGE_NUMBER_COVER } from '../../../domain/types';
+import { pageTextCanvasFont } from '../../pageTextFont';
 import { canvasToPngBlob, paintExportPageLayers, type ExportComposeContext } from '../composePagePng';
 import { WorkspaceExportError } from '../errors';
 
 type Fill = { x: number; y: number; w: number; h: number; fillStyle: string };
 type Draw = { src: unknown; x: number; y: number; w: number; h: number };
+type Text = {
+  text: string;
+  x: number;
+  y: number;
+  font: string;
+  fillStyle: string;
+  textAlign: CanvasTextAlign;
+  textBaseline: CanvasTextBaseline;
+};
 
 function recordingContext() {
   const fills: Fill[] = [];
   const draws: Draw[] = [];
+  const texts: Text[] = [];
   const ctx: ExportComposeContext = {
     font: '',
     fillStyle: '',
@@ -21,7 +32,17 @@ function recordingContext() {
     beginPath() {},
     rect() {},
     clip() {},
-    fillText() {},
+    fillText(text, x, y) {
+      texts.push({
+        text,
+        x,
+        y,
+        font: ctx.font,
+        fillStyle: ctx.fillStyle,
+        textAlign: ctx.textAlign,
+        textBaseline: ctx.textBaseline,
+      });
+    },
     translate() {},
     rotate() {},
     fillRect(x, y, w, h) {
@@ -31,12 +52,12 @@ function recordingContext() {
       draws.push({ src: image, x: dx, y: dy, w: dw, h: dh });
     },
   };
-  return { ctx, fills, draws };
+  return { ctx, fills, draws, texts };
 }
 
 describe('paintExportPageLayers', () => {
   test('fills white, draws template, covers page number, then ink', () => {
-    const { ctx, fills, draws } = recordingContext();
+    const { ctx, fills, draws, texts } = recordingContext();
     const template = { kind: 'template' };
     const ink = { kind: 'ink' };
     paintExportPageLayers(ctx, {
@@ -58,6 +79,29 @@ describe('paintExportPageLayers', () => {
       fillStyle: '#FFFFFF',
     });
     expect(draws[1]?.src).toBe(ink);
+    expect(texts).toEqual([]);
+  });
+
+  test('burns workspace number at the template cover center when given', () => {
+    const { ctx, texts } = recordingContext();
+    paintExportPageLayers(ctx, {
+      width: 1200,
+      height: 1700,
+      template: {} as CanvasImageSource,
+      texts: [],
+      workspaceNumber: 12,
+    });
+    expect(texts).toEqual([
+      {
+        text: '12',
+        x: 600,
+        y: (TEMPLATE_PAGE_NUMBER_COVER.y + TEMPLATE_PAGE_NUMBER_COVER.height / 2) * 1700,
+        font: pageTextCanvasFont(TEMPLATE_PAGE_NUMBER_COVER.height * 1700),
+        fillStyle: '#000000',
+        textAlign: 'center',
+        textBaseline: 'middle',
+      },
+    ]);
   });
 });
 

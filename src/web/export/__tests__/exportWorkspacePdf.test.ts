@@ -78,6 +78,27 @@ describe('exportWorkspacePdf', () => {
     const labels = pdfDocLabelsStart(pdf);
     expect(labels).toBe(2);
   });
+
+  test('passes workspace numbers into jpeg compose', async () => {
+    const doc = createEditorDocument({
+      projectId: 'p',
+      name: '原稿',
+      pageCount: 4,
+      ids: sequentialIds('pg'),
+    });
+    const pageIds = doc.workspaceOrder.slice(1, 4);
+    const numbers: number[] = [];
+    await exportWorkspacePdf(doc, mockInk(), {
+      ...stubJpegDeps(),
+      pageIds,
+      pick: 'range',
+      composePage: async (input) => {
+        numbers.push(input.workspaceNumber);
+        return JPEG_1X1;
+      },
+    });
+    expect(numbers).toEqual([2, 3, 4]);
+  });
 });
 
 function pdfDocLabelsStart(pdf: PDFDocument): number | undefined {

@@ -3,8 +3,8 @@ import type { Rect } from './types';
 
 export const EXTRACT_TEXT_HEIGHT = PAGE_DISPLAY_H;
 export const EXTRACT_CHARS_PER_COL = 10;
-/** Matches workspace `lineHeight: 1.2` (column pitch in vertical-rl). */
-export const EXTRACT_LINE_HEIGHT = 1.2;
+/** Matches workspace `lineHeight: 1.5` (column pitch in vertical-rl). */
+export const EXTRACT_LINE_HEIGHT = 1.5;
 export const EXTRACT_GAP = 8;
 export const EXTRACT_MARGIN_CSS = 16;
 
@@ -91,7 +91,7 @@ export function extractedColumnCount(
 
 /**
  * Vertical-rl: height is 10 characters; width follows the final column count.
- * Ceil so fractional pitches (e.g. 24×1.2 = 28.8) are not snapped smaller than
+ * Ceil so fractional pitches (e.g. 24×1.5 = 36) are not snapped smaller than
  * a line box — that clips a few CSS px on the left for odd column counts.
  */
 export function extractedTextBoxSize(

@@ -38,7 +38,10 @@ export function collectMiniNameFrames(frames: readonly StripFrame[]): StripFrame
 }
 
 export function miniNameSheetLayout(doc: EditorDocument): MiniNameSheetLayout {
-  const { frames, dividers } = buildStripFrames(doc.workspaceOrder, stripLayoutFromDoc(doc));
+  const { frames, dividers } = buildStripFrames(doc.workspaceOrder, {
+    ...stripLayoutFromDoc(doc),
+    columnGap: 0,
+  });
   const source = collectMiniNameFrames(frames);
   const pageRects = source.map((frame) => ({
     x: frame.x,

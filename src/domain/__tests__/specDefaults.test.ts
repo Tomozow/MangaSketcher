@@ -16,7 +16,7 @@ describe('§13.1 spec defaults', () => {
     const font = DEFAULT_TOOL_PROPERTIES.textFontSize;
     const box = defaultTextBox(DEFAULT_RASTER_WIDTH, DEFAULT_RASTER_HEIGHT, font);
 
-    expect(box.width).toBe(Math.ceil(font * 1.2));
+    expect(box.width).toBe(Math.ceil(font * 1.5));
     expect(box.height).toBe(font);
   });
 

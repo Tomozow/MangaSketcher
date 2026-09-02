@@ -53,8 +53,8 @@ describe('extractedTextBoxSize', () => {
 
   test('サイズ24の奇数列は列ピッチの端数を切り上げて左端が欠けない', () => {
     const font = 24;
-    expect(extractedTextBoxSize('あ', font).width).toBe(29);
-    expect(extractedTextBoxSize('あ'.repeat(21), font).width).toBe(87);
+    expect(extractedTextBoxSize('あ', font).width).toBe(36);
+    expect(extractedTextBoxSize('あ'.repeat(21), font).width).toBe(108);
   });
 
   test('テキストツールのサイズはページ表示スケールに写す', () => {

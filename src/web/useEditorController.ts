@@ -731,9 +731,6 @@ export function useEditorController(projectId: string): EditorController {
   const dispatch = useCallback(
     (action: EditorDocumentAction) => {
       const viewOnly = isViewOnlyHistoryAction(action.type);
-      const pendingInkUndo = viewOnly
-        ? new Map<string, InkUndoPixels>()
-        : takePendingInkUndo(inkUndoRef.current);
       setHistory((prev) => {
         if (!prev) {
           return prev;
@@ -749,6 +746,12 @@ export function useEditorController(projectId: string): EditorController {
           }
         }
         const nextPresent = reduceEditorDocument(prev.present, action, randomId);
+        if (nextPresent === prev.present) {
+          return prev;
+        }
+        const pendingInkUndo = viewOnly
+          ? new Map<string, InkUndoPixels>()
+          : takePendingInkUndo(inkUndoRef.current);
         const nextHistory = pushEditorHistory(prev, nextPresent, pendingInkUndo, viewOnly, historyDepthRef.current);
         persist(
           nextHistory,
@@ -1761,6 +1764,9 @@ export function useEditorController(projectId: string): EditorController {
       ? { type: 'deleteText', textId: id }
       : { type: 'editText', textId: id, content };
     const nextPresent = reduceEditorDocument(prev.present, action, randomId);
+    if (nextPresent === prev.present) {
+      return;
+    }
     const nextHistory = pushEditorHistory(prev, nextPresent, new Map(), false, historyDepthRef.current);
     historyRef.current = nextHistory;
     setHistory(nextHistory);
