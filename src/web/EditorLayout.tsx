@@ -18,7 +18,8 @@ import { styles } from './editorStyles';
 import { CompactSidebar } from './CompactSidebar';
 import { WorkspaceNav } from './WorkspaceNav';
 import { PdfPanePlaceholder } from './PdfPanePlaceholder';
-import { StockPane, STOCK_TRASH_DROP_ATTR, type WorkspaceGrab } from './StockPane';
+import { StockPane, STOCK_TRASH_DROP_ATTR } from './StockPane';
+import { reduceWorkspaceGrab, type WorkspaceGrab } from './workspaceGrab';
 import { PageInkOverlay } from './PageInkOverlay';
 import { TextEditBar } from './TextEditBar';
 import type { TextEditSelection } from '@/src/web/TextEditBar';
@@ -286,39 +287,10 @@ export function EditorLayout({
       fingerPositions: Map<number, { x: number; y: number }>,
       surfaceRect: DOMRect | null,
     ) => {
+      setWorkspaceGrab((prev) => reduceWorkspaceGrab(prev, effects));
       for (const effect of effects) {
         if (effect.type === 'grabPage') {
-          setWorkspaceGrab({ pageId: effect.pageId, fromIndex: effect.fromIndex });
           setPageDelete(null);
-        }
-        if (effect.type === 'endGrabPage') {
-          setWorkspaceGrab(null);
-        }
-        if (effect.type === 'beginSelectionMove') {
-          setWorkspaceGrab({
-            clipId: effect.clipIds[0],
-            textId: effect.textIds[0],
-            clipIds: effect.clipIds,
-            textIds: effect.textIds,
-          });
-        }
-        if (effect.type === 'clipTransformLive' && (effect.x !== undefined || effect.y !== undefined)) {
-          setWorkspaceGrab((prev) =>
-            prev?.clipIds?.length || prev?.textIds?.length
-              ? prev
-              : prev?.clipId === effect.clipId
-                ? prev
-                : { clipId: effect.clipId },
-          );
-        }
-        if (effect.type === 'textTransformLive') {
-          setWorkspaceGrab((prev) =>
-            prev?.clipIds?.length || prev?.textIds?.length
-              ? prev
-              : prev?.textId === effect.textId
-                ? prev
-                : { textId: effect.textId },
-          );
         }
         if (effect.type === 'showPageDelete') {
           setPageDelete({ pageId: effect.pageId, source: 'workspace' });

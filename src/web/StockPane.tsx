@@ -54,6 +54,11 @@ import { clipWorldAabb } from '@/src/web/clip/clipGeometry';
 import { textWorldBox } from '@/src/web/gestures/elementInteraction';
 import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 import { styles } from './editorStyles';
+import {
+  isCrossPaneDragMove,
+  shouldAcceptCrossPanePointerEnd,
+  type WorkspaceGrab,
+} from './workspaceGrab';
 
 // #region agent log
 const DEBUG_STOCK_FREE_INGEST =
@@ -162,14 +167,7 @@ function setTrashDropHover(on: boolean): void {
   document.querySelector(`[${STOCK_TRASH_DROP_ATTR}]`)?.toggleAttribute('data-drop-hover', on);
 }
 
-export type WorkspaceGrab = {
-  pageId?: PageId;
-  fromIndex?: number;
-  clipId?: string;
-  textId?: string;
-  clipIds?: string[];
-  textIds?: string[];
-};
+export type { WorkspaceGrab } from './workspaceGrab';
 
 function grabClipIds(grab: WorkspaceGrab): string[] {
   if (grab.clipIds && grab.clipIds.length > 0) {
@@ -602,6 +600,9 @@ export function StockPane({
 
   const workspaceGrabRef = useRef(workspaceGrab);
   workspaceGrabRef.current = workspaceGrab;
+  const draggedStockPageIdRef = useRef(draggedStockPageId);
+  draggedStockPageIdRef.current = draggedStockPageId;
+  const crossPanePointerIdRef = useRef<number | null>(null);
 
   const onWorkspaceGrabEndRef = useRef(onWorkspaceGrabEnd);
   onWorkspaceGrabEndRef.current = onWorkspaceGrabEnd;
@@ -1375,11 +1376,16 @@ export function StockPane({
 
   useEffect(() => {
     if (!workspaceGrab && !draggedStockPageId) {
+      crossPanePointerIdRef.current = null;
       setTrashDropHover(false);
       setOverStockUi(false);
       return;
     }
     const onMove = (event: PointerEvent) => {
+      if (!isCrossPaneDragMove(event)) {
+        return;
+      }
+      crossPanePointerIdRef.current = event.pointerId;
       setDragPointer({ x: event.clientX, y: event.clientY });
       const trashDrop = document.querySelector<HTMLElement>(`[${STOCK_TRASH_DROP_ATTR}]`);
       const overButton = trashDrop
@@ -1406,6 +1412,17 @@ export function StockPane({
     }
 
     const onPointerEnd = (event: PointerEvent) => {
+      if (
+        !shouldAcceptCrossPanePointerEnd({
+          hasWorkspaceGrab: Boolean(workspaceGrabRef.current),
+          stockDragging: Boolean(draggedStockPageIdRef.current),
+          trackedPointerId: crossPanePointerIdRef.current,
+          eventPointerId: event.pointerId,
+        })
+      ) {
+        return;
+      }
+      crossPanePointerIdRef.current = null;
       finishCrossPaneDrop(event.clientX, event.clientY);
     };
 
