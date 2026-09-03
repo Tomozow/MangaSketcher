@@ -98,7 +98,7 @@ PDF: `sample.pdf` は InDesign の小説見開き。ビューアは PDF ペー�
 - `position: fixed; inset: 0`
 - 高さは **`visualViewport.height` + `visualViewport.offsetTop`**。リスナー: `visualViewport.resize` / `visualViewport.scroll`
 - `overscroll-behavior: none`
-- `-webkit-user-select: none`（下部編集バーの textarea だけ `auto`）
+- `-webkit-user-select: none`（IME HUD の textarea だけ `auto`）
 - `-webkit-touch-callout: none`
 - `window` の `scroll` で `window.scrollTo(0, 0)` を掛ける（Safari がフォーカスで `scrollTo` する既知動作の打ち消し）。これと `touch-action: none` がピンチ殺しの本命。`user-scalable=no` は補助。iOS アクセシビリティが viewport を無視したら、ゲート 6 は **アプリ内ピンチがブラウザズームになっていないこと** で判定する（meta の有無ではない）
 
@@ -112,19 +112,20 @@ Safe area: `env(safe-area-inset-*)` を 4 ペイン外周に適用。最低タ�
 | PDF キャンバス + 範囲オーバーレイ | `none` | 指パン/ピンチ/範囲ドラッグ |
 | ストックボード | `none` | 指パン/ピンチ/ページドラッグ |
 | スプリッタヒット領域 | `none` | 指ドラッグ |
-| ツールボタン・スライダー・下部 textarea | `manipulation` | ダブルタップズーム抑制 |
+| ツールボタン・スライダー・IME HUD textarea | `manipulation` | ダブルタップズーム抑制 |
 | プロジェクト一覧のスクロール領域 | `pan-y` | 一覧は通常スクロール |
 
-### 3.4 IME / キーボード（v1 は下部バーに固定）
+### 3.4 IME / キーボード（画面空間の縦書き HUD）
 
-重ねる縦書き `textarea` は **禁止**（iPad で候補窓とスクロールが壊れる）。
+ページ transform（`scale` / crisp 逆スケール）の **内側** に縦書き `textarea` を置くのは **禁止**（iPad で候補窓とスクロールが壊れる）。入力面は `#editor-root` 直下の `position: fixed` HUD のみ。
 
 1. Pencil の **tap**（down→up、移動 < 8 CSS px）で空枠作成、または既存枠 tap で選択。`pointerdown` 時点では `createText` しない
-2. `selectedTextId` を立て、画面下部の **横書き `textarea`**（編集バー）にフォーカスする。ページ上の枠は CSS `writing-mode: vertical-rl` の **表示専用**。`verticalGlyphs()` を表示に使わない
-3. `visualViewport` Shrink 時は編集バーを viewport 下端に追従させる。ページ枠は隠れてよい。確定は **`focusout` または編集バーの「完了」** のみ。`visualViewport` 復帰だけでは `editText` しない（スプリットキーボード誤 commit 防止）
+2. `selectedTextId` を立て、選択枠の画面矩形に重ねた **縦書き `textarea`**（白背景 HUD）にフォーカスする。ページ上の枠は CSS `writing-mode: vertical-rl` の **表示専用**。`verticalGlyphs()` を表示に使わない
+3. HUD は `getBoundingClientRect` で枠に合わせ、`visualViewport` 内にクランプする。ページ枠はキーボードで隠れてよい。確定は **`focusout` または枠クロムの確定** のみ。`visualViewport` 復帰だけでは `editText` しない（スプリットキーボード誤 commit 防止）
 4. `compositionend` まで `editText` を dispatch しない。履歴は確定 1 回
 5. 編集中（textarea フォーカス中）は undo/redo アイコンを disabled。未確定文字列と履歴を混ぜない
 6. `window.scroll` ロック（§3.2）を編集中も維持する
+7. HUD は `tool === 'text'` かつ単一選択のときだけマウントする。ワークスペースの pointer capture は HUD を chrome と同様に除外する
 
 ### 3.5 ポインタと Pencil
 
@@ -687,7 +688,7 @@ free: x,y パン+ピンチ。grid: 配列順、zoom=1。グリッド内並べ替
 | 6 | Pointer FSM + 指パン/ピンチ/長押し。`touch-action:none` | ブラウザズームにならない。単体 `pen`/`touch`。実機 Pencil は #8 |
 | 7 | コンパクトサイドバー | |
 | 8 | ペン overlay ベイク + 消しゴム **page canvas** + encodedPng + 800ms | View-per-pixel 無し。消しゴム後に page `getImageData` の α が減る。パン 100 回で画素 new 無し |
-| 9 | 下部 IME バー + 縦書き表示 | 縦書き textarea 無し。scrollTo ロック |
+| 9 | 画面空間の縦書き IME HUD + ページは表示専用 | ページ内 textarea 無し。scrollTo ロック |
 | 10 | マーキー/クリップ Canvas ベイク | JS `cutRect` 本番無し |
 | 11 | ストック MOVE、0 ページ WS | PB 座標不変 |
 | 12 | pdf.js Proxy 保持、送り render、長押し範囲、1 本指パン、OPFS リロード | generation で key 変化。CDN/WebView 無し |
@@ -726,7 +727,7 @@ free: x,y パン+ピンチ。grid: 配列順、zoom=1。グリッド内並べ替
 3. 指 420ms でページサムネ追従、ストック MOVE
 4. ピンチがブラウザズームでない
 5. 縦向き 4 ペイン（狭い）
-6. 下部バーで確定後に本文が残る。ページ上 textarea が縦書きでフォーカスされない
+6. HUD で確定後に本文が残る。ページ transform 内の textarea がフォーカスされない
 7. PDF 1→2 で絵が入れ替わる。リロードで currentPage+zoom+pan が戻る
 8. 範囲ドロップ後 PDF 原文が残る。1 本指で PDF をパンできる
 9. ベイク＋ PNG エンコード完了後にホーム→復帰でその線がある。未エンコードは未保存ドット
@@ -760,7 +761,7 @@ free: x,y パン+ピンチ。grid: 配列順、zoom=1。グリッド内並べ替
 21. overlay を 216×dpr で持ち 1200×1700 へ拡大ベイクする
 22. `stepWorkspaceGesture` を本番 FSM として呼ぶ
 23. pagehide で `await convertToBlob` する
-24. 縦書き textarea をページに重ねてフォーカスする
+24. 縦書き textarea をページ transform の内側に置いてフォーカスする
 25. `PdfDocument.uri` を残す / `sameUri` で OPFS キーを比較する
 
 ---
@@ -773,7 +774,7 @@ free: x,y パン+ピンチ。grid: 配列順、zoom=1。グリッド内並べ替
 | E2 | 二重タブ | last-write-wins |
 | E3 | Canvas と stampStroke の不一致 | 本番 Canvas。CI は一致要求しない。消しゴムは InkEngine テスト |
 | E4 | pressure 0 | hover 無視、接触中 0→0.5、in-stroke は直前値 |
-| E5 | IME | 下部バー + focusout/完了のみ確定 |
+| E5 | IME | 画面空間の縦書き HUD + focusout/確定のみ |
 | E6 | 巨大 PDF 抽出 | 表示は成功、ドロップ空 |
 | E7 | Worker 化 | v1 メイン。手段変更可 |
 | E8 | SW 更新 | シェルのみ |
@@ -837,7 +838,7 @@ free: x,y パン+ピンチ。grid: 配列順、zoom=1。グリッド内並べ替
 | B8 | 削除順の自己矛盾 | §7.5 | OPFS → IDB rasters→documents→meta。先に meta を外すな |
 | B9 | pagehide の await blob | §7.6, §14.23 | ベイク直後にエンコード開始。hidden は既存 `encodedPng` を put。await しない |
 | B10 | テンプレ URL | §4.3, §6 | `/page_template.jpg` + SW |
-| B11 | IME の OR | §3.4, §14.24 | 下部横書きバー固定。縦書き textarea 禁止 |
+| B11 | IME の OR | §3.4, §14.24 | 画面空間 HUD。ページ内縦書き textarea 禁止 |
 | B12 | ツール既定が 48px のまま | §5 `types.ts`, §6, §7.3 | pen 12 / eraser 28 / font 36。枠関数 1 本 |
 | H 筆圧 hover | 空中描画 | §3.5, E4 | hover 無視。in-stroke 0 は直前値。非昇格 sticky |
 | H 掌 | 単一 FSM 奪取 | §3.5, §8.5 | 3rd touch ignore。Pencil+指パン並立 |

@@ -5,6 +5,8 @@ import {
   TEXT_EDIT_GAP_PX,
   TEXT_EDIT_MIN_HEIGHT_PX,
   textEditBarPose,
+  textEditHudPose,
+  hudScreenFontPx,
 } from '../textEditCommit';
 
 describe('planTextCommit (§3.4)', () => {
@@ -103,6 +105,32 @@ describe('textEditBarPose', () => {
     );
     expect(pose.top + 52).toBeLessThanOrEqual(600 - 8);
     expect(pose.left).toBeGreaterThanOrEqual(8);
+  });
+});
+
+describe('textEditHudPose', () => {
+  test('matches the wrap in screen space', () => {
+    expect(
+      textEditHudPose(
+        { left: 120, top: 80, width: 48, height: 200 },
+        { left: 0, top: 0, width: 800, height: 600 },
+      ),
+    ).toEqual({ left: 120, top: 80, width: 48, height: 200 });
+  });
+
+  test('stays on the wrap even when the visual viewport is smaller than the wrap', () => {
+    const pose = textEditHudPose(
+      { left: 20, top: 540, width: 60, height: 200 },
+      { left: 0, top: 0, width: 400, height: 450 },
+    );
+    expect(pose).toEqual({ left: 20, top: 540, width: 60, height: 200 });
+  });
+});
+
+describe('hudScreenFontPx', () => {
+  test('scales CSS font-size by wrap screen size', () => {
+    expect(hudScreenFontPx(4.5, 32, 129.4217529296875)).toBeCloseTo(18.199934005737305);
+    expect(hudScreenFontPx(4.5, 0, 100)).toBe(4.5);
   });
 });
 

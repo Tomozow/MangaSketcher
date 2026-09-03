@@ -16,6 +16,7 @@ export const PAGE_TEXT_DELETE_ATTR = 'data-page-text-delete';
 export const PAGE_TEXT_COPY_ATTR = 'data-page-text-copy';
 export const PAGE_TEXT_CONFIRM_ATTR = 'data-page-text-confirm';
 export const PAGE_TEXT_CHROME_ATTR = 'data-page-text-chrome';
+export const PAGE_TEXT_EDIT_HUD_ATTR = 'data-page-text-edit-hud';
 export const PAGE_DELETE_CHROME_ATTR = 'data-page-delete-chrome';
 
 function workspaceRoot(surfaceEl: HTMLElement): HTMLElement {

@@ -9,38 +9,45 @@ export function appShellHeight(options: {
   visualHeight: number | null;
   visualOffsetTop: number;
   standalone: boolean;
+  /** Text HUD: keep the layout viewport. Do not shrink the workspace for the keyboard. */
+  ignoreVisualKeyboard?: boolean;
 }): number | null {
-  const { innerHeight, visualHeight, visualOffsetTop, standalone } = options;
+  const { innerHeight, visualHeight, visualOffsetTop, standalone, ignoreVisualKeyboard } = options;
+  if (ignoreVisualKeyboard) {
+    return standalone ? null : innerHeight;
+  }
   const visual =
     visualHeight == null || !Number.isFinite(visualHeight)
       ? innerHeight
       : visualHeight + visualOffsetTop;
-  if (!standalone) {
-    return visual;
+  const keyboardish = innerHeight - visual > STANDALONE_KEYBOARD_SHRINK_PX;
+  if (ignoreVisualKeyboard || keyboardish) {
+    return standalone ? null : innerHeight;
   }
-  if (innerHeight - visual > STANDALONE_KEYBOARD_SHRINK_PX) {
+  if (!standalone) {
     return visual;
   }
   return null;
 }
 
-export function readAppShellHeight(): number | null {
+export function readAppShellHeight(ignoreVisualKeyboard = false): number | null {
   const viewport = window.visualViewport;
   return appShellHeight({
     innerHeight: window.innerHeight,
     visualHeight: viewport ? viewport.height : null,
     visualOffsetTop: viewport?.offsetTop ?? 0,
     standalone: readStandaloneDisplay(),
+    ignoreVisualKeyboard,
   });
 }
 
-export function useAppShellHeight(remeasureKey?: unknown): number | null {
+export function useAppShellHeight(remeasureKey?: unknown, ignoreVisualKeyboard = false): number | null {
   const [height, setHeight] = useState<number | null>(null);
 
   useLayoutEffect(() => {
     const apply = () => {
       applyStandaloneHtmlFlag();
-      setHeight(readAppShellHeight());
+      setHeight(readAppShellHeight(ignoreVisualKeyboard));
     };
     apply();
     const viewport = window.visualViewport;
@@ -52,7 +59,7 @@ export function useAppShellHeight(remeasureKey?: unknown): number | null {
       viewport?.removeEventListener('scroll', apply);
       window.removeEventListener('resize', apply);
     };
-  }, [remeasureKey]);
+  }, [remeasureKey, ignoreVisualKeyboard]);
 
   return height;
 }

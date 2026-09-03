@@ -1,31 +1,34 @@
 'use client';
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type CSSProperties } from 'react';
 import type { TextId } from '@/src/domain/types';
 import { isTextContentEmpty } from '@/src/domain/text';
 import {
-  fitTextEditInputHeight,
   planTextCommit,
   TEXT_EDIT_MARGIN_PX,
   TEXT_EDIT_MIN_HEIGHT_PX,
   TEXT_EDIT_MIN_WIDTH_PX,
-  textEditBarPose,
+  textEditHudPose,
+  hudScreenFontPx,
 } from '@/src/web/textEditCommit';
 import {
   PAGE_TEXT_CHROME_ATTR,
   PAGE_TEXT_CONFIRM_ATTR,
   PAGE_TEXT_COPY_ATTR,
   PAGE_TEXT_DELETE_ATTR,
+  PAGE_TEXT_EDIT_HUD_ATTR,
   PAGE_TEXT_ID_ATTR,
   PAGE_TEXT_WRAP_ATTR,
 } from '@/src/web/gestures/pageTextDom';
 import { styles } from '@/src/web/editorStyles';
 import { setLiveTextContent } from '@/src/web/liveTextContentStore';
 import { repaintAllInkDisplays } from '@/src/web/ink/PageInkCanvas';
+import { isWhiteTextColor } from '@/src/web/text/whiteTextColor';
 
 export type TextEditSelection = {
   id: TextId;
   content: string;
+  color?: string;
 };
 
 type TextEditBarProps = {
@@ -39,11 +42,7 @@ type TextEditBarProps = {
   onLiveContent: (content: string | null) => void;
 };
 
-function fitBarInput(input: HTMLTextAreaElement, viewHeight: number): void {
-  input.style.height = 'auto';
-  const maxHeight = Math.max(TEXT_EDIT_MIN_HEIGHT_PX, Math.floor(viewHeight * 0.5));
-  input.style.height = `${fitTextEditInputHeight(input.scrollHeight, TEXT_EDIT_MIN_HEIGHT_PX, maxHeight)}px`;
-}
+type HudPose = { left: number; top: number; width: number; height: number; fontSize: number };
 
 function visualViewRect(): { left: number; top: number; width: number; height: number } {
   if (typeof window === 'undefined') {
@@ -61,6 +60,39 @@ function visualViewRect(): { left: number; top: number; width: number; height: n
   };
 }
 
+function wrapHudMetrics(wrap: HTMLElement): HudPose {
+  const view = visualViewRect();
+  const rect = wrap.getBoundingClientRect();
+  const pose = textEditHudPose(rect, view);
+  const wrapFont = Number.parseFloat(window.getComputedStyle(wrap).fontSize);
+  const fontSize = hudScreenFontPx(
+    Number.isFinite(wrapFont) && wrapFont > 0 ? wrapFont : 16,
+    wrap.offsetHeight,
+    rect.height,
+  );
+  return {
+    left: pose.left,
+    top: pose.top,
+    width: Math.ceil(pose.width),
+    height: Math.ceil(pose.height),
+    fontSize,
+  };
+}
+
+function applyHudPose(next: HudPose, bar: HTMLDivElement | null, input: HTMLTextAreaElement | null): void {
+  if (bar) {
+    bar.style.left = `${next.left}px`;
+    bar.style.top = `${next.top}px`;
+    bar.style.width = `${next.width}px`;
+    bar.style.height = `${next.height}px`;
+  }
+  if (input) {
+    input.style.width = `${next.width}px`;
+    input.style.height = `${next.height}px`;
+    input.style.fontSize = `${next.fontSize}px`;
+  }
+}
+
 export function TextEditBar({
   selection,
   layoutKey,
@@ -74,7 +106,7 @@ export function TextEditBar({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const barRef = useRef<HTMLDivElement>(null);
   const [draft, setDraft] = useState('');
-  const [pose, setPose] = useState<{ left: number; top: number; width: number } | null>(null);
+  const [pose, setPose] = useState<HudPose | null>(null);
   const composingRef = useRef(false);
   const pendingExplicitCommitRef = useRef(false);
   const suppressBlurRef = useRef(false);
@@ -146,6 +178,32 @@ export function TextEditBar({
   }, [selection?.id]);
 
   useLayoutEffect(() => {
+    const wrap = selection
+      ? document.querySelector<HTMLElement>(
+          `[${PAGE_TEXT_WRAP_ATTR}][${PAGE_TEXT_ID_ATTR}="${selection.id}"]`,
+        )
+      : null;
+    const next = wrap ? wrapHudMetrics(wrap) : null;
+    if (!next) {
+      return;
+    }
+    applyHudPose(next, barRef.current, textareaRef.current);
+    setPose((prev) => {
+      if (
+        prev &&
+        prev.left === next.left &&
+        prev.top === next.top &&
+        prev.width === next.width &&
+        prev.height === next.height &&
+        prev.fontSize === next.fontSize
+      ) {
+        return prev;
+      }
+      return next;
+    });
+  }, [draft, selection?.id]);
+
+  useLayoutEffect(() => {
     if (!selection) {
       setPose(null);
       return;
@@ -159,13 +217,9 @@ export function TextEditBar({
         setPose(null);
         return;
       }
-      const view = visualViewRect();
-      const input = textareaRef.current;
-      if (input) {
-        fitBarInput(input, view.height);
-      }
-      const barHeight = barRef.current?.getBoundingClientRect().height || TEXT_EDIT_MIN_HEIGHT_PX;
-      setPose(textEditBarPose(wrap.getBoundingClientRect(), view, barHeight));
+      const next = wrapHudMetrics(wrap);
+      applyHudPose(next, barRef.current, textareaRef.current);
+      setPose(next);
     };
 
     update();
@@ -189,26 +243,6 @@ export function TextEditBar({
       observer?.disconnect();
     };
   }, [layoutKey, selection?.id]);
-
-  useLayoutEffect(() => {
-    if (!selection) {
-      return;
-    }
-    const input = textareaRef.current;
-    if (!input) {
-      return;
-    }
-    const view = visualViewRect();
-    fitBarInput(input, view.height);
-    const wrap = document.querySelector<HTMLElement>(
-      `[${PAGE_TEXT_WRAP_ATTR}][${PAGE_TEXT_ID_ATTR}="${selection.id}"]`,
-    );
-    if (!wrap) {
-      return;
-    }
-    const barHeight = barRef.current?.getBoundingClientRect().height || TEXT_EDIT_MIN_HEIGHT_PX;
-    setPose(textEditBarPose(wrap.getBoundingClientRect(), view, barHeight));
-  }, [draft, pose?.width, selection?.id]);
 
   useEffect(() => {
     if (!selection) return;
@@ -313,12 +347,10 @@ export function TextEditBar({
   const handleChange = (event: ChangeEvent<HTMLTextAreaElement>) => {
     const value = event.target.value;
     setDraft(value);
-    if (!composingRef.current) {
-      onLiveContent(value);
-      const current = selectionRef.current;
-      if (current) {
-        setLiveTextContent({ id: current.id, content: value });
-      }
+    onLiveContent(value);
+    const current = selectionRef.current;
+    if (current) {
+      setLiveTextContent({ id: current.id, content: value });
     }
   };
 
@@ -327,13 +359,15 @@ export function TextEditBar({
   }
 
   const view = visualViewRect();
-  const barStyle = pose
-    ? { left: pose.left, top: pose.top, width: pose.width }
+  const barStyle: CSSProperties = pose
+    ? { left: pose.left, top: pose.top, width: pose.width, height: pose.height }
     : {
         left: view.left + TEXT_EDIT_MARGIN_PX,
         top: view.top + TEXT_EDIT_MARGIN_PX,
         width: TEXT_EDIT_MIN_WIDTH_PX,
+        height: TEXT_EDIT_MIN_HEIGHT_PX,
       };
+  const hudColor = isWhiteTextColor(selection.color) ? '#1A1A1A' : selection.color || '#1A1A1A';
 
   return (
     <div
@@ -341,14 +375,20 @@ export function TextEditBar({
       className={styles.textEditBar}
       style={barStyle}
       data-testid="text-edit-bar"
+      {...{ [PAGE_TEXT_EDIT_HUD_ATTR]: '' }}
     >
       <textarea
         ref={textareaRef}
         className={styles.textEditInput}
         value={draft}
-        rows={1}
         autoFocus
         aria-label="テキスト編集"
+        style={{
+          fontSize: pose?.fontSize,
+          color: hudColor,
+          width: pose?.width,
+          height: pose?.height,
+        }}
         onChange={handleChange}
         onFocus={handleFocus}
         onBlur={handleBlur}

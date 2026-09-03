@@ -307,7 +307,7 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(otherPage.attachment).toEqual({ kind: 'page', pageId: 'p2' });
   });
 
-  test('6. 確定は explicit のみ。ページ上は textarea ではなく表示専用', () => {
+  test('6. 確定は explicit のみ。ページ上は textarea ではなく表示専用。IME は画面空間の縦書き HUD', () => {
     expect(pageTextOverlaySrc).not.toMatch(/<textarea/i);
     expect(pageTextOverlaySrc).toContain('pageTextBox');
     expect(editorCss).toMatch(/\.ms-pageTextBox[^{]*\{[^}]*writing-mode:\s*vertical-rl/);
@@ -322,6 +322,10 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(textEditBarSrc).toMatch(/<textarea/);
     expect(textEditBarSrc).toContain('autoFocus');
     expect(textEditBarSrc).toContain('preventScroll');
+    expect(textEditBarSrc).toContain('textEditHudPose');
+    expect(textEditBarSrc).toContain('PAGE_TEXT_EDIT_HUD_ATTR');
+    expect(editorCss).toMatch(/\.ms-textEditInput[^{]*\{[^}]*writing-mode:\s*vertical-rl/);
+    expect(editorCss).toMatch(/\.ms-textEditInput[^{]*\{[^}]*background:\s*#fff/);
     expect(textEditBarSrc).not.toContain('完了');
     expect(textEditBarSrc).toContain('PAGE_TEXT_CONFIRM_ATTR');
     expect(pageTextOverlaySrc).toContain('テキストを確定');

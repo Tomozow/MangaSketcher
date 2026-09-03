@@ -21,11 +21,8 @@ import { IconMoon, IconSun } from '@/src/web/chromeIcons';
 import { useChromeTheme } from '@/src/web/useChromeTheme';
 import { ProjectListThumbs } from '@/src/web/ProjectListThumbs';
 import {
-  canShareExportFile,
   EXPORT_DOWNLOAD_LABEL,
-  EXPORT_SHARE_LABEL,
   revokeExportObjectUrl,
-  shareExportFile,
   startExportDownload,
   type ObjectUrlTracker,
 } from '@/src/web/export';
@@ -143,7 +140,6 @@ export function ProjectList() {
     projectId: string;
     projectName: string;
     file: File;
-    canShare: boolean;
   } | null>(null);
 
   const refresh = useCallback(async () => {
@@ -390,27 +386,11 @@ export function ProjectList() {
         projectId: project.id,
         projectName: project.name,
         file,
-        canShare: canShareExportFile(file),
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'エクスポートに失敗しました。');
     } finally {
       setExportGeneratingId(null);
-    }
-  };
-
-  const handleExportShare = async () => {
-    if (!pendingExport) {
-      return;
-    }
-    try {
-      const result = await shareExportFile(pendingExport.file);
-      if (result === 'aborted') {
-        return;
-      }
-    } catch {
-      setError('エクスポートに失敗しました。');
-      discardPendingExport();
     }
   };
 
@@ -644,15 +624,6 @@ export function ProjectList() {
               「{pendingExport.projectName}」のエクスポート準備ができました
             </span>
             <div className={styles.exportReadyActions}>
-              {pendingExport.canShare ? (
-                <button
-                  type="button"
-                  className={styles.secondaryButton}
-                  onClick={() => void handleExportShare()}
-                >
-                  {EXPORT_SHARE_LABEL}
-                </button>
-              ) : null}
               <button type="button" className={styles.secondaryButton} onClick={handleExportDownload}>
                 {EXPORT_DOWNLOAD_LABEL}
               </button>

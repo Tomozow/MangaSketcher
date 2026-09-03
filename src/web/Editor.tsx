@@ -52,7 +52,7 @@ export default function Editor({ projectId }: EditorProps) {
     setTextDraft,
   } = useEditorController(projectId);
   const [appSettings] = useAppSettings();
-  const rootHeight = useAppShellHeight(ready);
+  const rootHeight = useAppShellHeight(ready, textEditing);
   const toolRef = useRef(history?.present.tool ?? 'pen');
   toolRef.current = history?.present.tool ?? 'pen';
 

@@ -213,12 +213,12 @@ function selectedTextFromDocument(doc: EditorDocument): TextEditSelection | null
   for (const page of Object.values(doc.pages)) {
     const text = page.texts.find((item) => item.id === doc.selectedTextId);
     if (text) {
-      return { id: text.id, content: text.content };
+      return { id: text.id, content: text.content, color: text.color };
     }
   }
   const pasteboard = doc.pasteboardTexts.find((item) => item.id === doc.selectedTextId);
   if (pasteboard) {
-    return { id: pasteboard.id, content: pasteboard.content };
+    return { id: pasteboard.id, content: pasteboard.content, color: pasteboard.color };
   }
   return null;
 }

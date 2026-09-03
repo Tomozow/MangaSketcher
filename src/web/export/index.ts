@@ -17,7 +17,6 @@ export {
   EXPORT_DOWNLOAD_LABEL,
   EXPORT_FAILED_MESSAGE,
   EXPORT_PROGRESS_ELLIPSIS,
-  EXPORT_SHARE_LABEL,
   INK_ENCODE_POLL_MS,
   INK_ENCODE_WAIT_TIMEOUT_MS,
   MAX_WORKSPACE_EXPORT_PAGES,
@@ -38,14 +37,12 @@ export {
 } from './exportFormat';
 export type { ExportFormatId, PageScopeMode } from './exportFormat';
 export {
-  canShareExportFile,
   clickDownloadAnchor,
   revokeExportObjectUrl,
   scheduleDownloadUrlRevoke,
-  shareExportFile,
   startExportDownload,
 } from './saveExportZip';
-export type { ObjectUrlTracker, ShareNavigator } from './saveExportZip';
+export type { ObjectUrlTracker } from './saveExportZip';
 export {
   buildExportZipNames,
   formatExportTimestamp,

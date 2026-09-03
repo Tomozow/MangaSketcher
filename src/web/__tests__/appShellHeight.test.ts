@@ -25,7 +25,15 @@ describe('appShellHeight', () => {
     ).toBeNull();
   });
 
-  test('standalone still shrinks when the keyboard reduces the visual viewport', () => {
+  test('keyboard-sized visual shrink does not collapse the editor shell', () => {
+    expect(
+      appShellHeight({
+        innerHeight: 934,
+        visualHeight: 450,
+        visualOffsetTop: 0,
+        standalone: false,
+      }),
+    ).toBe(934);
     expect(
       appShellHeight({
         innerHeight: 1080,
@@ -33,7 +41,28 @@ describe('appShellHeight', () => {
         visualOffsetTop: 0,
         standalone: true,
       }),
-    ).toBe(620);
+    ).toBeNull();
+  });
+
+  test('text editing keeps the layout viewport instead of shrinking for the keyboard', () => {
+    expect(
+      appShellHeight({
+        innerHeight: 934,
+        visualHeight: 450,
+        visualOffsetTop: 0,
+        standalone: false,
+        ignoreVisualKeyboard: true,
+      }),
+    ).toBe(934);
+    expect(
+      appShellHeight({
+        innerHeight: 1080,
+        visualHeight: 620,
+        visualOffsetTop: 0,
+        standalone: true,
+        ignoreVisualKeyboard: true,
+      }),
+    ).toBeNull();
   });
 });
 

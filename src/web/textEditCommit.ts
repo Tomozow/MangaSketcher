@@ -60,3 +60,27 @@ export function textEditBarPose(
   const top = Math.min(Math.max(view.top + TEXT_EDIT_MARGIN_PX, wrapRect.bottom + TEXT_EDIT_GAP_PX), maxTop);
   return { left, top, width };
 }
+
+/** Screen-space HUD over the selected wrap. Do not clamp into visualViewport (keyboard flash). */
+export function textEditHudPose(
+  wrapRect: { left: number; top: number; width: number; height: number },
+  _view?: { left: number; top: number; width: number; height: number },
+): { left: number; top: number; width: number; height: number } {
+  return {
+    left: wrapRect.left,
+    top: wrapRect.top,
+    width: Math.max(wrapRect.width, 1),
+    height: Math.max(wrapRect.height, 1),
+  };
+}
+
+/** CSS font-size is pre-transform; HUD is screen-space. Scale by wrap screen/offset size. */
+export function hudScreenFontPx(cssFontPx: number, offsetSize: number, screenSize: number): number {
+  if (!(cssFontPx > 0)) {
+    return 16;
+  }
+  if (!(offsetSize > 0) || !(screenSize > 0)) {
+    return cssFontPx;
+  }
+  return cssFontPx * (screenSize / offsetSize);
+}

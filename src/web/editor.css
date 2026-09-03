@@ -1724,34 +1724,50 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 .ms-textEditBar {
   position: fixed;
   z-index: 20;
-  display: flex;
-  align-items: stretch;
-  width: auto;
+  box-sizing: border-box;
+  display: block;
   padding: 0;
-  background: transparent;
+  background: #fff;
   border: none;
+  outline: 1px solid var(--ms-accent);
+  border-radius: 0;
   box-shadow: none;
-  writing-mode: horizontal-tb;
-  direction: ltr;
 }
 
 .ms-textEditInput {
-  flex: 1;
-  min-height: 44px;
-  min-width: 0;
+  display: block;
+  box-sizing: border-box;
   width: 100%;
-  padding: 8px 10px;
-  border: 1px solid var(--ms-border);
-  border-radius: 8px;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
   resize: none;
-  overflow-y: auto;
+  overflow: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
   touch-action: manipulation;
   -webkit-user-select: text;
   user-select: text;
-  color: var(--ms-text);
+  color: #1a1a1a;
   background: #fff;
   font-family: 'GenEiAntique', '源暎アンチック v6', 'GenEi Antique v6', sans-serif;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  white-space: pre-wrap;
+  word-break: break-all;
+  line-height: 1.5;
+  -webkit-appearance: none;
+  appearance: none;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+.ms-textEditInput::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
 }
 
 .ms-saveStatusCorner {

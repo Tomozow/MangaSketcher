@@ -7,16 +7,13 @@ import type { InkEngine } from '@/src/web/ink/InkEngine';
 import { styles } from './editorStyles';
 import { IconExport } from './chromeIcons';
 import {
-  canShareExportFile,
   EXPORT_BUTTON_LABEL,
   EXPORT_CANCEL_LABEL,
   EXPORT_DOWNLOAD_LABEL,
   EXPORT_FAILED_MESSAGE,
   EXPORT_PROGRESS_ELLIPSIS,
-  EXPORT_SHARE_LABEL,
   formatExportProgress,
   revokeExportObjectUrl,
-  shareExportFile,
   startExportDownload,
   WorkspaceExportAbortedError,
   type ExportProgress,
@@ -64,7 +61,6 @@ export function WorkspaceExportControls({
   const [phase, setPhase] = useState<ExportUiPhase>('idle');
   const [progress, setProgress] = useState<ExportProgress | null>(null);
   const [file, setFile] = useState<File | null>(null);
-  const [canShare, setCanShare] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [panelView, setPanelView] = useState<PanelView>('formats');
   const [highlightedFormat, setHighlightedFormat] = useState<ExportFormatId>(() =>
@@ -127,7 +123,6 @@ export function WorkspaceExportControls({
     revokeExportObjectUrl(objectUrlRef.current, { unusedOnly: true });
     objectUrlRef.current = null;
     setFile(null);
-    setCanShare(false);
     setProgress(null);
   }, []);
 
@@ -149,7 +144,6 @@ export function WorkspaceExportControls({
         return;
       }
       setFile(exported);
-      setCanShare(canShareExportFile(exported));
       setProgress(null);
       updatePhase('ready');
     },
@@ -259,24 +253,6 @@ export function WorkspaceExportControls({
     [discardReady, doc, finishFile, inkEngine, onBeforeExport, phase, updatePhase],
   );
 
-  const handleShare = useCallback(async () => {
-    if (!file) {
-      return;
-    }
-    try {
-      const result = await shareExportFile(file);
-      if (result === 'aborted' || !mountedRef.current) {
-        return;
-      }
-    } catch {
-      if (!mountedRef.current) {
-        return;
-      }
-      discardReady();
-      updatePhase('failed');
-    }
-  }, [discardReady, file, updatePhase]);
-
   const handleDownload = useCallback(() => {
     if (!file) {
       return;
@@ -289,7 +265,7 @@ export function WorkspaceExportControls({
     if (phase === 'generating') {
       return;
     }
-    if (phase === 'ready') {
+    if (phase === 'ready' || phase === 'failed') {
       discardReady();
       updatePhase('idle');
     }
@@ -440,11 +416,6 @@ export function WorkspaceExportControls({
       {phase === 'ready' && file ? (
         <div className={styles.workspaceExportStatus}>
           <div className={styles.workspaceExportActions}>
-            {canShare ? (
-              <button type="button" className={styles.iconButton} onClick={() => void handleShare()}>
-                {EXPORT_SHARE_LABEL}
-              </button>
-            ) : null}
             <button type="button" className={styles.iconButton} onClick={handleDownload}>
               {EXPORT_DOWNLOAD_LABEL}
             </button>
