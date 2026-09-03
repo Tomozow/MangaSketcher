@@ -16,6 +16,25 @@ export type WorkspaceLayout = {
   pageCount: number;
 };
 
+/** Page ids in the reading spread that contains `pageId` (empty if not in order). */
+export function spreadPageIdsContaining(
+  workspaceOrder: readonly PageId[],
+  pageId: PageId | null,
+): PageId[] {
+  if (pageId == null || !workspaceOrder.includes(pageId)) {
+    return [];
+  }
+  const pair = readingSpreads([...workspaceOrder]).find((spread) =>
+    spread.some((slot) => slot.kind === 'page' && slot.pageId === pageId),
+  );
+  if (!pair) {
+    return [];
+  }
+  return pair
+    .filter((slot): slot is Extract<VisualSlot, { kind: 'page' }> => slot.kind === 'page')
+    .map((slot) => slot.pageId);
+}
+
 /**
  * Manga spreads from slot 0 (start blank), then real pages 1, 2, 3…
  *

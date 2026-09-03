@@ -841,17 +841,29 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   justify-content: center;
   font-size: 13px;
   color: var(--ms-chrome-fg);
+  min-height: 44px;
+  user-select: none;
+  pointer-events: none;
+}
+
+.ms-pageNumberHit {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1em;
+  min-width: 1em;
+  line-height: 1;
   touch-action: none;
   cursor: default;
-  min-height: 44px;
   user-select: none;
 }
 
-.ms-pageNumberBand[data-ms-drag-page-number='1'] {
+.ms-pageNumberHit[data-ms-drag-page-number='1'] {
   cursor: grab;
 }
 
-.ms-pageNumberBand[data-ms-drag-page-number='1']:active {
+.ms-pageNumberHit[data-ms-drag-page-number='1']:active {
   cursor: grabbing;
 }
 

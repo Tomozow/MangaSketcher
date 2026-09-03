@@ -257,6 +257,8 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(navSrc).toContain('前の${pageStepLabel}');
     expect(navSrc).toContain('次の${pageStepLabel}');
     expect(navSrc).toContain('spreadWorldRectForPage');
+    expect(workspaceStripSrc).toContain('spreadPageIdsContaining');
+    expect(workspaceStripSrc).toContain('pageTextCrispZoom');
     expect(editorCss).toMatch(/\.ms-leftChrome[^{]*\{[^}]*top:\s*50%/);
     expect(editorCss).toMatch(/\.ms-workspaceNav[^{]*\{[^}]*grid-row:\s*1/);
     expect(editorCss).toMatch(/\.ms-toolRailCluster[^{]*\{[^}]*grid-row:\s*2/);

@@ -40,6 +40,7 @@ export const styles = {
   pageInkOverlay: 'ms-pageInkOverlay',
   pageInkPlane: 'ms-pageInkPlane',
   pageNumberBand: 'ms-pageNumberBand',
+  pageNumberHit: 'ms-pageNumberHit',
   pageNumberBandSelected: 'ms-pageNumberBandSelected',
   pageTextBox: 'ms-pageTextBox',
   pageTextBoxSelected: 'ms-pageTextBoxSelected',

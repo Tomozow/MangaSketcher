@@ -23,6 +23,9 @@ export const PAIR_GAP = 4;
 export const MAX_PAIR_GAP = PAGE_DISPLAY_W;
 export const MAX_COLUMN_GAP = PAGE_DISPLAY_H * 2;
 export const PAGE_NUMBER_BAND = 44;
+/** Hit target around the page number (world units), smaller than the layout band. */
+export const PAGE_NUMBER_HIT_W = 52;
+export const PAGE_NUMBER_HIT_H = 40;
 /** @deprecated Use PAGE_NUMBER_BAND — kept for imports that expect NUMBER_BAND. */
 export const NUMBER_BAND = PAGE_NUMBER_BAND;
 

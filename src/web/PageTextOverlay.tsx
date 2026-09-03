@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useState, type RefObject } from 'react';
+import { useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react';
 import {
   DEFAULT_RASTER_HEIGHT,
   DEFAULT_RASTER_WIDTH,
@@ -48,6 +48,17 @@ function displayTextFontSize(fontSize: number, scaleX: number): number {
   return fontSize * scaleX;
 }
 
+/** Zoom used to rasterize page text against CSS strip scale. 1 = no counter-scale. */
+export function pageTextCrispZoom(workspaceZoom: number, pageInSelectedSpread: boolean): number {
+  if (!pageInSelectedSpread) {
+    return 1;
+  }
+  if (!Number.isFinite(workspaceZoom) || workspaceZoom <= 1) {
+    return 1;
+  }
+  return workspaceZoom;
+}
+
 export function textsForFrame(
   framePageId: PageId,
   pages: EditorDocument['pages'],
@@ -74,15 +85,29 @@ function rasterPct(value: number, raster: number): string {
 }
 
 /** Size the wrap in em so width tracks `line-height: 1.5` of this font-size. */
-function textWrapEmStyle(box: Rect, fontPx: number, cssFontSize: number, rw: number, rh: number) {
+export function textWrapEmStyle(
+  box: Rect,
+  fontPx: number,
+  cssFontSize: number,
+  rw: number,
+  rh: number,
+  crispZoom = 1,
+): CSSProperties {
   const fs = Math.max(1, fontPx);
-  return {
+  const zoom = pageTextCrispZoom(crispZoom, true);
+  const style: CSSProperties = {
     left: rasterPct(box.x, rw),
     top: rasterPct(box.y, rh),
     width: `${box.width / fs}em`,
     height: `${box.height / fs}em`,
-    fontSize: cssFontSize,
+    fontSize: cssFontSize * zoom,
   };
+  if (zoom > 1) {
+    style.transform = `scale(${1 / zoom})`;
+    style.transformOrigin = '0 0';
+    style['--ms-screen-px' as string] = '1';
+  }
+  return style;
 }
 
 function DeleteMark({ icon, batch }: { icon: number; batch: boolean }) {
@@ -225,6 +250,8 @@ type PageTextsOnFrameProps = {
   selectedTextIds?: TextId[];
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
   liveTextContent?: LiveTextContent | null;
+  /** Workspace zoom; glyphs rasterize at this scale when this frame is the selected spread. */
+  crispZoom?: number;
 };
 
 /** Page-local text boxes. Must render inside the page frame, not a sibling overlay. */
@@ -237,6 +264,7 @@ export function PageTextsOnFrame({
   selectedTextIds,
   textLiveTransforms,
   liveTextContent: liveTextContentProp,
+  crispZoom = 1,
 }: PageTextsOnFrameProps) {
   const liveFromStore = useLiveTextContent();
   const liveTextContent = liveTextContentProp !== undefined ? liveTextContentProp : liveFromStore;
@@ -268,7 +296,7 @@ export function PageTextsOnFrame({
               [PAGE_TEXT_PAGE_ATTR]: pageId,
             }}
             className={`${styles.pageTextWrap} ${selected ? styles.pageTextWrapSelected : ''}`}
-            style={textWrapEmStyle(box, layoutFont, cssFontSize, rw, rh)}
+            style={textWrapEmStyle(box, layoutFont, cssFontSize, rw, rh, crispZoom)}
           >
             <div
               className={`${styles.pageTextBox} ${selected ? styles.pageTextBoxSelected : ''} ${isWhiteTextColor(text.color) ? styles.pageTextBoxWhite : ''}`}

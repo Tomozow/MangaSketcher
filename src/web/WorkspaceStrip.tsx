@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { spreadPageIdsContaining } from '@/src/domain/layout';
 import {
   buildStripFrames,
   NUMBER_BAND,
@@ -40,6 +41,7 @@ import {
   PageTextsOnFrame,
   PasteboardTextsLayer,
   TextChromeOverlay,
+  pageTextCrispZoom,
   textsForFrame,
   type LiveTextContent,
 } from '@/src/web/PageTextOverlay';
@@ -219,6 +221,11 @@ export function WorkspaceStrip({
     workspaceOrder,
     inkFrame,
   ]);
+
+  const selectedSpreadPageIds = useMemo(
+    () => new Set(spreadPageIdsContaining(workspaceOrder, selectedPageId)),
+    [workspaceOrder, selectedPageId],
+  );
 
   const inkCull = useMemo(() => {
     const pageItems = frames.flatMap((frame) => {
@@ -682,14 +689,16 @@ export function WorkspaceStrip({
                   selectedTextIds={visibleSelectedTextIds}
                   textLiveTransforms={textLiveTransforms}
                   liveTextContent={liveTextContent}
+                  crispZoom={pageTextCrispZoom(zoom, selectedSpreadPageIds.has(pageId))}
                 />
               </div>
               <div
                 className={`${styles.pageNumberBand} ${selectedPageId === pageId ? styles.pageNumberBandSelected : ''}`}
                 style={{ width: frame.width, marginTop: 0 }}
-                {...{ [PAGE_NUMBER_BAND_ATTR]: pageId }}
               >
-                {number}
+                <span className={styles.pageNumberHit} {...{ [PAGE_NUMBER_BAND_ATTR]: pageId }}>
+                  {number}
+                </span>
               </div>
             </div>
           );
