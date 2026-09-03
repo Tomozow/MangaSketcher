@@ -28,8 +28,9 @@ import {
 } from '@/src/storage/history';
 import { copySharedTransparentPng } from '@/src/storage/transparentPng';
 import { dirtyRasterIdsForAction } from '@/src/storage/dirtyRasters';
-import { releaseDefaultStorageDatabase } from '@/src/storage/idb';
+import { releaseDefaultStorageDatabase, isDefaultStorageReleased } from '@/src/storage/idb';
 import { hardNavigate } from '@/src/web/hardNavigate';
+import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 import {
   DEFAULT_RASTER_HEIGHT,
   DEFAULT_RASTER_WIDTH,
@@ -644,6 +645,9 @@ export function useEditorController(projectId: string): EditorController {
 
   useEffect(() => {
     const flushHidden = () => {
+      if (isDefaultStorageReleased()) {
+        return;
+      }
       inkIdleScheduler.cancel();
       inkApiRef.current?.engine.flushPendingEncodes();
       const engine = inkApiRef.current?.engine;
@@ -687,6 +691,15 @@ export function useEditorController(projectId: string): EditorController {
     };
 
     const onPageHide = () => {
+      // #region agent log
+      ipadDebugLog({
+        sessionId: 'adcc47',
+        ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+        hypothesisId: 'F',
+        location: 'useEditorController.ts:pagehide',
+        message: 'pagehide flush after possible close',
+      });
+      // #endregion
       flushHidden();
       releaseDefaultStorageDatabase();
     };
@@ -731,6 +744,7 @@ export function useEditorController(projectId: string): EditorController {
   const dispatch = useCallback(
     (action: EditorDocumentAction) => {
       const viewOnly = isViewOnlyHistoryAction(action.type);
+      let pendingInkUndo: Map<string, InkUndoPixels> | undefined;
       setHistory((prev) => {
         if (!prev) {
           return prev;
@@ -749,10 +763,11 @@ export function useEditorController(projectId: string): EditorController {
         if (nextPresent === prev.present) {
           return prev;
         }
-        const pendingInkUndo = viewOnly
-          ? new Map<string, InkUndoPixels>()
-          : takePendingInkUndo(inkUndoRef.current);
-        const nextHistory = pushEditorHistory(prev, nextPresent, pendingInkUndo, viewOnly, historyDepthRef.current);
+        if (!viewOnly && pendingInkUndo === undefined) {
+          pendingInkUndo = takePendingInkUndo(inkUndoRef.current);
+        }
+        const inkForHistory = viewOnly ? new Map<string, InkUndoPixels>() : (pendingInkUndo ?? new Map());
+        const nextHistory = pushEditorHistory(prev, nextPresent, inkForHistory, viewOnly, historyDepthRef.current);
         persist(
           nextHistory,
           viewOnly,
@@ -826,7 +841,7 @@ export function useEditorController(projectId: string): EditorController {
         present.rasterWidth,
         present.rasterHeight,
       );
-      const pageUndo = api.engine.bakeClipOntoPage(
+      const { pageUndo, clipUndo } = api.engine.bakeClipOntoPage(
         page.rasterId,
         clip.rasterId,
         local.x,
@@ -836,6 +851,7 @@ export function useEditorController(projectId: string): EditorController {
         pose.scaleY,
       );
       stashInkUndo(inkUndoRef.current, page.rasterId, pageUndo);
+      stashInkUndo(inkUndoRef.current, clip.rasterId, clipUndo);
       dispatch({ type: 'commitClipBake', clipId, pageId: target.pageId });
       clipLiveRef.current.delete(clipId);
       bumpClipDragFrame();
@@ -1644,8 +1660,13 @@ export function useEditorController(projectId: string): EditorController {
         return;
       }
       lastTextDuplicateAtRef.current = now;
-      dispatch({ type: 'duplicateText', textId });
-      setTextEditing(true);
+      const present = historyRef.current?.present;
+      const selectedTexts = present ? selectedTextIdsOf(present) : [];
+      const textIds = selectedTexts.includes(textId) ? selectedTexts : [textId];
+      dispatch({ type: 'duplicateText', textIds });
+      if (textIds.length <= 1) {
+        setTextEditing(true);
+      }
     },
     [dispatch],
   );

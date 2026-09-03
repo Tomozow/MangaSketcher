@@ -52,7 +52,12 @@ export function stockGridPlacements(items: readonly StockItem[]): StockGridCell[
   return cells;
 }
 
-/** Page-width units for a fitted stock dock (each column is half a page). */
+/**
+ * Fitted dock width in page units (each grid column is half a page).
+ * Floor of 1.5 keeps about three text/clip columns visible when the pane is empty.
+ */
+export const STOCK_GRID_MIN_FIT_PAGE_UNITS = 1.5;
+
 export function stockGridFitPageUnits(items: readonly StockItem[]): number {
   const placements = stockGridPlacements(items);
   let maxCol = 0;

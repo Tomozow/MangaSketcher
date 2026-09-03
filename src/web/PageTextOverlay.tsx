@@ -169,7 +169,7 @@ function TextBoxChrome({
         className={styles.pageTextChromeButton}
         style={size}
         {...{ [PAGE_TEXT_COPY_ATTR]: '' }}
-        aria-label="テキストを複製"
+        aria-label={batch ? '選択中のテキストを複製' : 'テキストを複製'}
         onPointerDown={(event) => {
           event.stopPropagation();
         }}

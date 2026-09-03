@@ -61,55 +61,130 @@ export function SplitHandle({ orientation, onDrag }: SplitHandleProps) {
   );
 }
 
-type PdfDrawerResizeEdge = 'w' | 's' | 'sw' | 'e' | 'se';
+type PdfDrawerResizeEdge = 'w' | 's' | 'sw' | 'e' | 'se' | 'n' | 'nw';
 
 type PdfDrawerResizeHandleProps = {
   edge: PdfDrawerResizeEdge;
-  onDrag: (deltaX: number, deltaY: number) => void;
+  onStart?: () => void;
+  onPreview: (totalDx: number, totalDy: number) => void;
+  onCommit: (totalDx: number, totalDy: number) => void;
+  onCancel?: () => void;
+  onReset?: () => void;
+  label?: string;
 };
 
-export function PdfDrawerResizeHandle({ edge, onDrag }: PdfDrawerResizeHandleProps) {
-  const dragging = useRef(false);
-  const lastX = useRef(0);
-  const lastY = useRef(0);
+const RESET_DRAG_SLOP_PX = 8;
+const RESET_DOUBLE_MS = 400;
 
-  const handlePointerDown = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    if (event.pointerType === 'mouse' && event.button !== 0) {
-      return;
+function edgeUsesX(edge: PdfDrawerResizeEdge): boolean {
+  return edge === 'w' || edge === 'sw' || edge === 'e' || edge === 'se' || edge === 'nw';
+}
+
+function edgeUsesY(edge: PdfDrawerResizeEdge): boolean {
+  return edge === 's' || edge === 'sw' || edge === 'se' || edge === 'n' || edge === 'nw';
+}
+
+export function PdfDrawerResizeHandle({
+  edge,
+  onStart,
+  onPreview,
+  onCommit,
+  onCancel,
+  onReset,
+  label,
+}: PdfDrawerResizeHandleProps) {
+  const dragging = useRef(false);
+  const startX = useRef(0);
+  const startY = useRef(0);
+  const lastDx = useRef(0);
+  const lastDy = useRef(0);
+  const dragDist = useRef(0);
+  const lastTapAt = useRef(0);
+  const previewRaf = useRef(0);
+
+  const cancelPreviewRaf = useCallback(() => {
+    if (previewRaf.current !== 0) {
+      cancelAnimationFrame(previewRaf.current);
+      previewRaf.current = 0;
     }
-    dragging.current = true;
-    lastX.current = event.clientX;
-    lastY.current = event.clientY;
-    event.currentTarget.setPointerCapture(event.pointerId);
-    event.preventDefault();
-    event.stopPropagation();
   }, []);
+
+  const handlePointerDown = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>) => {
+      if (event.pointerType === 'mouse' && event.button !== 0) {
+        return;
+      }
+      dragging.current = true;
+      dragDist.current = 0;
+      lastDx.current = 0;
+      lastDy.current = 0;
+      startX.current = event.clientX;
+      startY.current = event.clientY;
+      onStart?.();
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.preventDefault();
+      event.stopPropagation();
+    },
+    [onStart],
+  );
 
   const handlePointerMove = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       if (!dragging.current) {
         return;
       }
-      const dx = event.clientX - lastX.current;
-      const dy = event.clientY - lastY.current;
-      lastX.current = event.clientX;
-      lastY.current = event.clientY;
-      const useX = edge === 'w' || edge === 'sw' || edge === 'e' || edge === 'se';
-      const useY = edge === 's' || edge === 'sw' || edge === 'se';
-      if ((useX && dx !== 0) || (useY && dy !== 0)) {
-        onDrag(useX ? dx : 0, useY ? dy : 0);
+      const dx = edgeUsesX(edge) ? event.clientX - startX.current : 0;
+      const dy = edgeUsesY(edge) ? event.clientY - startY.current : 0;
+      lastDx.current = dx;
+      lastDy.current = dy;
+      dragDist.current = Math.hypot(event.clientX - startX.current, event.clientY - startY.current);
+      if (dragDist.current >= RESET_DRAG_SLOP_PX) {
+        cancelPreviewRaf();
+        previewRaf.current = requestAnimationFrame(() => {
+          previewRaf.current = 0;
+          onPreview(dx, dy);
+        });
       }
       event.preventDefault();
     },
-    [edge, onDrag],
+    [cancelPreviewRaf, edge, onPreview],
   );
 
-  const handlePointerUp = useCallback((event: React.PointerEvent<HTMLDivElement>) => {
-    dragging.current = false;
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-  }, []);
+  const endDrag = useCallback(
+    (event: React.PointerEvent<HTMLDivElement>, commit: boolean) => {
+      if (!dragging.current) {
+        return;
+      }
+      const wasTap = dragDist.current < RESET_DRAG_SLOP_PX;
+      const dx = lastDx.current;
+      const dy = lastDy.current;
+      dragging.current = false;
+      cancelPreviewRaf();
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+        event.currentTarget.releasePointerCapture(event.pointerId);
+      }
+      if (wasTap) {
+        onCancel?.();
+        if (!onReset) {
+          return;
+        }
+        const now = Date.now();
+        if (now - lastTapAt.current < RESET_DOUBLE_MS) {
+          lastTapAt.current = 0;
+          onReset();
+          return;
+        }
+        lastTapAt.current = now;
+        return;
+      }
+      if (commit) {
+        onCommit(dx, dy);
+        return;
+      }
+      onCancel?.();
+    },
+    [cancelPreviewRaf, onCancel, onCommit, onReset],
+  );
 
   const className =
     edge === 'w'
@@ -120,18 +195,27 @@ export function PdfDrawerResizeHandle({ edge, onDrag }: PdfDrawerResizeHandlePro
           ? styles.pdfDrawerResizeSw
           : edge === 'e'
             ? styles.pdfDrawerResizeE
-            : styles.pdfDrawerResizeSe;
-  const label =
-    edge === 'w' || edge === 'e' ? 'PDFの幅' : edge === 's' ? 'PDFの高さ' : 'PDFの幅と高さ';
+            : edge === 'se'
+              ? styles.pdfDrawerResizeSe
+              : edge === 'n'
+                ? styles.stockDrawerResizeN
+                : styles.stockDrawerResizeNw;
+  const ariaLabel =
+    label ??
+    (edge === 'w' || edge === 'e'
+      ? 'PDFの幅'
+      : edge === 's' || edge === 'n'
+        ? 'PDFの高さ'
+        : 'PDFの幅と高さ');
 
   return (
     <div
-      aria-label={label}
+      aria-label={ariaLabel}
       className={className}
       onPointerDown={handlePointerDown}
       onPointerMove={handlePointerMove}
-      onPointerUp={handlePointerUp}
-      onPointerCancel={handlePointerUp}
+      onPointerUp={(event) => endDrag(event, true)}
+      onPointerCancel={(event) => endDrag(event, false)}
     />
   );
 }

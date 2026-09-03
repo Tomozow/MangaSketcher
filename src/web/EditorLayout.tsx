@@ -5,7 +5,12 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PageId } from '@/src/domain/types';
 import { selectedTextIdsOf } from '@/src/domain/text';
 import { selectTargetFlagsOf } from '@/src/domain/types';
-import { withoutStockedClips, withoutStockedTexts, stockGridFitPageUnits } from '@/src/domain/stockItems';
+import {
+  withoutStockedClips,
+  withoutStockedTexts,
+  stockGridFitPageUnits,
+  STOCK_GRID_MIN_FIT_PAGE_UNITS,
+} from '@/src/domain/stockItems';
 import { moveWorkspacePageToStock, nextFreeStockPagePosition } from '@/src/web/stock/stockActions';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
 import type { EditorDocument, EditorHistory } from '@/src/storage/types';
@@ -37,10 +42,17 @@ import { PdfDrawerResizeHandle } from './SplitHandle';
 import {
   clampPdfDrawerHeight,
   clampPdfDrawerWidth,
+  clampStockDrawerHeight,
+  clampStockDrawerWidth,
+  DEFAULT_STOCK_DRAWER_HEIGHT,
+  DEFAULT_STOCK_DRAWER_WIDTH,
   nextPdfDrawerHeight,
   nextPdfDrawerWidth,
+  nextStockDrawerHeight,
+  nextStockDrawerWidth,
   PDF_DRAWER_BOTTOM_GAP_PX,
   PDF_DRAWER_TOP_PX,
+  STOCK_DRAWER_EDGE_GAP_PX,
 } from '@/src/domain/uiLayout';
 import {
   STOCK_EDGE_REVEAL_HOLD_MS,
@@ -326,42 +338,130 @@ export function EditorLayout({
           ...(doc.trashTexts ?? []).map((textId) => ({ kind: 'text' as const, textId, x: 0, y: 0 })),
         ]
       : doc.stock;
-  const stockFitUnits = Math.max(3, stockGridFitPageUnits(stockFitItems));
+  const stockFitUnits = Math.max(STOCK_GRID_MIN_FIT_PAGE_UNITS, stockGridFitPageUnits(stockFitItems));
   const bodyRef = useRef<HTMLDivElement>(null);
   const saveKind =
     autosaveStatus.encodingCount > 0 ? 'encoding' : autosaveStatus.unsaved ? 'unsaved' : 'idle';
 
-  const handlePdfDrawerResize = useCallback(
-    (deltaX: number, deltaY: number) => {
+  const [stockResizeGhost, setStockResizeGhost] = useState<{ w: number; h: number } | null>(null);
+  const [pdfResizeGhost, setPdfResizeGhost] = useState<{ w: number; h: number } | null>(null);
+  const stockResizeStartRef = useRef({ w: DEFAULT_STOCK_DRAWER_WIDTH, h: DEFAULT_STOCK_DRAWER_HEIGHT });
+  const pdfResizeStartRef = useRef({ w: 0.32, h: 1 });
+
+  const stockFreeSize =
+    stockVisible && doc.stockPane !== 'trash' && doc.stockLayout === 'free';
+  const stockHeightEdge = appSettings.swapTopbarAndStock ? 's' : 'n';
+  const pdfWidthAnchor = appSettings.chromeFlip ? 'left' : 'right';
+
+  const previewStockSize = useCallback(
+    (totalDx: number, totalDy: number) => {
       const body = bodyRef.current;
+      const start = stockResizeStartRef.current;
       if (!body) {
-        return;
+        return start;
       }
-      const patch: {
-        pdfDrawerWidth?: number;
-        pdfDrawerHeight?: number;
-      } = {};
-      if (deltaX !== 0) {
-        patch.pdfDrawerWidth = nextPdfDrawerWidth(
-          clampPdfDrawerWidth(doc.pdfDrawerWidth),
-          deltaX,
-          body.clientWidth,
-          appSettings.chromeFlip ? 'left' : 'right',
-        );
-      }
-      if (deltaY !== 0) {
-        patch.pdfDrawerHeight = nextPdfDrawerHeight(
-          clampPdfDrawerHeight(doc.pdfDrawerHeight),
-          deltaY,
-          body.clientHeight - PDF_DRAWER_TOP_PX - PDF_DRAWER_BOTTOM_GAP_PX,
-        );
-      }
-      if (patch.pdfDrawerWidth !== undefined || patch.pdfDrawerHeight !== undefined) {
-        dispatch({ type: 'setUiLayout', ...patch });
-      }
+      return {
+        w: nextStockDrawerWidth(start.w, totalDx, body.clientWidth, 'right'),
+        h: nextStockDrawerHeight(
+          start.h,
+          totalDy,
+          body.clientHeight - STOCK_DRAWER_EDGE_GAP_PX * 2,
+          stockHeightEdge,
+        ),
+      };
     },
-    [dispatch, doc.pdfDrawerHeight, doc.pdfDrawerWidth, appSettings.chromeFlip],
+    [stockHeightEdge],
   );
+
+  const previewPdfSize = useCallback(
+    (totalDx: number, totalDy: number) => {
+      const body = bodyRef.current;
+      const start = pdfResizeStartRef.current;
+      if (!body) {
+        return start;
+      }
+      return {
+        w: nextPdfDrawerWidth(start.w, totalDx, body.clientWidth, pdfWidthAnchor),
+        h: nextPdfDrawerHeight(
+          start.h,
+          totalDy,
+          body.clientHeight - PDF_DRAWER_TOP_PX - PDF_DRAWER_BOTTOM_GAP_PX,
+        ),
+      };
+    },
+    [pdfWidthAnchor],
+  );
+
+  const handleStockResizeStart = useCallback(() => {
+    stockResizeStartRef.current = {
+      w: clampStockDrawerWidth(doc.stockDrawerWidth),
+      h: clampStockDrawerHeight(doc.stockDrawerHeight),
+    };
+  }, [doc.stockDrawerHeight, doc.stockDrawerWidth]);
+
+  const handlePdfResizeStart = useCallback(() => {
+    pdfResizeStartRef.current = {
+      w: clampPdfDrawerWidth(doc.pdfDrawerWidth),
+      h: clampPdfDrawerHeight(doc.pdfDrawerHeight),
+    };
+  }, [doc.pdfDrawerHeight, doc.pdfDrawerWidth]);
+
+  const handleStockResizePreview = useCallback(
+    (totalDx: number, totalDy: number) => {
+      setStockResizeGhost(previewStockSize(totalDx, totalDy));
+    },
+    [previewStockSize],
+  );
+
+  const handlePdfResizePreview = useCallback(
+    (totalDx: number, totalDy: number) => {
+      setPdfResizeGhost(previewPdfSize(totalDx, totalDy));
+    },
+    [previewPdfSize],
+  );
+
+  const handleStockResizeCommit = useCallback(
+    (totalDx: number, totalDy: number) => {
+      const next = previewStockSize(totalDx, totalDy);
+      setStockResizeGhost(null);
+      dispatch({
+        type: 'setUiLayout',
+        stockDrawerWidth: next.w,
+        stockDrawerHeight: next.h,
+      });
+    },
+    [dispatch, previewStockSize],
+  );
+
+  const handlePdfResizeCommit = useCallback(
+    (totalDx: number, totalDy: number) => {
+      const next = previewPdfSize(totalDx, totalDy);
+      setPdfResizeGhost(null);
+      dispatch({
+        type: 'setUiLayout',
+        pdfDrawerWidth: next.w,
+        pdfDrawerHeight: next.h,
+      });
+    },
+    [dispatch, previewPdfSize],
+  );
+
+  const handleStockResizeCancel = useCallback(() => {
+    setStockResizeGhost(null);
+  }, []);
+
+  const handlePdfResizeCancel = useCallback(() => {
+    setPdfResizeGhost(null);
+  }, []);
+
+  const handleStockDrawerReset = useCallback(() => {
+    setStockResizeGhost(null);
+    dispatch({
+      type: 'setUiLayout',
+      stockDrawerWidth: DEFAULT_STOCK_DRAWER_WIDTH,
+      stockDrawerHeight: DEFAULT_STOCK_DRAWER_HEIGHT,
+    });
+  }, [dispatch]);
 
   return (
     <div
@@ -374,10 +474,13 @@ export function EditorLayout({
       data-ms-chrome-flip={appSettings.chromeFlip ? '1' : '0'}
       data-ms-stock-top={appSettings.swapTopbarAndStock ? '1' : '0'}
       data-ms-stock-fit={stockVisible && (doc.stockPane === 'trash' || doc.stockLayout === 'grid') ? '1' : '0'}
+      data-ms-stock-free-size={stockFreeSize ? '1' : '0'}
       style={{
         ['--ms-background' as string]: colors.background,
         ['--ms-pdf-drawer-w' as string]: String(clampPdfDrawerWidth(doc.pdfDrawerWidth)),
         ['--ms-pdf-drawer-h' as string]: String(clampPdfDrawerHeight(doc.pdfDrawerHeight)),
+        ['--ms-stock-drawer-w' as string]: String(clampStockDrawerWidth(doc.stockDrawerWidth)),
+        ['--ms-stock-drawer-h' as string]: String(clampStockDrawerHeight(doc.stockDrawerHeight)),
         ['--ms-page-aspect' as string]: String(
           doc.rasterWidth > 0 ? doc.rasterHeight / doc.rasterWidth : 1.41667,
         ),
@@ -550,6 +653,69 @@ export function EditorLayout({
           data-ms-region="stock"
           style={{ ['--ms-stock-fit-units' as string]: String(stockFitUnits) }}
         >
+          {stockFreeSize ? (
+            appSettings.swapTopbarAndStock ? (
+              <>
+                <PdfDrawerResizeHandle
+                  edge="w"
+                  onStart={handleStockResizeStart}
+                  onPreview={handleStockResizePreview}
+                  onCommit={handleStockResizeCommit}
+                  onCancel={handleStockResizeCancel}
+                  onReset={handleStockDrawerReset}
+                  label="ストックの幅"
+                />
+                <PdfDrawerResizeHandle
+                  edge="s"
+                  onStart={handleStockResizeStart}
+                  onPreview={handleStockResizePreview}
+                  onCommit={handleStockResizeCommit}
+                  onCancel={handleStockResizeCancel}
+                  onReset={handleStockDrawerReset}
+                  label="ストックの高さ"
+                />
+                <PdfDrawerResizeHandle
+                  edge="sw"
+                  onStart={handleStockResizeStart}
+                  onPreview={handleStockResizePreview}
+                  onCommit={handleStockResizeCommit}
+                  onCancel={handleStockResizeCancel}
+                  onReset={handleStockDrawerReset}
+                  label="ストックの幅と高さ"
+                />
+              </>
+            ) : (
+              <>
+                <PdfDrawerResizeHandle
+                  edge="w"
+                  onStart={handleStockResizeStart}
+                  onPreview={handleStockResizePreview}
+                  onCommit={handleStockResizeCommit}
+                  onCancel={handleStockResizeCancel}
+                  onReset={handleStockDrawerReset}
+                  label="ストックの幅"
+                />
+                <PdfDrawerResizeHandle
+                  edge="n"
+                  onStart={handleStockResizeStart}
+                  onPreview={handleStockResizePreview}
+                  onCommit={handleStockResizeCommit}
+                  onCancel={handleStockResizeCancel}
+                  onReset={handleStockDrawerReset}
+                  label="ストックの高さ"
+                />
+                <PdfDrawerResizeHandle
+                  edge="nw"
+                  onStart={handleStockResizeStart}
+                  onPreview={handleStockResizePreview}
+                  onCommit={handleStockResizeCommit}
+                  onCancel={handleStockResizeCancel}
+                  onReset={handleStockDrawerReset}
+                  label="ストックの幅と高さ"
+                />
+              </>
+            )
+          ) : null}
           <aside className={styles.stockSheet} aria-label="ストック">
             <StockPane
             doc={doc}
@@ -643,15 +809,51 @@ export function EditorLayout({
         >
           {appSettings.chromeFlip ? (
             <>
-              <PdfDrawerResizeHandle edge="e" onDrag={handlePdfDrawerResize} />
-              <PdfDrawerResizeHandle edge="s" onDrag={handlePdfDrawerResize} />
-              <PdfDrawerResizeHandle edge="se" onDrag={handlePdfDrawerResize} />
+              <PdfDrawerResizeHandle
+                edge="e"
+                onStart={handlePdfResizeStart}
+                onPreview={handlePdfResizePreview}
+                onCommit={handlePdfResizeCommit}
+                onCancel={handlePdfResizeCancel}
+              />
+              <PdfDrawerResizeHandle
+                edge="s"
+                onStart={handlePdfResizeStart}
+                onPreview={handlePdfResizePreview}
+                onCommit={handlePdfResizeCommit}
+                onCancel={handlePdfResizeCancel}
+              />
+              <PdfDrawerResizeHandle
+                edge="se"
+                onStart={handlePdfResizeStart}
+                onPreview={handlePdfResizePreview}
+                onCommit={handlePdfResizeCommit}
+                onCancel={handlePdfResizeCancel}
+              />
             </>
           ) : (
             <>
-              <PdfDrawerResizeHandle edge="w" onDrag={handlePdfDrawerResize} />
-              <PdfDrawerResizeHandle edge="s" onDrag={handlePdfDrawerResize} />
-              <PdfDrawerResizeHandle edge="sw" onDrag={handlePdfDrawerResize} />
+              <PdfDrawerResizeHandle
+                edge="w"
+                onStart={handlePdfResizeStart}
+                onPreview={handlePdfResizePreview}
+                onCommit={handlePdfResizeCommit}
+                onCancel={handlePdfResizeCancel}
+              />
+              <PdfDrawerResizeHandle
+                edge="s"
+                onStart={handlePdfResizeStart}
+                onPreview={handlePdfResizePreview}
+                onCommit={handlePdfResizeCommit}
+                onCancel={handlePdfResizeCancel}
+              />
+              <PdfDrawerResizeHandle
+                edge="sw"
+                onStart={handlePdfResizeStart}
+                onPreview={handlePdfResizePreview}
+                onCommit={handlePdfResizeCommit}
+                onCancel={handlePdfResizeCancel}
+              />
             </>
           )}
           <PdfPanePlaceholder
@@ -682,6 +884,27 @@ export function EditorLayout({
             }
           />
         </aside>
+      ) : null}
+
+      {stockResizeGhost ? (
+        <div
+          className={`${styles.stockDock} ${styles.drawerResizeGhost}`}
+          aria-hidden
+          style={{
+            ['--ms-stock-drawer-w' as string]: String(stockResizeGhost.w),
+            ['--ms-stock-drawer-h' as string]: String(stockResizeGhost.h),
+          }}
+        />
+      ) : null}
+      {pdfResizeGhost ? (
+        <div
+          className={`${styles.pdfDrawer} ${styles.drawerResizeGhost}`}
+          aria-hidden
+          style={{
+            ['--ms-pdf-drawer-w' as string]: String(pdfResizeGhost.w),
+            ['--ms-pdf-drawer-h' as string]: String(pdfResizeGhost.h),
+          }}
+        />
       ) : null}
 
       <TextEditBar

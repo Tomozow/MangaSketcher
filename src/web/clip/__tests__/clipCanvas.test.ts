@@ -96,10 +96,15 @@ describe('clip canvas bake (no cutRect)', () => {
     clipCtx.fillStyle = '#000000';
     clipCtx.fillRect(0, 0, 6, 6);
 
-    engine.bakeClipOntoPage(pageId, clipId, 10, 10, 1, 0);
+    const baked = engine.bakeClipOntoPage(pageId, clipId, 10, 10, 1, 0);
     const pagePixels = countAlphaPixels(engine.getHotContext(pageId)!, W, H);
     expect(pagePixels).toBeGreaterThan(0);
     expect(engine.hot.has(clipId)).toBe(false);
+    expect(baked.clipUndo instanceof ArrayBuffer).toBe(false);
+    engine.restoreRasterFromUndo(clipId, baked.clipUndo);
+    expect(engine.getRasterDimensions(clipId)).toEqual({ width: 6, height: 6 });
+    const restoredClip = engine.getHotContext(clipId)!;
+    expect(countAlphaPixels(restoredClip, restoredClip.canvas.width, restoredClip.canvas.height)).toBeGreaterThan(0);
   });
 
   test('lassoCut keeps only ink inside the polygon and crops to a rectangle', () => {

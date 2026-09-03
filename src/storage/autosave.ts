@@ -8,6 +8,7 @@ import { cloneEditorDocument } from './editorDocument';
 import type { StorageDatabase } from './idb';
 import { getDefaultStorageDatabase } from './idb';
 import { requestPersistentStorage } from './persistentStorage';
+import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 
 export type AutosaveStatus = {
   unsaved: boolean;
@@ -225,6 +226,21 @@ export class AutosaveManager {
       if (job.saveGen === this.saveGen) {
         this.setUnsaved(false);
       }
+    } catch (err) {
+      // #region agent log
+      ipadDebugLog({
+        sessionId: 'adcc47',
+        ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+        hypothesisId: 'F',
+        location: 'autosave.ts:executeJob',
+        message: 'executeJob failed',
+        data: {
+          name: err instanceof Error ? err.name : typeof err,
+          msg: err instanceof Error ? err.message : String(err),
+        },
+      });
+      // #endregion
+      throw err;
     } finally {
       this.runningJob = null;
       done();
@@ -262,19 +278,51 @@ export class AutosaveManager {
     const encoded = this.getEncodedPng();
     for (const [rasterId, png] of encoded.entries()) {
       if (png.byteLength > 0) {
-        void this.db.putRaster(rasterId, png.slice(0));
+        void this.db.putRaster(rasterId, png.slice(0)).catch((err) => {
+          // #region agent log
+          ipadDebugLog({
+            sessionId: 'adcc47',
+            ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+            hypothesisId: 'F',
+            location: 'autosave.ts:flushHidden',
+            message: 'flushHidden putRaster failed',
+            data: {
+              name: err instanceof Error ? err.name : typeof err,
+              msg: err instanceof Error ? err.message : String(err),
+            },
+          });
+          // #endregion
+        });
       }
     }
     const pendingDoc = this.pendingJob?.doc;
     if (pendingDoc) {
       const updatedAt = new Date().toISOString();
-      void this.db.putDocument(pendingDoc);
+      const ignoreClosing = (err: unknown) => {
+        if (err instanceof DOMException && err.name === 'InvalidStateError') {
+          return;
+        }
+        // #region agent log
+        ipadDebugLog({
+          sessionId: 'adcc47',
+          ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+          hypothesisId: 'F',
+          location: 'autosave.ts:flushHidden',
+          message: 'flushHidden doc/meta failed',
+          data: {
+            name: err instanceof Error ? err.name : typeof err,
+            msg: err instanceof Error ? err.message : String(err),
+          },
+        });
+        // #endregion
+      };
+      void this.db.putDocument(pendingDoc).catch(ignoreClosing);
       void this.db.putMeta({
         id: pendingDoc.projectId,
         name: pendingDoc.name,
         updatedAt,
         pageCount: Object.keys(pendingDoc.pages).length,
-      });
+      }).catch(ignoreClosing);
     }
   }
 

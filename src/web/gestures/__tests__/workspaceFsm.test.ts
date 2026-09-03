@@ -215,6 +215,26 @@ describe('Web workspace FSM', () => {
       expect(up.effects).toEqual([{ type: 'createText', pasteboard: true, x: 120, y: 240 }]);
     });
 
+    test('text tool: クリップ上の tap なら台紙に createText する', () => {
+      const store = createWorkspaceGestureStore();
+      const clipHit = { kind: 'clip' as const, clipId: 'c1', handle: 'body' as const };
+      finger(store, 'down', {
+        tool: 'text',
+        hit: clipHit,
+        worldX: 120,
+        worldY: 240,
+        now: 100,
+      });
+      const up = finger(store, 'up', {
+        tool: 'text',
+        hit: clipHit,
+        worldX: 120,
+        worldY: 240,
+        now: 150,
+      });
+      expect(up.effects).toEqual([{ type: 'createText', pasteboard: true, x: 120, y: 240 }]);
+    });
+
     test('text tool: down=append / up=page なら UP 位置で createText', () => {
       const store = createWorkspaceGestureStore();
       const pageAtUp = {
@@ -487,6 +507,61 @@ describe('Web workspace FSM', () => {
       expect(up.effects).toEqual([
         { type: 'completeMarquee', pageId: null, rect: { x: 10, y: 10, width: 2, height: 1 } },
         { type: 'selectTexts', textIds: [] },
+      ]);
+    });
+
+    test('クリップ上の tap は台紙に createText する', () => {
+      const store = createWorkspaceGestureStore();
+      const clipHit = { kind: 'clip' as const, clipId: 'c1', handle: 'body' as const };
+      const down = pencilText(store, 'down', {
+        hit: clipHit,
+        x: 80,
+        y: 90,
+        worldX: 400,
+        worldY: 500,
+        now: 100,
+      });
+      expect(down.effects.some((e) => e.type === 'createText')).toBe(false);
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('pendingTextCreate');
+      const up = pencilText(store, 'up', { hit: clipHit, x: 82, y: 91, now: 150 });
+      expect(up.effects).toEqual([{ type: 'createText', pasteboard: true, x: 400, y: 500 }]);
+    });
+
+    test('クリップ上で 8px 以上ドラッグするとテキスト専用の矩形選択になる', () => {
+      const store = createWorkspaceGestureStore();
+      const clipHit = { kind: 'clip' as const, clipId: 'c1', handle: 'body' as const };
+      pencilText(store, 'down', {
+        hit: clipHit,
+        x: 10,
+        y: 10,
+        worldX: 10,
+        worldY: 10,
+        now: 100,
+      });
+      const move = pencilText(store, 'move', {
+        hit: clipHit,
+        x: 30,
+        y: 40,
+        worldX: 30,
+        worldY: 40,
+        now: 120,
+      });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('marquee');
+      expect(move.effects[0]).toMatchObject({
+        type: 'marqueePreview',
+        pageId: null,
+        rect: { x: 10, y: 10, width: 20, height: 30 },
+      });
+      const up = pencilText(store, 'up', {
+        hit: clipHit,
+        x: 30,
+        y: 40,
+        worldX: 30,
+        worldY: 40,
+        now: 150,
+      });
+      expect(up.effects).toEqual([
+        { type: 'completeMarquee', pageId: null, rect: { x: 10, y: 10, width: 20, height: 30 } },
       ]);
     });
 
@@ -1041,6 +1116,47 @@ describe('Web workspace FSM', () => {
       ]);
     });
 
+    test('pencil drag on page number grabs and reorders', () => {
+      const store = createWorkspaceGestureStore();
+      const numberHit = { kind: 'pageNumber' as const, pageId: 'p1', readingIndex: 0 };
+      pencil(store, 'down', {
+        tool: 'select',
+        hit: numberHit,
+        x: 10,
+        y: 10,
+      });
+      const grab = pencil(store, 'move', {
+        tool: 'select',
+        hit: numberHit,
+        x: 40,
+        y: 10,
+      });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('grabPage');
+      expect(grab.effects).toContainEqual({ type: 'grabPage', pageId: 'p1', fromIndex: 0 });
+
+      const targetHit = {
+        kind: 'pageNumber' as const,
+        pageId: 'p3',
+        readingIndex: 2,
+      };
+      const drag = pencil(store, 'move', {
+        tool: 'select',
+        hit: targetHit,
+        x: 80,
+        y: 10,
+      });
+      expect(drag.effects).toEqual([{ type: 'reorderWorkspace', pageId: 'p1', toIndex: 2 }]);
+
+      const up = pencil(store, 'up', {
+        tool: 'select',
+        hit: targetHit,
+        x: 80,
+        y: 10,
+      });
+      expect(up.effects).toEqual([{ type: 'endGrabPage' }]);
+      expect(getWorkspaceSession(store, 10)).toBeUndefined();
+    });
+
     test('moveClip uses world coordinates under zoom', () => {
       const store = createWorkspaceGestureStore();
       const clip = { id: 'c1', x: 100, y: 80, scale: 1, rotation: 0, rasterId: 'r1' };
@@ -1580,6 +1696,9 @@ describe('Web workspace FSM', () => {
       });
       const zoomInBatch = reduceWorkspaceEffects(doc as never, zoomIn.effects, store.fingerPositions, surfaceRect);
       expect(zoomInBatch.view?.zoom).toBeGreaterThan(1);
+      const zoomInRatio = (zoomInBatch.view?.zoom ?? 1) / doc.workspaceZoom;
+      expect(zoomInBatch.view?.panX).toBeCloseTo(200 - (200 - doc.workspacePanX) * zoomInRatio);
+      expect(zoomInBatch.view?.panY).toBeCloseTo(300 - (300 - doc.workspacePanY) * zoomInRatio);
 
       const zoomOut = finger(store, 'move', {
         pointerId: 4,

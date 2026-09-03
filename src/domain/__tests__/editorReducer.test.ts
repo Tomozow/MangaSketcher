@@ -77,6 +77,60 @@ describe('deleteText', () => {
     expect(doc.pages[pageId]!.texts).toHaveLength(1);
     expect(doc.pages[pageId]!.texts[0]!.content).toBe('残す');
     expect(doc.selectedTextId).toBeNull();
+    expect(doc.trashTexts).toEqual([]);
+    expect(doc.pasteboardTexts.some((t) => t.id === emptyId)).toBe(false);
+  });
+
+  test('空白のみのテキストもゴミ箱を経由せず完全削除する', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId },
+        box: { x: 1, y: 2, width: 8, height: 20 },
+        content: '  \n',
+      },
+      ids,
+    );
+    const textId = doc.selectedTextId!;
+    doc = reduceEditorDocument(doc, { type: 'deleteText', textId }, ids);
+    expect(doc.pages[pageId]!.texts).toHaveLength(0);
+    expect(doc.trashTexts).toEqual([]);
+    expect(doc.pasteboardTexts).toHaveLength(0);
+  });
+
+  test('本文のあるテキスト削除はゴミ箱へ移す', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId },
+        box: { x: 1, y: 2, width: 8, height: 20 },
+        content: '残す',
+      },
+      ids,
+    );
+    const textId = doc.selectedTextId!;
+    doc = reduceEditorDocument(doc, { type: 'deleteText', textId }, ids);
+    expect(doc.pages[pageId]!.texts).toHaveLength(0);
+    expect(doc.trashTexts).toEqual([textId]);
+    expect(doc.pasteboardTexts.some((t) => t.id === textId)).toBe(true);
   });
 
   test('duplicateText copies the box and selects the clone', () => {
@@ -99,13 +153,61 @@ describe('deleteText', () => {
       ids,
     );
     const sourceId = doc.selectedTextId!;
-    doc = reduceEditorDocument(doc, { type: 'duplicateText', textId: sourceId }, ids);
+    doc = reduceEditorDocument(doc, { type: 'duplicateText', textIds: [sourceId] }, ids);
     expect(doc.pages[pageId]!.texts).toHaveLength(2);
     expect(doc.pages[pageId]!.texts[1]).toMatchObject({
       content: '本文',
       box: { x: 42, y: 52, width: 8, height: 20 },
     });
     expect(doc.selectedTextId).not.toBe(sourceId);
+  });
+
+  test('duplicateText copies every selected text and selects the clones', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId },
+        box: { x: 10, y: 20, width: 8, height: 20 },
+        content: '甲',
+      },
+      ids,
+    );
+    const firstId = doc.selectedTextId!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'createText',
+        attachment: { kind: 'page', pageId },
+        box: { x: 40, y: 80, width: 8, height: 20 },
+        content: '乙',
+      },
+      ids,
+    );
+    const secondId = doc.selectedTextId!;
+    doc = reduceEditorDocument(doc, { type: 'duplicateText', textIds: [firstId, secondId] }, ids);
+    expect(doc.pages[pageId]!.texts).toHaveLength(4);
+    expect(doc.pages[pageId]!.texts.slice(2)).toEqual([
+      expect.objectContaining({
+        content: '甲',
+        box: { x: 42, y: 52, width: 8, height: 20 },
+      }),
+      expect.objectContaining({
+        content: '乙',
+        box: { x: 72, y: 112, width: 8, height: 20 },
+      }),
+    ]);
+    expect(doc.selectedTextIds).toEqual(doc.pages[pageId]!.texts.slice(2).map((text) => text.id));
+    expect(doc.selectedTextIds).not.toContain(firstId);
+    expect(doc.selectedTextIds).not.toContain(secondId);
   });
 });
 
@@ -466,6 +568,20 @@ describe('trash', () => {
     expect(doc.stockZoom).toBe(2.5);
     expect(doc.stockPanX).toBe(40);
     expect(doc.stockPanY).toBe(-12);
+    doc = reduceEditorDocument(
+      doc,
+      { type: 'setUiLayout', stockDrawerWidth: 0.4, stockDrawerHeight: 0.45 },
+      ids,
+    );
+    doc = reduceEditorDocument(doc, { type: 'setUiLayout', stockLayout: 'grid' }, ids);
+    expect(doc.stockDrawerWidth).toBe(0.4);
+    expect(doc.stockDrawerHeight).toBe(0.45);
+    doc = reduceEditorDocument(doc, { type: 'setUiLayout', stockPane: 'trash' }, ids);
+    expect(doc.stockDrawerWidth).toBe(0.4);
+    expect(doc.stockDrawerHeight).toBe(0.45);
+    doc = reduceEditorDocument(doc, { type: 'setUiLayout', stockPane: 'stock', stockLayout: 'free' }, ids);
+    expect(doc.stockDrawerWidth).toBe(0.4);
+    expect(doc.stockDrawerHeight).toBe(0.45);
   });
 
   test('emptyTrash はゴミ箱のページを完全に削除する', () => {

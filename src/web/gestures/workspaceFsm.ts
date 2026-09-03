@@ -121,6 +121,40 @@ function isChromeTapHit(hit: WorkspaceHit): boolean {
   return hit.kind === 'pageNumber' || hit.kind === 'append' || hit.kind === 'slot';
 }
 
+function isPageNumberHit(
+  hit: WorkspaceHit,
+): hit is Extract<WorkspaceHit, { kind: 'pageNumber' }> {
+  return hit.kind === 'pageNumber';
+}
+
+function beginGrabPage(
+  kind: 'finger' | 'pencil',
+  pageId: PageId,
+  fromIndex: number,
+): { session: Extract<WorkspaceSession, { mode: 'grabPage' }>; effects: WorkspaceEffect[] } {
+  return {
+    session: { mode: 'grabPage', kind, pageId, fromIndex },
+    effects: [{ type: 'grabPage', pageId, fromIndex }],
+  };
+}
+
+function stepGrabPage(
+  session: Extract<WorkspaceSession, { mode: 'grabPage' }>,
+  input: WorkspacePointerInput,
+): { session: WorkspaceSession; effects: WorkspaceEffect[] } {
+  if (input.phase === 'up' || input.phase === 'cancel') {
+    return { session: { mode: 'idle' }, effects: [{ type: 'endGrabPage' }] };
+  }
+  const toIndex = reorderTargetIndex(input.hit);
+  if (toIndex === null || toIndex === session.lastToIndex) {
+    return { session, effects: [] };
+  }
+  return {
+    session: { ...session, lastToIndex: toIndex },
+    effects: [{ type: 'reorderWorkspace', pageId: session.pageId, toIndex }],
+  };
+}
+
 function inkRasterPoint(
   hit: WorkspaceHit,
   fallbackX: number,
@@ -391,6 +425,9 @@ function preferWorkspaceHit(
 ): WorkspaceHit {
   if (hit.kind === 'pageNumber' || hit.kind === 'append') {
     return hit;
+  }
+  if (tool === 'text' && isClipHit(hit)) {
+    return { kind: 'empty' };
   }
   if (kind === 'pencil' && isSelectionTool(tool) && !selectTargets?.text) {
     if (hit.kind === 'pageText') {
@@ -905,6 +942,14 @@ function stepLockedPencil(
 
   if (session.mode === 'pendingChromeTap') {
     const dist = Math.hypot(input.x - session.startX, input.y - session.startY);
+    if (isPageNumberHit(session.hit) && input.phase === 'move' && dist >= PAN_SLOP) {
+      const started = beginGrabPage('pencil', session.hit.pageId, session.hit.readingIndex);
+      const stepped = stepGrabPage(started.session, input);
+      return {
+        session: stepped.session,
+        effects: [...started.effects, ...stepped.effects],
+      };
+    }
     if (input.phase === 'up' || input.phase === 'cancel') {
       if (dist < PAN_SLOP) {
         const tapHit = tapHitForEffects(session.hit, input);
@@ -916,6 +961,10 @@ function stepLockedPencil(
       return { session: { mode: 'idle' }, effects: [] };
     }
     return { session, effects: [] };
+  }
+
+  if (session.mode === 'grabPage') {
+    return stepGrabPage(session, input);
   }
 
   if (session.mode === 'moveClip') {
@@ -1183,17 +1232,7 @@ function stepFinger(
   }
 
   if (session.mode === 'grabPage') {
-    if (input.phase === 'up' || input.phase === 'cancel') {
-      return { session: { mode: 'idle' }, effects: [{ type: 'endGrabPage' }] };
-    }
-    const toIndex = reorderTargetIndex(input.hit);
-    if (toIndex === null || toIndex === session.lastToIndex) {
-      return { session, effects: [] };
-    }
-    return {
-      session: { ...session, lastToIndex: toIndex },
-      effects: [{ type: 'reorderWorkspace', pageId: session.pageId, toIndex }],
-    };
+    return stepGrabPage(session, input);
   }
 
   if (session.mode === 'pinch') {
@@ -1240,21 +1279,7 @@ function stepFinger(
         isPageBodyHit(session.hit) &&
         canGrabPage('finger', 'longpress')
       ) {
-        return {
-          session: {
-            mode: 'grabPage',
-            kind: 'finger',
-            pageId: session.hit.pageId,
-            fromIndex: session.hit.readingIndex,
-          },
-          effects: [
-            {
-              type: 'grabPage',
-              pageId: session.hit.pageId,
-              fromIndex: session.hit.readingIndex,
-            },
-          ],
-        };
+        return beginGrabPage('finger', session.hit.pageId, session.hit.readingIndex);
       }
       return {
         session: { mode: 'pan', kind: 'finger', lastX: input.x, lastY: input.y },
@@ -1381,8 +1406,12 @@ export function stepWorkspacePointer(
   // Pencil
   if (session.mode !== 'idle' && 'kind' in session && session.kind === 'pencil') {
     const stepped = stepLockedPencil(session, normalized, hit);
+    if (stepped.session.mode === 'grabPage') {
+      store.fingerPositions.set(input.pointerId, { x: input.x, y: input.y });
+    }
     if (input.phase === 'up' || input.phase === 'cancel') {
       store.sessions.delete(input.pointerId);
+      store.fingerPositions.delete(input.pointerId);
     } else {
       store.sessions.set(input.pointerId, stepped.session);
     }

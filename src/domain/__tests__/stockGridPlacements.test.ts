@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { stockGridFitPageUnits, stockGridPlacements } from '../stockItems';
+import { STOCK_GRID_MIN_FIT_PAGE_UNITS, stockGridFitPageUnits, stockGridPlacements } from '../stockItems';
 import type { StockItem } from '../types';
 
 function page(id: string): StockItem {
@@ -52,5 +52,9 @@ describe('stockGridPlacements', () => {
     expect(stockGridFitPageUnits([clip('a'), clip('b'), clip('c')])).toBe(1);
     expect(stockGridFitPageUnits([page('p1'), clip('a'), clip('b'), clip('c')])).toBe(1);
     expect(stockGridFitPageUnits([clip('a'), page('p1')])).toBe(0.5);
+  });
+
+  test('空のときのフィット下限はテキスト3列分（半ページ×3）', () => {
+    expect(STOCK_GRID_MIN_FIT_PAGE_UNITS).toBe(1.5);
   });
 });

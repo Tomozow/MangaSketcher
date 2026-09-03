@@ -1,6 +1,7 @@
 import { cloneEditorDocument } from './editorDocument';
 import { collectRasterIds } from './rasterIds';
 import { APP_SETTINGS_META_ID, DB_NAME, DB_VERSION, type EditorDocument, type ProjectMeta } from './types';
+import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 
 export type ProjectExportSnapshot = {
   document: EditorDocument;
@@ -131,7 +132,27 @@ function tx<T>(
   run: (stores: Record<StoreName, IDBObjectStore>) => IDBRequest<T>,
 ): Promise<T> {
   return new Promise((resolve, reject) => {
-    const transaction = db.transaction(storeNames, mode);
+    let transaction: IDBTransaction;
+    try {
+      transaction = db.transaction(storeNames, mode);
+    } catch (err) {
+      // #region agent log
+      ipadDebugLog({
+        sessionId: 'adcc47',
+        ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+        hypothesisId: 'F',
+        location: 'idb.ts:tx',
+        message: 'db.transaction threw',
+        data: {
+          name: err instanceof Error ? err.name : typeof err,
+          msg: err instanceof Error ? err.message : String(err),
+          mode,
+        },
+      });
+      // #endregion
+      reject(err);
+      return;
+    }
     const stores = {} as Record<StoreName, IDBObjectStore>;
     for (const name of storeNames) {
       stores[name] = transaction.objectStore(name);
@@ -248,7 +269,20 @@ export class BrowserStorageDatabase implements StorageDatabase {
     if (pending) {
       try {
         return projectMetaOnly(await pending);
-      } catch {
+      } catch (err) {
+        // #region agent log
+        ipadDebugLog({
+          sessionId: 'adcc47',
+          ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+          hypothesisId: 'A',
+          location: 'idb.ts:listMeta',
+          message: 'metaWarmup failed, falling back',
+          data: {
+            name: err instanceof Error ? err.name : typeof err,
+            msg: err instanceof Error ? err.message : String(err),
+          },
+        });
+        // #endregion
         return projectMetaOnly(await collectStore(db, META, (cursor) => cursor.value as ProjectMeta));
       }
     }
@@ -405,19 +439,26 @@ export class BrowserStorageDatabase implements StorageDatabase {
 }
 
 let defaultDb: StorageDatabase | null = null;
+let defaultStorageReleased = false;
 
 export function getDefaultStorageDatabase(): StorageDatabase {
   if (!defaultDb) {
     defaultDb = new BrowserStorageDatabase();
+    defaultStorageReleased = false;
   }
   return defaultDb;
 }
 
 export function setDefaultStorageDatabase(db: StorageDatabase | null): void {
   defaultDb = db;
+  defaultStorageReleased = db == null;
   if (!db) {
     metaWarmup = null;
   }
+}
+
+export function isDefaultStorageReleased(): boolean {
+  return defaultStorageReleased;
 }
 
 /** Close the shared IndexedDB connection so the next page can open a fresh one (Safari). */
@@ -425,6 +466,7 @@ export function releaseDefaultStorageDatabase(): void {
   const current = defaultDb;
   defaultDb = null;
   metaWarmup = null;
+  defaultStorageReleased = true;
   if (current instanceof BrowserStorageDatabase) {
     current.close();
   }

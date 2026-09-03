@@ -1,12 +1,13 @@
 import {
   createProject,
   deleteProject,
+  duplicateProject,
   listProjects,
   loadDocument,
   renameProject,
   runStartupGc,
 } from '../projectStore';
-import { collectRasterIds } from '../rasterIds';
+import { clipRasterId, collectRasterIds, pageRasterId } from '../rasterIds';
 import { DB_NAME, DB_VERSION } from '../types';
 import { MemoryStorageDatabase } from '../testUtils/memoryDb';
 import { MemoryOpfsStorage } from '../testUtils/memoryOpfs';
@@ -58,6 +59,68 @@ describe('projectStore CRUD', () => {
     });
     expect(meta?.name).toBe('new');
     expect((await loadDocument(document.projectId, { db, opfs }))?.name).toBe('new');
+  });
+
+  test('duplicate copies document and rasters under a new id', async () => {
+    const db = new MemoryStorageDatabase();
+    const opfs = new MemoryOpfsStorage();
+    const { document, meta } = await createProject('初稿', 2, {
+      db,
+      opfs,
+      now: () => '2026-01-01T00:00:00.000Z',
+    });
+    const pageId = document.workspaceOrder[0]!;
+    document.pages[pageId]!.texts.push({
+      id: 'text-1',
+      content: '複製対象',
+      box: { x: 10, y: 20, width: 96, height: 425 },
+      fontSize: 36,
+      color: '#1A1A1A',
+    });
+    document.pasteboardClips.push({
+      id: 'clip-1',
+      rasterId: clipRasterId(document.projectId, 'clip-1'),
+      x: 0,
+      y: 0,
+      scale: 1,
+      rotation: 0,
+    });
+    await db.putDocument(document);
+    const clipPng = new Uint8Array([137, 80, 78, 71, 1, 2, 3]).buffer;
+    await db.putRaster(clipRasterId(document.projectId, 'clip-1'), clipPng);
+
+    const copied = await duplicateProject(document.projectId, {
+      db,
+      opfs,
+      now: () => '2026-03-01T00:00:00.000Z',
+    });
+    expect(copied.id).not.toBe(meta.id);
+    expect(copied.name).toBe('初稿 のコピー');
+    expect(copied.pageCount).toBe(2);
+
+    const listed = await listProjects({ db, opfs });
+    expect(listed.map((item) => item.id)).toEqual([copied.id, meta.id]);
+
+    const clone = await loadDocument(copied.id, { db, opfs });
+    expect(clone).not.toBeNull();
+    expect(clone!.projectId).toBe(copied.id);
+    expect(clone!.pdf).toBeNull();
+    expect(clone!.pages[pageId]?.texts[0]?.content).toBe('複製対象');
+    expect(clone!.pages[pageId]?.rasterId).toBe(pageRasterId(copied.id, pageId));
+    expect(clone!.pasteboardClips[0]?.rasterId).toBe(clipRasterId(copied.id, 'clip-1'));
+
+    for (const rasterId of collectRasterIds(clone!)) {
+      expect(await db.getRaster(rasterId)).toBeDefined();
+    }
+    expect(new Uint8Array((await db.getRaster(clipRasterId(copied.id, 'clip-1')))!)).toEqual(
+      new Uint8Array(clipPng),
+    );
+
+    await deleteProject(document.projectId, { db, opfs });
+    expect(await loadDocument(copied.id, { db, opfs })).not.toBeNull();
+    for (const rasterId of collectRasterIds(clone!)) {
+      expect(await db.getRaster(rasterId)).toBeDefined();
+    }
   });
 });
 

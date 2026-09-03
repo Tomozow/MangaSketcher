@@ -43,6 +43,8 @@ function sampleDoc(): EditorDocument {
     paletteStockSplit: 0.46,
     pdfDrawerWidth: 0.32,
     pdfDrawerHeight: 1,
+    stockDrawerWidth: 0.92,
+    stockDrawerHeight: 0.26,
     pdfViewerVisible: true,
     sidebarCompact: false,
     stockLayout: 'free',

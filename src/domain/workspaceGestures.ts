@@ -58,9 +58,13 @@ function isTextHandleHit(hit: GestureHit): hit is Extract<GestureHit, { kind: 'r
 
 /**
  * Ink tools ignore text boxes and floating clips; ink is stored on the page under the pointer.
+ * Text tool ignores floating clips so tap/marquee can start on the pasteboard underneath.
  * Text tool prefers handle over body over page (tldraw-style exclusive hit).
  */
 export function preferHitForTool(tool: ToolId, kind: PointerKind, hit: GestureHit): GestureHit {
+  if (tool === 'text' && hit.kind === 'clip') {
+    return { kind: 'empty' };
+  }
   if (kind === 'pencil' && (tool === 'pen' || tool === 'eraser')) {
     if (hit.kind === 'pageText') {
       return {

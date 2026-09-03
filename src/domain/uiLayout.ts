@@ -18,12 +18,21 @@ export const DEFAULT_PDF_DRAWER_WIDTH = 0.32;
 export const DEFAULT_PDF_DRAWER_HEIGHT = 1;
 export const PDF_DRAWER_TOP_PX = 68;
 export const PDF_DRAWER_BOTTOM_GAP_PX = 16;
+export const STOCK_DRAWER_WIDTH_MIN = 0.22;
+export const STOCK_DRAWER_WIDTH_MAX = 0.92;
+export const STOCK_DRAWER_HEIGHT_MIN = 0.18;
+export const STOCK_DRAWER_HEIGHT_MAX = 0.75;
+export const DEFAULT_STOCK_DRAWER_WIDTH = 0.92;
+export const DEFAULT_STOCK_DRAWER_HEIGHT = 0.26;
+export const STOCK_DRAWER_EDGE_GAP_PX = 12;
 
 export type UiLayout = {
   workspacePdfSplit: number;
   paletteStockSplit: number;
   pdfDrawerWidth: number;
   pdfDrawerHeight: number;
+  stockDrawerWidth: number;
+  stockDrawerHeight: number;
   pdfViewerVisible: boolean;
   sidebarCompact: boolean;
   stockLayout: StockLayout;
@@ -39,6 +48,8 @@ export const DEFAULT_UI_LAYOUT: UiLayout = {
   paletteStockSplit: DEFAULT_PALETTE_STOCK_SPLIT,
   pdfDrawerWidth: DEFAULT_PDF_DRAWER_WIDTH,
   pdfDrawerHeight: DEFAULT_PDF_DRAWER_HEIGHT,
+  stockDrawerWidth: DEFAULT_STOCK_DRAWER_WIDTH,
+  stockDrawerHeight: DEFAULT_STOCK_DRAWER_HEIGHT,
   pdfViewerVisible: false,
   sidebarCompact: false,
   stockLayout: 'free',
@@ -82,6 +93,20 @@ export function nextPdfDrawerWidth(
   return clampPdfDrawerWidth(current + (sign * deltaEdgePx) / Math.max(1, parentWidthPx));
 }
 
+export function clampStockDrawerWidth(value: number): number {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_STOCK_DRAWER_WIDTH;
+  }
+  return Math.min(STOCK_DRAWER_WIDTH_MAX, Math.max(STOCK_DRAWER_WIDTH_MIN, value));
+}
+
+export function clampStockDrawerHeight(value: number): number {
+  if (!Number.isFinite(value)) {
+    return DEFAULT_STOCK_DRAWER_HEIGHT;
+  }
+  return Math.min(STOCK_DRAWER_HEIGHT_MAX, Math.max(STOCK_DRAWER_HEIGHT_MIN, value));
+}
+
 /** Bottom edge: pointer moving down grows height. */
 export function nextPdfDrawerHeight(
   current: number,
@@ -89,6 +114,27 @@ export function nextPdfDrawerHeight(
   availableHeightPx: number,
 ): number {
   return clampPdfDrawerHeight(current + deltaBottomEdgePx / Math.max(1, availableHeightPx));
+}
+
+export function nextStockDrawerWidth(
+  current: number,
+  deltaEdgePx: number,
+  parentWidthPx: number,
+  anchored: 'right' | 'left' = 'right',
+): number {
+  const sign = anchored === 'right' ? -1 : 1;
+  return clampStockDrawerWidth(current + (sign * deltaEdgePx) / Math.max(1, parentWidthPx));
+}
+
+/** Top edge of a bottom-anchored drawer: pointer moving up grows height. */
+export function nextStockDrawerHeight(
+  current: number,
+  deltaEdgePx: number,
+  availableHeightPx: number,
+  edge: 'n' | 's' = 'n',
+): number {
+  const sign = edge === 'n' ? -1 : 1;
+  return clampStockDrawerHeight(current + (sign * deltaEdgePx) / Math.max(1, availableHeightPx));
 }
 
 /** ハンドルを正方向へ動かしたとき、上側ペインの比率が増える。 */
@@ -128,6 +174,10 @@ export function normalizeUiLayout(partial: Partial<UiLayout> | undefined): UiLay
     paletteStockSplit: clampSplit(partial?.paletteStockSplit ?? DEFAULT_PALETTE_STOCK_SPLIT),
     pdfDrawerWidth: clampPdfDrawerWidth(partial?.pdfDrawerWidth ?? DEFAULT_PDF_DRAWER_WIDTH),
     pdfDrawerHeight: clampPdfDrawerHeight(partial?.pdfDrawerHeight ?? DEFAULT_PDF_DRAWER_HEIGHT),
+    stockDrawerWidth: clampStockDrawerWidth(partial?.stockDrawerWidth ?? DEFAULT_STOCK_DRAWER_WIDTH),
+    stockDrawerHeight: clampStockDrawerHeight(
+      partial?.stockDrawerHeight ?? DEFAULT_STOCK_DRAWER_HEIGHT,
+    ),
     pdfViewerVisible: partial?.pdfViewerVisible !== false,
     sidebarCompact: Boolean(partial?.sidebarCompact),
     stockLayout,

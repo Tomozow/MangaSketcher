@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { DebugErrorProbe } from '@/src/web/DebugErrorProbe';
 import { DisableContextMenu } from '@/src/web/DisableContextMenu';
 import { ServiceWorkerRegistrar } from '@/src/web/ServiceWorkerRegistrar';
 import { StandaloneHtmlFlag } from '@/src/web/StandaloneHtmlFlag';
@@ -47,6 +48,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body>
         <StandaloneHtmlFlag />
+        <DebugErrorProbe />
         <DisableContextMenu />
         <ServiceWorkerRegistrar />
         {children}

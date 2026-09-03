@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'reac
 import {
   createProject,
   deleteProject,
+  duplicateProject,
   exportProjectPack,
   importProjectPack,
   listProjects,
@@ -35,6 +36,7 @@ import {
 } from '@/src/web/shellUpdate';
 import { useAppShellHeight } from '@/src/web/appShellHeight';
 import { prepareImportedProjectOffThread } from '@/src/web/projectImport/prepareImportedProjectOffThread';
+import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 import styles from '@/app/page.module.css';
 
 const DEFAULT_PROJECT_NAME = '無題';
@@ -174,10 +176,34 @@ export function ProjectList() {
       releaseDefaultStorageDatabase();
       try {
         const items = await listProjects();
+        // #region agent log
+        ipadDebugLog({
+          sessionId: 'adcc47',
+          ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+          hypothesisId: 'A',
+          location: 'ProjectList.tsx:load',
+          message: 'listProjects ok',
+          data: { count: items.length, cancelled },
+        });
+        // #endregion
         if (!cancelled) {
           setProjects(items);
         }
       } catch (err) {
+        // #region agent log
+        ipadDebugLog({
+          sessionId: 'adcc47',
+          ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+          hypothesisId: 'A',
+          location: 'ProjectList.tsx:load',
+          message: 'listProjects failed',
+          data: {
+            name: err instanceof Error ? err.name : 'unknown',
+            msg: err instanceof Error ? err.message : String(err),
+            cancelled,
+          },
+        });
+        // #endregion
         if (!cancelled) {
           setError(err instanceof Error ? err.message : '一覧の読み込みに失敗しました。');
         }
@@ -192,8 +218,20 @@ export function ProjectList() {
         if (!cancelled) {
           setProjects(items);
         }
-      } catch {
-        // GC must not keep the list spinning
+      } catch (err) {
+        // #region agent log
+        ipadDebugLog({
+          sessionId: 'adcc47',
+          ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+          hypothesisId: 'E',
+          location: 'ProjectList.tsx:gc',
+          message: 'runStartupGc or second list failed',
+          data: {
+            name: err instanceof Error ? err.name : 'unknown',
+            msg: err instanceof Error ? err.message : String(err),
+          },
+        });
+        // #endregion
       }
     };
     void load();
@@ -209,10 +247,42 @@ export function ProjectList() {
     };
     window.addEventListener('pageshow', onPageShow);
     window.addEventListener('pagehide', onPageHide);
+    const onWinError = (event: ErrorEvent) => {
+      // #region agent log
+      ipadDebugLog({
+        sessionId: 'adcc47',
+        ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+        hypothesisId: 'D',
+        location: 'ProjectList.tsx:window.error',
+        message: 'window error',
+        data: { msg: event.message, filename: event.filename, lineno: event.lineno },
+      });
+      // #endregion
+    };
+    const onReject = (event: PromiseRejectionEvent) => {
+      // #region agent log
+      const reason = event.reason;
+      ipadDebugLog({
+        sessionId: 'adcc47',
+        ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+        hypothesisId: 'D',
+        location: 'ProjectList.tsx:unhandledrejection',
+        message: 'unhandledrejection',
+        data: {
+          name: reason instanceof Error ? reason.name : typeof reason,
+          msg: reason instanceof Error ? reason.message : String(reason),
+        },
+      });
+      // #endregion
+    };
+    window.addEventListener('error', onWinError);
+    window.addEventListener('unhandledrejection', onReject);
     return () => {
       cancelled = true;
       window.removeEventListener('pageshow', onPageShow);
       window.removeEventListener('pagehide', onPageHide);
+      window.removeEventListener('error', onWinError);
+      window.removeEventListener('unhandledrejection', onReject);
     };
   }, []);
 
@@ -242,6 +312,20 @@ export function ProjectList() {
       hardNavigate(projectHref(meta.id));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'プロジェクトの作成に失敗しました。');
+      setBusyId(null);
+    }
+  };
+
+  const handleDuplicate = async (project: ProjectMeta) => {
+    setMenuId(null);
+    setError(null);
+    setBusyId(project.id);
+    try {
+      await duplicateProject(project.id);
+      await refresh();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'プロジェクトの複製に失敗しました。');
+    } finally {
       setBusyId(null);
     }
   };
@@ -516,6 +600,15 @@ export function ProjectList() {
                         onClick={() => void handleRename(project)}
                       >
                         改名
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={styles.secondaryButton}
+                        disabled={rowBusy || listBusy}
+                        onClick={() => void handleDuplicate(project)}
+                      >
+                        複製
                       </button>
                       <button
                         type="button"

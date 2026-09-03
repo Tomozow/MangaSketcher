@@ -5,11 +5,17 @@ import { compositeRaster, cutRect, parseHexColor, stampBrush } from './raster';
 import { pageTextToPasteboard, wrapExtractedText, workspaceFontSizeFromTool } from './pdfExtractPack';
 import { joinVerticalBody, rangeSelectBody } from './pdfText';
 import { stampStroke, type StrokePoint } from './stroke';
-import { applyFontSizeToText, findText, resizeTextBox } from './text';
+import { applyFontSizeToText, findText, isTextContentEmpty, resizeTextBox } from './text';
 import { cloneStockAttachedTexts, restoreAttachedTextBoxes } from './stockClipAttach';
 import { findStockClip, findStockPage, findStockText, isStockClipItem, isStockPageItem, isStockTextItem, stockedTextIds } from './stockItems';
 import { fitTextBoxToContent } from './textWrap';
-import { clampSplit, clampPdfDrawerHeight, clampPdfDrawerWidth } from './uiLayout';
+import {
+  clampSplit,
+  clampPdfDrawerHeight,
+  clampPdfDrawerWidth,
+  clampStockDrawerHeight,
+  clampStockDrawerWidth,
+} from './uiLayout';
 import {
   clampColumnGap,
   clampPairGap,
@@ -121,6 +127,8 @@ export type DocumentAction =
       paletteStockSplit?: number;
       pdfDrawerWidth?: number;
       pdfDrawerHeight?: number;
+      stockDrawerWidth?: number;
+      stockDrawerHeight?: number;
       pdfViewerVisible?: boolean;
       sidebarCompact?: boolean;
       stockLayout?: 'free' | 'grid';
@@ -178,6 +186,19 @@ function addTextToTrash(doc: DocumentState, textId: TextId): void {
   ensureTrashLists(doc);
   const found = findText(doc, textId);
   if (!found) {
+    return;
+  }
+  if (isTextContentEmpty(found.node.content)) {
+    if (found.where === 'page' && found.pageId) {
+      const page = doc.pages[found.pageId];
+      page.texts = page.texts.filter((item) => item.id !== textId);
+    } else {
+      doc.pasteboardTexts = doc.pasteboardTexts.filter((item) => item.id !== textId);
+    }
+    doc.stock = doc.stock.filter((item) => !(isStockTextItem(item) && item.textId === textId));
+    if (doc.selectedTextId === textId) {
+      doc.selectedTextId = null;
+    }
     return;
   }
   if (found.where === 'page' && found.pageId) {
@@ -890,6 +911,12 @@ export function reduceTestDocument(
       }
       if (action.pdfDrawerHeight !== undefined) {
         doc.pdfDrawerHeight = clampPdfDrawerHeight(action.pdfDrawerHeight);
+      }
+      if (action.stockDrawerWidth !== undefined) {
+        doc.stockDrawerWidth = clampStockDrawerWidth(action.stockDrawerWidth);
+      }
+      if (action.stockDrawerHeight !== undefined) {
+        doc.stockDrawerHeight = clampStockDrawerHeight(action.stockDrawerHeight);
       }
       if (action.pdfViewerVisible !== undefined) {
         doc.pdfViewerVisible = action.pdfViewerVisible;

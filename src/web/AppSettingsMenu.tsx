@@ -193,7 +193,6 @@ export function AppSettingsMenu({ settings, onChange }: AppSettingsMenuProps) {
             />
             ツール切替の1タップ目でオプションを表示
           </label>
-
           <fieldset className={styles.appSettingsFieldset}>
             <legend>ページ送りの単位</legend>
             <label className={styles.workspaceLayoutCheck}>

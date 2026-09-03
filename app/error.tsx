@@ -1,5 +1,8 @@
 'use client';
 
+import { useEffect } from 'react';
+import { ipadDebugLog } from '@/src/web/ipadDebugLog';
+
 export default function Error({
   error,
   reset,
@@ -7,6 +10,19 @@ export default function Error({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    // #region agent log
+    ipadDebugLog({
+      sessionId: 'adcc47',
+      ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+      hypothesisId: 'C',
+      location: 'app/error.tsx',
+      message: 'Next error boundary',
+      data: { msg: error.message, digest: error.digest ?? null, name: error.name },
+    });
+    // #endregion
+  }, [error]);
+
   return (
     <main
       style={{

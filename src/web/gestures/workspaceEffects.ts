@@ -5,12 +5,12 @@ import type { WorkspaceEffect } from './types';
 
 function pinchMidpoint(fingerPositions: Map<number, { x: number; y: number }>): { x: number; y: number } | null {
   const points = [...fingerPositions.values()];
-  if (points.length < 2) {
-    return null;
+  if (points.length >= 2) {
+    const a = points[0]!;
+    const b = points[1]!;
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   }
-  const a = points[0]!;
-  const b = points[1]!;
-  return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  return points[0] ?? null;
 }
 
 export type WorkspaceEffectBatch = {

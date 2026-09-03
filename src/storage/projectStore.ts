@@ -8,14 +8,19 @@ import {
   type PreparedImportedProject,
   type ProjectImportProgress,
 } from './prepareImportedProject';
-import { buildProjectPackFileName, buildProjectPackZip, ProjectPackError } from './projectPack';
+import {
+  buildProjectPackFileName,
+  buildProjectPackZip,
+  ProjectPackError,
+  rewriteImportedDocument,
+} from './projectPack';
 import {
   ProjectExportCheckpointError,
   requestProjectExportCheckpoint,
 } from './projectExportCheckpoint';
 import { randomId } from './randomId';
 import { isStockPageItem } from '../domain/stockItems';
-import { collectRasterIds, pdfOpfsPath, rasterBelongsToProject } from './rasterIds';
+import { clipRasterId, collectRasterIds, pageRasterId, pdfOpfsPath, rasterBelongsToProject } from './rasterIds';
 import {
   copySharedTransparentPng,
   encodeTransparentPngBuffer,
@@ -123,6 +128,47 @@ export async function saveProjectDocument(
   const meta = toMeta(doc, now());
   await db.putDocument(doc);
   await db.putMeta(meta);
+  return meta;
+}
+
+export async function duplicateProject(
+  projectId: string,
+  deps?: ProjectStoreDeps,
+): Promise<ProjectMeta> {
+  const { db, now, requestExportCheckpoint } = resolveDeps(deps);
+  try {
+    await requestExportCheckpoint(projectId);
+  } catch (err) {
+    if (err instanceof ProjectExportCheckpointError) {
+      throw err;
+    }
+    throw new Error('複製の準備に失敗しました。');
+  }
+
+  const snapshot = await db.readProjectExportSnapshot(projectId);
+  if (!snapshot) {
+    throw new Error('プロジェクトが見つかりませんでした。');
+  }
+
+  const newProjectId = randomId();
+  const document = rewriteImportedDocument(cloneEditorDocument(snapshot.document), newProjectId);
+  document.name = `${snapshot.document.name} のコピー`;
+
+  const fallback = encodeTransparentPngBuffer(document.rasterWidth, document.rasterHeight);
+  const rasters = new Map<string, ArrayBuffer>();
+  for (const page of Object.values(snapshot.document.pages)) {
+    const destId = pageRasterId(newProjectId, page.id);
+    const png = snapshot.rasters.get(page.rasterId) ?? fallback;
+    rasters.set(destId, png.slice(0));
+  }
+  for (const clip of snapshot.document.pasteboardClips) {
+    const destId = clipRasterId(newProjectId, clip.id);
+    const png = snapshot.rasters.get(clip.rasterId) ?? fallback;
+    rasters.set(destId, png.slice(0));
+  }
+
+  const meta = toMeta(document, now());
+  await db.importProjectAtomic({ document, rasters, meta });
   return meta;
 }
 

@@ -197,6 +197,7 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     const pageChromeSrc = readFileSync(join(here, '../PageDeleteButton.tsx'), 'utf8');
     expect(pageChromeSrc).toContain('線画を削除');
     expect(pageChromeSrc).toContain('ストックへ移動');
+    expect(editorCss).toMatch(/\.ms-pageChromeRow[^{]*\{[^}]*pointer-events:\s*auto/);
     expect(workspaceStripSrc).toContain('onClearPageInk');
     expect(workspaceStripSrc).toContain('onMovePageToStock');
     expect(editorLayoutSrc).not.toContain('このページの線画を削除しますか？');

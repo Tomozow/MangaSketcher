@@ -5,6 +5,7 @@ import { loadProjectPreviewPages, type ProjectPreviewPage } from '@/src/storage'
 import { PAGE_TEMPLATE_URL } from '@/src/web/PageThumbLayers';
 import { drawPageTextsOnThumb } from '@/src/web/ink/drawPageTextsOnThumb';
 import { THUMB_HEIGHT, THUMB_WIDTH } from '@/src/web/ink/InkEngine';
+import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 import styles from '@/app/page.module.css';
 
 const MAX_THUMBS = 2;
@@ -128,7 +129,21 @@ export function ProjectListThumbs({
         }
         setPages(loaded);
       },
-      () => {
+      (err) => {
+        // #region agent log
+        ipadDebugLog({
+          sessionId: 'adcc47',
+          ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+          hypothesisId: 'E',
+          location: 'ProjectListThumbs.tsx',
+          message: 'preview load failed',
+          data: {
+            projectId,
+            name: err instanceof Error ? err.name : typeof err,
+            msg: err instanceof Error ? err.message : String(err),
+          },
+        });
+        // #endregion
         if (!cancelled) {
           setPages([]);
         }

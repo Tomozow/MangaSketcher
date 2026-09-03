@@ -208,6 +208,8 @@ export type DocumentState = {
   paletteStockSplit: number;
   pdfDrawerWidth: number;
   pdfDrawerHeight: number;
+  stockDrawerWidth: number;
+  stockDrawerHeight: number;
   pdfViewerVisible: boolean;
   sidebarCompact: boolean;
   stockLayout: StockLayout;
@@ -256,6 +258,8 @@ export type EditorDocument = {
   paletteStockSplit: number;
   pdfDrawerWidth: number;
   pdfDrawerHeight: number;
+  stockDrawerWidth: number;
+  stockDrawerHeight: number;
   pdfViewerVisible: boolean;
   sidebarCompact: boolean;
   stockLayout: StockLayout;

@@ -2,9 +2,15 @@ import { cloneEditorDocument, newPageMeta, type IdFactory } from './document';
 import { layoutWorkspace } from './layout';
 import { pageTextToPasteboard, wrapExtractedText, workspaceFontSizeFromTool } from './pdfExtractPack';
 import { joinVerticalBody, rangeSelectBody } from './pdfText';
-import { applyFontSizeToText, resizeTextBox, selectedTextIdsOf } from './text';
+import { applyFontSizeToText, isTextContentEmpty, resizeTextBox, selectedTextIdsOf } from './text';
 import { fitTextBoxToContent } from './textWrap';
-import { clampSplit, clampPdfDrawerHeight, clampPdfDrawerWidth } from './uiLayout';
+import {
+  clampSplit,
+  clampPdfDrawerHeight,
+  clampPdfDrawerWidth,
+  clampStockDrawerHeight,
+  clampStockDrawerWidth,
+} from './uiLayout';
 import {
   clampColumnGap,
   clampPairGap,
@@ -61,6 +67,8 @@ type ViewOnlyEditorAction =
       paletteStockSplit?: number;
       pdfDrawerWidth?: number;
       pdfDrawerHeight?: number;
+      stockDrawerWidth?: number;
+      stockDrawerHeight?: number;
       pdfViewerVisible?: boolean;
       sidebarCompact?: boolean;
       stockLayout?: 'free' | 'grid';
@@ -140,7 +148,7 @@ export type EditorDocumentAction =
   | { type: 'editText'; textId: TextId; content: string }
   | { type: 'deleteText'; textId: TextId }
   | { type: 'deleteSelection'; textIds: TextId[]; clipIds: ClipId[] }
-  | { type: 'duplicateText'; textId: TextId }
+  | { type: 'duplicateText'; textIds: TextId[] }
   | { type: 'moveText'; textId: TextId; x: number; y: number }
   | {
       type: 'moveSelection';
@@ -189,6 +197,8 @@ export type EditorDocumentAction =
       paletteStockSplit?: number;
       pdfDrawerWidth?: number;
       pdfDrawerHeight?: number;
+      stockDrawerWidth?: number;
+      stockDrawerHeight?: number;
       pdfViewerVisible?: boolean;
       sidebarCompact?: boolean;
       stockLayout?: 'free' | 'grid';
@@ -429,6 +439,10 @@ function addTextToTrash(doc: EditorDocument, textId: TextId): void {
   ensureTrashLists(doc);
   const found = findEditorText(doc, textId);
   if (!found) {
+    return;
+  }
+  if (isTextContentEmpty(found.node.content)) {
+    removeTextsById(doc, [textId]);
     return;
   }
   if (found.where === 'page') {
@@ -920,29 +934,35 @@ export function reduceEditorDocument(
       return doc;
     }
     case 'duplicateText': {
-      const found = findEditorText(doc, a.textId);
-      if (!found) {
-        return doc;
+      const cloneIds: TextId[] = [];
+      for (const textId of a.textIds) {
+        const found = findEditorText(doc, textId);
+        if (!found) {
+          continue;
+        }
+        const id = ids();
+        const offset = found.where === 'pasteboard' ? 16 : 32;
+        const clone = {
+          id,
+          content: found.node.content,
+          box: {
+            ...found.node.box,
+            x: found.node.box.x + offset,
+            y: found.node.box.y + offset,
+          },
+          fontSize: found.node.fontSize,
+          color: found.node.color,
+        };
+        if (found.where === 'page' && found.pageId) {
+          doc.pages[found.pageId]?.texts.push(clone);
+        } else {
+          doc.pasteboardTexts.push(clone);
+        }
+        cloneIds.push(id);
       }
-      const id = ids();
-      const offset = found.where === 'pasteboard' ? 16 : 32;
-      const clone = {
-        id,
-        content: found.node.content,
-        box: {
-          ...found.node.box,
-          x: found.node.box.x + offset,
-          y: found.node.box.y + offset,
-        },
-        fontSize: found.node.fontSize,
-        color: found.node.color,
-      };
-      if (found.where === 'page' && found.pageId) {
-        doc.pages[found.pageId]?.texts.push(clone);
-      } else {
-        doc.pasteboardTexts.push(clone);
+      if (cloneIds.length > 0) {
+        Object.assign(doc, textSelection(cloneIds));
       }
-      Object.assign(doc, textSelection([id]));
       return doc;
     }
     case 'moveText': {
@@ -1241,6 +1261,12 @@ function reduceEditorDocumentViewOnly(
       }
       if (action.pdfDrawerHeight !== undefined) {
         patch.pdfDrawerHeight = clampPdfDrawerHeight(action.pdfDrawerHeight);
+      }
+      if (action.stockDrawerWidth !== undefined) {
+        patch.stockDrawerWidth = clampStockDrawerWidth(action.stockDrawerWidth);
+      }
+      if (action.stockDrawerHeight !== undefined) {
+        patch.stockDrawerHeight = clampStockDrawerHeight(action.stockDrawerHeight);
       }
       if (action.pdfViewerVisible !== undefined) {
         patch.pdfViewerVisible = action.pdfViewerVisible;

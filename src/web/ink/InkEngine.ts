@@ -565,6 +565,25 @@ export class InkEngine {
       return;
     }
     this.cancelPendingEncode(rasterId);
+    const width = Math.max(1, Math.round(undo.width));
+    const height = Math.max(1, Math.round(undo.height));
+    const dims = this.rasterDimensions.get(rasterId);
+    const hot = this.hot.get(rasterId);
+    if (
+      !dims ||
+      dims.width !== width ||
+      dims.height !== height ||
+      !hot ||
+      hot.width !== width ||
+      hot.height !== height
+    ) {
+      this.disposeRaster(rasterId);
+      if (isClipRasterId(rasterId)) {
+        this.registerClipRaster(rasterId, width, height);
+      } else {
+        this.rasterDimensions.set(rasterId, { width, height });
+      }
+    }
     this.bumpHotRevision(rasterId);
     const canvas = this.decode(rasterId);
     const ctx = canvas.getContext('2d');
@@ -873,7 +892,8 @@ export class InkEngine {
   }
 
   /**
-   * §9.4: transform-draw clip onto page, dispose clip raster. Returns page undo snapshot.
+   * §9.4: transform-draw clip onto page, dispose live clip raster.
+   * Returns page snapshot plus the clip canvas for history (undo restores the clip).
    */
   bakeClipOntoPage(
     pageRasterId: string,
@@ -883,7 +903,7 @@ export class InkEngine {
     scale: number,
     rotation: number,
     scaleY: number = scale,
-  ): InkUndoPixels {
+  ): { pageUndo: InkUndoPixels; clipUndo: InkUndoPixels } {
     const clipDims = this.getRasterDimensions(clipRasterId);
     this.captureStrokeUndo(pageRasterId);
     const page = this.decode(pageRasterId);
@@ -909,7 +929,7 @@ export class InkEngine {
     void this.generateThumb(pageRasterId);
     this.startEncode(pageRasterId);
     this.callbacks.onBake?.(pageRasterId);
-    return pageUndo;
+    return { pageUndo, clipUndo: clip };
   }
 
   private captureStrokeUndo(rasterId: string): void {

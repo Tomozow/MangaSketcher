@@ -77,7 +77,13 @@ export type WorkspaceSession =
       anchorY: number;
     }
   | { mode: 'pinch'; kind: 'finger'; pointerId: number; partnerId: number; lastDist: number }
-  | { mode: 'grabPage'; kind: 'finger'; pageId: PageId; fromIndex: number; lastToIndex?: number }
+  | {
+      mode: 'grabPage';
+      kind: 'finger' | 'pencil';
+      pageId: PageId;
+      fromIndex: number;
+      lastToIndex?: number;
+    }
   | {
       mode: 'penOverlay';
       kind: 'pencil';
