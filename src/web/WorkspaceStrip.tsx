@@ -41,6 +41,8 @@ import {
   PageTextsOnFrame,
   PasteboardTextsLayer,
   TextChromeOverlay,
+  isWorkspaceZoomGestureMode,
+  pageTextCrispSourceZoom,
   pageTextCrispZoom,
   textsForFrame,
   type LiveTextContent,
@@ -141,6 +143,14 @@ export function WorkspaceStrip({
   } | null>(null);
   const [grabbedPageId, setGrabbedPageId] = useState<PageId | null>(null);
   const [dragPointer, setDragPointer] = useState<{ x: number; y: number } | null>(null);
+  const [zoomGestureActive, setZoomGestureActive] = useState(false);
+  const [transformBump, setTransformBump] = useState(0);
+  const zoomGestureActiveRef = useRef(false);
+  const frozenCrispZoomRef = useRef(zoom);
+  if (!zoomGestureActive) {
+    frozenCrispZoomRef.current = zoom;
+  }
+  const crispSourceZoom = pageTextCrispSourceZoom(zoom, frozenCrispZoomRef.current, zoomGestureActive);
   const layout = stripLayoutFromDoc(stripLayout ?? {});
   const resolvedSelectTargets = selectTargets ?? selectTargetFlagsOf(undefined);
   const showTextSelection = tool === 'text' || (isSelectionTool(tool) && resolvedSelectTargets.text);
@@ -530,6 +540,14 @@ export function WorkspaceStrip({
           setGrabbedPageId(null);
           setDragPointer(null);
         }
+        const zooming = [...pipeline.store.sessions.values()].some((s) =>
+          isWorkspaceZoomGestureMode(s.mode),
+        );
+        if (zoomGestureActiveRef.current && !zooming) {
+          setTransformBump((bump) => 1 - bump);
+        }
+        zoomGestureActiveRef.current = zooming;
+        setZoomGestureActive((prev) => (prev === zooming ? prev : zooming));
       },
     });
     pipelineRef.current = pipeline;
@@ -562,9 +580,9 @@ export function WorkspaceStrip({
         />
       ) : null}
       <div
-        className={styles.workspaceTransform}
+        className={`${styles.workspaceTransform}${zoomGestureActive ? ` ${styles.workspaceTransformLive}` : ''}`}
         style={{
-          transform: `translate(${panX}px, ${panY}px) scale(${zoom})`,
+          transform: `translate(${panX}px, ${panY}px) translateZ(${transformBump * 0.01}px) scale(${zoom})`,
           position: 'relative',
           width: contentWidth,
           height: contentHeight,
@@ -689,7 +707,7 @@ export function WorkspaceStrip({
                   selectedTextIds={visibleSelectedTextIds}
                   textLiveTransforms={textLiveTransforms}
                   liveTextContent={liveTextContent}
-                  crispZoom={pageTextCrispZoom(zoom, selectedSpreadPageIds.has(pageId))}
+                  crispZoom={pageTextCrispZoom(crispSourceZoom, selectedSpreadPageIds.has(pageId))}
                 />
               </div>
               <div

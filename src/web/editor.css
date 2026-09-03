@@ -675,6 +675,9 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 .ms-workspaceTransform {
   --ms-screen-px: 1;
   transform-origin: 0 0;
+}
+
+.ms-workspaceTransformLive {
   will-change: transform;
 }
 

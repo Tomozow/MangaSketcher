@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { pageTextCrispZoom, textWrapEmStyle } from '../PageTextOverlay';
+import { pageTextCrispSourceZoom, pageTextCrispZoom, textWrapEmStyle, isWorkspaceZoomGestureMode } from '../PageTextOverlay';
 
 describe('pageTextCrispZoom', () => {
   test('only the selected spread counters workspace scale above 1', () => {
@@ -9,6 +9,14 @@ describe('pageTextCrispZoom', () => {
     expect(pageTextCrispZoom(1, true)).toBe(1);
     expect(pageTextCrispZoom(0.5, true)).toBe(1);
     expect(pageTextCrispZoom(Number.NaN, true)).toBe(1);
+  });
+
+  test('pinch keeps the frozen zoom; discrete zoom uses live', () => {
+    expect(pageTextCrispSourceZoom(2.4, 1, true)).toBe(1);
+    expect(pageTextCrispSourceZoom(2.4, 1, false)).toBe(2.4);
+    expect(isWorkspaceZoomGestureMode('pinch')).toBe(true);
+    expect(isWorkspaceZoomGestureMode('zoomDrag')).toBe(true);
+    expect(isWorkspaceZoomGestureMode('pan')).toBe(false);
   });
 });
 

@@ -192,4 +192,5 @@ export const styles = {
   pairDivider: 'ms-pairDivider',
   workspaceSurface: 'ms-workspaceSurface',
   workspaceTransform: 'ms-workspaceTransform',
+  workspaceTransformLive: 'ms-workspaceTransformLive',
 } as const;

@@ -59,6 +59,22 @@ export function pageTextCrispZoom(workspaceZoom: number, pageInSelectedSpread: b
   return workspaceZoom;
 }
 
+/** Pinch / drag-zoom: keep last committed zoom. Discrete zoom and selection use live. */
+export function pageTextCrispSourceZoom(
+  liveZoom: number,
+  frozenZoom: number,
+  zoomGestureActive: boolean,
+): number {
+  if (!zoomGestureActive) {
+    return Number.isFinite(liveZoom) && liveZoom > 0 ? liveZoom : 1;
+  }
+  return Number.isFinite(frozenZoom) && frozenZoom > 0 ? frozenZoom : 1;
+}
+
+export function isWorkspaceZoomGestureMode(mode: string): boolean {
+  return mode === 'pinch' || mode === 'zoomDrag';
+}
+
 export function textsForFrame(
   framePageId: PageId,
   pages: EditorDocument['pages'],

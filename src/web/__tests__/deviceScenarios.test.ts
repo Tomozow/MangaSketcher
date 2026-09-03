@@ -259,6 +259,12 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(navSrc).toContain('spreadWorldRectForPage');
     expect(workspaceStripSrc).toContain('spreadPageIdsContaining');
     expect(workspaceStripSrc).toContain('pageTextCrispZoom');
+    expect(workspaceStripSrc).toContain('pageTextCrispSourceZoom');
+    expect(workspaceStripSrc).toContain('workspaceTransformLive');
+    expect(editorCss).toMatch(/\.ms-workspaceTransformLive[^{]*\{[^}]*will-change:\s*transform/);
+    expect(editorCss).not.toMatch(
+      /\.ms-workspaceTransform(?!Live)[^{]*\{[^}]*will-change:\s*transform/,
+    );
     expect(editorCss).toMatch(/\.ms-leftChrome[^{]*\{[^}]*top:\s*50%/);
     expect(editorCss).toMatch(/\.ms-workspaceNav[^{]*\{[^}]*grid-row:\s*1/);
     expect(editorCss).toMatch(/\.ms-toolRailCluster[^{]*\{[^}]*grid-row:\s*2/);

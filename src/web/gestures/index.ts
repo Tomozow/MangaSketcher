@@ -225,6 +225,8 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
       }
       if (batch.length > 0) {
         ctx.onEffects(mergeLiveInkEffects(batch));
+      } else if (target === 'workspace' && (phase === 'up' || phase === 'cancel')) {
+        ctx.onEffects([]);
       }
 
       if (phase === 'up' || phase === 'cancel') {
