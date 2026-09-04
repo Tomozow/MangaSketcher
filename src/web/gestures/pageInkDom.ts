@@ -1,5 +1,6 @@
 import { buildStripFrames, clampRasterPoint } from '../../domain/stripGeometry';
 import type { PageId, PageText } from '../../domain/types';
+import { layoutVisibleTextBox } from '../../domain/textWrap';
 import { expandTextHitBox } from './textHit';
 import type { WorkspaceHit } from './types';
 
@@ -92,7 +93,11 @@ function hitPageTexts(
 ): WorkspaceHit | null {
   for (let i = texts.length - 1; i >= 0; i -= 1) {
     const text = texts[i]!;
-    const box = expandTextHitBox(text.box, rasterWidth, rasterHeight);
+    const box = expandTextHitBox(
+      layoutVisibleTextBox(text.box, text.content, Number.isFinite(text.fontSize) ? text.fontSize : 12),
+      rasterWidth,
+      rasterHeight,
+    );
     if (
       localX >= box.x &&
       localX <= box.x + box.width &&

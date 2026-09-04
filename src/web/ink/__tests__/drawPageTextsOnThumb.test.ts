@@ -133,7 +133,32 @@ describe('drawPageTextsOnThumb', () => {
     expect(fills[1]!.y).toBeCloseTo(fills[0]!.y);
   });
 
-  test('prolonged sound mark and ellipsis rotate a quarter turn', () => {
+  test('corner brackets use vertical presentation forms without rotating', () => {
+    const rotates: number[] = [];
+    const { ctx, fills } = recordingContext();
+    ctx.rotate = (angle: number) => {
+      rotates.push(angle);
+    };
+    drawPageTextsOnThumb(
+      ctx,
+      [
+        {
+          content: '「あ」',
+          box: { x: 0, y: 0, width: 80, height: 400 },
+          fontSize: 40,
+          color: '#000',
+        },
+      ],
+      1200,
+      1700,
+      1200,
+      1700,
+    );
+    expect(fills.map((f) => f.text)).toEqual(['\uFE41', 'あ', '\uFE42']);
+    expect(rotates).toEqual([]);
+  });
+
+  test('prolonged sound mark rotates a quarter turn', () => {
     const rotates: number[] = [];
     const { ctx, fills } = recordingContext();
     ctx.rotate = (angle: number) => {
@@ -154,8 +179,8 @@ describe('drawPageTextsOnThumb', () => {
       1200,
       1700,
     );
-    expect(fills.map((f) => f.text)).toEqual(['あ', 'ー', '…']);
-    expect(rotates).toEqual([Math.PI / 2, Math.PI / 2]);
+    expect(fills.map((f) => f.text)).toEqual(['あ', 'ー', '\uFE19']);
+    expect(rotates).toEqual([Math.PI / 2]);
     expect(fills[1]!.x).toBe(0);
     expect(fills[1]!.y).toBe(0);
     expect(fills[0]!.x).not.toBe(0);

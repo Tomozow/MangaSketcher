@@ -471,8 +471,36 @@ describe('シナリオ: ポインタ分担（指はパン、ペンはインク�
     expect(resolvePointerIntent('select', { kind: 'pencil', phase: 'move' })).toEqual({
       type: 'selectMarquee',
     });
+    expect(resolvePointerIntent('select', { kind: 'pencil', phase: 'down' }, { ctrlKey: true })).toEqual({
+      type: 'drawLasso',
+    });
+    expect(resolvePointerIntent('select', { kind: 'pencil', phase: 'down' }, { selectLasso: true })).toEqual({
+      type: 'drawLasso',
+    });
+    expect(
+      resolvePointerIntent('select', { kind: 'pencil', phase: 'down' }, { selectLasso: true, ctrlKey: true }),
+    ).toEqual({
+      type: 'selectMarquee',
+    });
     expect(resolvePointerIntent('lasso', { kind: 'pencil', phase: 'move' })).toEqual({
       type: 'drawLasso',
+    });
+    expect(resolvePointerIntent('lasso', { kind: 'pencil', phase: 'down' }, { ctrlKey: true })).toEqual({
+      type: 'selectMarquee',
+    });
+    expect(resolvePointerIntent('scissors', { kind: 'pencil', phase: 'down' })).toEqual({
+      type: 'selectMarquee',
+    });
+    expect(resolvePointerIntent('scissors', { kind: 'pencil', phase: 'down' }, { ctrlKey: true })).toEqual({
+      type: 'drawLasso',
+    });
+    expect(resolvePointerIntent('scissors', { kind: 'pencil', phase: 'down' }, { scissorsLasso: true })).toEqual({
+      type: 'drawLasso',
+    });
+    expect(
+      resolvePointerIntent('scissors', { kind: 'pencil', phase: 'down' }, { scissorsLasso: true, ctrlKey: true }),
+    ).toEqual({
+      type: 'selectMarquee',
     });
     expect(brushRadius(4, 0.5, 'pencil')).toBe(2);
     expect(brushRadius(4, 0.5, 'finger')).toBe(4);

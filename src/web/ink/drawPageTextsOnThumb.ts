@@ -1,4 +1,9 @@
-import { isTextContentEmpty, shouldRotateForVerticalRl, verticalGlyphs } from '../../domain/text';
+import {
+  isTextContentEmpty,
+  shouldRotateForVerticalRl,
+  verticalGlyphs,
+  verticalRlCanvasGlyph,
+} from '../../domain/text';
 import type { PageText, Rect } from '../../domain/types';
 import { expandTextBoxWidthToColumns, verticalColumnPitch } from '../../domain/textWrap';
 import { pageTextCanvasFont } from '../pageTextFont';
@@ -117,6 +122,7 @@ function paintVerticalGlyph(
   fontPx: number,
   outline: boolean,
 ): void {
+  const drawn = verticalRlCanvasGlyph(glyph);
   if (shouldRotateForVerticalRl(glyph)) {
     ctx.save();
     ctx.translate(gx, y + fontPx / 2);
@@ -124,14 +130,14 @@ function paintVerticalGlyph(
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     if (outline) {
-      ctx.strokeText!(glyph, 0, 0);
+      ctx.strokeText!(drawn, 0, 0);
     }
-    ctx.fillText(glyph, 0, 0);
+    ctx.fillText(drawn, 0, 0);
     ctx.restore();
     return;
   }
   if (outline) {
-    ctx.strokeText!(glyph, gx, y);
+    ctx.strokeText!(drawn, gx, y);
   }
-  ctx.fillText(glyph, gx, y);
+  ctx.fillText(drawn, gx, y);
 }

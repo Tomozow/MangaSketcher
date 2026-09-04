@@ -562,6 +562,9 @@ export function reduceTestDocument(
     }
     case 'setTool':
       doc.tool = action.tool;
+      if (action.tool === 'lasso') {
+        doc.tools = { ...doc.tools, selectLasso: true };
+      }
       if (!isSelectionTool(action.tool)) {
         doc.selectedClipId = null;
       }

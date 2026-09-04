@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
-import { isSelectionTool, selectTargetFlagsOf, type ToolId } from '@/src/domain/types';
+import { isLassoSelectMode, isSelectionTool, scissorsTargetFlagsOf, selectTargetFlagsOf, type ToolId } from '@/src/domain/types';
 import { findText, selectedTextIdsOf } from '@/src/domain/text';
 import { inkPalette } from '@/src/theme/tokens';
 import type { EditorDocument, EditorHistory } from '@/src/storage/types';
@@ -25,6 +25,7 @@ import {
   IconLasso,
   IconPen,
   IconRedo,
+  IconScissors,
   IconSelect,
   IconText,
   IconUndo,
@@ -35,7 +36,7 @@ const TOOLS: { id: ToolId; label: string }[] = [
   { id: 'eraser', label: '消' },
   { id: 'text', label: '文' },
   { id: 'select', label: '選' },
-  { id: 'lasso', label: '縄' },
+  { id: 'scissors', label: '鋏' },
 ];
 
 const TOOL_FLYOUT_TITLES: Record<ToolId, string> = {
@@ -44,12 +45,19 @@ const TOOL_FLYOUT_TITLES: Record<ToolId, string> = {
   text: 'テキスト',
   select: '選択',
   lasso: '投げ縄',
+  scissors: 'ハサミ',
 };
 
 const SELECT_FILTERS: { key: 'selectText' | 'selectInk' | 'selectClip'; label: string }[] = [
   { key: 'selectText', label: 'テキスト' },
   { key: 'selectInk', label: '線画' },
   { key: 'selectClip', label: 'クリップ' },
+];
+
+const SCISSORS_FILTERS: { key: 'scissorsSelectText' | 'scissorsSelectInk' | 'scissorsSelectClip'; label: string }[] = [
+  { key: 'scissorsSelectText', label: 'テキスト' },
+  { key: 'scissorsSelectInk', label: '線画' },
+  { key: 'scissorsSelectClip', label: 'クリップ' },
 ];
 
 type CompactSidebarProps = {
@@ -77,7 +85,7 @@ function patchBoolPreset(quad: BoolPresets, index: number, value: boolean): Bool
   return next;
 }
 
-function ToolGlyph({ id }: { id: ToolId }) {
+function ToolGlyph({ id, lasso }: { id: ToolId; lasso?: boolean }) {
   if (id === 'pen') {
     return <IconPen />;
   }
@@ -87,7 +95,10 @@ function ToolGlyph({ id }: { id: ToolId }) {
   if (id === 'text') {
     return <IconText />;
   }
-  if (id === 'lasso') {
+  if (id === 'scissors') {
+    return <IconScissors />;
+  }
+  if (id === 'lasso' || lasso) {
     return <IconLasso />;
   }
   return <IconSelect />;
@@ -160,12 +171,16 @@ export function CompactSidebar({
   const selectTargets = selectTargetFlagsOf(doc.tools);
   const selectedTextIds = selectedTextIdsOf(doc);
   const selectionTool = isSelectionTool(doc.tool);
+  const lassoSelect = isLassoSelectMode(doc.tool, doc.tools);
+  const scissorsLasso = doc.tools.scissorsLasso === true;
+  const scissorsTargets = scissorsTargetFlagsOf(doc.tools);
+  const scissorsSwitchToSelect = doc.tools.scissorsSwitchToSelect === true;
   const primarySelectedText =
     selectionTool && selectedTextIds.length > 0
       ? findText(doc, selectedTextIds[selectedTextIds.length - 1]!)
       : null;
   const showSelectTextSize = Boolean(primarySelectedText);
-  const showSize = !selectionTool || showSelectTextSize;
+  const showSize = doc.tool !== 'scissors' && (!selectionTool || showSelectTextSize);
   const showColor = doc.tool === 'pen' || doc.tool === 'text';
 
   const activeColor = useMemo(() => {
@@ -234,12 +249,17 @@ export function CompactSidebar({
       <div className={styles.toolRail} role="toolbar" aria-label="ツール">
         {TOOLS.map((tool) => {
           const shortcut = shortcutLabelFromCode(shortcuts[tool.id]);
+          const railActive = tool.id === 'select' ? selectionTool : doc.tool === tool.id;
           return (
             <button
               key={tool.id}
               type="button"
-              className={`${styles.chromeIcon} ${doc.tool === tool.id ? styles.toolRailActive : ''}`}
+              className={`${styles.chromeIcon} ${railActive ? styles.toolRailActive : ''}`}
               onClick={() => {
+                if (tool.id === 'select' && selectionTool) {
+                  setFlyoutOpen((open) => !open);
+                  return;
+                }
                 if (doc.tool === tool.id) {
                   setFlyoutOpen((open) => !open);
                   return;
@@ -247,11 +267,11 @@ export function CompactSidebar({
                 dispatch({ type: 'setTool', tool: tool.id });
               }}
               aria-label={`${tool.label}（${shortcut}）`}
-              aria-pressed={doc.tool === tool.id}
-              aria-expanded={doc.tool === tool.id ? flyoutOpen : undefined}
+              aria-pressed={railActive}
+              aria-expanded={railActive ? flyoutOpen : undefined}
               title={`${TOOL_FLYOUT_TITLES[tool.id]}（${shortcut}）`}
             >
-              <ToolGlyph id={tool.id} />
+              <ToolGlyph id={tool.id} lasso={tool.id === 'select' && lassoSelect} />
             </button>
           );
         })}
@@ -282,33 +302,152 @@ export function CompactSidebar({
       <aside className={styles.toolFlyout} aria-label={`${TOOL_FLYOUT_TITLES[doc.tool]}の設定`}>
         <h4 className={styles.toolFlyoutTitle}>{TOOL_FLYOUT_TITLES[doc.tool]}</h4>
 
-        {selectionTool ? (
-          <div className={styles.selectFilterRow} role="group" aria-label="選択対象">
-            {SELECT_FILTERS.map((filter) => {
-              const on =
-                filter.key === 'selectText'
-                  ? selectTargets.text
-                  : filter.key === 'selectInk'
-                    ? selectTargets.ink
-                    : selectTargets.clip;
-              return (
-                <button
-                  key={filter.key}
-                  type="button"
-                  className={`${styles.selectFilterButton} ${on ? styles.toolButtonActive : ''}`}
-                  aria-pressed={on}
-                  aria-label={filter.label}
-                  onClick={() => dispatch({ type: 'setToolProperties', patch: { [filter.key]: !on } })}
-                >
-                  {filter.label}
-                </button>
-              );
-            })}
+        {doc.tool === 'scissors' ? (
+          <>
+          <div className={styles.toolFlyoutSection}>
+            <div className={styles.penPresetLabel}>形</div>
+            <div className={styles.selectFilterRow} role="group" aria-label="ハサミの形">
+              <button
+                type="button"
+                className={`${styles.selectFilterButton} ${!scissorsLasso ? styles.toolButtonActive : ''}`}
+                aria-pressed={!scissorsLasso}
+                aria-label="矩形"
+                onClick={() => dispatch({ type: 'setToolProperties', patch: { scissorsLasso: false } })}
+              >
+                矩形
+              </button>
+              <button
+                type="button"
+                className={`${styles.selectFilterButton} ${scissorsLasso ? styles.toolButtonActive : ''}`}
+                aria-pressed={scissorsLasso}
+                aria-label="投げ縄"
+                onClick={() => dispatch({ type: 'setToolProperties', patch: { scissorsLasso: true } })}
+              >
+                投げ縄
+              </button>
+            </div>
+            <p className={styles.toolFlyoutHint}>
+              クリップを切って新しいクリップにします。PCでは Ctrl を押しながらドラッグすると投げ縄になります。
+            </p>
           </div>
+          <div className={styles.toolFlyoutSection}>
+            <div className={styles.penPresetLabel}>対象</div>
+            <div className={styles.selectFilterRow} role="group" aria-label="切り取り後の選択対象">
+              {SCISSORS_FILTERS.map((filter) => {
+                const on =
+                  filter.key === 'scissorsSelectText'
+                    ? scissorsTargets.text
+                    : filter.key === 'scissorsSelectInk'
+                      ? scissorsTargets.ink
+                      : scissorsTargets.clip;
+                return (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    className={`${styles.selectFilterButton} ${on ? styles.toolButtonActive : ''}`}
+                    aria-pressed={on}
+                    aria-label={filter.label}
+                    onClick={() => dispatch({ type: 'setToolProperties', patch: { [filter.key]: !on } })}
+                  >
+                    {filter.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          <div className={styles.toolFlyoutSection}>
+            <div className={styles.selectFilterRow} role="group" aria-label="カット後のツール">
+              <button
+                type="button"
+                className={`${styles.selectFilterButton} ${scissorsSwitchToSelect ? styles.toolButtonActive : ''}`}
+                aria-pressed={scissorsSwitchToSelect}
+                aria-label="カット後に選択ツールへ"
+                onClick={() =>
+                  dispatch({
+                    type: 'setToolProperties',
+                    patch: { scissorsSwitchToSelect: !scissorsSwitchToSelect },
+                  })
+                }
+              >
+                カット後に選択
+              </button>
+            </div>
+          </div>
+          </>
         ) : null}
 
-        {doc.tool === 'lasso' ? (
-          <p className={styles.toolFlyoutHint}>囲んで選択・切り取ります。線画クリップは四角形になります。</p>
+        {selectionTool ? (
+          <>
+          <div className={styles.toolFlyoutSection}>
+            <div className={styles.penPresetLabel}>形</div>
+            <div className={styles.selectFilterRow} role="group" aria-label="選択の形">
+              <button
+                type="button"
+                className={`${styles.selectFilterButton} ${!lassoSelect ? styles.toolButtonActive : ''}`}
+                aria-pressed={!lassoSelect}
+                aria-label="矩形"
+                onClick={() => {
+                  dispatch({ type: 'setTool', tool: 'select' });
+                  dispatch({ type: 'setToolProperties', patch: { selectLasso: false } });
+                }}
+              >
+                矩形
+              </button>
+              <button
+                type="button"
+                className={`${styles.selectFilterButton} ${lassoSelect ? styles.toolButtonActive : ''}`}
+                aria-pressed={lassoSelect}
+                aria-label="投げ縄"
+                onClick={() => {
+                  dispatch({ type: 'setTool', tool: 'select' });
+                  dispatch({ type: 'setToolProperties', patch: { selectLasso: true } });
+                }}
+              >
+                投げ縄
+              </button>
+            </div>
+            {lassoSelect ? (
+              <p className={styles.toolFlyoutHint}>囲んで選択・切り取ります。線画クリップは四角形になります。</p>
+            ) : null}
+          </div>
+          <div className={styles.toolFlyoutSection}>
+            <div className={styles.penPresetLabel}>対象</div>
+            <div className={styles.selectFilterRow} role="group" aria-label="選択対象">
+              {SELECT_FILTERS.map((filter) => {
+                const on =
+                  filter.key === 'selectText'
+                    ? selectTargets.text
+                    : filter.key === 'selectInk'
+                      ? selectTargets.ink
+                      : selectTargets.clip;
+                return (
+                  <button
+                    key={filter.key}
+                    type="button"
+                    className={`${styles.selectFilterButton} ${on ? styles.toolButtonActive : ''}`}
+                    aria-pressed={on}
+                    aria-label={filter.label}
+                    onClick={() => dispatch({ type: 'setToolProperties', patch: { [filter.key]: !on } })}
+                  >
+                    {filter.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {showSelectTextSize ? (
+            <div className={styles.toolFlyoutSection}>
+              <ValueSlider
+                label="フォントサイズ"
+                min={12}
+                max={96}
+                step={1}
+                value={sizeValue}
+                onChange={handleSizeChange}
+              />
+            </div>
+          ) : null}
+          </>
         ) : null}
 
         {doc.tool === 'pen' || doc.tool === 'eraser' ? (
@@ -419,7 +558,7 @@ export function CompactSidebar({
               });
             }}
           />
-        ) : showSize ? (
+        ) : !selectionTool && showSize ? (
           <ValueSlider
             label="サイズ"
             min={12}

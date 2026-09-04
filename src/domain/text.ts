@@ -257,16 +257,49 @@ export function verticalGlyphs(content: string): string[] {
 }
 
 /**
+ * Unicode presentation forms for vertical (OpenType `vert` destinations that
+ * have cmap codepoints). Canvas cannot enable `vert`, so PDF/thumb bake uses these.
+ */
+const VERTICAL_RL_PRESENTATION: Readonly<Record<number, string>> = {
+  0x2014: '\uFE31', // — → ︱
+  0x2026: '\uFE19', // … → ︙
+  0x3001: '\uFE11', // 、
+  0x3002: '\uFE12', // 。
+  0x3008: '\uFE3F', // 〈
+  0x3009: '\uFE40', // 〉
+  0x300a: '\uFE3D', // 《
+  0x300b: '\uFE3E', // 》
+  0x300c: '\uFE41', // 「
+  0x300d: '\uFE42', // 」
+  0x300e: '\uFE43', // 『
+  0x300f: '\uFE44', // 』
+  0x3010: '\uFE3B', // 【
+  0x3011: '\uFE3C', // 】
+  0x3014: '\uFE39', // 〔
+  0x3015: '\uFE3A', // 〕
+  0x3016: '\uFE17', // 〖
+  0x3017: '\uFE18', // 〗
+  0xff08: '\uFE35', // （
+  0xff09: '\uFE36', // ）
+  0xff0c: '\uFE10', // ，
+  0xff3f: '\uFE33', // ＿
+  0xff5b: '\uFE37', // ｛
+  0xff5d: '\uFE38', // ｝
+  0x0028: '\uFE35', // (
+  0x0029: '\uFE36', // )
+  0x007b: '\uFE37', // {
+  0x007d: '\uFE38', // }
+};
+
+/**
  * Canvas `fillText` は横組グリフのまま置く。画面の `text-orientation: mixed` では
- * 伸ばし棒・三点リーダなどが列方向に回るので、焼き込みでも同じ向きにする。
+ * 伸ばし棒などが列方向に回るので、縦書き互換文字が無いものは焼き込みでも回す。
  */
 const VERTICAL_RL_ROTATE_CODEPOINTS = new Set<number>([
   0x30fc, // ー
   0xff70, // ｰ
-  0x2026, // …
   0x2025, // ‥
   0x22ef, // ⋯
-  0x2014, // —
   0x2015, // ―
   0x2013, // –
   0x2010, // ‐
@@ -276,7 +309,18 @@ const VERTICAL_RL_ROTATE_CODEPOINTS = new Set<number>([
   0xff5e, // ～
 ]);
 
+export function verticalRlCanvasGlyph(glyph: string): string {
+  const codePoint = glyph.codePointAt(0);
+  if (codePoint == null) {
+    return glyph;
+  }
+  return VERTICAL_RL_PRESENTATION[codePoint] ?? glyph;
+}
+
 export function shouldRotateForVerticalRl(glyph: string): boolean {
+  if (verticalRlCanvasGlyph(glyph) !== glyph) {
+    return false;
+  }
   const codePoint = glyph.codePointAt(0);
   return codePoint != null && VERTICAL_RL_ROTATE_CODEPOINTS.has(codePoint);
 }

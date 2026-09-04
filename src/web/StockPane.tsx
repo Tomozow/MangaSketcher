@@ -37,6 +37,7 @@ import {
   clientToStockWorld,
   clientToWorkspaceWorld,
   pointInRect,
+  pointOverStockUi,
   resolveWorkspaceInsertIndex,
   STOCK_FREE_PAGE_HEIGHT,
   STOCK_FREE_PAGE_WIDTH,
@@ -183,34 +184,19 @@ function grabTextIds(grab: WorkspaceGrab): string[] {
   return grab.textId ? [grab.textId] : [];
 }
 
-function pointOverStockUi(clientX: number, clientY: number, surface: HTMLElement | null): boolean {
-  const region = document.querySelector('[data-ms-region="stock"]');
-  if (region && pointInRect(clientX, clientY, region.getBoundingClientRect())) {
-    return true;
-  }
-  if (surface && pointInRect(clientX, clientY, surface.getBoundingClientRect())) {
-    return true;
-  }
-  const trashDrop = document.querySelector<HTMLElement>(`[${STOCK_TRASH_DROP_ATTR}]`);
-  return Boolean(trashDrop && pointInRect(clientX, clientY, trashDrop.getBoundingClientRect()));
-}
-
 function stockDragGhostKeys(
   workspaceGrab: WorkspaceGrab | null,
   draggedStockPageId: string | null,
-  workspaceClipTextOverStock: boolean,
+  overStockUi: boolean,
 ): string[] {
   if (draggedStockPageId) {
     return [draggedStockPageId];
   }
-  if (!workspaceGrab) {
+  if (!workspaceGrab || !overStockUi) {
     return [];
   }
   if (workspaceGrab.pageId) {
     return [workspaceGrab.pageId];
-  }
-  if (!workspaceClipTextOverStock) {
-    return [];
   }
   return [
     ...grabClipIds(workspaceGrab).map((id) => `clip:${id}`),

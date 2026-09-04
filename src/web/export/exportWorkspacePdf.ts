@@ -10,6 +10,7 @@ import {
 import type { EditorDocument, PageId } from '../../domain/types';
 import { buildPageExportFileName } from './buildPageExportFileName';
 import { composeSelectedPages, type ExportWorkspaceDeps, type InkExportSource } from './composeSelectedPages';
+import { PDF_EXPORT_SCALE } from './constants';
 import { WorkspaceExportError } from './errors';
 import type { PageScopeMode } from './exportFormat';
 import { formatExportTimestamp, sanitizeExportStem } from './sanitizeExportName';
@@ -25,8 +26,8 @@ export async function exportWorkspacePdf(
   const pageIds = deps.pageIds ?? present.workspaceOrder;
   const pick = deps.pick ?? 'all';
   const { snapshot, pages } = await composeSelectedPages(present, ink, pageIds, 'jpeg', deps);
-  const width = snapshot.rasterWidth;
-  const height = snapshot.rasterHeight;
+  const width = Math.max(1, Math.round(snapshot.rasterWidth * PDF_EXPORT_SCALE));
+  const height = Math.max(1, Math.round(snapshot.rasterHeight * PDF_EXPORT_SCALE));
 
   let pdfDoc: PDFDocument;
   try {

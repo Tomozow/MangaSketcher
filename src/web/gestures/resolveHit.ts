@@ -270,9 +270,12 @@ export function resolveWorkspaceHit(input: ResolveWorkspaceHitInput): WorkspaceH
       TEXT_HIT_PAD_CSS / Math.max(0.1, input.zoom),
     );
     if (textHit) {
-      const offsetX = worldX - textHit.element.worldBox.x;
-      const offsetY = worldY - textHit.element.worldBox.y;
-      if (textHit.element.owner.kind === 'pasteboard') {
+      const pasteboard = textHit.element.owner.kind === 'pasteboard';
+      const originX = pasteboard ? textHit.element.sourceBox.x : textHit.element.worldBox.x;
+      const originY = pasteboard ? textHit.element.sourceBox.y : textHit.element.worldBox.y;
+      const offsetX = worldX - originX;
+      const offsetY = worldY - originY;
+      if (pasteboard) {
         return {
           kind: 'pasteboardText',
           textId: textHit.element.id,

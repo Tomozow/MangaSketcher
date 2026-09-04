@@ -523,6 +523,8 @@ export function EditorLayout({
               selectedTextId={doc.selectedTextId}
               selectedTextIds={doc.selectedTextIds}
               selectTargets={selectTargetFlagsOf(doc.tools)}
+              selectLasso={doc.tools.selectLasso === true}
+              scissorsLasso={doc.tools.scissorsLasso === true}
               textLiveTransforms={textLiveTransforms}
               onDeleteText={deleteText}
               onDuplicateText={duplicateText}

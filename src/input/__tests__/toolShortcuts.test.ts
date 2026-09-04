@@ -9,6 +9,7 @@ describe('toolShortcuts', () => {
     expect(toolIdFromShortcutKey({ code: 'KeyT', ctrlKey: false, metaKey: false, altKey: false })).toBe('text');
     expect(toolIdFromShortcutKey({ code: 'KeyC', ctrlKey: false, metaKey: false, altKey: false })).toBe('select');
     expect(toolIdFromShortcutKey({ code: 'KeyL', ctrlKey: false, metaKey: false, altKey: false })).toBe('lasso');
+    expect(toolIdFromShortcutKey({ code: 'KeyX', ctrlKey: false, metaKey: false, altKey: false })).toBe('scissors');
   });
 
   test('uses remapped shortcut codes', () => {
@@ -18,6 +19,7 @@ describe('toolShortcuts', () => {
       text: 'KeyR',
       select: 'KeyF',
       lasso: 'KeyG',
+      scissors: 'KeyH',
       undo: 'KeyZ',
       redo: 'KeyX',
     };

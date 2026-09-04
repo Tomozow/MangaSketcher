@@ -14,7 +14,7 @@ export const APP_SETTINGS_CHANGED_EVENT = 'mangasketcher:app-settings-changed';
 export const AUTOSAVE_PRESET_IDS = ['fast', 'standard', 'slow', 'long'] as const;
 export type AutosavePresetId = (typeof AUTOSAVE_PRESET_IDS)[number];
 
-export const SHORTCUT_ACTION_IDS = ['pen', 'eraser', 'text', 'select', 'lasso', 'undo', 'redo'] as const;
+export const SHORTCUT_ACTION_IDS = ['pen', 'eraser', 'text', 'select', 'lasso', 'scissors', 'undo', 'redo'] as const;
 export type ShortcutActionId = (typeof SHORTCUT_ACTION_IDS)[number];
 export type ShortcutMap = Record<ShortcutActionId, string>;
 
@@ -34,6 +34,7 @@ export const DEFAULT_SHORTCUTS: ShortcutMap = {
   text: 'KeyT',
   select: 'KeyC',
   lasso: 'KeyL',
+  scissors: 'KeyX',
   undo: 'KeyW',
   redo: 'KeyS',
 };
@@ -44,6 +45,7 @@ export const SHORTCUT_ACTION_LABELS: Record<ShortcutActionId, string> = {
   text: 'テキスト',
   select: '選択',
   lasso: '投げ縄',
+  scissors: 'ハサミ',
   undo: '取り消し',
   redo: 'やり直し',
 };

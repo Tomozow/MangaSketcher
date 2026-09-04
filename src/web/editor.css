@@ -721,7 +721,8 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 4px;
+  gap: 8px;
+  padding: 4px;
   max-width: calc(100% - 12px);
   transform: translateX(-50%);
   pointer-events: auto;
@@ -2108,15 +2109,48 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 }
 
 .ms-workspaceNavLabel {
-  min-height: 18px;
-  padding: 0 2px;
+  box-sizing: border-box;
+  width: 44px;
+  max-width: 44px;
+  min-height: 28px;
+  padding: 4px 2px;
   font-size: 10px;
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.02em;
   color: var(--ms-chrome-muted);
   text-align: center;
   line-height: 1.2;
-  pointer-events: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.15em;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.ms-workspaceNavPageInput {
+  appearance: none;
+  -webkit-appearance: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  outline: none;
+  min-width: 1ch;
+  max-width: 3.2ch;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: inherit;
+  color: inherit;
+  text-align: right;
+  line-height: inherit;
+}
+
+.ms-workspaceNavPageInput:focus {
+  color: var(--ms-chrome-fg);
+  box-shadow: 0 1px 0 var(--ms-chrome-hair);
 }
 
 .ms-toolRailActive {
@@ -2174,9 +2208,25 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   color: var(--ms-chrome-muted);
 }
 
+.ms-toolFlyoutSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 0 12px;
+}
+
+.ms-toolFlyoutSection:last-child {
+  padding-bottom: 0;
+}
+
 .ms-toolFlyout .ms-selectFilterRow {
   padding: 0 0 10px;
   justify-content: flex-start;
+}
+
+.ms-toolFlyout .ms-toolFlyoutSection .ms-selectFilterRow,
+.ms-toolFlyout .ms-toolFlyoutSection .ms-sliderBlock {
+  padding: 0;
 }
 
 .ms-toolFlyout .ms-selectFilterButton {

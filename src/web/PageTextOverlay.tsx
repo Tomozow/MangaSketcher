@@ -17,7 +17,7 @@ import {
   type StripFrame,
 } from '@/src/domain/stripGeometry';
 import type { EditorDocument } from '@/src/storage/types';
-import { expandTextBoxWidthToColumns, fitTextBoxToContent } from '@/src/domain/textWrap';
+import { layoutVisibleTextBox } from '@/src/domain/textWrap';
 import {
   effectiveTextBox,
   sanitizeTextBox,
@@ -298,10 +298,7 @@ export function PageTextsOnFrame({
         const resizeScale = box0.width / Math.max(1, sanitizeTextBox(text.box).width);
         const content = liveTextContent?.id === text.id ? liveTextContent.content : text.content;
         const layoutFont = fontSize * resizeScale;
-        const box =
-          liveTextContent?.id === text.id
-            ? fitTextBoxToContent(box0, content, layoutFont)
-            : expandTextBoxWidthToColumns(box0, content, layoutFont);
+        const box = layoutVisibleTextBox(box0, content, layoutFont);
         const cssFontSize = displayTextFontSize(layoutFont, scaleX);
         return (
           <div
@@ -429,10 +426,7 @@ export function PasteboardTextsLayer({
       {items.map(({ text, box: itemBox, fontSize }) => {
         const selected = selectedIdSet.has(text.id);
         const content = liveTextContent?.id === text.id ? liveTextContent.content : text.content;
-        const box =
-          liveTextContent?.id === text.id
-            ? fitTextBoxToContent(itemBox, content, fontSize)
-            : expandTextBoxWidthToColumns(itemBox, content, fontSize);
+        const box = layoutVisibleTextBox(itemBox, content, fontSize);
         const fs = Math.max(1, fontSize);
         return (
           <div

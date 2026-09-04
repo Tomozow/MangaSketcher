@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
 import { buildStripFrames, spreadWorldRectForPage, stripLayoutFromDoc } from '@/src/domain/stripGeometry';
 import {
@@ -43,13 +44,27 @@ function currentView(doc: EditorDocument): WorkspaceView {
   };
 }
 
+function displayPageNumber(selectedIndex: number): string {
+  return selectedIndex >= 0 ? String(selectedIndex + 1) : '';
+}
+
 export function WorkspaceNav({ doc, dispatch, pageTurnUnit = 'page' }: WorkspaceNavProps) {
   const pageCount = doc.workspaceOrder.length;
   const selectedIndex = doc.selectedPageId ? doc.workspaceOrder.indexOf(doc.selectedPageId) : -1;
-  const pageLabel = selectedIndex >= 0 ? `${selectedIndex + 1} / ${pageCount}` : `— / ${pageCount}`;
+  const committedPage = displayPageNumber(selectedIndex);
+  const [draftPage, setDraftPage] = useState(committedPage);
+  const [editing, setEditing] = useState(false);
+  const skipCommitRef = useRef(false);
+  const pageInputRef = useRef<HTMLInputElement>(null);
   const prevPageId = neighborWorkspacePageId(doc.workspaceOrder, doc.selectedPageId, -1, pageTurnUnit);
   const nextPageId = neighborWorkspacePageId(doc.workspaceOrder, doc.selectedPageId, 1, pageTurnUnit);
   const pageStepLabel = pageTurnUnit === 'spread' ? '見開き' : 'ページ';
+
+  useEffect(() => {
+    if (!editing) {
+      setDraftPage(committedPage);
+    }
+  }, [committedPage, editing]);
 
   const applyView = (view: WorkspaceView) => {
     if (
@@ -87,6 +102,44 @@ export function WorkspaceNav({ doc, dispatch, pageTurnUnit = 'page' }: Workspace
     applyView(panViewToWorldRect(currentView(doc), target, workspacePaneSize()));
   };
 
+  const commitPageJump = () => {
+    setEditing(false);
+    if (skipCommitRef.current) {
+      skipCommitRef.current = false;
+      setDraftPage(committedPage);
+      return;
+    }
+    const parsed = Number.parseInt(draftPage, 10);
+    if (!Number.isFinite(parsed) || pageCount < 1) {
+      setDraftPage(committedPage);
+      return;
+    }
+    const index = Math.min(pageCount, Math.max(1, parsed)) - 1;
+    const pageId = doc.workspaceOrder[index];
+    setDraftPage(String(index + 1));
+    if (!pageId || pageId === doc.selectedPageId) {
+      return;
+    }
+    goPage(pageId);
+  };
+
+  const beginPageEdit = (event: ReactPointerEvent<HTMLElement>) => {
+    event.stopPropagation();
+    if (pageCount < 1) {
+      return;
+    }
+    if (event.target === pageInputRef.current) {
+      return;
+    }
+    event.preventDefault();
+    const input = pageInputRef.current;
+    if (!input) {
+      return;
+    }
+    input.focus();
+    input.select();
+  };
+
   return (
     <div className={styles.workspaceNav} role="toolbar" aria-label="表示">
       <button
@@ -120,7 +173,59 @@ export function WorkspaceNav({ doc, dispatch, pageTurnUnit = 'page' }: Workspace
       >
         <IconPagePrev />
       </button>
-      <span className={styles.workspaceNavLabel}>{pageLabel}</span>
+      <span
+        className={styles.workspaceNavLabel}
+        onPointerDown={beginPageEdit}
+      >
+        {pageCount < 1 ? (
+          '—'
+        ) : (
+          <>
+            <input
+              ref={pageInputRef}
+              className={styles.workspaceNavPageInput}
+              type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
+              aria-label="ページ番号"
+              title="ページ番号"
+              autoComplete="off"
+              spellCheck={false}
+              value={editing ? draftPage : committedPage || '—'}
+              size={Math.max(1, String(pageCount).length)}
+              style={{ width: `${Math.max(1, String(pageCount).length)}ch` }}
+              disabled={pageCount < 1}
+              onPointerDown={(event) => event.stopPropagation()}
+              onChange={(event) => {
+                setEditing(true);
+                setDraftPage(event.target.value.replace(/\D/g, ''));
+              }}
+              onFocus={(event) => {
+                setEditing(true);
+                setDraftPage(committedPage);
+                event.target.select();
+              }}
+              onBlur={commitPageJump}
+              onKeyDown={(event) => {
+                event.stopPropagation();
+                if (event.key === 'Enter') {
+                  event.preventDefault();
+                  event.currentTarget.blur();
+                }
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  skipCommitRef.current = true;
+                  setDraftPage(committedPage);
+                  setEditing(false);
+                  event.currentTarget.blur();
+                }
+              }}
+            />
+            <span aria-hidden="true">/</span>
+            <span>{pageCount}</span>
+          </>
+        )}
+      </span>
       <button
         type="button"
         className={styles.chromeIcon}

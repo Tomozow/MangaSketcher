@@ -64,4 +64,45 @@ describe('dirtyRasterIdsForAction', () => {
     const next = reduceEditorDocument(prev, action, ids);
     expect(dirtyRasterIdsForAction(prev, next, action)).toEqual([]);
   });
+
+  test('commitClipScissorsCut marks the source and new clip', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'n',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'commitMarqueeCut',
+        pageId,
+        clipId: 'c1',
+        rasterId: 'p1:clip:c1',
+        workspaceX: 0,
+        workspaceY: 0,
+      },
+      ids,
+    );
+    const prev = doc;
+    const action = {
+      type: 'commitClipScissorsCut' as const,
+      sourceClipId: 'c1',
+      sourceEmpty: false,
+      sourceX: 2,
+      sourceY: 3,
+      piece: {
+        clipId: 'c2',
+        rasterId: 'p1:clip:c2',
+        x: 4,
+        y: 5,
+        scale: 1,
+        rotation: 0,
+      },
+    };
+    const next = reduceEditorDocument(prev, action, ids);
+    expect(dirtyRasterIdsForAction(prev, next, action)).toEqual(['p1:clip:c1', 'p1:clip:c2']);
+  });
 });

@@ -123,6 +123,22 @@ export type EditorDocumentAction =
       workspaceX: number;
       workspaceY: number;
     }
+  | {
+      type: 'commitClipScissorsCut';
+      sourceClipId: ClipId;
+      sourceEmpty: boolean;
+      sourceX?: number;
+      sourceY?: number;
+      piece: {
+        clipId: ClipId;
+        rasterId: string;
+        x: number;
+        y: number;
+        scale: number;
+        scaleY?: number;
+        rotation: number;
+      };
+    }
   | { type: 'commitClipBake'; clipId: ClipId; pageId: PageId }
   | { type: 'transformClip'; clipId: ClipId; x?: number; y?: number; scale?: number; scaleY?: number; rotation?: number }
   | { type: 'deleteClip'; clipIds: ClipId[] }
@@ -829,6 +845,34 @@ export function reduceEditorDocument(
       Object.assign(doc, textSelection([]));
       return doc;
     }
+    case 'commitClipScissorsCut': {
+      const source = doc.pasteboardClips.find((c) => c.id === a.sourceClipId);
+      if (!source) {
+        return doc;
+      }
+      if (a.sourceEmpty) {
+        addClipToTrash(doc, a.sourceClipId);
+      } else {
+        if (a.sourceX !== undefined) {
+          source.x = a.sourceX;
+        }
+        if (a.sourceY !== undefined) {
+          source.y = a.sourceY;
+        }
+      }
+      doc.pasteboardClips.push({
+        id: a.piece.clipId,
+        rasterId: a.piece.rasterId,
+        x: a.piece.x,
+        y: a.piece.y,
+        scale: a.piece.scale,
+        scaleY: a.piece.scaleY,
+        rotation: a.piece.rotation,
+      });
+      Object.assign(doc, clipSelection([a.piece.clipId]));
+      Object.assign(doc, textSelection([]));
+      return doc;
+    }
     case 'commitClipBake': {
       const clipIndex = doc.pasteboardClips.findIndex((c) => c.id === a.clipId);
       if (clipIndex === -1 || !doc.pages[a.pageId]) {
@@ -1174,12 +1218,18 @@ function reduceEditorDocumentViewOnly(
         return { ...state, selectedPageId: action.pageId, ...clipSelection([]), ...textSelection([]) };
       }
       return state;
-    case 'setTool':
+    case 'setTool': {
+      const tools =
+        action.tool === 'lasso' && state.tools.selectLasso !== true
+          ? { ...state.tools, selectLasso: true }
+          : state.tools;
       return {
         ...state,
         tool: action.tool,
+        tools,
         ...clipSelection(isSelectionTool(action.tool) ? (state.selectedClipIds ?? (state.selectedClipId ? [state.selectedClipId] : [])) : []),
       };
+    }
     case 'setToolProperties':
       return { ...state, tools: { ...state.tools, ...action.patch } };
     case 'setWorkspaceView':

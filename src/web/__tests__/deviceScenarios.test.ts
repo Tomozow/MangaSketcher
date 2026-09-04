@@ -213,6 +213,13 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(workspaceStripSrc).toContain('PasteboardClipsLayer');
   });
 
+  test('クリップと文字の同時選択では削除と複製をクリップ側の1組にまとめる', () => {
+    expect(workspaceStripSrc).toContain('showClipChrome');
+    expect(workspaceStripSrc).toContain('visibleSelectedTextId && !showClipChrome');
+    expect(pageInkOverlaySrc).toContain('clipIds.length + textIds.length > 1');
+    expect(pageInkOverlaySrc).toContain('selectedTextWorldAabbs');
+  });
+
   test('クリップは透明背景の四角枠で線画と区別する', () => {
     expect(editorCss).toMatch(/\.ms-clipFrame[^{]*\{[^}]*background:\s*transparent/);
     expect(editorCss).toMatch(/\.ms-clipFrame[^{]*\{[^}]*border:\s*1\.5px solid/);
@@ -237,16 +244,36 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(editorCss).toMatch(/\.ms-inkSizePreview[^{]*\{[^}]*place-items:\s*center/);
   });
 
-  test('投げ縄ツールはツールレールにあり、切り出したクリップは四角形になる', () => {
+  test('投げ縄は選択フライアウトのモードで、切り出したクリップは四角形になる', () => {
     const sidebarSrc = readFileSync(join(here, '../CompactSidebar.tsx'), 'utf8');
-    expect(sidebarSrc).toContain("id: 'lasso'");
-    expect(sidebarSrc).toContain("label: '縄'");
+    expect(sidebarSrc).not.toContain("{ id: 'lasso'");
+    expect(sidebarSrc).toContain('selectLasso');
+    expect(sidebarSrc).toContain('投げ縄');
+    expect(sidebarSrc).toContain('>形<');
+    expect(sidebarSrc).toContain('>対象<');
     expect(sidebarSrc).toContain('selectionTool');
     expect(sidebarSrc).toContain('クリップは四角形になります');
     expect(pageInkOverlaySrc).toContain('lassoPreview');
     const controllerSrc = readFileSync(join(here, '../useEditorController.ts'), 'utf8');
     expect(controllerSrc).toContain('lassoCut');
     expect(editorCss).toMatch(/\.ms-lassoPreview[^{]*\{[^}]*pointer-events:\s*none/);
+  });
+
+  test('ハサミツールはクリップ分割カットで矩形と投げ縄を持つ', () => {
+    const sidebarSrc = readFileSync(join(here, '../CompactSidebar.tsx'), 'utf8');
+    expect(sidebarSrc).toContain("{ id: 'scissors'");
+    expect(sidebarSrc).toContain('scissorsLasso');
+    expect(sidebarSrc).toContain('scissorsSwitchToSelect');
+    expect(sidebarSrc).toContain('scissorsSelectInk');
+    expect(sidebarSrc).toContain('カット後に選択');
+    expect(sidebarSrc).toContain('切り取り後の選択対象');
+    expect(sidebarSrc).toContain('ハサミ');
+    const controllerSrc = readFileSync(join(here, '../useEditorController.ts'), 'utf8');
+    expect(controllerSrc).toContain('cutClipRegion');
+    expect(controllerSrc).toContain('finishScissorsGesture');
+    expect(controllerSrc).toContain('cutPageInkMarquee');
+    expect(controllerSrc).toContain("tool === 'scissors'");
+    expect(readFileSync(join(here, '../../domain/types.ts'), 'utf8')).toContain("'scissors'");
   });
 
   test('ワークスペース左に拡大縮小とページ移動のナビがある', () => {
@@ -256,6 +283,9 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(navSrc).toContain('aria-label="ズームアウト"');
     expect(navSrc).toContain('前の${pageStepLabel}');
     expect(navSrc).toContain('次の${pageStepLabel}');
+    expect(navSrc).toContain('aria-label="ページ番号"');
+    expect(navSrc).toContain('inputMode="numeric"');
+    expect(navSrc).toContain('onPointerDown={beginPageEdit}');
     expect(navSrc).toContain('spreadWorldRectForPage');
     expect(workspaceStripSrc).toContain('spreadPageIdsContaining');
     expect(workspaceStripSrc).toContain('pageTextCrispZoom');
@@ -269,6 +299,7 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(editorCss).toMatch(/\.ms-workspaceNav[^{]*\{[^}]*grid-row:\s*1/);
     expect(editorCss).toMatch(/\.ms-toolRailCluster[^{]*\{[^}]*grid-row:\s*2/);
     expect(editorCss).toMatch(/\.ms-toolFlyout[^{]*\{[^}]*position:\s*absolute/);
+    expect(editorCss).toMatch(/\.ms-workspaceNavPageInput[^{]*\{[^}]*background:\s*transparent/);
   });
 
   test('選択の一括移動は着地先でテキスト所属を付け替える', () => {

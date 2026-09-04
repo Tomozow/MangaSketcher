@@ -18,9 +18,20 @@ export type PointerIntent =
  * Select tool: Pencil draws the rect; finger still pans.
  * Lasso tool: Pencil draws a freeform path; the resulting clip is a rectangle.
  */
+export type ResolvePointerIntentOpts = {
+  selectLasso?: boolean;
+  scissorsLasso?: boolean;
+  ctrlKey?: boolean;
+};
+
+function ctrlTogglesLasso(lassoMode: boolean, ctrlKey?: boolean): boolean {
+  return lassoMode !== Boolean(ctrlKey);
+}
+
 export function resolvePointerIntent(
   tool: ToolId,
   event: Pick<PointerEvent, 'kind' | 'phase'>,
+  opts?: ResolvePointerIntentOpts,
 ): PointerIntent {
   if (event.kind === 'finger') {
     if (event.phase === 'longpress') {
@@ -38,9 +49,15 @@ export function resolvePointerIntent(
     case 'text':
       return { type: 'textEdit' };
     case 'select':
-      return { type: 'selectMarquee' };
+      return ctrlTogglesLasso(opts?.selectLasso === true, opts?.ctrlKey)
+        ? { type: 'drawLasso' }
+        : { type: 'selectMarquee' };
     case 'lasso':
-      return { type: 'drawLasso' };
+      return ctrlTogglesLasso(true, opts?.ctrlKey) ? { type: 'drawLasso' } : { type: 'selectMarquee' };
+    case 'scissors':
+      return ctrlTogglesLasso(opts?.scissorsLasso === true, opts?.ctrlKey)
+        ? { type: 'drawLasso' }
+        : { type: 'selectMarquee' };
     default: {
       const _exhaustive: never = tool;
       return _exhaustive;

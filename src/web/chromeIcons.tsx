@@ -149,6 +149,17 @@ export function IconLasso(props: IconProps) {
   );
 }
 
+export function IconScissors(props: IconProps) {
+  return (
+    <StrokeIcon {...props}>
+      <circle cx="7" cy="7" r="2.2" />
+      <circle cx="7" cy="17" r="2.2" />
+      <path d="M9 8.2L20 18" />
+      <path d="M9 15.8L20 6" />
+    </StrokeIcon>
+  );
+}
+
 export function IconUndo(props: IconProps) {
   return (
     <StrokeIcon {...props}>

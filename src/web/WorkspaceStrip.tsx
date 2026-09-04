@@ -31,6 +31,7 @@ import {
   resolveWorkspaceHit,
 } from '@/src/web/gestures/resolveHit';
 import { PageDragThumbnail } from '@/src/web/PageDragThumbnail';
+import { pointOverStockUi } from '@/src/web/stock/stockCoords';
 import { PageChromeOverlay } from '@/src/web/PageDeleteButton';
 import { PageInkCanvas } from '@/src/web/ink/PageInkCanvas';
 import type { InkEngine } from '@/src/web/ink/InkEngine';
@@ -68,6 +69,8 @@ type WorkspaceStripProps = {
   selectedTextId: TextId | null;
   selectedTextIds?: TextId[];
   selectTargets?: SelectTargetFlags;
+  selectLasso?: boolean;
+  scissorsLasso?: boolean;
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
   liveTextContent?: LiveTextContent | null;
   onDeleteText: (textId: TextId) => void;
@@ -109,6 +112,8 @@ export function WorkspaceStrip({
   selectedTextId,
   selectedTextIds,
   selectTargets,
+  selectLasso = false,
+  scissorsLasso = false,
   textLiveTransforms,
   liveTextContent,
   onDeleteText,
@@ -191,6 +196,7 @@ export function WorkspaceStrip({
 
   const resolvedSelectedClipIds =
     selectedClipIds.length > 0 ? selectedClipIds : selectedClipId ? [selectedClipId] : [];
+  const showClipChrome = resolvedSelectedClipIds.some((id) => pasteboardClips.some((clip) => clip.id === id));
 
   const alwaysDisplayRasterIds = useMemo(() => {
     const ids: string[] = [];
@@ -333,6 +339,8 @@ export function WorkspaceStrip({
     selectedTextId,
     selectedTextIds,
     selectTargets: resolvedSelectTargets,
+    selectLasso,
+    scissorsLasso,
     tool,
     panX,
     panY,
@@ -354,6 +362,8 @@ export function WorkspaceStrip({
     selectedTextId,
     selectedTextIds,
     selectTargets: resolvedSelectTargets,
+    selectLasso,
+    scissorsLasso,
     tool,
     panX,
     panY,
@@ -391,6 +401,12 @@ export function WorkspaceStrip({
       },
       get selectTargets() {
         return ctxRef.current.selectTargets;
+      },
+      get selectLasso() {
+        return ctxRef.current.selectLasso;
+      },
+      get scissorsLasso() {
+        return ctxRef.current.scissorsLasso;
       },
       get panX() {
         return ctxRef.current.panX;
@@ -568,7 +584,7 @@ export function WorkspaceStrip({
 
   return (
     <div ref={surfaceRef} className={styles.workspaceSurface} data-ms-shell="workspace">
-      {grabbedPageId && dragPointer ? (
+      {grabbedPageId && dragPointer && !pointOverStockUi(dragPointer.x, dragPointer.y) ? (
         <PageDragThumbnail
           pageId={grabbedPageId}
           clientX={dragPointer.x}
@@ -760,7 +776,7 @@ export function WorkspaceStrip({
           onClearInk={onClearPageInk ? () => onClearPageInk(deletePageId) : undefined}
         />
       ) : null}
-      {visibleSelectedTextId ? (
+      {visibleSelectedTextId && !showClipChrome ? (
         <TextChromeOverlay
           surfaceRef={surfaceRef}
           textIds={visibleSelectedTextIds}

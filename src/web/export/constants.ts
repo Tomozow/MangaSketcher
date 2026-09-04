@@ -10,6 +10,8 @@ export const PROJECT_PACK_EXPORT_LABEL = 'プロジェクトファイルを書�
 export const EXPORT_CANCEL_LABEL = 'キャンセル';
 export const EXPORT_PROGRESS_ELLIPSIS = '\u2026';
 export const PDF_JPEG_QUALITY = 0.8;
+/** PDF page size in points as a fraction of raster pixels (image stays full resolution). */
+export const PDF_EXPORT_SCALE = 0.5;
 export const MINI_NAME_JPEG_QUALITY = 0.92;
 /** Longest edge of the mini-name JPEG, in pixels. */
 export const MINI_NAME_MAX_EDGE = 8192;

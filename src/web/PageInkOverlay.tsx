@@ -118,7 +118,7 @@ function ClipBoxChrome({
         className={styles.pageTextChromeButton}
         style={size}
         {...{ [CLIP_COPY_ATTR]: '' }}
-        aria-label="クリップを複製"
+        aria-label={batch ? '選択中のものを複製' : 'クリップを複製'}
         onPointerDown={(event) => {
           event.stopPropagation();
         }}

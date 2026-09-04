@@ -63,7 +63,7 @@ describe('workspace element interaction geometry', () => {
           texts: [
             {
               id: 'page',
-              content: '',
+              content: 'あいうえお',
               color: '#000',
               fontSize: 20,
               box: { x: 0, y: 0, width: 120, height: 170 },
@@ -74,7 +74,7 @@ describe('workspace element interaction geometry', () => {
       pasteboardTexts: [
         {
           id: 'pasteboard',
-          content: '',
+          content: 'あいうえお',
           color: '#000',
           fontSize: 20,
           box: { x: 0, y: 0, width: 500, height: 500 },
@@ -96,6 +96,33 @@ describe('workspace element interaction geometry', () => {
         8,
       ),
     ).toMatchObject({ element: { id: 'pasteboard' }, handle: 'body' });
+  });
+
+  test('geometry hit ignores leftover balloon height below glyphs', () => {
+    const elements = buildTextInteractionElements({
+      workspaceOrder: ['p1'],
+      pages: {
+        p1: {
+          texts: [
+            {
+              id: 'short',
+              content: 'あ',
+              color: '#000',
+              fontSize: 25,
+              box: { x: 0, y: 0, width: 38, height: 300 },
+            },
+          ],
+        },
+      },
+      pasteboardTexts: [],
+      rasterWidth: 1200,
+      rasterHeight: 1700,
+    });
+    const short = elements.find((element) => element.id === 'short')!;
+    expect(short.sourceBox.height).toBe(25);
+    expect(
+      hitTextInteraction(elements, short.worldBox.x + 1, short.worldBox.y + short.worldBox.height + 20, null, 0),
+    ).toBeNull();
   });
 
   test('world origin chooses page vs pasteboard and converts box size', () => {
@@ -219,5 +246,28 @@ describe('workspace element interaction geometry', () => {
       element: { id: 'narrow' },
     });
     expect(hitTextInteraction(elements, 100 + 10 + 6, 120, null, 5)).toBeNull();
+  });
+
+  test('pasteboard grab origin is the stored box, not a raster-font hug to the left', () => {
+    const stored = { x: 752.77, y: 743.68, width: 7, height: 14 };
+    const elements = buildTextInteractionElements({
+      workspaceOrder: ['p1'],
+      pages: { p1: { texts: [] } },
+      pasteboardTexts: [
+        {
+          id: 'pb',
+          content: 'あ',
+          color: '#000',
+          fontSize: 25,
+          box: stored,
+        },
+      ],
+      rasterWidth: 1200,
+      rasterHeight: 1700,
+    });
+    const pb = elements.find((element) => element.id === 'pb')!;
+    expect(pb.sourceBox.x).toBeCloseTo(stored.x);
+    expect(pb.worldBox.x).toBeCloseTo(stored.x);
+    expect(pb.worldBox.width).toBeCloseTo(stored.width);
   });
 });

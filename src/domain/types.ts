@@ -3,7 +3,7 @@ export type ClipId = string;
 export type TextId = string;
 export type ProjectId = string;
 
-export type ToolId = 'pen' | 'eraser' | 'text' | 'select' | 'lasso';
+export type ToolId = 'pen' | 'eraser' | 'text' | 'select' | 'lasso' | 'scissors';
 
 export function isSelectionTool(tool: ToolId): tool is 'select' | 'lasso' {
   return tool === 'select' || tool === 'lasso';
@@ -133,6 +133,16 @@ export type ToolProperties = {
   selectText?: boolean;
   selectInk?: boolean;
   selectClip?: boolean;
+  /** Select-tool shape. Undefined is rectangle (legacy documents). */
+  selectLasso?: boolean;
+  /** Scissors-tool shape. Undefined is rectangle. Ctrl+drag also uses lasso. */
+  scissorsLasso?: boolean;
+  /** When true, switch to the select tool after a scissors cut. Undefined is false. */
+  scissorsSwitchToSelect?: boolean;
+  /** Scissors-tool filters. Undefined is treated as true. */
+  scissorsSelectText?: boolean;
+  scissorsSelectInk?: boolean;
+  scissorsSelectClip?: boolean;
 };
 
 export function selectTargetFlagsOf(
@@ -143,6 +153,23 @@ export function selectTargetFlagsOf(
     ink: tools?.selectInk !== false,
     clip: tools?.selectClip !== false,
   };
+}
+
+export function scissorsTargetFlagsOf(
+  tools: Pick<ToolProperties, 'scissorsSelectText' | 'scissorsSelectInk' | 'scissorsSelectClip'> | undefined,
+): SelectTargetFlags {
+  return {
+    text: tools?.scissorsSelectText !== false,
+    ink: tools?.scissorsSelectInk !== false,
+    clip: tools?.scissorsSelectClip !== false,
+  };
+}
+
+export function isLassoSelectMode(
+  tool: ToolId,
+  tools?: Pick<ToolProperties, 'selectLasso'>,
+): boolean {
+  return tool === 'lasso' || (tool === 'select' && tools?.selectLasso === true);
 }
 
 export type PdfDocument = {

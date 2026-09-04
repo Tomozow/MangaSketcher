@@ -26,6 +26,8 @@ export type WorkspacePointerContext = {
   selectedTextId?: TextId | null;
   selectedTextIds?: TextId[];
   selectTargets?: import('../../domain/types').SelectTargetFlags;
+  selectLasso?: boolean;
+  scissorsLasso?: boolean;
   panX: number;
   panY: number;
   zoom: number;
@@ -205,6 +207,8 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
           selectedTextId: ctx.selectedTextId,
           selectedTextIds: ctx.selectedTextIds,
           selectTargets: ctx.selectTargets,
+          selectLasso: ctx.selectLasso,
+          scissorsLasso: ctx.scissorsLasso,
           rasterWidth: ctx.rasterWidth,
           rasterHeight: ctx.rasterHeight,
           getClipMeta: ctx.getClipMeta,
@@ -214,6 +218,7 @@ export function createWorkspacePointerPipeline(ctx: WorkspacePointerContext): Wo
           mapWorldToPage: ctx.mapWorldToPage,
           pointerType: pe.pointerType,
           desktopNav: nav,
+          ctrlKey: pe.ctrlKey || pe.metaKey,
         });
         batch.push(...effects);
       };

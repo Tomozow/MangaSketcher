@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import { drawPageTextsOnThumb, type ThumbText } from '../../web/ink/drawPageTextsOnThumb';
 import type { Rect } from '../types';
-import { shouldRotateForVerticalRl } from '../text';
+import { shouldRotateForVerticalRl, verticalRlCanvasGlyph } from '../text';
 import {
   verticalColumnPitch,
   convertWrapToExplicitNewlines,
@@ -69,10 +69,11 @@ function callsFromLines(lines: string[], box: Rect, fontSize: number): Call[] {
     let y = box.y;
     for (const glyph of [...lines[i]!]) {
       const gx = colX + colW / 2;
+      const drawn = verticalRlCanvasGlyph(glyph);
       if (shouldRotateForVerticalRl(glyph)) {
-        out.push({ glyph, x: gx, y: y + fontPx / 2 });
+        out.push({ glyph: drawn, x: gx, y: y + fontPx / 2 });
       } else {
-        out.push({ glyph, x: gx, y });
+        out.push({ glyph: drawn, x: gx, y });
       }
       y += fontPx;
     }

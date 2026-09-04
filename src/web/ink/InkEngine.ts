@@ -6,6 +6,7 @@ import {
   cropCanvasToRect,
   inkAlphaBounds,
 } from '../clip/clipCanvas';
+import { intersectRects, polygonAabb } from '../clip/clipGeometry';
 import { encodedRasterDimensions, isPngBuffer, tryDecodeInkSnapshot } from './fakeCanvas';
 import type { InkUndoPixels } from '@/src/storage/types';
 
@@ -889,6 +890,92 @@ export class InkEngine {
     this.callbacks.onBake?.(pageRasterId);
     this.callbacks.onBake?.(clipRasterId);
     return { pageUndo, trim };
+  }
+
+  /**
+   * Cut ink inside a clip-local polygon into a new clip raster.
+   * `pieceOrigin` is the piece AABB in the original source pixels (or null if empty).
+   * `sourceTrim` is the remaining-ink AABB in original source pixels (null if the source is empty).
+   */
+  cutClipRegion(
+    sourceRasterId: string,
+    destRasterId: string,
+    points: Array<{ x: number; y: number }>,
+  ): {
+    sourceUndo: InkUndoPixels;
+    pieceOrigin: { x: number; y: number; width: number; height: number } | null;
+    sourceTrim: { x: number; y: number; width: number; height: number } | null;
+  } {
+    const empty = {
+      sourceUndo: new ArrayBuffer(0) as InkUndoPixels,
+      pieceOrigin: null,
+      sourceTrim: null,
+    };
+    const aabb = polygonAabb(points);
+    if (!aabb) {
+      return empty;
+    }
+    const sourceDims = this.getRasterDimensions(sourceRasterId);
+    const copyRect = intersectRects(aabb, { x: 0, y: 0, width: sourceDims.width, height: sourceDims.height });
+    if (!copyRect || copyRect.width < 1 || copyRect.height < 1) {
+      return empty;
+    }
+    const w = Math.max(1, Math.round(copyRect.width));
+    const h = Math.max(1, Math.round(copyRect.height));
+    this.registerClipRaster(destRasterId, w, h);
+    const source = this.decode(sourceRasterId);
+    const dest = this.decode(destRasterId);
+    canvasCopyLassoRegion(source, dest, points, copyRect, (cw, ch) => this.canvasFactory(cw, ch));
+    const pieceBounds = inkAlphaBounds(dest);
+    if (!pieceBounds) {
+      this.disposeRaster(destRasterId);
+      return empty;
+    }
+    const pieceOrigin = {
+      x: copyRect.x + pieceBounds.x,
+      y: copyRect.y + pieceBounds.y,
+      width: pieceBounds.width,
+      height: pieceBounds.height,
+    };
+    if (
+      pieceBounds.x !== 0 ||
+      pieceBounds.y !== 0 ||
+      pieceBounds.width !== dest.width ||
+      pieceBounds.height !== dest.height
+    ) {
+      const cropped = cropCanvasToRect(dest, pieceBounds, (cw, ch) => this.canvasFactory(cw, ch));
+      this.hot.set(destRasterId, cropped);
+      this.rasterDimensions.set(destRasterId, { width: pieceBounds.width, height: pieceBounds.height });
+    }
+
+    this.captureStrokeUndo(sourceRasterId);
+    canvasClearLassoPolygon(source, points);
+    const sourceTrim = inkAlphaBounds(source);
+    if (sourceTrim) {
+      if (
+        sourceTrim.x !== 0 ||
+        sourceTrim.y !== 0 ||
+        sourceTrim.width !== source.width ||
+        sourceTrim.height !== source.height
+      ) {
+        const croppedSource = cropCanvasToRect(source, sourceTrim, (cw, ch) => this.canvasFactory(cw, ch));
+        this.hot.set(sourceRasterId, croppedSource);
+        this.rasterDimensions.set(sourceRasterId, { width: sourceTrim.width, height: sourceTrim.height });
+      }
+    }
+
+    this.bumpHotRevision(sourceRasterId);
+    this.bumpHotRevision(destRasterId);
+    const sourceUndo = this.takeStrokeUndoSnapshot(sourceRasterId);
+    this.invalidateThumb(sourceRasterId);
+    this.invalidateThumb(destRasterId);
+    this.startEncode(sourceRasterId);
+    this.startEncode(destRasterId);
+    void this.generateThumb(sourceRasterId);
+    void this.generateThumb(destRasterId);
+    this.callbacks.onBake?.(sourceRasterId);
+    this.callbacks.onBake?.(destRasterId);
+    return { sourceUndo, pieceOrigin, sourceTrim };
   }
 
   /**

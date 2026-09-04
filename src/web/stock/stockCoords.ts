@@ -76,6 +76,26 @@ export function clientOverStockPane(clientX: number, clientY: number): boolean {
   return Boolean(el?.closest('[data-ms-region="stock"]'));
 }
 
+/** Rect hit for stock dock / trash; used to swap workspace vs stock drag ghosts. */
+export function pointOverStockUi(
+  clientX: number,
+  clientY: number,
+  surface: HTMLElement | null = null,
+): boolean {
+  if (typeof document === 'undefined') {
+    return false;
+  }
+  const region = document.querySelector('[data-ms-region="stock"]');
+  if (region && pointInRect(clientX, clientY, region.getBoundingClientRect())) {
+    return true;
+  }
+  if (surface && pointInRect(clientX, clientY, surface.getBoundingClientRect())) {
+    return true;
+  }
+  const trashDrop = document.querySelector<HTMLElement>('[data-stock-trash-drop]');
+  return Boolean(trashDrop && pointInRect(clientX, clientY, trashDrop.getBoundingClientRect()));
+}
+
 export function clientToWorkspaceWorld(
   clientX: number,
   clientY: number,

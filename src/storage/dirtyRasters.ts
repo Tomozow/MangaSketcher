@@ -32,6 +32,10 @@ export function dirtyRasterIdsForAction(
       const page = prev.pages[action.pageId];
       return uniqueIds([page?.rasterId, action.rasterId, ...added]);
     }
+    case 'commitClipScissorsCut': {
+      const source = prev.pasteboardClips.find((c) => c.id === action.sourceClipId);
+      return uniqueIds([source?.rasterId, action.piece.rasterId, ...added]);
+    }
     case 'commitClipBake': {
       const page = next.pages[action.pageId];
       return uniqueIds([page?.rasterId, ...added]);

@@ -82,6 +82,27 @@ describe('paintExportPageLayers', () => {
     expect(texts).toEqual([]);
   });
 
+  test('scales page text from raster coords onto a smaller dest', () => {
+    const { ctx, texts } = recordingContext();
+    paintExportPageLayers(ctx, {
+      width: 600,
+      height: 850,
+      rasterWidth: 1200,
+      rasterHeight: 1700,
+      template: {} as CanvasImageSource,
+      texts: [
+        {
+          content: 'あ',
+          box: { x: 0, y: 0, width: 80, height: 400 },
+          fontSize: 40,
+          color: '#000',
+        },
+      ],
+    });
+    const glyph = texts.find((t) => t.text === 'あ');
+    expect(glyph?.font).toBe(pageTextCanvasFont(20));
+  });
+
   test('burns workspace number at the template cover center when given', () => {
     const { ctx, texts } = recordingContext();
     paintExportPageLayers(ctx, {

@@ -215,4 +215,69 @@ describe('canvasMarqueeCut unit', () => {
     canvasBakeClipOntoPage(page.getContext('2d')!, clip, 4, 4, 8, 8, 1, 0);
     expect(countAlphaPixels(page.getContext('2d')!, W, H)).toBeGreaterThan(0);
   });
+
+  test('cutClipRegion copies the polygon into a new clip and leaves a hole', () => {
+    const engine = createTestEngine();
+    const sourceId = 'p:clip:src';
+    const destId = 'p:clip:piece';
+    engine.registerClipRaster(sourceId, 32, 32);
+    const srcCtx = engine.getHotContext(sourceId)!;
+    srcCtx.fillStyle = '#000000';
+    srcCtx.fillRect(4, 4, 20, 20);
+    const before = countAlphaPixels(srcCtx, 32, 32);
+    const cut = engine.cutClipRegion(sourceId, destId, [
+      { x: 4, y: 4 },
+      { x: 16, y: 4 },
+      { x: 16, y: 16 },
+      { x: 4, y: 16 },
+    ]);
+    expect(cut.pieceOrigin).not.toBeNull();
+    expect(cut.sourceTrim).not.toBeNull();
+    const destCtx = engine.getHotContext(destId)!;
+    const destPixels = countAlphaPixels(destCtx, destCtx.canvas.width, destCtx.canvas.height);
+    const after = countAlphaPixels(engine.getHotContext(sourceId)!, engine.getRasterDimensions(sourceId).width, engine.getRasterDimensions(sourceId).height);
+    expect(destPixels).toBeGreaterThan(0);
+    expect(after).toBeLessThan(before);
+    expect(after + destPixels).toBe(before);
+  });
+
+  test('cutClipRegion skips empty polygons and leaves the source', () => {
+    const engine = createTestEngine();
+    const sourceId = 'p:clip:empty-cut';
+    const destId = 'p:clip:empty-piece';
+    engine.registerClipRaster(sourceId, 32, 32);
+    const srcCtx = engine.getHotContext(sourceId)!;
+    srcCtx.fillStyle = '#000000';
+    srcCtx.fillRect(20, 20, 8, 8);
+    const before = countAlphaPixels(srcCtx, 32, 32);
+    const cut = engine.cutClipRegion(sourceId, destId, [
+      { x: 1, y: 1 },
+      { x: 8, y: 1 },
+      { x: 1, y: 8 },
+    ]);
+    expect(cut.pieceOrigin).toBeNull();
+    expect(engine.hot.has(destId)).toBe(false);
+    expect(countAlphaPixels(engine.getHotContext(sourceId)!, 32, 32)).toBe(before);
+  });
+
+  test('cutClipRegion undo restores the source raster size and ink', () => {
+    const engine = createTestEngine();
+    const sourceId = 'p:clip:undo-src';
+    const destId = 'p:clip:undo-piece';
+    engine.registerClipRaster(sourceId, 32, 32);
+    const srcCtx = engine.getHotContext(sourceId)!;
+    srcCtx.fillStyle = '#000000';
+    srcCtx.fillRect(2, 2, 20, 20);
+    const before = countAlphaPixels(srcCtx, 32, 32);
+    const cut = engine.cutClipRegion(sourceId, destId, [
+      { x: 2, y: 2 },
+      { x: 22, y: 2 },
+      { x: 22, y: 22 },
+      { x: 2, y: 22 },
+    ]);
+    expect(cut.sourceTrim).toBeNull();
+    engine.restoreRasterFromUndo(sourceId, cut.sourceUndo);
+    expect(engine.getRasterDimensions(sourceId)).toEqual({ width: 32, height: 32 });
+    expect(countAlphaPixels(engine.getHotContext(sourceId)!, 32, 32)).toBe(before);
+  });
 });

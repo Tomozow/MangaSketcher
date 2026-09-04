@@ -14,6 +14,9 @@ import {
 } from '@/src/web/overlayClamp';
 import { styles } from './editorStyles';
 
+/** Space between the page-number band and the chrome row. */
+const PAGE_CHROME_BOTTOM_INSET_PX = 16;
+
 type PageChromeButtonsProps = {
   onInsert?: () => void;
   onMoveToStock?: () => void;
@@ -187,8 +190,8 @@ export function PageChromeOverlay({
     const pageRect = page.getBoundingClientRect();
     const origin = surface.getBoundingClientRect();
     const preferredCenter = pageRect.left - origin.left + pageRect.width / 2;
-    const preferredTop = pageRect.top - origin.top + OVERLAY_CLAMP_MARGIN_PX;
-    const preferred = { left: preferredCenter, top: preferredTop, maxWidth: null as number | null };
+    const pageBottom = pageRect.bottom - origin.top - PAGE_CHROME_BOTTOM_INSET_PX;
+    const preferred = { left: preferredCenter, top: pageBottom, maxWidth: null as number | null };
     const row = rowRef.current;
     if (!row) {
       setPose((prev) => (prev && posesClose(prev, preferred) ? prev : preferred));
@@ -217,6 +220,7 @@ export function PageChromeOverlay({
     row.style.flexWrap = prevWrap;
     row.style.whiteSpace = prevWhite;
 
+    const preferredTop = pageBottom - height;
     const clamped = clampOverlayBox(
       {
         left: preferredCenter - width / 2,

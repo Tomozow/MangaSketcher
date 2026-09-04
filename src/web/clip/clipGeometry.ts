@@ -154,6 +154,90 @@ function worldToClipLocal(
   return { x: dx * cos - dy * sin, y: dx * sin + dy * cos };
 }
 
+function clipLocalToWorld(
+  localX: number,
+  localY: number,
+  bounds: ClipWorldBounds,
+): { x: number; y: number } {
+  const cos = Math.cos(bounds.rotation);
+  const sin = Math.sin(bounds.rotation);
+  return {
+    x: bounds.cx + localX * cos - localY * sin,
+    y: bounds.cy + localX * sin + localY * cos,
+  };
+}
+
+/** World point → clip raster pixels (origin top-left of the clip bitmap). */
+export function worldPointToClipPixel(
+  worldX: number,
+  worldY: number,
+  clip: ClipMetaLike,
+  size: ClipRasterSize,
+  rasterWidth: number,
+  rasterHeight: number,
+): { x: number; y: number } {
+  const bounds = clipWorldBounds(clip, size, rasterWidth, rasterHeight);
+  const local = worldToClipLocal(worldX, worldY, bounds);
+  const spanX = Math.max(1e-6, bounds.halfW * 2);
+  const spanY = Math.max(1e-6, bounds.halfH * 2);
+  return {
+    x: ((local.x + bounds.halfW) / spanX) * size.width,
+    y: ((local.y + bounds.halfH) / spanY) * size.height,
+  };
+}
+
+export function worldPolygonToClipPixels(
+  points: readonly { x: number; y: number }[],
+  clip: ClipMetaLike,
+  size: ClipRasterSize,
+  rasterWidth: number,
+  rasterHeight: number,
+): Array<{ x: number; y: number }> {
+  return points.map((point) =>
+    worldPointToClipPixel(point.x, point.y, clip, size, rasterWidth, rasterHeight),
+  );
+}
+
+export function worldRectToClipPolygon(
+  rect: Rect,
+  clip: ClipMetaLike,
+  size: ClipRasterSize,
+  rasterWidth: number,
+  rasterHeight: number,
+): Array<{ x: number; y: number }> {
+  return worldPolygonToClipPixels(
+    [
+      { x: rect.x, y: rect.y },
+      { x: rect.x + rect.width, y: rect.y },
+      { x: rect.x + rect.width, y: rect.y + rect.height },
+      { x: rect.x, y: rect.y + rect.height },
+    ],
+    clip,
+    size,
+    rasterWidth,
+    rasterHeight,
+  );
+}
+
+/** Keep the remaining (or cut) ink in the same world pose after cropping the raster to `trim`. */
+export function clipPoseAfterPixelTrim(
+  clip: ClipMetaLike,
+  size: ClipRasterSize,
+  rasterWidth: number,
+  rasterHeight: number,
+  trim: Rect,
+): { x: number; y: number } {
+  const bounds = clipWorldBounds(clip, size, rasterWidth, rasterHeight);
+  const { sx, sy } = rasterToDisplayScale(rasterWidth, rasterHeight);
+  const { scaleX, scaleY } = clipAxisScale(clip);
+  const newHalfW = (trim.width * sx * scaleX) / 2;
+  const newHalfH = (trim.height * sy * scaleY) / 2;
+  const oldLocalX = trim.x * sx * scaleX - bounds.halfW;
+  const oldLocalY = trim.y * sy * scaleY - bounds.halfH;
+  const newCenter = clipLocalToWorld(oldLocalX + newHalfW, oldLocalY + newHalfH, bounds);
+  return { x: newCenter.x - newHalfW, y: newCenter.y - newHalfH };
+}
+
 function dist(x1: number, y1: number, x2: number, y2: number): number {
   return Math.hypot(x2 - x1, y2 - y1);
 }

@@ -1,9 +1,11 @@
 import { PDFDocument, PDFName, ReadingDirection } from 'pdf-lib';
 import { describe, expect, test } from 'vitest';
 import { createEditorDocument, sequentialIds } from '../../../domain/document';
+import { DEFAULT_RASTER_HEIGHT, DEFAULT_RASTER_WIDTH } from '../../../domain/types';
 import { WorkspaceExportError } from '../errors';
 import type { InkExportSource } from '../exportWorkspace';
 import { exportWorkspacePdf } from '../exportWorkspacePdf';
+import { PDF_EXPORT_SCALE } from '../constants';
 
 const JPEG_1X1 = Uint8Array.from(
   atob(
@@ -77,6 +79,34 @@ describe('exportWorkspacePdf', () => {
     expect(pdf.catalog.has(PDFName.of('Outlines'))).toBe(true);
     const labels = pdfDocLabelsStart(pdf);
     expect(labels).toBe(2);
+  });
+
+  test('embeds full-resolution JPEG on a half-size page', async () => {
+    const doc = createEditorDocument({
+      projectId: 'p',
+      name: '原稿',
+      pageCount: 1,
+      ids: sequentialIds('pg'),
+    });
+    const sizes: Array<{ w: number; h: number }> = [];
+    const composed: Array<{ w: number; h: number }> = [];
+    const file = await exportWorkspacePdf(doc, mockInk(), {
+      ...stubJpegDeps(),
+      createCanvas: (w, h) => {
+        sizes.push({ w, h });
+        return { getContext: () => ({}) } as unknown as OffscreenCanvas;
+      },
+      composePage: async (input) => {
+        composed.push({ w: input.width, h: input.height });
+        return JPEG_1X1;
+      },
+    });
+    const halfW = Math.round(DEFAULT_RASTER_WIDTH * PDF_EXPORT_SCALE);
+    const halfH = Math.round(DEFAULT_RASTER_HEIGHT * PDF_EXPORT_SCALE);
+    expect(sizes).toEqual([{ w: DEFAULT_RASTER_WIDTH, h: DEFAULT_RASTER_HEIGHT }]);
+    expect(composed).toEqual([{ w: DEFAULT_RASTER_WIDTH, h: DEFAULT_RASTER_HEIGHT }]);
+    const pdf = await PDFDocument.load(await file.arrayBuffer());
+    expect(pdf.getPage(0).getSize()).toEqual({ width: halfW, height: halfH });
   });
 
   test('passes workspace numbers into jpeg compose', async () => {

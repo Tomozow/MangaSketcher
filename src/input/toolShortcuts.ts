@@ -3,7 +3,7 @@ import { DEFAULT_SHORTCUTS, type ShortcutMap } from '../storage/appSettings';
 import { isTypingTarget } from './desktopNavKeys';
 
 export function toolShortcutMapFromSettings(
-  shortcuts: Pick<ShortcutMap, 'pen' | 'eraser' | 'text' | 'select' | 'lasso'> = DEFAULT_SHORTCUTS,
+  shortcuts: Pick<ShortcutMap, 'pen' | 'eraser' | 'text' | 'select' | 'lasso' | 'scissors'> = DEFAULT_SHORTCUTS,
 ): Record<string, ToolId> {
   return {
     [shortcuts.pen]: 'pen',
@@ -11,6 +11,7 @@ export function toolShortcutMapFromSettings(
     [shortcuts.text]: 'text',
     [shortcuts.select]: 'select',
     [shortcuts.lasso]: 'lasso',
+    [shortcuts.scissors]: 'scissors',
   };
 }
 
@@ -24,7 +25,7 @@ export function toolIdFromShortcutKey(
     altKey: boolean;
     isComposing?: boolean;
   },
-  shortcuts: Pick<ShortcutMap, 'pen' | 'eraser' | 'text' | 'select' | 'lasso'> = DEFAULT_SHORTCUTS,
+  shortcuts: Pick<ShortcutMap, 'pen' | 'eraser' | 'text' | 'select' | 'lasso' | 'scissors'> = DEFAULT_SHORTCUTS,
 ): ToolId | null {
   if (event.ctrlKey || event.metaKey || event.altKey || event.isComposing) {
     return null;
@@ -52,7 +53,7 @@ export function isStylusBarrelToggle(
 export function bindToolShortcuts(
   onTool: (tool: ToolId) => void,
   target: Window = window,
-  shortcuts: Pick<ShortcutMap, 'pen' | 'eraser' | 'text' | 'select' | 'lasso'> = DEFAULT_SHORTCUTS,
+  shortcuts: Pick<ShortcutMap, 'pen' | 'eraser' | 'text' | 'select' | 'lasso' | 'scissors'> = DEFAULT_SHORTCUTS,
 ): () => void {
   const onKeyDown = (event: KeyboardEvent) => {
     if (isTypingTarget()) {

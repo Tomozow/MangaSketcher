@@ -292,6 +292,9 @@ export type WorkspacePointerInput = {
   pageInkAtWorld?: (worldX: number, worldY: number) => { pageId: PageId; localX: number; localY: number } | null;
   pointerType?: PointerEvent['pointerType'];
   desktopNav?: DesktopNavMode;
+  ctrlKey?: boolean;
+  selectLasso?: boolean;
+  scissorsLasso?: boolean;
 };
 
 export type WorkspaceGestureStore = {

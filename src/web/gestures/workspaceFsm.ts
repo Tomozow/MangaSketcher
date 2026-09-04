@@ -1080,7 +1080,11 @@ function stepPencilDown(
     };
   }
 
-  const intent = resolvePointerIntent(input.tool, { kind: 'pencil', phase: 'down' });
+  const intent = resolvePointerIntent(input.tool, { kind: 'pencil', phase: 'down' }, {
+    selectLasso: input.selectLasso,
+    scissorsLasso: input.scissorsLasso,
+    ctrlKey: input.ctrlKey,
+  });
 
   if (intent.type === 'drawInk') {
     if (!isPageBodyHit(hit)) {
@@ -1118,11 +1122,18 @@ function stepPencilDown(
   }
 
   if (intent.type === 'selectMarquee' || intent.type === 'drawLasso') {
-    const objectSession = tryStartSelectionObject(input, hit);
-    if (objectSession) {
-      return objectSession;
+    if (input.tool !== 'scissors') {
+      const objectSession = tryStartSelectionObject(input, hit);
+      if (objectSession) {
+        return objectSession;
+      }
     }
-    if (isPageBodyHit(hit) || hit.kind === 'empty' || hit.kind === 'slot') {
+    if (
+      input.tool === 'scissors' ||
+      isPageBodyHit(hit) ||
+      hit.kind === 'empty' ||
+      hit.kind === 'slot'
+    ) {
       return intent.type === 'drawLasso' ? startWorldLasso(input) : startWorldMarquee(input);
     }
     return { session: { mode: 'idle' }, effects: [] };

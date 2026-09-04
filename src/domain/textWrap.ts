@@ -1,4 +1,4 @@
-import { isTextContentEmpty, verticalGlyphs } from './text';
+import { defaultTextBox, isTextContentEmpty, verticalGlyphs } from './text';
 import type { Rect } from './types';
 
 /** Column pitch in vertical-rl (must match CSS `line-height: 1.5` and canvas wrap). */
@@ -103,6 +103,17 @@ export function fitTextBoxToContent(box: Rect, content: string, fontSize: number
     width: size.width,
     height: size.height,
   };
+}
+
+/** On-screen wrap and pointer hit: hug glyphs, ignore leftover balloon height. */
+export function layoutVisibleTextBox(box: Rect, content: string, fontSize: number): Rect {
+  if (isTextContentEmpty(content)) {
+    const size = defaultTextBox(Number.POSITIVE_INFINITY, Number.POSITIVE_INFINITY, fontSize);
+    const right = (Number.isFinite(box.x) ? box.x : 0) + Math.max(0, box.width);
+    const y = Number.isFinite(box.y) ? box.y : 0;
+    return { x: right - size.width, y, width: size.width, height: size.height };
+  }
+  return fitTextBoxToContent(box, content, fontSize);
 }
 
 /**

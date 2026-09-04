@@ -52,7 +52,7 @@ import {
   sanitizeTextBox,
 } from '@/src/web/text/textLiveTransform';
 import { stockedClipIds, stockedTextIds } from '@/src/domain/stockItems';
-import { clipTouchesPolygon, clipTouchesWorldRect, clipInsertTarget, intersectRects, pageLocalRectToWorld, polygonAabb, rectTouchesPolygon, selectedClipIdsOf, worldPointsToPageLocal, worldRectToPageLocalRect } from './clip/clipGeometry';
+import { clipAxisScale, clipTouchesPolygon, clipTouchesWorldRect, clipInsertTarget, clipPoseAfterPixelTrim, intersectRects, pageLocalRectToWorld, polygonAabb, rectTouchesPolygon, selectedClipIdsOf, worldPointsToPageLocal, worldPolygonToClipPixels, worldRectToPageLocalRect } from './clip/clipGeometry';
 import { CLIP_DUPLICATE_OFFSET, MIN_MARQUEE_RASTER_PX } from './clip/constants';
 import { clipRasterId } from '@/src/storage/rasterIds';
 import {
@@ -65,7 +65,7 @@ import {
   repaintInkDisplay,
   scheduleInkDisplay,
 } from '@/src/web/ink';
-import { selectTargetFlagsOf, type ClipId, type PageId, type Rect, type TextId } from '@/src/domain/types';
+import { scissorsTargetFlagsOf, selectTargetFlagsOf, type ClipId, type PageId, type Rect, type TextId } from '@/src/domain/types';
 import { pageBoxToWorld, textBoxForOwnerMove, textPoseAfterWorldMove, textWorldBox } from '@/src/web/gestures/elementInteraction';
 import type { PdfExtractPayload } from '@/src/web/pdf/PdfPageViewer';
 
@@ -157,6 +157,301 @@ function collectTextIdsWhere(
     }
   }
   return ids;
+}
+
+function eligibleScissorsClips(present: EditorDocument) {
+  const hidden = stockedClipIds(present.stock);
+  for (const id of present.trashClips ?? []) {
+    hidden.add(id);
+  }
+  return present.pasteboardClips.filter((clip) => !hidden.has(clip.id));
+}
+
+function commitScissorsCuts(options: {
+  present: EditorDocument;
+  engine: InkEngineApi['engine'];
+  live: ReadonlyMap<string, ClipLiveTransform>;
+  worldPoints: Array<{ x: number; y: number }>;
+  touches: (
+    clip: EditorDocument['pasteboardClips'][number],
+    size: { width: number; height: number },
+  ) => boolean;
+  inkUndo: Map<string, InkUndoPixels>;
+  dispatch: (action: EditorDocumentAction) => void;
+}): string[] {
+  const pieceIds: string[] = [];
+  for (const clip of eligibleScissorsClips(options.present)) {
+    const pose = effectiveClipPose(clip, options.live.get(clip.id));
+    const posed = { ...clip, ...pose };
+    const size = options.engine.getRasterDimensions(clip.rasterId);
+    if (!options.touches(posed, size)) {
+      continue;
+    }
+    const localPoints = worldPolygonToClipPixels(
+      options.worldPoints,
+      posed,
+      size,
+      options.present.rasterWidth,
+      options.present.rasterHeight,
+    );
+    const clipId = randomId();
+    const rasterId = clipRasterId(options.present.projectId, clipId);
+    const cut = options.engine.cutClipRegion(clip.rasterId, rasterId, localPoints);
+    if (!cut.pieceOrigin) {
+      continue;
+    }
+    stashInkUndo(options.inkUndo, clip.rasterId, cut.sourceUndo);
+    const piecePose = clipPoseAfterPixelTrim(
+      posed,
+      size,
+      options.present.rasterWidth,
+      options.present.rasterHeight,
+      cut.pieceOrigin,
+    );
+    const sourcePose = cut.sourceTrim
+      ? clipPoseAfterPixelTrim(
+          posed,
+          size,
+          options.present.rasterWidth,
+          options.present.rasterHeight,
+          cut.sourceTrim,
+        )
+      : null;
+    const { scaleX, scaleY } = clipAxisScale(posed);
+    options.dispatch({
+      type: 'commitClipScissorsCut',
+      sourceClipId: clip.id,
+      sourceEmpty: !cut.sourceTrim,
+      sourceX: sourcePose?.x,
+      sourceY: sourcePose?.y,
+      piece: {
+        clipId,
+        rasterId,
+        x: piecePose.x,
+        y: piecePose.y,
+        scale: scaleX,
+        scaleY,
+        rotation: posed.rotation,
+      },
+    });
+    pieceIds.push(clipId);
+  }
+  return pieceIds;
+}
+
+function cutPageInkMarquee(options: {
+  present: EditorDocument;
+  engine: InkEngineApi['engine'];
+  frames: StripFrame[];
+  worldRect: Rect;
+  inkUndo: Map<string, InkUndoPixels>;
+  dispatch: (action: EditorDocumentAction) => void;
+}): string[] {
+  const cutClipIds: string[] = [];
+  for (const frame of options.frames) {
+    if (frame.slot.kind !== 'page') {
+      continue;
+    }
+    const page = options.present.pages[frame.slot.pageId];
+    if (!page) {
+      continue;
+    }
+    const localRect = worldRectToPageLocalRect(
+      frame,
+      options.worldRect,
+      options.present.rasterWidth,
+      options.present.rasterHeight,
+    );
+    if (!localRect || localRect.width < MIN_MARQUEE_RASTER_PX || localRect.height < MIN_MARQUEE_RASTER_PX) {
+      continue;
+    }
+    const clipId = randomId();
+    const rasterId = `${options.present.projectId}:clip:${clipId}`;
+    const cut = options.engine.marqueeCut(page.rasterId, rasterId, localRect);
+    if (!cut.trim) {
+      continue;
+    }
+    const trimmedRect = {
+      x: localRect.x + cut.trim.x,
+      y: localRect.y + cut.trim.y,
+      width: cut.trim.width,
+      height: cut.trim.height,
+    };
+    const world = pageLocalRectToWorld(
+      frame.x,
+      frame.y,
+      frame.width,
+      frame.height,
+      trimmedRect,
+      options.present.rasterWidth,
+      options.present.rasterHeight,
+    );
+    stashInkUndo(options.inkUndo, page.rasterId, cut.pageUndo);
+    options.dispatch({
+      type: 'commitMarqueeCut',
+      pageId: frame.slot.pageId,
+      clipId,
+      rasterId,
+      workspaceX: world.x,
+      workspaceY: world.y,
+    });
+    cutClipIds.push(clipId);
+  }
+  return cutClipIds;
+}
+
+function cutPageInkLasso(options: {
+  present: EditorDocument;
+  engine: InkEngineApi['engine'];
+  frames: StripFrame[];
+  points: Array<{ x: number; y: number }>;
+  inkUndo: Map<string, InkUndoPixels>;
+  dispatch: (action: EditorDocumentAction) => void;
+}): string[] {
+  const cutClipIds: string[] = [];
+  for (const frame of options.frames) {
+    if (frame.slot.kind !== 'page') {
+      continue;
+    }
+    const page = options.present.pages[frame.slot.pageId];
+    if (!page) {
+      continue;
+    }
+    const localPoints = worldPointsToPageLocal(
+      frame,
+      options.points,
+      options.present.rasterWidth,
+      options.present.rasterHeight,
+    );
+    const localAabb = polygonAabb(localPoints);
+    if (!localAabb) {
+      continue;
+    }
+    const padded = {
+      x: localAabb.x - 1,
+      y: localAabb.y - 1,
+      width: localAabb.width + 2,
+      height: localAabb.height + 2,
+    };
+    const localRect = intersectRects(padded, {
+      x: 0,
+      y: 0,
+      width: options.present.rasterWidth,
+      height: options.present.rasterHeight,
+    });
+    if (!localRect || localRect.width < MIN_MARQUEE_RASTER_PX || localRect.height < MIN_MARQUEE_RASTER_PX) {
+      continue;
+    }
+    const clipId = randomId();
+    const rasterId = `${options.present.projectId}:clip:${clipId}`;
+    const cut = options.engine.lassoCut(page.rasterId, rasterId, localPoints, localRect);
+    if (!cut.trim) {
+      continue;
+    }
+    const trimmedRect = {
+      x: localRect.x + cut.trim.x,
+      y: localRect.y + cut.trim.y,
+      width: cut.trim.width,
+      height: cut.trim.height,
+    };
+    const world = pageLocalRectToWorld(
+      frame.x,
+      frame.y,
+      frame.width,
+      frame.height,
+      trimmedRect,
+      options.present.rasterWidth,
+      options.present.rasterHeight,
+    );
+    stashInkUndo(options.inkUndo, page.rasterId, cut.pageUndo);
+    options.dispatch({
+      type: 'commitMarqueeCut',
+      pageId: frame.slot.pageId,
+      clipId,
+      rasterId,
+      workspaceX: world.x,
+      workspaceY: world.y,
+    });
+    cutClipIds.push(clipId);
+  }
+  return cutClipIds;
+}
+
+function finishScissorsGesture(options: {
+  present: EditorDocument;
+  engine: InkEngineApi['engine'];
+  live: ReadonlyMap<string, ClipLiveTransform>;
+  frames: StripFrame[];
+  worldPoints: Array<{ x: number; y: number }>;
+  worldRect?: Rect;
+  mode: 'marquee' | 'lasso';
+  inkUndo: Map<string, InkUndoPixels>;
+  dispatch: (action: EditorDocumentAction) => void;
+}): { clipIds: string[]; textIds: string[] } {
+  const targets = scissorsTargetFlagsOf(options.present.tools);
+  const pieceIds = targets.clip
+    ? commitScissorsCuts({
+        present: options.present,
+        engine: options.engine,
+        live: options.live,
+        worldPoints: options.worldPoints,
+        touches: (clip, size) =>
+          options.mode === 'lasso'
+            ? clipTouchesPolygon(
+                clip,
+                size,
+                options.present.rasterWidth,
+                options.present.rasterHeight,
+                options.worldPoints,
+              )
+            : clipTouchesWorldRect(
+                clip,
+                size,
+                options.present.rasterWidth,
+                options.present.rasterHeight,
+                options.worldRect!,
+              ),
+        inkUndo: options.inkUndo,
+        dispatch: options.dispatch,
+      })
+    : [];
+  const pageClipIds = targets.ink
+    ? options.mode === 'lasso'
+      ? cutPageInkLasso({
+          present: options.present,
+          engine: options.engine,
+          frames: options.frames,
+          points: options.worldPoints,
+          inkUndo: options.inkUndo,
+          dispatch: options.dispatch,
+        })
+      : cutPageInkMarquee({
+          present: options.present,
+          engine: options.engine,
+          frames: options.frames,
+          worldRect: options.worldRect!,
+          inkUndo: options.inkUndo,
+          dispatch: options.dispatch,
+        })
+    : [];
+  const clipIds = [...pieceIds, ...pageClipIds];
+  const textIds = targets.text
+    ? options.mode === 'lasso'
+      ? collectTextIdsInWorldPolygon(options.present, options.frames, options.worldPoints)
+      : collectTextIdsInWorldRect(options.present, options.frames, options.worldRect!)
+    : [];
+  if (clipIds.length > 0) {
+    options.dispatch({ type: 'selectClips', clipIds });
+  } else if (!targets.text) {
+    options.dispatch({ type: 'selectClips', clipIds: [] });
+  }
+  if (targets.text) {
+    options.dispatch({ type: 'selectTexts', textIds });
+  }
+  if (options.present.tools.scissorsSwitchToSelect === true) {
+    options.dispatch({ type: 'setTool', tool: 'select' });
+  }
+  return { clipIds, textIds };
 }
 
 export type { ClipLiveTransform, TextLiveTransform };
@@ -886,6 +1181,29 @@ export function useEditorController(projectId: string): EditorController {
           ) {
             continue;
           }
+          if (present.tool === 'scissors') {
+            const worldRect = effect.rect;
+            const result = finishScissorsGesture({
+              present,
+              engine: api.engine,
+              live: clipLiveRef.current,
+              frames,
+              worldPoints: [
+                { x: worldRect.x, y: worldRect.y },
+                { x: worldRect.x + worldRect.width, y: worldRect.y },
+                { x: worldRect.x + worldRect.width, y: worldRect.y + worldRect.height },
+                { x: worldRect.x, y: worldRect.y + worldRect.height },
+              ],
+              worldRect,
+              mode: 'marquee',
+              inkUndo: inkUndoRef.current,
+              dispatch,
+            });
+            if (result.clipIds.length > 0) {
+              bumpInkFrame();
+            }
+            continue;
+          }
           const targets =
             present.tool === 'text'
               ? { text: true, ink: false, clip: false }
@@ -994,6 +1312,23 @@ export function useEditorController(projectId: string): EditorController {
             worldAabb.width < MIN_MARQUEE_RASTER_PX ||
             worldAabb.height < MIN_MARQUEE_RASTER_PX
           ) {
+            continue;
+          }
+          if (present.tool === 'scissors') {
+            const result = finishScissorsGesture({
+              present,
+              engine: api.engine,
+              live: clipLiveRef.current,
+              frames,
+              worldPoints: effect.points,
+              worldRect: worldAabb,
+              mode: 'lasso',
+              inkUndo: inkUndoRef.current,
+              dispatch,
+            });
+            if (result.clipIds.length > 0) {
+              bumpInkFrame();
+            }
             continue;
           }
           const targets = selectTargetFlagsOf(present.tools);
@@ -1704,7 +2039,8 @@ export function useEditorController(projectId: string): EditorController {
       }
       const selected = selectedClipIdsOf(present);
       const sourceIds = selected.includes(clipId) ? selected : [clipId];
-      let lastId: string | null = null;
+      const textIds = selected.includes(clipId) ? selectedTextIdsOf(present) : [];
+      const clonedClipIds: string[] = [];
       for (const sourceId of sourceIds) {
         const source = present.pasteboardClips.find((c) => c.id === sourceId);
         if (!source) {
@@ -1727,9 +2063,15 @@ export function useEditorController(projectId: string): EditorController {
           scaleY: pose.scaleY,
           rotation: pose.rotation,
         });
-        lastId = nextClipId;
+        clonedClipIds.push(nextClipId);
       }
-      if (lastId) {
+      if (textIds.length > 0) {
+        dispatch({ type: 'duplicateText', textIds });
+      }
+      if (clonedClipIds.length > 1) {
+        dispatch({ type: 'selectClips', clipIds: clonedClipIds });
+      }
+      if (clonedClipIds.length > 0) {
         bumpInkFrame();
       }
     },

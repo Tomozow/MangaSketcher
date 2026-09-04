@@ -1605,6 +1605,89 @@ describe('Web workspace FSM', () => {
         { type: 'selectTexts', textIds: [] },
       ]);
     });
+
+    test('select + ctrlKey at down starts lasso and stays lasso after ctrl is released', () => {
+      const store = createWorkspaceGestureStore();
+      const down = pencil(store, 'down', { tool: 'select', ctrlKey: true, worldX: 10, worldY: 10 });
+      expect(down.effects[0]).toEqual({
+        type: 'lassoPreview',
+        points: [{ x: 10, y: 10 }],
+      });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('lasso');
+      pencil(store, 'move', { tool: 'select', ctrlKey: false, worldX: 40, worldY: 40 });
+      const up = pencil(store, 'up', { tool: 'select', ctrlKey: false, worldX: 40, worldY: 40 });
+      expect(up.effects[0]).toMatchObject({
+        type: 'completeLasso',
+        points: [
+          { x: 10, y: 10 },
+          { x: 40, y: 40 },
+        ],
+      });
+    });
+
+    test('select + selectLasso starts lasso without ctrl', () => {
+      const store = createWorkspaceGestureStore();
+      const down = pencil(store, 'down', { tool: 'select', selectLasso: true, worldX: 10, worldY: 10 });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('lasso');
+      expect(down.effects[0]).toMatchObject({ type: 'lassoPreview' });
+    });
+
+    test('selectLasso + ctrlKey at down starts marquee and stays marquee after ctrl is released', () => {
+      const store = createWorkspaceGestureStore();
+      const down = pencil(store, 'down', {
+        tool: 'select',
+        selectLasso: true,
+        ctrlKey: true,
+        worldX: 10,
+        worldY: 10,
+      });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('marquee');
+      expect(down.effects[0]?.type).toBe('marqueePreview');
+      pencil(store, 'move', { tool: 'select', selectLasso: true, ctrlKey: false, worldX: 40, worldY: 40 });
+      const up = pencil(store, 'up', { tool: 'select', selectLasso: true, ctrlKey: false, worldX: 40, worldY: 40 });
+      expect(up.effects[0]?.type).toBe('completeMarquee');
+    });
+
+    test('scissors on a clip body starts marquee instead of moveClip', () => {
+      const store = createWorkspaceGestureStore();
+      const clip = { id: 'c1', x: 100, y: 80, scale: 1, rotation: 0, rasterId: 'r1' };
+      const clipHit = { kind: 'clip' as const, clipId: 'c1', handle: 'body' as const };
+      const down = pencil(store, 'down', {
+        tool: 'scissors',
+        hit: clipHit,
+        worldX: 150,
+        worldY: 120,
+        getClipMeta: () => clip,
+        getClipRasterSize: () => ({ width: 40, height: 40 }),
+      });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('marquee');
+      expect(down.effects[0]?.type).toBe('marqueePreview');
+    });
+
+    test('scissors + ctrlKey at down starts lasso and stays lasso after ctrl is released', () => {
+      const store = createWorkspaceGestureStore();
+      const down = pencil(store, 'down', { tool: 'scissors', ctrlKey: true, worldX: 10, worldY: 10 });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('lasso');
+      expect(down.effects[0]).toEqual({
+        type: 'lassoPreview',
+        points: [{ x: 10, y: 10 }],
+      });
+      pencil(store, 'move', { tool: 'scissors', ctrlKey: false, worldX: 40, worldY: 40 });
+      const up = pencil(store, 'up', { tool: 'scissors', ctrlKey: false, worldX: 40, worldY: 40 });
+      expect(up.effects[0]).toMatchObject({
+        type: 'completeLasso',
+        points: [
+          { x: 10, y: 10 },
+          { x: 40, y: 40 },
+        ],
+      });
+    });
+
+    test('scissors + scissorsLasso starts lasso without ctrl', () => {
+      const store = createWorkspaceGestureStore();
+      const down = pencil(store, 'down', { tool: 'scissors', scissorsLasso: true, worldX: 10, worldY: 10 });
+      expect(getWorkspaceSession(store, 10)?.mode).toBe('lasso');
+    });
   });
 
   describe('PC desktop navigation', () => {

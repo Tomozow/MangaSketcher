@@ -53,9 +53,13 @@ export function paintExportPageLayers(
     inkBitmap?: CanvasImageSource | null;
     texts: readonly ThumbText[];
     workspaceNumber?: number;
+    rasterWidth?: number;
+    rasterHeight?: number;
   },
 ): void {
   const { width, height, template, inkBitmap, texts, workspaceNumber } = input;
+  const rasterWidth = input.rasterWidth ?? width;
+  const rasterHeight = input.rasterHeight ?? height;
   if ('imageSmoothingEnabled' in ctx) {
     ctx.imageSmoothingEnabled = true;
   }
@@ -75,7 +79,7 @@ export function paintExportPageLayers(
   if (inkBitmap) {
     ctx.drawImage(inkBitmap, 0, 0, width, height);
   }
-  drawPageTextsOnThumb(ctx, texts, width, height, width, height);
+  drawPageTextsOnThumb(ctx, texts, rasterWidth, rasterHeight, width, height);
   if (workspaceNumber != null) {
     drawExportWorkspaceNumber(ctx, workspaceNumber, width, height);
   }
@@ -158,6 +162,8 @@ function paintThenEncode(
     texts: readonly ThumbText[];
     width: number;
     height: number;
+    rasterWidth?: number;
+    rasterHeight?: number;
     workspaceNumber?: number;
   },
   encode: (canvas: ExportCanvas) => Promise<Uint8Array>,
@@ -172,6 +178,8 @@ function paintThenEncode(
     template: input.template,
     inkBitmap: input.inkBitmap,
     texts: input.texts,
+    rasterWidth: input.rasterWidth,
+    rasterHeight: input.rasterHeight,
     workspaceNumber: input.workspaceNumber,
   });
   return encode(input.canvas);
@@ -184,6 +192,8 @@ export async function composePagePng(input: {
   texts: readonly ThumbText[];
   width: number;
   height: number;
+  rasterWidth?: number;
+  rasterHeight?: number;
 }): Promise<Uint8Array> {
   return paintThenEncode(input, canvasToPngBytes);
 }
@@ -195,6 +205,8 @@ export async function composePageJpeg(input: {
   texts: readonly ThumbText[];
   width: number;
   height: number;
+  rasterWidth?: number;
+  rasterHeight?: number;
   workspaceNumber: number;
 }): Promise<Uint8Array> {
   return paintThenEncode(input, canvasToJpegBytes);

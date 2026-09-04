@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import { createEditorDocument, sequentialIds } from '../document';
 import { reduceEditorDocument } from '../editorReducer';
 import { createEditorHistory, reduceEditorHistory } from '../history';
+import { scissorsTargetFlagsOf } from '../types';
 
 describe('reduceEditorDocument VIEW_ONLY', () => {
   test('パンで pages オブジェクト参照を共有し inkGeneration を変えない', () => {
@@ -39,6 +40,64 @@ describe('reduceEditorDocument VIEW_ONLY', () => {
     expect(history.past).toHaveLength(0);
     history = reduceEditorHistory(history, { type: 'appendPage' }, ids);
     expect(history.past).toHaveLength(1);
+  });
+
+  test('選択の投げ縄モードは他ツールに切り替えても残る', () => {
+    const doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const ids = sequentialIds('id');
+    const lasso = reduceEditorDocument(doc, { type: 'setToolProperties', patch: { selectLasso: true } }, ids);
+    const pen = reduceEditorDocument(lasso, { type: 'setTool', tool: 'pen' }, ids);
+    expect(pen.tool).toBe('pen');
+    expect(pen.tools.selectLasso).toBe(true);
+    const shortcut = reduceEditorDocument(doc, { type: 'setTool', tool: 'lasso' }, ids);
+    expect(shortcut.tools.selectLasso).toBe(true);
+    const afterPen = reduceEditorDocument(shortcut, { type: 'setTool', tool: 'pen' }, ids);
+    expect(afterPen.tools.selectLasso).toBe(true);
+    const back = reduceEditorDocument(afterPen, { type: 'setTool', tool: 'select' }, ids);
+    expect(back.tool).toBe('select');
+    expect(back.tools.selectLasso).toBe(true);
+  });
+
+  test('ハサミから選択へ切り替えてもクリップ選択が残る', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'commitMarqueeCut',
+        pageId: doc.workspaceOrder[0]!,
+        clipId: 'c1',
+        rasterId: 'p1:clip:c1',
+        workspaceX: 0,
+        workspaceY: 0,
+      },
+      ids,
+    );
+    doc = reduceEditorDocument(doc, { type: 'setTool', tool: 'scissors' }, ids);
+    doc = reduceEditorDocument(doc, { type: 'selectClips', clipIds: ['c1'] }, ids);
+    const next = reduceEditorDocument(doc, { type: 'setTool', tool: 'select' }, ids);
+    expect(next.tool).toBe('select');
+    expect(next.selectedClipId).toBe('c1');
+    expect(next.selectedClipIds).toEqual(['c1']);
+  });
+
+  test('scissorsTargetFlagsOf treats missing flags as on', () => {
+    expect(scissorsTargetFlagsOf(undefined)).toEqual({ text: true, ink: true, clip: true });
+    expect(scissorsTargetFlagsOf({ scissorsSelectInk: false, scissorsSelectClip: true })).toEqual({
+      text: true,
+      ink: false,
+      clip: true,
+    });
   });
 });
 
@@ -280,6 +339,78 @@ describe('clip chrome actions', () => {
       y: 66,
     });
     expect(doc.selectedClipId).toBe('c2');
+  });
+
+  test('commitClipScissorsCut adds the piece and updates or trashes the source', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'commitMarqueeCut',
+        pageId: doc.workspaceOrder[0]!,
+        clipId: 'c1',
+        rasterId: 'p1:clip:c1',
+        workspaceX: 40,
+        workspaceY: 50,
+      },
+      ids,
+    );
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'commitClipScissorsCut',
+        sourceClipId: 'c1',
+        sourceEmpty: false,
+        sourceX: 44,
+        sourceY: 52,
+        piece: {
+          clipId: 'c2',
+          rasterId: 'p1:clip:c2',
+          x: 48,
+          y: 56,
+          scale: 1.5,
+          scaleY: 1.5,
+          rotation: 0.2,
+        },
+      },
+      ids,
+    );
+    expect(doc.pasteboardClips.find((c) => c.id === 'c1')).toMatchObject({ x: 44, y: 52 });
+    expect(doc.pasteboardClips.find((c) => c.id === 'c2')).toMatchObject({
+      rasterId: 'p1:clip:c2',
+      x: 48,
+      y: 56,
+      scale: 1.5,
+      rotation: 0.2,
+    });
+    expect(doc.selectedClipId).toBe('c2');
+
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'commitClipScissorsCut',
+        sourceClipId: 'c2',
+        sourceEmpty: true,
+        piece: {
+          clipId: 'c3',
+          rasterId: 'p1:clip:c3',
+          x: 10,
+          y: 12,
+          scale: 1,
+          rotation: 0,
+        },
+      },
+      ids,
+    );
+    expect(doc.trashClips).toContain('c2');
+    expect(doc.pasteboardClips.some((c) => c.id === 'c3')).toBe(true);
+    expect(doc.selectedClipId).toBe('c3');
   });
 
   test('selectClips keeps all touching ids and uses the last as primary', () => {

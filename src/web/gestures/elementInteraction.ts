@@ -1,4 +1,5 @@
 import type { PageId, PageText, PasteboardText, Rect, TextId } from '../../domain/types';
+import { layoutVisibleTextBox } from '../../domain/textWrap';
 import {
   buildStripFrames,
   pageInkFrameAtWorld,
@@ -188,21 +189,29 @@ export function buildTextInteractionElements(input: {
     const frame = frameByPage.get(pageId);
     if (!frame) continue;
     for (const text of input.pages[pageId]?.texts ?? []) {
+      const fontSize = Number.isFinite(text.fontSize) ? text.fontSize : 12;
+      const visible = layoutVisibleTextBox(text.box, text.content, fontSize);
       result.push({
         id: text.id,
         owner: { kind: 'page', pageId },
-        sourceBox: { ...text.box },
-        worldBox: pageBoxToWorld(frame, text.box, input.rasterWidth, input.rasterHeight),
+        sourceBox: { ...visible },
+        worldBox: pageBoxToWorld(frame, visible, input.rasterWidth, input.rasterHeight),
         zIndex: zIndex++,
       });
     }
   }
   for (const text of input.pasteboardTexts) {
+    const box = {
+      x: finiteOr(text.box.x),
+      y: finiteOr(text.box.y),
+      width: Math.max(4, finiteOr(text.box.width, 4)),
+      height: Math.max(4, finiteOr(text.box.height, 4)),
+    };
     result.push({
       id: text.id,
       owner: { kind: 'pasteboard' },
-      sourceBox: { ...text.box },
-      worldBox: { ...text.box },
+      sourceBox: { ...box },
+      worldBox: { ...box },
       zIndex: zIndex++,
     });
   }

@@ -3,6 +3,7 @@ import { describe, expect, test } from 'vitest';
 import {
   chromeScreenPoseFromWorldAabbs,
   clipInsertTarget,
+  clipPoseAfterPixelTrim,
   clipTouchesWorldRect,
   clipWorldAxisAlignedBounds,
   clipWorldBounds,
@@ -12,6 +13,7 @@ import {
   polygonAabb,
   rectTouchesPolygon,
   scaleFromCornerDrag,
+  worldPointToClipPixel,
 } from '../clipGeometry';
 import { MIN_CLIP_SCALE } from '../constants';
 import { PAGE_DISPLAY_H, PAGE_DISPLAY_W, type StripFrame } from '../../../domain/stripGeometry';
@@ -19,6 +21,40 @@ import { PAGE_DISPLAY_H, PAGE_DISPLAY_W, type StripFrame } from '../../../domain
 describe('clipGeometry', () => {
   test('normalizeMarqueeRect orders corners', () => {
     expect(normalizeMarqueeRect(10, 20, 4, 16)).toEqual({ x: 4, y: 16, width: 6, height: 4 });
+  });
+
+  test('worldPointToClipPixel maps the unrotated clip origin and opposite corner', () => {
+    const clip = { id: 'c1', x: 0, y: 0, scale: 1, rotation: 0 };
+    const size = { width: 100, height: 80 };
+    const origin = worldPointToClipPixel(0, 0, clip, size, 1200, 1700);
+    expect(origin.x).toBeCloseTo(0);
+    expect(origin.y).toBeCloseTo(0);
+    const bounds = clipWorldBounds(clip, size, 1200, 1700);
+    const far = worldPointToClipPixel(
+      bounds.cx + bounds.halfW,
+      bounds.cy + bounds.halfH,
+      clip,
+      size,
+      1200,
+      1700,
+    );
+    expect(far.x).toBeCloseTo(100);
+    expect(far.y).toBeCloseTo(80);
+  });
+
+  test('clipPoseAfterPixelTrim keeps remaining ink in place when unrotated', () => {
+    const clip = { id: 'c1', x: 10, y: 20, scale: 1, rotation: 0 };
+    const size = { width: 100, height: 100 };
+    const bounds = clipWorldBounds(clip, size, 1200, 1700);
+    const trim = { x: 25, y: 10, width: 40, height: 50 };
+    const next = clipPoseAfterPixelTrim(clip, size, 1200, 1700, trim);
+    const nextBounds = clipWorldBounds({ ...clip, ...next }, { width: trim.width, height: trim.height }, 1200, 1700);
+    const oldPixelWorldX = clip.x + (trim.x / size.width) * bounds.halfW * 2;
+    const oldPixelWorldY = clip.y + (trim.y / size.height) * bounds.halfH * 2;
+    expect(next.x).toBeCloseTo(oldPixelWorldX);
+    expect(next.y).toBeCloseTo(oldPixelWorldY);
+    expect(nextBounds.cx - nextBounds.halfW).toBeCloseTo(next.x);
+    expect(nextBounds.cy - nextBounds.halfH).toBeCloseTo(next.y);
   });
 
   test('polygonAabb is null below 3 points and otherwise spans the path', () => {
