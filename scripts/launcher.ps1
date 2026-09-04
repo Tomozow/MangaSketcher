@@ -564,7 +564,7 @@ $btnStopStatic.Text = '静的を止める'
 $btnStopStatic.Location = New-Object System.Drawing.Point(558, $y)
 $btnStopStatic.Size = New-Object System.Drawing.Size(110, 28)
 $tips.SetToolTip($btnLan, 'すでに書き出した out を iPad 向け HTTPS（:3443）で出します。ビルドしません。')
-$tips.SetToolTip($btnChrome, 'すでに書き出した out を PC だけで開きます。ビルドしません。')
+$tips.SetToolTip($btnChrome, 'すでに書き出した out を PC（:3001）で開き、同時に iPad 向け HTTPS（:3443）も出します。ビルドしません。')
 $tips.SetToolTip($btnBuild, 'out を作り直し、成功したら iPad 向け HTTPS を起動します。ホーム画面 / オフライン用にコードを取り込むとき。')
 $tips.SetToolTip($btnStopStatic, '静的ホスト（:3001 / :3002 / :3443）を止めます。')
 $top.Controls.AddRange(@($btnDev, $btnStopDev, $btnLan, $btnChrome, $btnBuild, $btnStopStatic))
@@ -684,7 +684,7 @@ $script:MaxLogLines = $MaxLogLines
 
 $btnDev.Add_Click({ Invoke-UiAction { Start-DevServer } })
 $btnLan.Add_Click({ Invoke-UiAction { Start-StaticHost -Lan } })
-$btnChrome.Add_Click({ Invoke-UiAction { Start-StaticHost -Chrome } })
+$btnChrome.Add_Click({ Invoke-UiAction { Start-StaticHost -Lan -Chrome } })
 $btnBuild.Add_Click({ Invoke-UiAction { Start-StaticBuildThenLan } })
 $btnRefresh.Add_Click({ Invoke-UiAction { Refresh-RootCombo } })
 $btnSwitch.Add_Click({

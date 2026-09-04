@@ -65,3 +65,6 @@ coverage/
 # dedicated Chrome profile used by start-static.bat
 .chrome-static-profile/
 
+# LAN pack transfer hub (TTL zip + meta)
+.lan-transfer/
+

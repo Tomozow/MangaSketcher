@@ -30,6 +30,16 @@
   display: flex;
   align-items: center;
   gap: 12px;
+  flex: none;
+}
+
+.brandCluster {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1 1 auto;
+  min-width: 0;
+  flex-wrap: wrap;
 }
 
 .mark {
@@ -444,4 +454,159 @@
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+}
+
+.lanModalRoot {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+}
+
+.lanModalBackdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(28, 28, 34, 0.48);
+}
+
+.lanModal {
+  position: relative;
+  z-index: 1;
+  width: min(28rem, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 16px;
+  border-radius: 16px;
+  border: 1px solid #c9c0b0;
+  background: #f4f1ea;
+  box-shadow: 0 16px 40px rgba(43, 38, 32, 0.28);
+}
+
+.home[data-ms-theme='dark'] .lanModal {
+  background: #1c1c22;
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #f6f3ec;
+}
+
+.lanSpinnerWrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  width: 100%;
+}
+
+.lanSpinner {
+  width: 28px;
+  height: 28px;
+  flex: none;
+  border: 3px solid #e6dfd3;
+  border-top-color: #1c1c22;
+  border-radius: 50%;
+  animation: lanSpin 0.7s linear infinite;
+}
+
+.home[data-ms-theme='dark'] .lanSpinner {
+  border-color: rgba(255, 255, 255, 0.16);
+  border-top-color: #f6f3ec;
+}
+
+@keyframes lanSpin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.lanPickList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.lanPickActive {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0 14px;
+  border-radius: 10px;
+  border: 1px solid #1c1c22;
+  background: #1c1c22;
+  color: #f4f1ea;
+  touch-action: manipulation;
+}
+
+.home[data-ms-theme='dark'] .lanPickActive {
+  background: #f6f3ec;
+  color: #1c1c22;
+  border-color: #f6f3ec;
+}
+
+.lanCodeInput {
+  min-height: 44px;
+  min-width: 12rem;
+  width: 12rem;
+  border-radius: 10px;
+  border: 1px solid #c9c0b0;
+  background: #fff;
+  color: #2b2620;
+  caret-color: #2b2620;
+  font: inherit;
+  font-size: 1.25rem;
+  letter-spacing: 0.12em;
+  text-align: center;
+  padding: 0 10px;
+  touch-action: auto;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.home[data-ms-theme='dark'] .lanCodeInput {
+  background: #1c1c22;
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #f6f3ec;
+  caret-color: #f6f3ec;
+}
+
+.lanRecvLabel {
+  flex: none;
+  font-size: 12px;
+  font-weight: 650;
+  color: #6f675c;
+}
+
+.home[data-ms-theme='dark'] .lanRecvLabel {
+  color: rgba(246, 243, 236, 0.55);
+}
+
+.lanRecvStrip {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 0;
+  flex: 0 1 auto;
+}
+
+.lanRecvHint {
+  max-width: min(36rem, 100%);
+  font-size: 12px;
+  color: #6f675c;
+  line-height: 1.35;
+}
+
+.home[data-ms-theme='dark'] .lanRecvHint {
+  color: rgba(246, 243, 236, 0.55);
+}
+
+.lanCodeDisplay {
+  flex: none;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
 }

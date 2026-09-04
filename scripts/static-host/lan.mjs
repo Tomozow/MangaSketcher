@@ -3,6 +3,7 @@ import { createServer as createHttpsServer } from 'node:https';
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { CA_PORT, HTTPS_PORT, certPaths, ensureLanLeaf, lanIPv4s } from '../lanHttpsShared.mjs';
+import { handleLanPack, sweepLanPackDir } from './lanPackHub.mjs';
 
 function persistDebugLog(repoRoot, raw) {
   const lines = String(raw)
@@ -180,19 +181,26 @@ export async function startLanServers(repoRoot, proxyToServe) {
 
   await new Promise((done) => caServer.listen(CA_PORT, '0.0.0.0', done));
 
+  sweepLanPackDir(join(repoRoot, '.lan-transfer'));
+
   const appServer = createHttpsServer({ cert: readFileSync(certFile), key: readFileSync(keyFile) }, (req, res) => {
-    const url = new URL(req.url ?? '/', `https://${ip}`);
-    if (req.method === 'POST' && url.pathname === '/api/debug-log') {
-      const chunks = [];
-      req.on('data', (chunk) => chunks.push(chunk));
-      req.on('end', () => {
-        persistDebugLog(repoRoot, Buffer.concat(chunks).toString('utf8'));
-        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
-        res.end('ok');
-      });
-      return;
-    }
-    proxyToServe(req, res);
+    void (async () => {
+      const url = new URL(req.url ?? '/', `https://${ip}`);
+      if (req.method === 'POST' && url.pathname === '/api/debug-log') {
+        const chunks = [];
+        req.on('data', (chunk) => chunks.push(chunk));
+        req.on('end', () => {
+          persistDebugLog(repoRoot, Buffer.concat(chunks).toString('utf8'));
+          res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+          res.end('ok');
+        });
+        return;
+      }
+      if (await handleLanPack(req, res, { repoRoot })) {
+        return;
+      }
+      proxyToServe(req, res);
+    })();
   });
   await new Promise((done) => appServer.listen(HTTPS_PORT, '0.0.0.0', done));
 

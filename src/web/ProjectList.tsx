@@ -33,6 +33,10 @@ import {
 } from '@/src/web/shellUpdate';
 import { useAppShellHeight } from '@/src/web/appShellHeight';
 import { prepareImportedProjectOffThread } from '@/src/web/projectImport/prepareImportedProjectOffThread';
+import {
+  LanTransferControls,
+  type LanTransferControlsHandle,
+} from '@/src/web/LanTransferControls';
 import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 import styles from '@/app/page.module.css';
 
@@ -141,9 +145,13 @@ export function ProjectList() {
     projectName: string;
     file: File;
   } | null>(null);
+  const [lanBusy, setLanBusy] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const lanTransferRef = useRef<LanTransferControlsHandle | null>(null);
 
   const refresh = useCallback(async () => {
     setError(null);
+    setNotice(null);
     const items = await listProjects();
     setProjects(items);
   }, []);
@@ -443,7 +451,7 @@ export function ProjectList() {
   const creating = busyId === '__create__';
   const importing = busyId === '__import__';
   const exportBusy = exportGeneratingId != null || pendingExport != null;
-  const listBusy = creating || importing || exportBusy;
+  const listBusy = creating || importing || exportBusy || lanBusy;
 
   return (
     <div
@@ -453,19 +461,31 @@ export function ProjectList() {
       style={shellHeight != null ? { minHeight: `${shellHeight}px` } : undefined}
     >
       <header className={styles.top}>
-        <div className={styles.brand}>
-          <div className={styles.mark} aria-hidden>
-            MS
+        <div className={styles.brandCluster}>
+          <div className={styles.brand}>
+            <div className={styles.mark} aria-hidden>
+              MS
+            </div>
+            <div>
+              <h1 className={styles.title}>MangaSketcher</h1>
+              <span className={styles.subtitle}>端末内 · 自動保存</span>
+              {shellLabel ? (
+                <span className={styles.shellStatus} aria-live="polite">
+                  {shellLabel}
+                </span>
+              ) : null}
+            </div>
           </div>
-          <div>
-            <h1 className={styles.title}>MangaSketcher</h1>
-            <span className={styles.subtitle}>端末内 · 自動保存</span>
-            {shellLabel ? (
-              <span className={styles.shellStatus} aria-live="polite">
-                {shellLabel}
-              </span>
-            ) : null}
-          </div>
+          <LanTransferControls
+            ref={lanTransferRef}
+            listBusy={loading || creating || importing || exportBusy}
+            importProgress={importProgress}
+            setImportProgress={setImportProgress}
+            onImported={refresh}
+            setError={setError}
+            setNotice={setNotice}
+            onBusyChange={setLanBusy}
+          />
         </div>
         <div className={styles.tools}>
           <button
@@ -502,6 +522,9 @@ export function ProjectList() {
           </button>
         </div>
       </header>
+
+      {notice ? <p className={styles.hint}>{notice}</p> : null}
+      {error ? <p className={styles.error}>{error}</p> : null}
 
       <section className={styles.list} style={{ touchAction: 'pan-y' }} aria-label="プロジェクト">
         {loading ? (
@@ -606,6 +629,18 @@ export function ProjectList() {
                       <button
                         type="button"
                         role="menuitem"
+                        className={styles.secondaryButton}
+                        disabled={rowBusy || listBusy}
+                        onClick={() => {
+                          setMenuId(null);
+                          void lanTransferRef.current?.startSend(project);
+                        }}
+                      >
+                        LANで送る
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
                         className={styles.dangerButton}
                         disabled={rowBusy || listBusy}
                         onClick={() => void handleDelete(project)}
@@ -640,7 +675,6 @@ export function ProjectList() {
         {exportGeneratingId ? (
           <p className={styles.hint}>エクスポートを準備しています…</p>
         ) : null}
-        {error ? <p className={styles.error}>{error}</p> : null}
       </section>
 
       <p className={styles.settingsHint}>

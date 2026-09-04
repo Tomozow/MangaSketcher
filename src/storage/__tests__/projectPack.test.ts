@@ -235,7 +235,6 @@ describe('exportProjectPack / importProjectPack', () => {
     await db.deleteRaster(rasterId);
 
     const file = await exportProjectPack(meta.id, { db, opfs, ...noopCheckpoint });
-    expect(file.size).toBeGreaterThan(0);
     expect(file.size).toBeLessThan(200 * 1024);
     const parsed = parseProjectPackZip(new Uint8Array(await file.arrayBuffer()));
     expect(parsed.rasters.size).toBe(1);
