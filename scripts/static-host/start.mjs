@@ -224,7 +224,8 @@ export async function main(extra = {}) {
     void shutdown(0);
   });
 
-  if (!stdinStream.isTTY) {
+  const wantRepl = stdinStream.isTTY || process.env.STATIC_HOST_REPL === '1';
+  if (!wantRepl) {
     return;
   }
 

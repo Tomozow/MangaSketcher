@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'vitest';
 
-import { spreadPageIdsContaining } from '../layout';
+import { previewSpreadPageIds, spreadPageIdsContaining } from '../layout';
 
 describe('spreadPageIdsContaining', () => {
   const order = ['p1', 'p2', 'p3', 'p4', 'p5'];
@@ -22,5 +22,19 @@ describe('spreadPageIdsContaining', () => {
   test('pages 4 and 5 share a spread; a lone last page is a 6-page book', () => {
     expect(spreadPageIdsContaining(order, 'p5')).toEqual(['p5', 'p4']);
     expect(spreadPageIdsContaining([...order, 'p6'], 'p6')).toEqual(['p6']);
+  });
+});
+
+describe('previewSpreadPageIds', () => {
+  const order = ['p1', 'p2', 'p3', 'p4', 'p5'];
+
+  test('uses the selected spread in LTR', () => {
+    expect(previewSpreadPageIds(order, 'p2')).toEqual(['p3', 'p2']);
+    expect(previewSpreadPageIds(order, 'p1')).toEqual(['p1']);
+  });
+
+  test('falls back to the first spread when selected is missing', () => {
+    expect(previewSpreadPageIds(order, null)).toEqual(['p1']);
+    expect(previewSpreadPageIds(order, 'stock')).toEqual(['p1']);
   });
 });

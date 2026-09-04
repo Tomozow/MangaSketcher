@@ -333,7 +333,7 @@ describe('Web workspace FSM', () => {
     test('page 上の down では createText せず、up が pageText でも down 位置で createText', () => {
       const store = createWorkspaceGestureStore();
       const down = pencilText(store, 'down', { hit: pageHit, x: 10, y: 10, now: 100 });
-      expect(down.effects.some((e) => e.type === 'createText')).toBe(false);
+      expect(down.effects).toEqual([{ type: 'focusWorkspacePage', pageId: 'p1' }]);
       expect(getWorkspaceSession(store, 10)?.mode).toBe('pendingTextCreate');
       const up = pencilText(store, 'up', { x: 12, y: 11, now: 150 });
       expect(up.effects).toEqual([{ type: 'createText', pageId: 'p1', x: 10, y: 10 }]);
@@ -462,7 +462,7 @@ describe('Web workspace FSM', () => {
       expect(getWorkspaceSession(store, 10)?.mode).toBe('marquee');
       expect(move.effects[0]).toMatchObject({
         type: 'marqueePreview',
-        pageId: null,
+        pageId: 'p1',
         rect: { x: 10, y: 10, width: 20, height: 30 },
       });
       const up = pencilText(store, 'up', {
@@ -474,7 +474,7 @@ describe('Web workspace FSM', () => {
         now: 150,
       });
       expect(up.effects).toEqual([
-        { type: 'completeMarquee', pageId: null, rect: { x: 10, y: 10, width: 20, height: 30 } },
+        { type: 'completeMarquee', pageId: 'p1', rect: { x: 10, y: 10, width: 20, height: 30 } },
       ]);
     });
 
@@ -505,7 +505,7 @@ describe('Web workspace FSM', () => {
         now: 150,
       });
       expect(up.effects).toEqual([
-        { type: 'completeMarquee', pageId: null, rect: { x: 10, y: 10, width: 2, height: 1 } },
+        { type: 'completeMarquee', pageId: 'p1', rect: { x: 10, y: 10, width: 2, height: 1 } },
         { type: 'selectTexts', textIds: [] },
       ]);
     });
@@ -714,7 +714,8 @@ describe('Web workspace FSM', () => {
       hit: pageHit,
     });
     expect(getWorkspaceSession(store, 10)?.mode).toBe('eraseDirect');
-    expect(down.effects[0]).toMatchObject({ type: 'beginEraseDirect', pageId: 'p1' });
+    expect(down.effects[0]).toEqual({ type: 'focusWorkspacePage', pageId: 'p1' });
+    expect(down.effects[1]).toMatchObject({ type: 'beginEraseDirect', pageId: 'p1' });
 
     const move = pencil(store, 'move', {
       tool: 'eraser',
@@ -740,7 +741,8 @@ describe('Web workspace FSM', () => {
       hit: pageText,
     });
     expect(getWorkspaceSession(store, 10)?.mode).toBe('eraseDirect');
-    expect(down.effects[0]).toMatchObject({ type: 'beginEraseDirect', pageId: 'p1' });
+    expect(down.effects[0]).toEqual({ type: 'focusWorkspacePage', pageId: 'p1' });
+    expect(down.effects[1]).toMatchObject({ type: 'beginEraseDirect', pageId: 'p1' });
   });
 
   test('pencil penOverlay 中に finger pan が並立する', () => {
@@ -765,7 +767,8 @@ describe('Web workspace FSM', () => {
 
     const penDown = pencil(store, 'down');
     expect(getWorkspaceSession(store, 10)?.mode).toBe('penOverlay');
-    expect(penDown.effects[0]?.type).toBe('beginPenOverlay');
+    expect(penDown.effects[0]?.type).toBe('focusWorkspacePage');
+    expect(penDown.effects[1]?.type).toBe('beginPenOverlay');
 
     finger(store, 'down', { pointerId: 2, x: 10, y: 10, now: 1 });
     finger(store, 'down', { pointerId: 3, x: 50, y: 10, now: 1, isPrimary: false });
@@ -947,6 +950,23 @@ describe('Web workspace FSM', () => {
       expect(batch.actions).toEqual([{ type: 'reorderWorkspace', fromIndex: 0, toIndex: 2 }]);
     });
 
+    test('reduceWorkspaceEffects の grabPage はページフォーカスも出す', () => {
+      const doc = {
+        workspaceOrder: ['p1', 'p2', 'p3'],
+        workspaceZoom: 1,
+        workspacePanX: 0,
+        workspacePanY: 0,
+      } as Parameters<typeof reduceWorkspaceEffects>[0];
+      const batch = reduceWorkspaceEffects(
+        doc,
+        [{ type: 'grabPage', pageId: 'p2', fromIndex: 1 }],
+        new Map(),
+        null,
+      );
+      expect(batch.grabbedPageId).toBe('p2');
+      expect(batch.actions).toEqual([{ type: 'focusWorkspacePage', pageId: 'p2' }]);
+    });
+
     test('reduceWorkspaceEffects が endGrabPage で grabbedPageId を解放する', () => {
       const doc = {
         workspaceOrder: ['p1', 'p2', 'p3'],
@@ -972,7 +992,8 @@ describe('Web workspace FSM', () => {
     test('pencil select on page starts marquee; finger still pans', () => {
       const store = createWorkspaceGestureStore();
       const down = pencil(store, 'down', { tool: 'select', x: 10, y: 10 });
-      expect(down.effects[0]?.type).toBe('marqueePreview');
+      expect(down.effects[0]?.type).toBe('focusWorkspacePage');
+      expect(down.effects[1]?.type).toBe('marqueePreview');
       expect(getWorkspaceSession(store, 10)?.mode).toBe('marquee');
 
       finger(store, 'down', { pointerId: 2, x: 0, y: 0, now: 1 });
@@ -1034,7 +1055,7 @@ describe('Web workspace FSM', () => {
       });
       expect(up.effects[0]).toMatchObject({
         type: 'completeMarquee',
-        pageId: null,
+        pageId: 'p1',
         rect: { x: 10, y: 10, width: 20, height: 30 },
       });
     });
@@ -1059,7 +1080,7 @@ describe('Web workspace FSM', () => {
       pencil(store, 'move', { tool: 'select', hit: tiny, worldX: 12, worldY: 12 });
       const up = pencil(store, 'up', { tool: 'select', hit: tiny, worldX: 12, worldY: 12 });
       expect(up.effects).toEqual([
-        { type: 'completeMarquee', pageId: null, rect: { x: 10, y: 10, width: 2, height: 2 } },
+        { type: 'completeMarquee', pageId: 'p1', rect: { x: 10, y: 10, width: 2, height: 2 } },
         { type: 'selectClips', clipIds: [] },
         { type: 'selectTexts', textIds: [] },
       ]);
@@ -1526,7 +1547,8 @@ describe('Web workspace FSM', () => {
     test('pencil lasso on page starts a path; finger still pans', () => {
       const store = createWorkspaceGestureStore();
       const down = pencil(store, 'down', { tool: 'lasso', worldX: 10, worldY: 10 });
-      expect(down.effects[0]).toEqual({
+      expect(down.effects[0]).toEqual({ type: 'focusWorkspacePage', pageId: 'p1' });
+      expect(down.effects[1]).toEqual({
         type: 'lassoPreview',
         points: [{ x: 10, y: 10 }],
       });
@@ -1545,6 +1567,7 @@ describe('Web workspace FSM', () => {
       const up = pencil(store, 'up', { tool: 'lasso', worldX: 10, worldY: 40 });
       expect(up.effects[0]).toMatchObject({
         type: 'completeLasso',
+        originPageId: 'p1',
         points: [
           { x: 10, y: 10 },
           { x: 40, y: 10 },
@@ -1554,7 +1577,14 @@ describe('Web workspace FSM', () => {
       });
     });
 
-    test('lasso can start off-page', () => {
+    test('pencil down on page focuses that page then starts ink', () => {
+      const store = createWorkspaceGestureStore();
+      const down = pencil(store, 'down', { hit: { ...pageHit, pageId: 'p2' } });
+      expect(down.effects[0]).toEqual({ type: 'focusWorkspacePage', pageId: 'p2' });
+      expect(down.effects[1]).toMatchObject({ type: 'beginPenOverlay', pageId: 'p2' });
+    });
+
+    test('lasso on page focuses before preview; empty lasso does not', () => {
       const store = createWorkspaceGestureStore();
       const empty = { kind: 'empty' as const };
       const down = pencil(store, 'down', { tool: 'lasso', hit: empty, worldX: -20, worldY: -10 });
@@ -1600,7 +1630,7 @@ describe('Web workspace FSM', () => {
       pencil(store, 'down', { tool: 'lasso', hit: pageHit, worldX: 10, worldY: 10 });
       const up = pencil(store, 'up', { tool: 'lasso', hit: pageHit, worldX: 11, worldY: 11 });
       expect(up.effects).toEqual([
-        { type: 'completeLasso', points: [{ x: 10, y: 10 }, { x: 11, y: 11 }] },
+        { type: 'completeLasso', points: [{ x: 10, y: 10 }, { x: 11, y: 11 }], originPageId: 'p1' },
         { type: 'selectClips', clipIds: [] },
         { type: 'selectTexts', textIds: [] },
       ]);
@@ -1609,7 +1639,8 @@ describe('Web workspace FSM', () => {
     test('select + ctrlKey at down starts lasso and stays lasso after ctrl is released', () => {
       const store = createWorkspaceGestureStore();
       const down = pencil(store, 'down', { tool: 'select', ctrlKey: true, worldX: 10, worldY: 10 });
-      expect(down.effects[0]).toEqual({
+      expect(down.effects[0]).toEqual({ type: 'focusWorkspacePage', pageId: 'p1' });
+      expect(down.effects[1]).toEqual({
         type: 'lassoPreview',
         points: [{ x: 10, y: 10 }],
       });
@@ -1629,7 +1660,8 @@ describe('Web workspace FSM', () => {
       const store = createWorkspaceGestureStore();
       const down = pencil(store, 'down', { tool: 'select', selectLasso: true, worldX: 10, worldY: 10 });
       expect(getWorkspaceSession(store, 10)?.mode).toBe('lasso');
-      expect(down.effects[0]).toMatchObject({ type: 'lassoPreview' });
+      expect(down.effects[0]).toEqual({ type: 'focusWorkspacePage', pageId: 'p1' });
+      expect(down.effects[1]).toMatchObject({ type: 'lassoPreview' });
     });
 
     test('selectLasso + ctrlKey at down starts marquee and stays marquee after ctrl is released', () => {
@@ -1642,7 +1674,8 @@ describe('Web workspace FSM', () => {
         worldY: 10,
       });
       expect(getWorkspaceSession(store, 10)?.mode).toBe('marquee');
-      expect(down.effects[0]?.type).toBe('marqueePreview');
+      expect(down.effects[0]?.type).toBe('focusWorkspacePage');
+      expect(down.effects[1]?.type).toBe('marqueePreview');
       pencil(store, 'move', { tool: 'select', selectLasso: true, ctrlKey: false, worldX: 40, worldY: 40 });
       const up = pencil(store, 'up', { tool: 'select', selectLasso: true, ctrlKey: false, worldX: 40, worldY: 40 });
       expect(up.effects[0]?.type).toBe('completeMarquee');
@@ -1668,7 +1701,8 @@ describe('Web workspace FSM', () => {
       const store = createWorkspaceGestureStore();
       const down = pencil(store, 'down', { tool: 'scissors', ctrlKey: true, worldX: 10, worldY: 10 });
       expect(getWorkspaceSession(store, 10)?.mode).toBe('lasso');
-      expect(down.effects[0]).toEqual({
+      expect(down.effects[0]).toEqual({ type: 'focusWorkspacePage', pageId: 'p1' });
+      expect(down.effects[1]).toEqual({
         type: 'lassoPreview',
         points: [{ x: 10, y: 10 }],
       });

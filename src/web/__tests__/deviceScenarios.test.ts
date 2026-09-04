@@ -341,9 +341,9 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
   test('6. 確定は explicit のみ。ページ上は textarea ではなく表示専用。IME は画面空間の縦書き HUD', () => {
     expect(pageTextOverlaySrc).not.toMatch(/<textarea/i);
     expect(pageTextOverlaySrc).toContain('pageTextBox');
-    expect(editorCss).toMatch(/\.ms-pageTextBox[^{]*\{[^}]*writing-mode:\s*vertical-rl/);
+    expect(editorCss).toMatch(/\.ms-pageTextCol[^{]*\{[^}]*writing-mode:\s*vertical-rl/);
     expect(editorCss).toMatch(/\.ms-pageTextBox[^{]*\{[^}]*GenEiAntique/);
-    expect(editorCss).toMatch(/\.ms-pageTextBox[^{]*\{[^}]*line-height:\s*1\.5/);
+    expect(editorCss).toMatch(/\.ms-pageTextCol[^{]*\{[^}]*line-height:\s*1\.5/);
     expect(editorCss).toMatch(/\.ms-pageTextBoxWhite[^{]*\{[^}]*-webkit-text-stroke:\s*0\.08em #000000/);
     expect(pageTextOverlaySrc).toContain('pageTextBoxWhite');
     expect(pageTextOverlaySrc).toContain('isWhiteTextColor');
@@ -356,7 +356,7 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(textEditBarSrc).toContain('textEditHudPose');
     expect(textEditBarSrc).toContain('PAGE_TEXT_EDIT_HUD_ATTR');
     expect(editorCss).toMatch(/\.ms-textEditInput[^{]*\{[^}]*writing-mode:\s*vertical-rl/);
-    expect(editorCss).toMatch(/\.ms-textEditInput[^{]*\{[^}]*background:\s*#fff/);
+    expect(editorCss).toMatch(/\.ms-textEditInput[^{]*\{[^}]*background:\s*transparent/);
     expect(textEditBarSrc).not.toContain('完了');
     expect(textEditBarSrc).toContain('PAGE_TEXT_CONFIRM_ATTR');
     expect(pageTextOverlaySrc).toContain('テキストを確定');

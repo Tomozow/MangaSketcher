@@ -106,6 +106,7 @@ export type WorkspaceSession =
       mode: 'lasso';
       kind: 'pencil';
       points: Array<{ x: number; y: number }>;
+      originPageId: PageId | null;
     }
   | { mode: 'moveClip'; kind: 'pencil'; clipId: ClipId; offsetX: number; offsetY: number }
   | {
@@ -204,6 +205,7 @@ export type WorkspaceEffect =
   | { type: 'showPageDelete'; pageId: PageId }
   | { type: 'reorderWorkspace'; pageId: PageId; toIndex: number }
   | { type: 'selectPage'; pageId: PageId }
+  | { type: 'focusWorkspacePage'; pageId: PageId }
   | { type: 'insertAfterSelected' }
   | { type: 'appendPage' }
   | { type: 'beginPenOverlay'; pageId: PageId; x: number; y: number; pressure: number }
@@ -215,7 +217,7 @@ export type WorkspaceEffect =
   | { type: 'marqueePreview'; pageId: PageId | null; rect: { x: number; y: number; width: number; height: number } }
   | { type: 'completeMarquee'; pageId: PageId | null; rect: { x: number; y: number; width: number; height: number } }
   | { type: 'lassoPreview'; points: Array<{ x: number; y: number }> }
-  | { type: 'completeLasso'; points: Array<{ x: number; y: number }> }
+  | { type: 'completeLasso'; points: Array<{ x: number; y: number }>; originPageId?: PageId | null }
   | { type: 'createText'; pageId: PageId; x: number; y: number }
   | { type: 'createText'; pasteboard: true; x: number; y: number }
   | { type: 'selectText'; textId: TextId }

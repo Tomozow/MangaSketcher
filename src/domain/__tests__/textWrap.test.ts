@@ -1,14 +1,16 @@
 import { describe, expect, test } from 'vitest';
 import { drawPageTextsOnThumb, type ThumbText } from '../../web/ink/drawPageTextsOnThumb';
 import type { Rect } from '../types';
-import { shouldRotateForVerticalRl, verticalRlCanvasGlyph } from '../text';
+import { mapIndexAfterNewlineNormalize, normalizeEditNewlines, shouldRotateForVerticalRl, verticalRlCanvasGlyph } from '../text';
 import {
   verticalColumnPitch,
   convertWrapToExplicitNewlines,
   expandTextBoxWidthToColumns,
   fitTextBoxToContent,
+  layoutVisibleTextBox,
   verticalTextContentSize,
   wrapPageTextToLines,
+  verticalCaretCell,
 } from '../textWrap';
 
 type Call = { glyph: string; x: number; y: number };
@@ -248,5 +250,45 @@ describe('expandTextBoxWidthToColumns', () => {
     const fontSize = 36;
     const box: Rect = { x: 10, y: 20, width: 200, height: fontSize };
     expect(expandTextBoxWidthToColumns(box, 'あ', fontSize)).toEqual(box);
+  });
+});
+
+describe('verticalCaretCell', () => {
+  test('empty content is the top of the first column', () => {
+    expect(verticalCaretCell('', 0, { x: 0, y: 0, width: 40, height: 80 }, 20)).toEqual({
+      column: 0,
+      row: 0,
+    });
+  });
+
+  test('newline starts the next column at row 0', () => {
+    const font = 20;
+    const colW = font * 1.5;
+    const box: Rect = { x: 0, y: 0, width: colW * 4, height: font * 10 };
+    expect(verticalCaretCell('あい\n', 3, box, font)).toEqual({ column: 1, row: 0 });
+    expect(verticalCaretCell('あい\n\n', 4, box, font)).toEqual({ column: 2, row: 0 });
+  });
+
+  test('CRLF caret matches LF after normalize', () => {
+    const font = 20;
+    const colW = font * 1.5;
+    const box: Rect = { x: 0, y: 0, width: colW * 4, height: font * 10 };
+    const raw = 'あい\r\n';
+    const value = normalizeEditNewlines(raw);
+    expect(value).toBe('あい\n');
+    expect(mapIndexAfterNewlineNormalize(raw, raw.length)).toBe(value.length);
+    expect(verticalCaretCell(value, value.length, box, font)).toEqual({ column: 1, row: 0 });
+  });
+
+  test('hugged 1–3 glyph boxes stay in column 0', () => {
+    const font = 15.14;
+    for (const n of [1, 2, 3]) {
+      const text = 'あ'.repeat(n);
+      const box = layoutVisibleTextBox({ x: 0, y: 0, width: font * 1.5, height: font }, text, font);
+      expect(verticalCaretCell(text, n, { x: 0, y: 0, width: box.width, height: box.height }, font)).toEqual({
+        column: 0,
+        row: n,
+      });
+    }
   });
 });

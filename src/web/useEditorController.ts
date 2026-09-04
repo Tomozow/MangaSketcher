@@ -239,6 +239,17 @@ function commitScissorsCuts(options: {
   return pieceIds;
 }
 
+function focusWorkspacePageIfNeeded(
+  dispatch: (action: EditorDocumentAction) => void,
+  originPageId: string | null | undefined,
+  lastCutPageId: string | null,
+): void {
+  const pageId = originPageId || lastCutPageId;
+  if (pageId) {
+    dispatch({ type: 'focusWorkspacePage', pageId });
+  }
+}
+
 function cutPageInkMarquee(options: {
   present: EditorDocument;
   engine: InkEngineApi['engine'];
@@ -246,8 +257,9 @@ function cutPageInkMarquee(options: {
   worldRect: Rect;
   inkUndo: Map<string, InkUndoPixels>;
   dispatch: (action: EditorDocumentAction) => void;
-}): string[] {
+}): { clipIds: string[]; lastPageId: string | null } {
   const cutClipIds: string[] = [];
+  let lastPageId: string | null = null;
   for (const frame of options.frames) {
     if (frame.slot.kind !== 'page') {
       continue;
@@ -296,8 +308,9 @@ function cutPageInkMarquee(options: {
       workspaceY: world.y,
     });
     cutClipIds.push(clipId);
+    lastPageId = frame.slot.pageId;
   }
-  return cutClipIds;
+  return { clipIds: cutClipIds, lastPageId };
 }
 
 function cutPageInkLasso(options: {
@@ -307,8 +320,9 @@ function cutPageInkLasso(options: {
   points: Array<{ x: number; y: number }>;
   inkUndo: Map<string, InkUndoPixels>;
   dispatch: (action: EditorDocumentAction) => void;
-}): string[] {
+}): { clipIds: string[]; lastPageId: string | null } {
   const cutClipIds: string[] = [];
+  let lastPageId: string | null = null;
   for (const frame of options.frames) {
     if (frame.slot.kind !== 'page') {
       continue;
@@ -373,8 +387,9 @@ function cutPageInkLasso(options: {
       workspaceY: world.y,
     });
     cutClipIds.push(clipId);
+    lastPageId = frame.slot.pageId;
   }
-  return cutClipIds;
+  return { clipIds: cutClipIds, lastPageId };
 }
 
 function finishScissorsGesture(options: {
@@ -385,6 +400,7 @@ function finishScissorsGesture(options: {
   worldPoints: Array<{ x: number; y: number }>;
   worldRect?: Rect;
   mode: 'marquee' | 'lasso';
+  originPageId?: string | null;
   inkUndo: Map<string, InkUndoPixels>;
   dispatch: (action: EditorDocumentAction) => void;
 }): { clipIds: string[]; textIds: string[] } {
@@ -415,7 +431,7 @@ function finishScissorsGesture(options: {
         dispatch: options.dispatch,
       })
     : [];
-  const pageClipIds = targets.ink
+  const pageCut = targets.ink
     ? options.mode === 'lasso'
       ? cutPageInkLasso({
           present: options.present,
@@ -433,13 +449,17 @@ function finishScissorsGesture(options: {
           inkUndo: options.inkUndo,
           dispatch: options.dispatch,
         })
-    : [];
+    : { clipIds: [] as string[], lastPageId: null as string | null };
+  const pageClipIds = pageCut.clipIds;
   const clipIds = [...pieceIds, ...pageClipIds];
   const textIds = targets.text
     ? options.mode === 'lasso'
       ? collectTextIdsInWorldPolygon(options.present, options.frames, options.worldPoints)
       : collectTextIdsInWorldRect(options.present, options.frames, options.worldRect!)
     : [];
+  if (pageClipIds.length > 0) {
+    focusWorkspacePageIfNeeded(options.dispatch, options.originPageId, pageCut.lastPageId);
+  }
   if (clipIds.length > 0) {
     options.dispatch({ type: 'selectClips', clipIds });
   } else if (!targets.text) {
@@ -1196,6 +1216,7 @@ export function useEditorController(projectId: string): EditorController {
               ],
               worldRect,
               mode: 'marquee',
+              originPageId: effect.pageId,
               inkUndo: inkUndoRef.current,
               dispatch,
             });
@@ -1229,6 +1250,7 @@ export function useEditorController(projectId: string): EditorController {
                 .map((clip) => clip.id)
             : [];
           const cutClipIds: string[] = [];
+          let lastCutPageId: string | null = null;
           if (targets.ink) {
             for (const frame of frames) {
               if (frame.slot.kind !== 'page') {
@@ -1282,11 +1304,13 @@ export function useEditorController(projectId: string): EditorController {
                 workspaceY: world.y,
               });
               cutClipIds.push(clipId);
+              lastCutPageId = frame.slot.pageId;
             }
             if (cutClipIds.length > 0) {
               bumpInkFrame();
             }
           }
+          focusWorkspacePageIfNeeded(dispatch, effect.pageId, lastCutPageId);
           if (targets.clip || cutClipIds.length > 0) {
             dispatch({ type: 'selectClips', clipIds: [...clipIdsInRect, ...cutClipIds] });
           }
@@ -1323,6 +1347,7 @@ export function useEditorController(projectId: string): EditorController {
               worldPoints: effect.points,
               worldRect: worldAabb,
               mode: 'lasso',
+              originPageId: effect.originPageId,
               inkUndo: inkUndoRef.current,
               dispatch,
             });
@@ -1352,6 +1377,7 @@ export function useEditorController(projectId: string): EditorController {
                 .map((clip) => clip.id)
             : [];
           const cutClipIds: string[] = [];
+          let lastCutPageId: string | null = null;
           if (targets.ink) {
             for (const frame of frames) {
               if (frame.slot.kind !== 'page') {
@@ -1421,11 +1447,13 @@ export function useEditorController(projectId: string): EditorController {
                 workspaceY: world.y,
               });
               cutClipIds.push(clipId);
+              lastCutPageId = frame.slot.pageId;
             }
             if (cutClipIds.length > 0) {
               bumpInkFrame();
             }
           }
+          focusWorkspacePageIfNeeded(dispatch, effect.originPageId, lastCutPageId);
           if (targets.clip || cutClipIds.length > 0) {
             dispatch({ type: 'selectClips', clipIds: [...clipIdsInPoly, ...cutClipIds] });
           }

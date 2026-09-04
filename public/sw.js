@@ -1,4 +1,4 @@
-const SHELL_CACHE = 'mangasketcher-shell-v13';
+const SHELL_CACHE = 'mangasketcher-shell-v14';
 const NETWORK_TIMEOUT_MS = 4000;
 const PRECACHE_PATHS = [
   '/',

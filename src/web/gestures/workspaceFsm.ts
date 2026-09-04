@@ -127,6 +127,13 @@ function isPageNumberHit(
   return hit.kind === 'pageNumber';
 }
 
+function focusPageEffects(pageId: PageId | undefined | null, selectedPageId: PageId | null): WorkspaceEffect[] {
+  if (!pageId || pageId === selectedPageId) {
+    return [];
+  }
+  return [{ type: 'focusWorkspacePage', pageId }];
+}
+
 function beginGrabPage(
   kind: 'finger' | 'pencil',
   pageId: PageId,
@@ -218,7 +225,10 @@ function selectedTextIdsOfInput(input: WorkspacePointerInput): TextId[] {
   return input.selectedTextId ? [input.selectedTextId] : [];
 }
 
-function startWorldMarquee(input: WorkspacePointerInput): {
+function startWorldMarquee(
+  input: WorkspacePointerInput,
+  originPageId: PageId | null = null,
+): {
   session: WorkspaceSession;
   effects: WorkspaceEffect[];
 } {
@@ -226,16 +236,17 @@ function startWorldMarquee(input: WorkspacePointerInput): {
     session: {
       mode: 'marquee',
       kind: 'pencil',
-      pageId: null,
+      pageId: originPageId,
       x0: input.worldX,
       y0: input.worldY,
       x1: input.worldX,
       y1: input.worldY,
     },
     effects: [
+      ...focusPageEffects(originPageId, input.selectedPageId),
       {
         type: 'marqueePreview',
-        pageId: null,
+        pageId: originPageId,
         rect: { x: input.worldX, y: input.worldY, width: 0, height: 0 },
       },
     ],
@@ -256,7 +267,10 @@ function appendLassoPoint(
   return [...points, { x, y }];
 }
 
-function startWorldLasso(input: WorkspacePointerInput): {
+function startWorldLasso(
+  input: WorkspacePointerInput,
+  originPageId: PageId | null = null,
+): {
   session: WorkspaceSession;
   effects: WorkspaceEffect[];
 } {
@@ -266,8 +280,9 @@ function startWorldLasso(input: WorkspacePointerInput): {
       mode: 'lasso',
       kind: 'pencil',
       points,
+      originPageId,
     },
-    effects: [{ type: 'lassoPreview', points }],
+    effects: [...focusPageEffects(originPageId, input.selectedPageId), { type: 'lassoPreview', points }],
   };
 }
 
@@ -294,6 +309,16 @@ function pendingSelectionMove(
   };
 }
 
+function pageIdFromHit(hit: WorkspaceHit): PageId | undefined {
+  if (hit.kind === 'page' || hit.kind === 'pageNumber' || hit.kind === 'pageText') {
+    return hit.pageId;
+  }
+  if (hit.kind === 'resizeHandle' && hit.owner === 'page') {
+    return hit.pageId;
+  }
+  return undefined;
+}
+
 function tryStartSelectionObject(
   input: WorkspacePointerInput,
   hit: WorkspaceHit,
@@ -309,7 +334,10 @@ function tryStartSelectionObject(
         pageId: hit.pageId,
         startWorldBox: hit.worldBox,
       },
-      effects: [{ type: 'selectText', textId: hit.textId }],
+      effects: [
+        ...focusPageEffects(hit.pageId, input.selectedPageId),
+        { type: 'selectText', textId: hit.textId },
+      ],
     };
   }
   if (targets.text && isTextBodyHit(hit)) {
@@ -323,7 +351,9 @@ function tryStartSelectionObject(
         input,
         clipIds,
         textIds,
-        alreadySelected ? [] : [{ type: 'selectText', textId: hit.textId }],
+        alreadySelected
+          ? [...focusPageEffects(pageIdFromHit(hit), input.selectedPageId)]
+          : [...focusPageEffects(pageIdFromHit(hit), input.selectedPageId), { type: 'selectText', textId: hit.textId }],
       );
     }
     const moveSession = textMoveSessionFromHit(hit);
@@ -338,7 +368,7 @@ function tryStartSelectionObject(
         startY: input.y,
         ...moveSession,
       },
-      effects: [],
+      effects: focusPageEffects(moveSession.pageId, input.selectedPageId),
     };
   }
   if (targets.clip && isClipHit(hit)) {
@@ -680,7 +710,7 @@ function stepTextDrag(
     const next = {
       mode: 'marquee' as const,
       kind: 'pencil' as const,
-      pageId: null,
+      pageId: session.pageId ?? null,
       x0: session.worldX,
       y0: session.worldY,
       x1: input.worldX,
@@ -694,7 +724,7 @@ function stepTextDrag(
     };
     return {
       session: next,
-      effects: [{ type: 'marqueePreview', pageId: null, rect }],
+      effects: [{ type: 'marqueePreview', pageId: next.pageId, rect }],
     };
   }
 
@@ -838,8 +868,8 @@ function stepLockedPencil(
       return {
         session: { mode: 'idle' },
         effects: tooSmall
-          ? [{ type: 'completeMarquee', pageId: null, rect }, ...clear]
-          : [{ type: 'completeMarquee', pageId: null, rect }],
+          ? [{ type: 'completeMarquee', pageId: session.pageId, rect }, ...clear]
+          : [{ type: 'completeMarquee', pageId: session.pageId, rect }],
       };
     }
     const next = { ...session, x1: input.worldX, y1: input.worldY };
@@ -851,7 +881,7 @@ function stepLockedPencil(
     };
     return {
       session: next,
-      effects: [{ type: 'marqueePreview', pageId: null, rect }],
+      effects: [{ type: 'marqueePreview', pageId: session.pageId, rect }],
     };
   }
 
@@ -877,8 +907,8 @@ function stepLockedPencil(
       return {
         session: { mode: 'idle' },
         effects: tooSmall
-          ? [{ type: 'completeLasso', points }, ...clear]
-          : [{ type: 'completeLasso', points }],
+          ? [{ type: 'completeLasso', points, originPageId: session.originPageId }, ...clear]
+          : [{ type: 'completeLasso', points, originPageId: session.originPageId }],
       };
     }
     const points = appendLassoPoint(session.points, input.worldX, input.worldY);
@@ -1100,6 +1130,7 @@ function stepPencilDown(
         lastPressure: input.pressure,
       },
       effects: [
+        ...focusPageEffects(hit.pageId, input.selectedPageId),
         {
           type: 'beginPenOverlay',
           pageId: hit.pageId,
@@ -1115,7 +1146,10 @@ function stepPencilDown(
     if (isPageBodyHit(hit)) {
       return {
         session: { mode: 'eraseDirect', kind: 'pencil', pageId: hit.pageId },
-        effects: [{ type: 'beginEraseDirect', pageId: hit.pageId }],
+        effects: [
+          ...focusPageEffects(hit.pageId, input.selectedPageId),
+          { type: 'beginEraseDirect', pageId: hit.pageId },
+        ],
       };
     }
     return { session: { mode: 'idle' }, effects: [] };
@@ -1134,7 +1168,9 @@ function stepPencilDown(
       hit.kind === 'empty' ||
       hit.kind === 'slot'
     ) {
-      return intent.type === 'drawLasso' ? startWorldLasso(input) : startWorldMarquee(input);
+      return intent.type === 'drawLasso'
+        ? startWorldLasso(input, isPageBodyHit(hit) ? hit.pageId : null)
+        : startWorldMarquee(input, isPageBodyHit(hit) ? hit.pageId : null);
     }
     return { session: { mode: 'idle' }, effects: [] };
   }
@@ -1150,7 +1186,10 @@ function stepPencilDown(
           pageId: hit.pageId,
           startWorldBox: hit.worldBox,
         },
-        effects: [{ type: 'selectText', textId: hit.textId }],
+        effects: [
+          ...focusPageEffects(hit.pageId, input.selectedPageId),
+          { type: 'selectText', textId: hit.textId },
+        ],
       };
     }
     if (isTextBodyHit(hit)) {
@@ -1158,7 +1197,13 @@ function stepPencilDown(
       const alreadySelected = selectedTexts.includes(hit.textId);
       const textIds = alreadySelected ? selectedTexts : [hit.textId];
       if (textIds.length > 1) {
-        return pendingSelectionMove(input, [], textIds, [], hit.textId);
+        return pendingSelectionMove(
+          input,
+          [],
+          textIds,
+          focusPageEffects(pageIdFromHit(hit), input.selectedPageId),
+          hit.textId,
+        );
       }
       const moveSession = textMoveSessionFromHit(hit);
       if (!moveSession) {
@@ -1172,7 +1217,7 @@ function stepPencilDown(
           startY: input.y,
           ...moveSession,
         },
-        effects: [],
+        effects: focusPageEffects(moveSession.pageId, input.selectedPageId),
       };
     }
     if (isPageBodyHit(hit)) {
@@ -1188,7 +1233,7 @@ function stepPencilDown(
           worldX: input.worldX,
           worldY: input.worldY,
         },
-        effects: [],
+        effects: focusPageEffects(hit.pageId, input.selectedPageId),
       };
     }
     if (isPasteboardCreateHit(hit)) {

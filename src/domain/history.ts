@@ -10,6 +10,7 @@ function cloneEditorHistoryStackDocument(doc: EditorHistoryState['present']): Ed
 
 const VIEW_ONLY = new Set([
   'selectPage',
+  'focusWorkspacePage',
   'setTool',
   'setToolProperties',
   'setWorkspaceView',

@@ -248,6 +248,23 @@ export function isTextContentEmpty(content: string): boolean {
   return content.trim().length === 0;
 }
 
+/** iPad insertLineBreak may insert CR or CRLF; wrapping only treats LF as a column break. */
+export function normalizeEditNewlines(value: string): string {
+  return value.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+}
+
+export function mapIndexAfterNewlineNormalize(raw: string, index: number): number {
+  const clamped = Math.max(0, Math.min(index, raw.length));
+  let out = 0;
+  for (let i = 0; i < clamped; i += 1) {
+    if (raw[i] === '\r' && raw[i + 1] === '\n') {
+      continue;
+    }
+    out += 1;
+  }
+  return out;
+}
+
 /** 縦書き表示用。空枠はグリフなし。 */
 export function verticalGlyphs(content: string): string[] {
   if (content.length === 0) {

@@ -17,6 +17,7 @@ export function createEditorHistory(doc: EditorDocument): EditorHistory {
 export function isViewOnlyHistoryAction(actionType: string): boolean {
   return (
     actionType === 'selectPage' ||
+    actionType === 'focusWorkspacePage' ||
     actionType === 'setTool' ||
     actionType === 'setToolProperties' ||
     actionType === 'setWorkspaceView' ||

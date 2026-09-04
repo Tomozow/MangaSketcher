@@ -42,6 +42,59 @@ describe('reduceEditorDocument VIEW_ONLY', () => {
     expect(history.past).toHaveLength(1);
   });
 
+  test('focusWorkspacePage は選択を消さず履歴にも積まない', () => {
+    const ids = sequentialIds('page');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 3,
+      ids,
+    });
+    doc = {
+      ...doc,
+      selectedClipId: 'c1',
+      selectedClipIds: ['c1'],
+      selectedTextId: 't1',
+      selectedTextIds: ['t1'],
+    };
+    const actionIds = sequentialIds('a');
+    let history = createEditorHistory(doc);
+    history = reduceEditorHistory(
+      history,
+      { type: 'focusWorkspacePage', pageId: doc.workspaceOrder[1]! },
+      actionIds,
+    );
+    expect(history.past).toHaveLength(0);
+    expect(history.present.selectedPageId).toBe(doc.workspaceOrder[1]);
+    expect(history.present.selectedClipIds).toEqual(['c1']);
+    expect(history.present.selectedTextIds).toEqual(['t1']);
+  });
+
+  test('selectPage はクリップとテキスト選択を消す', () => {
+    const ids = sequentialIds('page');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 2,
+      ids,
+    });
+    doc = {
+      ...doc,
+      selectedClipId: 'c1',
+      selectedClipIds: ['c1'],
+      selectedTextId: 't1',
+      selectedTextIds: ['t1'],
+    };
+    const next = reduceEditorDocument(
+      doc,
+      { type: 'selectPage', pageId: doc.workspaceOrder[1]! },
+      sequentialIds('a'),
+    );
+    expect(next.selectedPageId).toBe(doc.workspaceOrder[1]);
+    expect(next.selectedClipIds).toEqual([]);
+    expect(next.selectedTextIds).toEqual([]);
+  });
+
   test('選択の投げ縄モードは他ツールに切り替えても残る', () => {
     const doc = createEditorDocument({
       projectId: 'p1',
@@ -135,6 +188,7 @@ describe('deleteText', () => {
     doc = reduceEditorDocument(doc, { type: 'deleteText', textId: emptyId }, ids);
     expect(doc.pages[pageId]!.texts).toHaveLength(1);
     expect(doc.pages[pageId]!.texts[0]!.content).toBe('残す');
+    expect(doc.selectedPageId).toBe(pageId);
     expect(doc.selectedTextId).toBeNull();
     expect(doc.trashTexts).toEqual([]);
     expect(doc.pasteboardTexts.some((t) => t.id === emptyId)).toBe(false);

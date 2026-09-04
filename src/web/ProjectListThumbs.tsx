@@ -114,9 +114,11 @@ function MiniPage({ page }: { page: ProjectPreviewPage | null }) {
 export function ProjectListThumbs({
   projectId,
   pageCount,
+  updatedAt,
 }: {
   projectId: string;
   pageCount: number;
+  updatedAt?: string;
 }) {
   const [pages, setPages] = useState<ProjectPreviewPage[] | null>(null);
 
@@ -152,11 +154,12 @@ export function ProjectListThumbs({
     return () => {
       cancelled = true;
     };
-  }, [projectId, pageCount]);
+  }, [projectId, pageCount, updatedAt]);
 
-  const slotCount = Math.min(MAX_THUMBS, Math.max(1, pageCount));
   const slots: Array<ProjectPreviewPage | null> =
-    pages && pages.length > 0 ? pages : Array.from({ length: slotCount }, () => null);
+    pages && pages.length > 0
+      ? pages
+      : Array.from({ length: Math.min(MAX_THUMBS, Math.max(1, pageCount)) }, () => null);
 
   return (
     <>

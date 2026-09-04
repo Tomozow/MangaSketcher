@@ -551,7 +551,11 @@ export function ProjectList() {
                     }}
                   >
                     <div className={styles.cardThumb} aria-hidden>
-                      <ProjectListThumbs projectId={project.id} pageCount={project.pageCount} />
+                      <ProjectListThumbs
+                        projectId={project.id}
+                        pageCount={project.pageCount}
+                        updatedAt={project.updatedAt}
+                      />
                     </div>
                     <div className={styles.cardMeta}>
                       <strong className={styles.projectName}>{project.name}</strong>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useLayoutEffect, useState, type CSSProperties, type RefObject } from 'react';
+import { useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from 'react';
 import {
   DEFAULT_RASTER_HEIGHT,
   DEFAULT_RASTER_WIDTH,
@@ -17,7 +17,8 @@ import {
   type StripFrame,
 } from '@/src/domain/stripGeometry';
 import type { EditorDocument } from '@/src/storage/types';
-import { layoutVisibleTextBox } from '@/src/domain/textWrap';
+import { layoutVisibleTextBox, TEXT_WRAP_LINE_HEIGHT, wrapPageTextToLines } from '@/src/domain/textWrap';
+import { verticalGlyphs } from '@/src/domain/text';
 import {
   effectiveTextBox,
   sanitizeTextBox,
@@ -37,6 +38,7 @@ import { styles } from '@/src/web/editorStyles';
 import { pageBoxToWorld } from '@/src/web/gestures/elementInteraction';
 import { useLiveTextContent, type LiveTextContent } from '@/src/web/liveTextContentStore';
 import { isWhiteTextColor } from '@/src/web/text/whiteTextColor';
+import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 
 type PageTextOverlayProps = {
   doc: EditorDocument;
@@ -124,6 +126,32 @@ export function textWrapEmStyle(
     style['--ms-screen-px' as string] = '1';
   }
   return style;
+}
+
+function PageTextGlyphs({
+  content,
+  box,
+  fontPx,
+}: {
+  content: string;
+  box: Rect;
+  fontPx: number;
+}) {
+  const fs = Math.max(1, fontPx);
+  const lines = wrapPageTextToLines(content, { x: 0, y: 0, width: box.width, height: box.height }, fs);
+  return (
+    <>
+      {lines.map((line, column) => (
+        <span
+          key={column}
+          className={styles.pageTextCol}
+          style={{ right: `${column * TEXT_WRAP_LINE_HEIGHT}em` }}
+        >
+          {line}
+        </span>
+      ))}
+    </>
+  );
 }
 
 function DeleteMark({ icon, batch }: { icon: number; batch: boolean }) {
@@ -284,6 +312,65 @@ export function PageTextsOnFrame({
 }: PageTextsOnFrameProps) {
   const liveFromStore = useLiveTextContent();
   const liveTextContent = liveTextContentProp !== undefined ? liveTextContentProp : liveFromStore;
+  // #region agent log
+  const lastPreviewLogRef = useRef('');
+  useLayoutEffect(() => {
+    if (!selectedTextId || !liveTextContent || liveTextContent.id !== selectedTextId) {
+      return;
+    }
+    const committed = texts.find((t) => t.id === selectedTextId)?.content ?? '';
+    const key = `${liveTextContent.content.length}:${committed.length}:${liveTextContentProp !== undefined}`;
+    if (key === lastPreviewLogRef.current) {
+      return;
+    }
+    lastPreviewLogRef.current = key;
+    ipadDebugLog({
+      sessionId: '2ca20f',
+      ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+      hypothesisId: 'D',
+      location: 'PageTextOverlay.tsx:PageTextsOnFrame',
+      message: 'overlay live vs committed',
+      data: {
+        liveLen: liveTextContent.content.length,
+        committedLen: committed.length,
+        usedProp: liveTextContentProp !== undefined,
+        match: liveTextContent.content === committed,
+      },
+    });
+    const selected = texts.find((t) => t.id === selectedTextId);
+    if (selected) {
+      const layoutFont = Number.isFinite(selected.fontSize) ? selected.fontSize : 12;
+      const box = layoutVisibleTextBox(selected.box, liveTextContent.content, layoutFont);
+      ipadDebugLog({
+        sessionId: '2ca20f',
+        ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+        hypothesisId: 'H',
+        location: 'PageTextOverlay.tsx:visibleBox',
+        message: 'visible wrap box',
+        data: {
+          boxH: box.height,
+          boxW: box.width,
+          glyphs: verticalGlyphs(liveTextContent.content).length,
+          cols: wrapPageTextToLines(
+            liveTextContent.content,
+            { x: 0, y: 0, width: layoutFont * TEXT_WRAP_LINE_HEIGHT * 4096, height: layoutFont * 65536 },
+            layoutFont,
+          ).length,
+        },
+      });
+      ipadDebugLog({
+        sessionId: '2ca20f',
+        ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+        hypothesisId: 'I',
+        location: 'PageTextOverlay.tsx:lineLens',
+        message: 'wrap line lengths',
+        data: {
+          lineLens: wrapPageTextToLines(liveTextContent.content, box, layoutFont).map((line) => line.length),
+        },
+      });
+    }
+  }, [selectedTextId, liveTextContent, texts, liveTextContentProp]);
+  // #endregion
   const rw = rasterSize(rasterWidth, DEFAULT_RASTER_WIDTH);
   const rh = rasterSize(rasterHeight, DEFAULT_RASTER_HEIGHT);
   const scaleX = PAGE_DISPLAY_W / rw;
@@ -315,10 +402,9 @@ export function PageTextsOnFrame({
               className={`${styles.pageTextBox} ${selected ? styles.pageTextBoxSelected : ''} ${isWhiteTextColor(text.color) ? styles.pageTextBoxWhite : ''}`}
               style={{
                 color: text.color,
-                lineHeight: 1.5,
               }}
             >
-              {content}
+              <PageTextGlyphs content={content} box={box} fontPx={layoutFont} />
             </div>
           </div>
         );
@@ -446,9 +532,9 @@ export function PasteboardTextsLayer({
           >
             <div
               className={`${styles.pageTextBox} ${selected ? styles.pageTextBoxSelected : ''} ${isWhiteTextColor(text.color) ? styles.pageTextBoxWhite : ''}`}
-              style={{ color: text.color, lineHeight: 1.5 }}
+              style={{ color: text.color }}
             >
-              {content}
+              <PageTextGlyphs content={content} box={box} fontPx={fs} />
             </div>
           </div>
         );

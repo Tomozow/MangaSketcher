@@ -1698,18 +1698,27 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   position: absolute;
   inset: 0;
   font-family: 'GenEiAntique', '源暎アンチック v6', 'GenEi Antique v6', sans-serif;
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
+  writing-mode: horizontal-tb;
   overflow: visible;
-  white-space: pre-wrap;
-  word-break: break-all;
   box-sizing: content-box;
   border: none;
   outline: none;
   pointer-events: none;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+}
+
+.ms-pageTextCol {
+  position: absolute;
+  top: 0;
+  width: 1.5em;
+  height: 100%;
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  white-space: pre;
+  word-break: break-all;
   line-height: 1.5;
+  box-sizing: border-box;
 }
 
 .ms-pageTextBoxSelected {
@@ -1728,7 +1737,8 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   box-sizing: border-box;
   display: block;
   padding: 0;
-  background: #fff;
+  overflow: visible;
+  background: transparent;
   border: none;
   outline: 1px solid var(--ms-accent);
   border-radius: 0;
@@ -1745,14 +1755,17 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   border: none;
   border-radius: 0;
   resize: none;
-  overflow: hidden;
+  overflow: visible;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  touch-action: manipulation;
+  touch-action: auto;
   -webkit-user-select: text;
   user-select: text;
-  color: #1a1a1a;
-  background: #fff;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: transparent;
+  opacity: 1;
+  background: transparent;
   font-family: 'GenEiAntique', '源暎アンチック v6', 'GenEi Antique v6', sans-serif;
   writing-mode: vertical-rl;
   text-orientation: mixed;
@@ -1769,6 +1782,26 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   display: none;
   width: 0;
   height: 0;
+}
+
+.ms-textEditInput::selection {
+  color: #fff;
+  -webkit-text-fill-color: #fff;
+  background: var(--ms-accent);
+}
+
+.ms-textEditCaret {
+  position: absolute;
+  pointer-events: none;
+  z-index: 2;
+  box-sizing: border-box;
+  animation: ms-text-caret-blink 1s step-end infinite;
+}
+
+@keyframes ms-text-caret-blink {
+  50% {
+    opacity: 0;
+  }
 }
 
 .ms-saveStatusCorner {

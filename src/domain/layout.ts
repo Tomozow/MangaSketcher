@@ -35,6 +35,25 @@ export function spreadPageIdsContaining(
     .map((slot) => slot.pageId);
 }
 
+export function previewSpreadPageIds(
+  workspaceOrder: readonly PageId[],
+  selectedPageId: PageId | null,
+  maxPages = 2,
+): PageId[] {
+  const fromSelected = spreadPageIdsContaining(workspaceOrder, selectedPageId);
+  if (fromSelected.length > 0) {
+    return fromSelected.slice(0, maxPages);
+  }
+  const first = readingSpreads([...workspaceOrder])[0];
+  if (!first) {
+    return [];
+  }
+  return first
+    .filter((slot): slot is Extract<VisualSlot, { kind: 'page' }> => slot.kind === 'page')
+    .map((slot) => slot.pageId)
+    .slice(0, maxPages);
+}
+
 /**
  * Manga spreads from slot 0 (start blank), then real pages 1, 2, 3…
  *

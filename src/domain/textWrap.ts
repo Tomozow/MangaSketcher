@@ -61,6 +61,55 @@ export function wrapPageTextToLines(content: string, box: Rect, fontSize: number
   return lines;
 }
 
+/** Insertion cell in vertical-rl (column 0 = rightmost). `utf16Index` is textarea selectionStart. */
+export function verticalCaretCell(
+  content: string,
+  utf16Index: number,
+  box: Rect,
+  fontSize: number,
+): { column: number; row: number } {
+  const target = Math.max(0, Math.min(utf16Index, content.length));
+  if (box.width <= 0 || box.height <= 0 || isTextContentEmpty(content)) {
+    return { column: 0, row: 0 };
+  }
+
+  const fontPx = effectiveFontPx(fontSize);
+  const colW = verticalColumnPitch(fontPx);
+  let colX = box.x + box.width - colW;
+  let y = box.y;
+  let column = 0;
+  let row = 0;
+  let utf = 0;
+
+  for (const glyph of verticalGlyphs(content)) {
+    if (utf >= target) {
+      return { column, row };
+    }
+    if (glyph === '\r') {
+      utf += glyph.length;
+      continue;
+    }
+    const wrap = glyph === '\n' || y + fontPx > box.y + box.height + TEXT_WRAP_EPSILON;
+    if (wrap) {
+      colX -= colW;
+      y = box.y;
+      column += 1;
+      row = 0;
+      if (glyph === '\n') {
+        utf += glyph.length;
+        continue;
+      }
+    }
+    if (colX + colW < box.x) {
+      return { column: Math.max(0, column - 1), row };
+    }
+    utf += glyph.length;
+    y += fontPx;
+    row += 1;
+  }
+  return { column, row };
+}
+
 /**
  * App text (auto-wrapped at draw time) → explicit CRLF newlines at the exact
  * wrap positions the app renders. Intended for exporting to formats without

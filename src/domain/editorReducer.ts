@@ -36,6 +36,7 @@ import { isSelectionTool } from './types';
 
 const VIEW_ONLY = new Set<string>([
   'selectPage',
+  'focusWorkspacePage',
   'setTool',
   'setToolProperties',
   'setWorkspaceView',
@@ -51,6 +52,7 @@ const VIEW_ONLY = new Set<string>([
 
 type ViewOnlyEditorAction =
   | { type: 'selectPage'; pageId: PageId }
+  | { type: 'focusWorkspacePage'; pageId: PageId }
   | { type: 'setTool'; tool: ToolId }
   | { type: 'setToolProperties'; patch: Partial<ToolProperties> }
   | { type: 'setWorkspaceView'; zoom: number; panX: number; panY: number }
@@ -87,6 +89,7 @@ function isViewOnlyEditorAction(action: EditorDocumentAction): action is ViewOnl
 
 export type EditorDocumentAction =
   | { type: 'selectPage'; pageId: PageId }
+  | { type: 'focusWorkspacePage'; pageId: PageId }
   | { type: 'appendPage' }
   | { type: 'insertAfterSelected' }
   | { type: 'deleteWorkspacePage'; pageId: PageId }
@@ -231,6 +234,12 @@ function textSelection(ids: TextId[]): { selectedTextId: TextId | null; selected
     selectedTextIds,
     selectedTextId: selectedTextIds[selectedTextIds.length - 1] ?? null,
   };
+}
+
+function assignFocusedWorkspacePage(doc: EditorDocument, pageId: PageId): void {
+  if (doc.pages[pageId] && doc.workspaceOrder.includes(pageId)) {
+    doc.selectedPageId = pageId;
+  }
 }
 
 function clipSelection(ids: ClipId[]): { selectedClipId: ClipId | null; selectedClipIds: ClipId[] } {
@@ -883,6 +892,7 @@ export function reduceEditorDocument(
         doc,
         clipSelection((doc.selectedClipIds ?? (doc.selectedClipId ? [doc.selectedClipId] : [])).filter((id) => id !== a.clipId)),
       );
+      assignFocusedWorkspacePage(doc, a.pageId);
       return doc;
     }
     case 'transformClip': {
@@ -955,6 +965,7 @@ export function reduceEditorDocument(
           return doc;
         }
         page.texts.push(text);
+        assignFocusedWorkspacePage(doc, a.attachment.pageId);
       } else {
         doc.pasteboardTexts.push(text);
       }
@@ -1078,6 +1089,7 @@ export function reduceEditorDocument(
           ...item,
           box: { ...item.box, x: a.x, y: a.y },
         });
+        assignFocusedWorkspacePage(doc, a.pageId);
         return doc;
       }
       return doc;
@@ -1136,6 +1148,7 @@ export function reduceEditorDocument(
         fontSize: a.fontSize ?? item.fontSize,
         color: item.color,
       });
+      assignFocusedWorkspacePage(doc, a.pageId);
       return doc;
     }
     case 'detachTextToPasteboard': {
@@ -1194,6 +1207,7 @@ export function reduceEditorDocument(
       };
       if (a.attachment.kind === 'page') {
         doc.pages[a.attachment.pageId]?.texts.push(text);
+        assignFocusedWorkspacePage(doc, a.attachment.pageId);
       } else {
         doc.pasteboardTexts.push(text);
       }
@@ -1218,6 +1232,15 @@ function reduceEditorDocumentViewOnly(
         return { ...state, selectedPageId: action.pageId, ...clipSelection([]), ...textSelection([]) };
       }
       return state;
+    case 'focusWorkspacePage':
+      if (
+        state.selectedPageId === action.pageId ||
+        !state.pages[action.pageId] ||
+        !state.workspaceOrder.includes(action.pageId)
+      ) {
+        return state;
+      }
+      return { ...state, selectedPageId: action.pageId };
     case 'setTool': {
       const tools =
         action.tool === 'lasso' && state.tools.selectLasso !== true

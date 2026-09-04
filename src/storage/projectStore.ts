@@ -20,6 +20,7 @@ import {
 } from './projectExportCheckpoint';
 import { randomId } from './randomId';
 import { isStockPageItem } from '../domain/stockItems';
+import { previewSpreadPageIds } from '../domain/layout';
 import { clipRasterId, collectRasterIds, pageRasterId, pdfOpfsPath, rasterBelongsToProject } from './rasterIds';
 import {
   copySharedTransparentPng,
@@ -252,9 +253,11 @@ export async function runStartupGc(deps?: ProjectStoreDeps): Promise<void> {
 const LIST_THUMB_PAGE_LIMIT = 2;
 
 function previewPageIds(doc: EditorDocument, maxPages: number): string[] {
-  const fromWorkspace = doc.workspaceOrder.filter((id) => doc.pages[id]);
+  const fromWorkspace = previewSpreadPageIds(doc.workspaceOrder, doc.selectedPageId, maxPages).filter(
+    (id) => doc.pages[id],
+  );
   if (fromWorkspace.length > 0) {
-    return fromWorkspace.slice(0, maxPages);
+    return fromWorkspace;
   }
   const seen = new Set<string>();
   const fromStock: string[] = [];

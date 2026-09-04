@@ -10,6 +10,8 @@ iPhone / Android 対応は後回しにし、**iPad の画面サイズと操作�
 - 日常利用: Safari の「ホーム画面に追加」（PWA）。App Store には出しません
 - 開発: Node.js 20 以上
 
+日常の起動はリポジトリ直下の `launcher.bat`（ログと `out` / `out-backup` の切替はアプリ内）。従来の `start-dev.bat` / `start-https-lan.bat` / `start-static.bat` / `build-static.bat` も使えます。
+
 ## 画面構成
 
 `アプリレイアウト.jpg` のワイヤーに沿った 1 画面シェルです。

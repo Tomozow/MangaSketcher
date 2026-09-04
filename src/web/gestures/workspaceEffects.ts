@@ -56,6 +56,13 @@ export function reduceWorkspaceEffects(
       case 'selectPage':
         actions.push({ type: 'selectPage', pageId: effect.pageId });
         break;
+      case 'focusWorkspacePage':
+        actions.push({ type: 'focusWorkspacePage', pageId: effect.pageId });
+        break;
+      case 'grabPage':
+        grabbedPageId = effect.pageId;
+        actions.push({ type: 'focusWorkspacePage', pageId: effect.pageId });
+        break;
       case 'insertAfterSelected':
         actions.push({ type: 'insertAfterSelected' });
         break;
@@ -87,9 +94,6 @@ export function reduceWorkspaceEffects(
         break;
       case 'rotateClip':
         actions.push({ type: 'transformClip', clipId: effect.clipId, rotation: effect.rotation });
-        break;
-      case 'grabPage':
-        grabbedPageId = effect.pageId;
         break;
       case 'endGrabPage':
         grabbedPageId = null;
