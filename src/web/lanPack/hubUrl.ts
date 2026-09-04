@@ -1,5 +1,5 @@
 export const LAN_PACK_HUB_DOWN_MESSAGE =
-  'LAN転送には PC で start:https-lan（ポート3443）が必要です。';
+  'LAN転送には PC版の起動（ポート3443）が必要です。';
 
 export const LAN_PACK_PDF_NOTICE =
   '参照PDFは含まれません。送り先で付け直してください。相手の一覧には複製として追加されます。';
