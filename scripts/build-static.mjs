@@ -12,6 +12,7 @@ import {
 } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
+import { SCHEMA_GENERATION, pruneBackups } from './static-host/roots.mjs';
 
 const root = process.cwd();
 const parkRoot = join(root, '.static-export-park');
@@ -80,17 +81,78 @@ function stampExportedServiceWorker(outDir) {
 function backupStamp() {
   const now = new Date();
   const pad = (n) => String(n).padStart(2, '0');
-  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+  const ms = String(now.getMilliseconds()).padStart(3, '0');
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}${ms}`;
+}
+
+function gitShort() {
+  const result = spawnSync('git', ['rev-parse', '--short', 'HEAD'], {
+    cwd: root,
+    encoding: 'utf8',
+    windowsHide: true,
+  });
+  if (result.status !== 0) {
+    return null;
+  }
+  return result.stdout.trim() || null;
+}
+
+function writeBuildMeta(outDir) {
+  writeFileSync(
+    join(outDir, 'build-meta.json'),
+    `${JSON.stringify(
+      {
+        builtAt: new Date().toISOString(),
+        git: gitShort(),
+        schemaGeneration: SCHEMA_GENERATION,
+      },
+      null,
+      2,
+    )}\n`,
+  );
+}
+
+function writeOutArtifacts(outDir) {
+  writeFileSync(join(outDir, '.nojekyll'), '');
+  writeFileSync(
+    join(outDir, 'serve.json'),
+    `${JSON.stringify(
+      {
+        headers: [
+          {
+            source: '**/*.html',
+            headers: [{ key: 'Cache-Control', value: 'no-store' }],
+          },
+          {
+            source: '**/*.webmanifest',
+            headers: [{ key: 'Content-Type', value: 'application/manifest+json; charset=utf-8' }],
+          },
+        ],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  writePrecacheManifest(outDir);
+  stampExportedServiceWorker(outDir);
+  writeBuildMeta(outDir);
 }
 
 function backupExistingOut(outDir) {
   if (!existsSync(join(outDir, 'index.html'))) {
     return;
   }
-  const dest = join(root, 'out-backup', backupStamp());
+  const stamp = backupStamp();
+  let dest = join(root, 'out-backup', stamp);
+  let n = 0;
+  while (existsSync(dest)) {
+    n += 1;
+    dest = join(root, 'out-backup', `${stamp}-${n}`);
+  }
   mkdirSync(dirname(dest), { recursive: true });
   cpSync(outDir, dest, { recursive: true });
-  console.log(`Backed up previous static build to ${dest}`);
+  console.log(`Backed up previous static build to ${dest} (folder name is parkedAt)`);
+  pruneBackups(root);
 }
 
 /** Next treats custom distDir as the export folder when output is "export". */
@@ -102,8 +164,23 @@ function publishExportDir(exportDir, outDir) {
     return;
   }
   backupExistingOut(outDir);
-  rmSync(outDir, { recursive: true, force: true });
-  cpSync(exportDir, outDir, { recursive: true });
+  const staging = join(root, '.out-publish-tmp');
+  rmSync(staging, { recursive: true, force: true });
+  try {
+    cpSync(exportDir, staging, { recursive: true });
+    writeOutArtifacts(staging);
+    rmSync(outDir, { recursive: true, force: true });
+    renameSync(staging, outDir);
+  } catch (err) {
+    if (!existsSync(outDir) && existsSync(staging)) {
+      try {
+        renameSync(staging, outDir);
+      } catch {
+        // leave staging for recovery
+      }
+    }
+    throw err;
+  }
 }
 
 function parkFile(from) {
@@ -151,29 +228,12 @@ try {
   status = result.status ?? 1;
   if (status === 0) {
     const outDir = join(root, 'out');
-    publishExportDir(join(root, '.next-export'), outDir);
-    writeFileSync(join(outDir, '.nojekyll'), '');
-    writeFileSync(
-      join(outDir, 'serve.json'),
-      `${JSON.stringify(
-        {
-          headers: [
-            {
-              source: '**/*.html',
-              headers: [{ key: 'Cache-Control', value: 'no-store' }],
-            },
-            {
-              source: '**/*.webmanifest',
-              headers: [{ key: 'Content-Type', value: 'application/manifest+json; charset=utf-8' }],
-            },
-          ],
-        },
-        null,
-        2,
-      )}\n`,
-    );
-    writePrecacheManifest(outDir);
-    stampExportedServiceWorker(outDir);
+    try {
+      publishExportDir(join(root, '.next-export'), outDir);
+    } catch (err) {
+      console.error(err instanceof Error ? err.message : err);
+      status = 1;
+    }
   }
 } finally {
   restore();

@@ -9,6 +9,33 @@ import {
 import { intersectRects, polygonAabb } from '../clip/clipGeometry';
 import { encodedRasterDimensions, isPngBuffer, tryDecodeInkSnapshot } from './fakeCanvas';
 import type { InkUndoPixels } from '@/src/storage/types';
+import { ipadDebugLog } from '@/src/web/ipadDebugLog';
+
+// #region agent log
+const INK_DEBUG_INGEST = 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426';
+function inkUndoDebug(
+  hypothesisId: string,
+  location: string,
+  message: string,
+  data: Record<string, unknown>,
+): void {
+  ipadDebugLog({
+    sessionId: 'ce3367',
+    ingest: INK_DEBUG_INGEST,
+    hypothesisId,
+    location,
+    message,
+    data,
+    timestamp: Date.now(),
+  });
+}
+function inkBufMeta(png: ArrayBuffer | undefined): Record<string, unknown> {
+  if (!png) {
+    return { len: -1, png: false, snap: false };
+  }
+  return { len: png.byteLength, png: isPngBuffer(png), snap: Boolean(tryDecodeInkSnapshot(png)) };
+}
+// #endregion
 
 /** §9.7 standard drag thumbnail size. */
 export const THUMB_WIDTH = 144;
@@ -342,6 +369,12 @@ export class InkEngine {
     if (!isPngBuffer(png)) {
       const dims = this.getRasterDimensions(rasterId);
       ctx.clearRect(0, 0, dims.width, dims.height);
+      // #region agent log
+      inkUndoDebug('B', 'InkEngine.ts:blitEncodedPng', 'cleared hot: non-png restore', {
+        rasterId,
+        ...inkBufMeta(png),
+      });
+      // #endregion
       return;
     }
     void this.blitEncodedPngAsync(
@@ -392,6 +425,19 @@ export class InkEngine {
       hotCanvas !== canvas ||
       this.overlays.has(rasterId)
     ) {
+      // #region agent log
+      inkUndoDebug('C', 'InkEngine.ts:blitEncodedPngAsync', 'async blit skipped', {
+        rasterId,
+        epochNow,
+        epoch,
+        generationNow,
+        encodedGeneration,
+        revisionNow,
+        hotRevision,
+        hotMismatch: hotCanvas !== canvas,
+        hasOverlay: this.overlays.has(rasterId),
+      });
+      // #endregion
       bitmap.close();
       return;
     }
@@ -399,6 +445,14 @@ export class InkEngine {
     this.ensureCanvasSize(rasterId, canvas, dims.width, dims.height);
     ctx.clearRect(0, 0, dims.width, dims.height);
     ctx.drawImage(bitmap, 0, 0, dims.width, dims.height);
+    // #region agent log
+    inkUndoDebug('C', 'InkEngine.ts:blitEncodedPngAsync', 'async blit applied', {
+      rasterId,
+      epoch,
+      hotRevision,
+      pngLen: png.byteLength,
+    });
+    // #endregion
     bitmap.close();
     this.callbacks.onHotPixelsReady?.(rasterId);
   }
@@ -592,6 +646,17 @@ export class InkEngine {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.drawImage(undo, 0, 0);
     }
+    // #region agent log
+    inkUndoDebug('D', 'InkEngine.ts:restoreRasterFromUndo', 'restored OffscreenCanvas', {
+      rasterId,
+      undoW: undo.width,
+      undoH: undo.height,
+      canvasW: canvas.width,
+      canvasH: canvas.height,
+      hadCtx: Boolean(ctx),
+      encoded: inkBufMeta(this.encodedPng.get(rasterId)),
+    });
+    // #endregion
     this.invalidateThumb(rasterId);
     this.pendingEncodeIds.add(rasterId);
   }
@@ -605,6 +670,13 @@ export class InkEngine {
       const dims = this.getRasterDimensions(rasterId);
       const ctx = canvas.getContext('2d');
       ctx?.clearRect(0, 0, dims.width, dims.height);
+      // #region agent log
+      inkUndoDebug('B', 'InkEngine.ts:restoreRasterFromPng', 'restore png after clearRect', {
+        rasterId,
+        ...inkBufMeta(png),
+        pendingEncode: this.pendingEncodes.has(rasterId),
+      });
+      // #endregion
       this.blitEncodedPng(canvas, png, rasterId, this.bumpBlitEpoch(rasterId));
     }
     this.invalidateThumb(rasterId);
@@ -625,7 +697,18 @@ export class InkEngine {
 
   captureRasterPng(rasterId: string): ArrayBuffer | undefined {
     const encoded = this.encodedPng.get(rasterId);
-    return encoded ? encoded.slice(0) : undefined;
+    const captured = encoded ? encoded.slice(0) : undefined;
+    // #region agent log
+    inkUndoDebug('A', 'InkEngine.ts:captureRasterPng', 'capture encoded for undo/redo', {
+      rasterId,
+      hasHot: this.hot.has(rasterId),
+      pendingEncode: this.pendingEncodes.has(rasterId),
+      pendingEncodeIds: this.pendingEncodeIds.has(rasterId),
+      hotRev: this.hotRevision.get(rasterId) ?? -1,
+      ...inkBufMeta(captured),
+    });
+    // #endregion
+    return captured;
   }
 
   invalidateThumb(rasterId: string): void {

@@ -2291,6 +2291,26 @@ export function useEditorController(projectId: string): EditorController {
     if (!next) {
       return;
     }
+    // #region agent log
+    ipadDebugLog({
+      sessionId: 'ce3367',
+      ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+      hypothesisId: 'E',
+      location: 'useEditorController.ts:undo',
+      message: 'undo applied',
+      data: {
+        past: next.past.length,
+        future: next.future.length,
+        pendingConsumed: pending.length,
+        futureInkKeys: [...(next.future[0]?.inkUndo.keys() ?? [])],
+        futureInkLens: [...(next.future[0]?.inkUndo.values() ?? [])].map((v) =>
+          v instanceof ArrayBuffer ? v.byteLength : `${v.width}x${v.height}`,
+        ),
+        inkGen: next.present.inkGeneration,
+      },
+      timestamp: Date.now(),
+    });
+    // #endregion
     historyRef.current = next;
     setHistory(next);
     autosaveRef.current?.scheduleSave(next.present, [...(next.future[0]?.inkUndo.keys() ?? [])], false);
@@ -2314,6 +2334,25 @@ export function useEditorController(projectId: string): EditorController {
     if (!next) {
       return;
     }
+    // #region agent log
+    ipadDebugLog({
+      sessionId: 'ce3367',
+      ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
+      hypothesisId: 'E',
+      location: 'useEditorController.ts:redo',
+      message: 'redo applied',
+      data: {
+        past: next.past.length,
+        future: next.future.length,
+        pastInkKeys: [...(next.past.at(-1)?.inkUndo.keys() ?? [])],
+        pastInkLens: [...(next.past.at(-1)?.inkUndo.values() ?? [])].map((v) =>
+          v instanceof ArrayBuffer ? v.byteLength : `${v.width}x${v.height}`,
+        ),
+        inkGen: next.present.inkGeneration,
+      },
+      timestamp: Date.now(),
+    });
+    // #endregion
     historyRef.current = next;
     setHistory(next);
     autosaveRef.current?.scheduleSave(
