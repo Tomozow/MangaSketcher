@@ -25,7 +25,6 @@ import {
 import { styles } from '@/src/web/editorStyles';
 import { setLiveTextContent } from '@/src/web/liveTextContentStore';
 import { repaintAllInkDisplays } from '@/src/web/ink/PageInkCanvas';
-import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 
 export type TextEditSelection = {
   id: TextId;
@@ -46,19 +45,13 @@ type TextEditBarProps = {
 
 type HudPose = { left: number; top: number; width: number; height: number; fontSize: number };
 
-function hudCaretLayout(
+function hudCaretCell(
   value: string,
   utf16Index: number,
   wrap: HTMLElement | null,
   pose: HudPose | null,
   input: HTMLTextAreaElement | null,
-): {
-  cell: { column: number; row: number };
-  fontSize: number;
-  wrapH: number;
-  fittedH: number;
-  fittedW: number;
-} {
+): { column: number; row: number } {
   const wrapFont = wrap ? Number.parseFloat(window.getComputedStyle(wrap).fontSize) : NaN;
   const fontSize = wrapFont > 0 ? wrapFont : (pose?.fontSize ?? 16);
   const wrapW = wrap?.offsetWidth ?? pose?.width ?? input?.offsetWidth ?? 1;
@@ -68,18 +61,12 @@ function hudCaretLayout(
     value,
     fontSize,
   );
-  return {
-    cell: verticalCaretCell(
-      value,
-      utf16Index,
-      { x: 0, y: 0, width: fitted.width, height: fitted.height },
-      fontSize,
-    ),
+  return verticalCaretCell(
+    value,
+    utf16Index,
+    { x: 0, y: 0, width: fitted.width, height: fitted.height },
     fontSize,
-    wrapH,
-    fittedH: fitted.height,
-    fittedW: fitted.width,
-  };
+  );
 }
 
 function visualViewRect(): { left: number; top: number; width: number; height: number } {
@@ -175,66 +162,8 @@ export function TextEditBar({
     const value = el?.value ?? draftRef.current;
     const start = el?.selectionStart ?? value.length;
     const end = el?.selectionEnd ?? start;
-    const layout = hudCaretLayout(value, start, wrap, pose, el);
-    const cell = layout.cell;
+    const cell = hudCaretCell(value, start, wrap, pose, el);
     setCaret({ ...cell, range: start !== end });
-    if (value.length <= 4 || value.includes('\n')) {
-      ipadDebugLog({
-        sessionId: '2ca20f',
-        ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-        hypothesisId: 'K',
-        location: 'TextEditBar.tsx:syncCaret',
-        message: 'caret cell',
-        data: {
-          start,
-          end,
-          column: cell.column,
-          row: cell.row,
-          boxW: layout.fittedW,
-          boxH: layout.fittedH,
-          fontSize: layout.fontSize,
-        },
-      });
-    }
-    if (value.length <= 4) {
-      // #region agent log
-      ipadDebugLog({
-        sessionId: '2ca20f',
-        ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-        hypothesisId: 'R',
-        location: 'TextEditBar.tsx:syncCaret',
-        message: 'caret fit vs wrap',
-        data: {
-          len: value.length,
-          start,
-          column: cell.column,
-          row: cell.row,
-          wrapH: layout.wrapH,
-          fittedH: layout.fittedH,
-          fontSize: layout.fontSize,
-        },
-      });
-      // #endregion
-    }
-    if (value.includes('\n') || value.includes('\r')) {
-      // #region agent log
-      ipadDebugLog({
-        sessionId: '2ca20f',
-        ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-        hypothesisId: 'L',
-        location: 'TextEditBar.tsx:syncCaret',
-        message: 'caret codes',
-        data: {
-          start,
-          column: cell.column,
-          row: cell.row,
-          cr: (value.match(/\r/g) ?? []).length,
-          lf: (value.match(/\n/g) ?? []).length,
-          around: [...value.slice(Math.max(0, start - 4), start + 2)].map((ch) => ch.charCodeAt(0)),
-        },
-      });
-      // #endregion
-    }
   }, [pose]);
 
   const commitDraft = useCallback(
@@ -374,97 +303,26 @@ export function TextEditBar({
     };
   }, [layoutKey, selection?.id]);
 
-  // #region agent log
   useEffect(() => {
     const el = textareaRef.current;
     if (!el || !selection) {
       return;
     }
-    const onBeforeInput = (event: Event) => {
-      const e = event as InputEvent;
-      ipadDebugLog({
-        sessionId: '2ca20f',
-        ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-        hypothesisId: 'A',
-        location: 'TextEditBar.tsx:beforeinput',
-        message: 'textarea beforeinput',
-        data: {
-          inputType: e.inputType,
-          isComposing: e.isComposing,
-          composingRef: composingRef.current,
-          valueLen: el.value.length,
-          dataLen: typeof e.data === 'string' ? e.data.length : -1,
-        },
-      });
-    };
     const onInput = (event: Event) => {
       const e = event as InputEvent;
-      ipadDebugLog({
-        sessionId: '2ca20f',
-        ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-        hypothesisId: 'B',
-        location: 'TextEditBar.tsx:input',
-        message: 'textarea native input',
-        data: {
-          inputType: e.inputType,
-          isComposing: e.isComposing,
-          composingRef: composingRef.current,
-          valueLen: el.value.length,
-          draftLen: draftRef.current.length,
-        },
-      });
-      if (e.inputType === 'insertLineBreak' || e.inputType === 'insertParagraph') {
-        const at = el.selectionStart ?? 0;
-        if (el.value[at] === '\n' || el.value[at] === '\r') {
-          const next = at + (el.value[at] === '\r' && el.value[at + 1] === '\n' ? 2 : 1);
-          el.setSelectionRange(next, next);
-        }
+      if (e.inputType !== 'insertLineBreak' && e.inputType !== 'insertParagraph') {
+        return;
       }
-      // #region agent log
-      const wrapEl = document.querySelector<HTMLElement>(
-        `[${PAGE_TEXT_WRAP_ATTR}][${PAGE_TEXT_ID_ATTR}="${selectionRef.current?.id ?? ''}"]`,
-      );
-      const wrapFont = wrapEl ? Number.parseFloat(window.getComputedStyle(wrapEl).fontSize) : 0;
-      const layout = hudCaretLayout(
-        el.value,
-        el.selectionStart ?? 0,
-        wrapEl,
-        null,
-        el,
-      );
-      const cell = layout.cell;
-      ipadDebugLog({
-        sessionId: '2ca20f',
-        ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-        hypothesisId: 'P',
-        location: 'TextEditBar.tsx:input',
-        message: 'caret after input',
-        data: {
-          inputType: e.inputType,
-          sel: el.selectionStart,
-          len: el.value.length,
-          lastCodes: [...el.value.slice(-8)].map((ch) => ch.charCodeAt(0)),
-          atSel: el.value.charCodeAt(el.selectionStart ?? 0) || 0,
-          cr: (el.value.match(/\r/g) ?? []).length,
-          lf: (el.value.match(/\n/g) ?? []).length,
-          column: cell.column,
-          row: cell.row,
-          wrapW: wrapEl?.offsetWidth ?? -1,
-          wrapH: wrapEl?.offsetHeight ?? -1,
-          wrapFont,
-          fittedH: layout.fittedH,
-        },
-      });
-      // #endregion
+      const at = el.selectionStart ?? 0;
+      if (el.value[at] !== '\n' && el.value[at] !== '\r') {
+        return;
+      }
+      const next = at + (el.value[at] === '\r' && el.value[at + 1] === '\n' ? 2 : 1);
+      el.setSelectionRange(next, next);
     };
-    el.addEventListener('beforeinput', onBeforeInput);
     el.addEventListener('input', onInput);
-    return () => {
-      el.removeEventListener('beforeinput', onBeforeInput);
-      el.removeEventListener('input', onInput);
-    };
+    return () => el.removeEventListener('input', onInput);
   }, [selection?.id]);
-  // #endregion
 
   useEffect(() => {
     if (!selection) return;
@@ -547,16 +405,6 @@ export function TextEditBar({
 
   const handleCompositionStart = () => {
     composingRef.current = true;
-    // #region agent log
-    ipadDebugLog({
-      sessionId: '2ca20f',
-      ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-      hypothesisId: 'A',
-      location: 'TextEditBar.tsx:compositionstart',
-      message: 'composition start',
-      data: { valueLen: textareaRef.current?.value.length ?? -1 },
-    });
-    // #endregion
   };
 
   const handleCompositionEnd = () => {
@@ -572,16 +420,6 @@ export function TextEditBar({
       }
     }
     const value = textareaRef.current?.value ?? draft;
-    // #region agent log
-    ipadDebugLog({
-      sessionId: '2ca20f',
-      ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-      hypothesisId: 'A',
-      location: 'TextEditBar.tsx:compositionend',
-      message: 'composition end',
-      data: { valueLen: value.length, pendingExplicit: pendingExplicitCommitRef.current },
-    });
-    // #endregion
     setDraft(value);
     onLiveContent(value);
     const liveId = selectionRef.current?.id;
@@ -609,86 +447,15 @@ export function TextEditBar({
       event.target.value = value;
       event.target.setSelectionRange(start, end);
     }
-    // #region agent log
-    ipadDebugLog({
-      sessionId: '2ca20f',
-      ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-      hypothesisId: 'B',
-      location: 'TextEditBar.tsx:handleChange',
-      message: 'react onChange',
-      data: {
-        valueLen: value.length,
-        prevDraftLen: draftRef.current.length,
-        composingRef: composingRef.current,
-        nativeIsComposing: (event.nativeEvent as InputEvent).isComposing,
-      },
-    });
-    // #endregion
     setDraft(value);
     onLiveContent(value);
     const current = selectionRef.current;
     if (current) {
       setLiveTextContent({ id: current.id, content: value });
     }
-    const inputType = (event.nativeEvent as InputEvent).inputType;
-    // #region agent log
-    if (inputType === 'insertLineBreak' || inputType === 'insertParagraph') {
-      ipadDebugLog({
-        sessionId: '2ca20f',
-        ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-        hypothesisId: 'J',
-        location: 'TextEditBar.tsx:handleChange',
-        message: 'linebreak skip hud refresh',
-        data: {
-          sel: event.target.selectionStart,
-          lastCode: value.charCodeAt(value.length - 1),
-          poseH: pose?.height ?? -1,
-          poseW: pose?.width ?? -1,
-        },
-      });
-    }
-    ipadDebugLog({
-      sessionId: '2ca20f',
-      ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-      hypothesisId: 'O',
-      location: 'TextEditBar.tsx:handleChange',
-      message: 'newline normalize',
-      data: {
-        inputType: inputType ?? null,
-        rawLen: raw.length,
-        valueLen: value.length,
-        cr: (raw.match(/\r/g) ?? []).length,
-        lf: (raw.match(/\n/g) ?? []).length,
-        lastCodes: [...raw.slice(-6)].map((ch) => ch.charCodeAt(0)),
-        selStartRaw,
-        selStart: event.target.selectionStart,
-      },
-    });
-    // #endregion
     requestAnimationFrame(() => {
       syncCaret();
     });
-  };
-
-  const handleSelect = () => {
-    const el = textareaRef.current;
-    if (el && el.selectionStart !== el.selectionEnd) {
-      // #region agent log
-      ipadDebugLog({
-        sessionId: '2ca20f',
-        ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-        hypothesisId: 'Q',
-        location: 'TextEditBar.tsx:select',
-        message: 'textarea selection range',
-        data: {
-          start: el.selectionStart,
-          end: el.selectionEnd,
-          opacity: window.getComputedStyle(el).opacity,
-        },
-      });
-      // #endregion
-    }
-    syncCaret();
   };
 
   if (!selection) {
@@ -731,7 +498,7 @@ export function TextEditBar({
           height: pose?.height,
         }}
         onChange={handleChange}
-        onSelect={handleSelect}
+        onSelect={syncCaret}
         onKeyUp={syncCaret}
         onClick={syncCaret}
         onFocus={handleFocus}

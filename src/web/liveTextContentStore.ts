@@ -2,7 +2,6 @@
 
 import { useSyncExternalStore } from 'react';
 import type { TextId } from '@/src/domain/types';
-import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 
 export type LiveTextContent = {
   id: TextId;
@@ -42,20 +41,6 @@ export function setLiveTextContent(next: LiveTextContent | null): void {
   ) {
     return;
   }
-  // #region agent log
-  ipadDebugLog({
-    sessionId: '2ca20f',
-    ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-    hypothesisId: 'C',
-    location: 'liveTextContentStore.ts:setLiveTextContent',
-    message: 'live store emit',
-    data: {
-      nextLen: next?.content.length ?? -1,
-      prevLen: live?.content.length ?? -1,
-      sameId: live?.id === next?.id,
-    },
-  });
-  // #endregion
   live = next;
   emit();
 }
