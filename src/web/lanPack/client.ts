@@ -1,5 +1,5 @@
 import { ipadDebugLog } from '@/src/web/ipadDebugLog';
-import { lanPackApiUrl } from './hubUrl';
+import { isLanPackCode, lanPackApiUrl } from './hubUrl';
 
 export const LAN_PACK_FETCH_TIMEOUT_MS = 4000;
 
@@ -42,10 +42,21 @@ export async function mintLanPackCode(hubBase: string, signal?: AbortSignal): Pr
     throw new Error('mint');
   }
   const body = (await response.json()) as { code?: string };
-  if (typeof body.code !== 'string' || !/^[0-9]{6}$/.test(body.code)) {
+  if (typeof body.code !== 'string' || !isLanPackCode(body.code)) {
     throw new Error('mint');
   }
   return { code: body.code };
+}
+
+export function releaseLanPackCode(hubBase: string, code: string): void {
+  if (!isLanPackCode(code)) {
+    return;
+  }
+  void fetch(lanPackApiUrl(hubBase, `/api/lan-pack/${code}`), {
+    method: 'DELETE',
+    cache: 'no-store',
+    keepalive: true,
+  }).catch(() => undefined);
 }
 
 export async function putLanPackZip(

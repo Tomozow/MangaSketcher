@@ -1,11 +1,13 @@
 import { createServer, request as httpRequest } from 'node:http';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, test } from 'vitest';
 import {
   handleLanPack,
+  LAN_PACK_DIR_NAME,
+  LAN_PACK_LIVE_CODE_LIMIT,
   LAN_PACK_MAX_BYTES,
   parseLanPackPath,
 } from '../../../../scripts/static-host/lanPackHub.mjs';
@@ -14,7 +16,8 @@ describe('parseLanPackPath', () => {
   test('routes health, root, code, invalid, skip', () => {
     expect(parseLanPackPath('/api/lan-pack/health')).toEqual({ kind: 'health' });
     expect(parseLanPackPath('/api/lan-pack')).toEqual({ kind: 'root' });
-    expect(parseLanPackPath('/api/lan-pack/000001')).toEqual({ kind: 'code', code: '000001' });
+    expect(parseLanPackPath('/api/lan-pack/001')).toEqual({ kind: 'code', code: '001' });
+    expect(parseLanPackPath('/api/lan-pack/000001')).toEqual({ kind: 'invalid' });
     expect(parseLanPackPath('/api/lan-pack/abc')).toEqual({ kind: 'invalid' });
     expect(parseLanPackPath('/other')).toEqual({ kind: 'skip' });
   });
@@ -63,7 +66,7 @@ describe('lan pack hub HTTP', () => {
       });
       expect(minted.status).toBe(200);
       const body = (await minted.json()) as { code: string };
-      expect(body.code).toMatch(/^[0-9]{6}$/);
+      expect(body.code).toMatch(/^[0-9]{3}$/);
 
       const waiting = await fetch(`${hub.url}/api/lan-pack/${body.code}`, {
         headers: { Origin: origin },
@@ -149,13 +152,68 @@ describe('lan pack hub HTTP', () => {
     }
   });
 
-  test('non six-digit path is 404', async () => {
+  test('non three-digit path is 404', async () => {
     const hub = await listen();
     try {
       const res = await fetch(`${hub.url}/api/lan-pack/12ab56`, {
         headers: { Origin: 'https://127.0.0.1:3000' },
       });
       expect(res.status).toBe(404);
+    } finally {
+      await hub.close();
+    }
+  });
+
+  test('DELETE removes the code and GET is then 404', async () => {
+    const hub = await listen();
+    try {
+      const origin = 'https://127.0.0.1:3000';
+      const minted = await fetch(`${hub.url}/api/lan-pack`, {
+        method: 'POST',
+        headers: { Origin: origin },
+      });
+      const { code } = (await minted.json()) as { code: string };
+      const del = await fetch(`${hub.url}/api/lan-pack/${code}`, {
+        method: 'DELETE',
+        headers: { Origin: origin },
+      });
+      expect(del.status).toBe(204);
+      const got = await fetch(`${hub.url}/api/lan-pack/${code}`, { headers: { Origin: origin } });
+      expect(got.status).toBe(404);
+    } finally {
+      await hub.close();
+    }
+  });
+
+  test('mint returns 503 when live codes are at the limit', async () => {
+    const hub = await listen();
+    try {
+      const dir = join(hub.repoRoot, LAN_PACK_DIR_NAME);
+      mkdirSync(dir, { recursive: true });
+      for (let i = 0; i < LAN_PACK_LIVE_CODE_LIMIT; i += 1) {
+        const code = String(i).padStart(3, '0');
+        writeFileSync(join(dir, `${code}.json`), `${JSON.stringify({ createdAt: 1 })}\n`);
+      }
+      const minted = await fetch(`${hub.url}/api/lan-pack`, {
+        method: 'POST',
+        headers: { Origin: 'https://127.0.0.1:3000' },
+      });
+      expect(minted.status).toBe(503);
+    } finally {
+      await hub.close();
+    }
+  });
+
+  test('sweep removes leftover six-digit transfer files', async () => {
+    const hub = await listen();
+    try {
+      const dir = join(hub.repoRoot, LAN_PACK_DIR_NAME);
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, '000000.json'), `${JSON.stringify({ createdAt: 1 })}\n`);
+      await fetch(`${hub.url}/api/lan-pack/health`, {
+        headers: { Origin: 'https://127.0.0.1:3000' },
+      });
+      expect(existsSync(join(dir, '000000.json'))).toBe(false);
     } finally {
       await hub.close();
     }

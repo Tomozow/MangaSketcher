@@ -16,9 +16,16 @@ import { lanIPv4s } from '../lanHttpsShared.mjs';
 
 export const LAN_PACK_MAX_BYTES = 200 * 1024 * 1024;
 export const LAN_PACK_DIR_NAME = '.lan-transfer';
+export const LAN_PACK_CODE_DIGITS = 3;
+export const LAN_PACK_LIVE_CODE_LIMIT = 16;
+
+const CODE_PATTERN = `^[0-9]{${LAN_PACK_CODE_DIGITS}}$`;
+const CODE_PATH_PATTERN = new RegExp(`^/api/lan-pack/([0-9]{${LAN_PACK_CODE_DIGITS}})$`);
+const TRANSFER_FILE_PATTERN = /^([0-9]+)\.(json|zip|part)$/;
+const LIVE_META_PATTERN = new RegExp(`^[0-9]{${LAN_PACK_CODE_DIGITS}}\\.json$`);
 
 export function isLanPackCode(value) {
-  return typeof value === 'string' && /^[0-9]{6}$/.test(value);
+  return typeof value === 'string' && new RegExp(CODE_PATTERN).test(value);
 }
 
 export function lanPackOriginKind(origin, ipv4s) {
@@ -50,7 +57,7 @@ export function lanPackOriginKind(origin, ipv4s) {
 function corsHeaders(origin) {
   return {
     'Access-Control-Allow-Origin': origin,
-    'Access-Control-Allow-Methods': 'GET, HEAD, POST, PUT, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, HEAD, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Max-Age': '600',
     Vary: 'Origin',
@@ -72,7 +79,7 @@ export function parseLanPackPath(pathname) {
   if (pathname === '/api/lan-pack') {
     return { kind: 'root' };
   }
-  const match = pathname.match(/^\/api\/lan-pack\/([0-9]{6})$/);
+  const match = pathname.match(CODE_PATH_PATTERN);
   if (match) {
     return { kind: 'code', code: match[1] };
   }
@@ -114,16 +121,33 @@ export function removeCode(dir, code) {
   unlinkQuiet(partPath(dir, code));
 }
 
+function liveCodeCount(dir) {
+  if (!existsSync(dir)) {
+    return 0;
+  }
+  let count = 0;
+  for (const name of readdirSync(dir)) {
+    if (LIVE_META_PATTERN.test(name)) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 export function sweepLanPackDir(dir) {
   if (!existsSync(dir)) {
     return;
   }
   for (const name of readdirSync(dir)) {
-    const match = name.match(/^([0-9]{6})\.(json|zip|part)$/);
+    const match = name.match(TRANSFER_FILE_PATTERN);
     if (!match) {
       continue;
     }
     const code = match[1];
+    if (code.length !== LAN_PACK_CODE_DIGITS) {
+      removeCode(dir, code);
+      continue;
+    }
     const jsonPath = metaPath(dir, code);
     if (!existsSync(jsonPath)) {
       removeCode(dir, code);
@@ -156,8 +180,12 @@ function writeMeta(dir, code, meta) {
 }
 
 function mintCode(dir) {
+  if (liveCodeCount(dir) >= LAN_PACK_LIVE_CODE_LIMIT) {
+    return null;
+  }
+  const space = 10 ** LAN_PACK_CODE_DIGITS;
   for (let i = 0; i < 64; i += 1) {
-    const code = String(randomInt(0, 1_000_000)).padStart(6, '0');
+    const code = String(randomInt(0, space)).padStart(LAN_PACK_CODE_DIGITS, '0');
     if (!existsSync(metaPath(dir, code))) {
       writeMeta(dir, code, { createdAt: Date.now() });
       return code;
@@ -334,6 +362,16 @@ export async function handleLanPack(req, res, opts = {}) {
     await pipeline(createReadStream(zip), res);
     unlinkQuiet(zip);
     unlinkQuiet(partPath(dir, code));
+    return true;
+  }
+
+  if (req.method === 'DELETE') {
+    if (!meta) {
+      send(res, 404, origin, kind, null);
+      return true;
+    }
+    removeCode(dir, code);
+    send(res, 204, origin, kind, null);
     return true;
   }
 

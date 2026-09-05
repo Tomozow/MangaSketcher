@@ -8,23 +8,25 @@ export const LAN_PACK_KEEP_FOREGROUND = 'この画面を前面のままにして
 
 export const LAN_PACK_SENT = '送りました。受け側の一覧に複製が追加されます。';
 
-export const LAN_PACK_BAD_CODE = '号が違います。受け側の番号を確認してください。';
+export const LAN_PACK_BAD_CODE = '番号が違います。受け側の番号を確認してください。';
 
 export const LAN_PACK_TOO_LARGE = 'サイズが上限（200MB）を超えています。';
 
 const HUB_PORT = '3443';
 
+export const LAN_PACK_CODE_DIGITS = 3;
+
 export function isLanPackCode(value: string): boolean {
-  return /^[0-9]{6}$/.test(value);
+  return new RegExp(`^[0-9]{${LAN_PACK_CODE_DIGITS}}$`).test(value);
 }
 
 export function normalizeLanPackDigits(raw: string): string {
   const halfWidth = raw.replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0));
-  return halfWidth.replace(/\D/g, '').slice(0, 6);
+  return halfWidth.replace(/\D/g, '').slice(0, LAN_PACK_CODE_DIGITS);
 }
 
 export function padLanPackCode(n: number): string {
-  return String(n).padStart(6, '0');
+  return String(n).padStart(LAN_PACK_CODE_DIGITS, '0');
 }
 
 export function resolveLanPackHubBase(location: {

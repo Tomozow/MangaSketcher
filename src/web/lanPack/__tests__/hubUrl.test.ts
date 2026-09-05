@@ -40,17 +40,18 @@ describe('lan pack hub URL', () => {
 describe('lan pack codes and CORS kinds', () => {
   const ips = ['192.168.0.2', '10.0.0.4'];
 
-  test('six digit codes only', () => {
-    expect(isLanPackCode('000000')).toBe(true);
-    expect(isLanPackCode('12345')).toBe(false);
-    expect(isLanPackCode('1234567')).toBe(false);
-    expect(isLanPackCode('12a456')).toBe(false);
+  test('three digit codes only', () => {
+    expect(isLanPackCode('000')).toBe(true);
+    expect(isLanPackCode('123')).toBe(true);
+    expect(isLanPackCode('12')).toBe(false);
+    expect(isLanPackCode('1234')).toBe(false);
+    expect(isLanPackCode('12a')).toBe(false);
   });
 
   test('normalizes fullwidth digits and strips other glyphs', () => {
     expect(normalizeLanPackDigits('１２３')).toBe('123');
-    expect(normalizeLanPackDigits('12a45')).toBe('1245');
-    expect(normalizeLanPackDigits('1234567')).toBe('123456');
+    expect(normalizeLanPackDigits('12a45')).toBe('124');
+    expect(normalizeLanPackDigits('1234')).toBe('123');
   });
 
   test('allows PC origins and hub origins', () => {

@@ -15,9 +15,11 @@ import {
   mintLanPackCode,
   probeLanPackHub,
   putLanPackZip,
+  releaseLanPackCode,
 } from '@/src/web/lanPack/client';
 import {
   LAN_PACK_BAD_CODE,
+  LAN_PACK_CODE_DIGITS,
   LAN_PACK_HUB_DOWN_MESSAGE,
   LAN_PACK_PDF_NOTICE,
   LAN_PACK_SENT,
@@ -82,9 +84,20 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
     const [recvCode, setRecvCode] = useState<string | null>(null);
     const [hubDown, setHubDown] = useState(false);
     const [status, setStatus] = useState<string | null>(null);
+    const [sendError, setSendError] = useState<string | null>(null);
     const [sendPhase, setSendPhase] = useState<'form' | 'sending'>('form');
-    const composingRef = useRef(false);
     const sendAbortRef = useRef<AbortController | null>(null);
+    const recvCodeRef = useRef<string | null>(null);
+
+    const dropRecvCode = useCallback((code: string | null) => {
+      if (code == null) {
+        return;
+      }
+      const hubBase = hubBaseFromWindow();
+      if (hubBase != null) {
+        releaseLanPackCode(hubBase, code);
+      }
+    }, []);
 
     useEffect(() => {
       onBusyChange(busy || mode === 'send-code');
@@ -99,6 +112,7 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
       setSendProjectId(null);
       setSendProjectName(null);
       setStatus(null);
+      setSendError(null);
       setSendPhase('form');
     }, []);
 
@@ -154,6 +168,8 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
 
     useEffect(() => {
       if (mode === 'send-code') {
+        dropRecvCode(recvCodeRef.current);
+        recvCodeRef.current = null;
         setRecvCode(null);
         return;
       }
@@ -170,6 +186,8 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
         let code: string | null = null;
         while (!stopped) {
           if (document.visibilityState === 'hidden') {
+            dropRecvCode(code);
+            recvCodeRef.current = null;
             setRecvCode(null);
             code = null;
             await sleep(500);
@@ -178,10 +196,13 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
           const hubBase = hubBaseFromWindow();
           const alive = hubBase != null && (await probeLanPackHub(hubBase, abort.signal));
           if (stopped) {
+            dropRecvCode(code);
             return;
           }
           if (!alive || hubBase == null) {
+            dropRecvCode(code);
             setHubDown(true);
+            recvCodeRef.current = null;
             setRecvCode(null);
             code = null;
             await sleep(8000);
@@ -192,9 +213,11 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
             if (code == null) {
               const minted = await mintLanPackCode(hubBase, abort.signal);
               if (stopped) {
+                dropRecvCode(minted.code);
                 return;
               }
               code = minted.code;
+              recvCodeRef.current = code;
               setRecvCode(code);
               logLanPack('mint', { codeLen: code.length, origin: window.location.origin });
             }
@@ -204,6 +227,7 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
               }
               const got = await getLanPackZip(hubBase, code, abort.signal);
               if (stopped) {
+                dropRecvCode(code);
                 return;
               }
               if (got.status === 200 && got.file) {
@@ -211,18 +235,22 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
                 continue;
               }
               if (got.status === 404) {
-                code = null;
+                recvCodeRef.current = null;
                 setRecvCode(null);
+                code = null;
                 break;
               }
               await sleep(1500);
             }
           } catch (err) {
             if (abort.signal.aborted || stopped) {
+              dropRecvCode(code);
               return;
             }
             logLanPack('recv-loop', { name: err instanceof Error ? err.name : 'x' });
+            dropRecvCode(code);
             setHubDown(true);
+            recvCodeRef.current = null;
             setRecvCode(null);
             code = null;
             await sleep(8000);
@@ -234,8 +262,10 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
       return () => {
         stopped = true;
         abort.abort();
+        dropRecvCode(recvCodeRef.current);
+        recvCodeRef.current = null;
       };
-    }, [mode]);
+    }, [dropRecvCode, mode]);
 
     const startSend = useCallback(
       async (project: ProjectMeta) => {
@@ -252,6 +282,7 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
         setMode('send-code');
         setSendPhase('form');
         setStatus(LAN_PACK_PDF_NOTICE);
+        setSendError(null);
         setNotice(null);
       },
       [busy, listBusy, requireHub, setNotice],
@@ -263,13 +294,19 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
       if (busy || listBusy || sendProjectId == null || !isLanPackCode(codeInput)) {
         return;
       }
-      const hubBase = await requireHub();
+      const hubBase = hubBaseFromWindow();
       if (hubBase == null) {
+        setSendError(LAN_PACK_HUB_DOWN_MESSAGE);
+        return;
+      }
+      const hubOk = await probeLanPackHub(hubBase);
+      if (!hubOk) {
+        setSendError(LAN_PACK_HUB_DOWN_MESSAGE);
         return;
       }
       setBusy(true);
       setSendPhase('sending');
-      setError(null);
+      setSendError(null);
       setNotice(null);
       const abort = new AbortController();
       sendAbortRef.current = abort;
@@ -290,22 +327,22 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
           return;
         }
         if (statusCode === 404) {
-          setError(LAN_PACK_BAD_CODE);
+          setSendError(LAN_PACK_BAD_CODE);
           setSendPhase('form');
           return;
         }
         if (statusCode === 413) {
-          setError(LAN_PACK_TOO_LARGE);
+          setSendError(LAN_PACK_TOO_LARGE);
           setSendPhase('form');
           return;
         }
-        setError(LAN_PACK_HUB_DOWN_MESSAGE);
+        setSendError(LAN_PACK_HUB_DOWN_MESSAGE);
         setSendPhase('form');
       } catch (err) {
         if (abort.signal.aborted || (err instanceof DOMException && err.name === 'AbortError')) {
           return;
         }
-        setError(err instanceof Error ? err.message : 'エクスポートに失敗しました。');
+        setSendError(err instanceof Error ? err.message : 'エクスポートに失敗しました。');
         setSendPhase('form');
       } finally {
         if (sendAbortRef.current === abort) {
@@ -313,7 +350,7 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
         }
         setBusy(false);
       }
-    }, [busy, closeSend, codeInput, listBusy, requireHub, sendProjectId, setError, setNotice]);
+    }, [busy, closeSend, codeInput, listBusy, sendProjectId, setNotice]);
 
     return (
       <>
@@ -321,7 +358,7 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
           <div className={styles.lanRecvStrip} aria-live="polite">
             {recvCode ? (
               <>
-                <span className={styles.lanRecvLabel}>LAN受け取り</span>
+                <span className={styles.lanRecvLabel}>LAN受け取り番号</span>
                 <span className={styles.lanCodeDisplay}>{recvCode}</span>
               </>
             ) : hubDown ? (
@@ -341,46 +378,49 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
               {sendPhase === 'form' ? (
                 <>
                   <span className={styles.exportReadyLabel}>{status ?? LAN_PACK_PDF_NOTICE}</span>
-                  <div className={styles.exportReadyActions}>
+                  {sendError ? (
+                    <p className={styles.error} role="alert">
+                      {sendError}
+                    </p>
+                  ) : null}
+                  <form
+                    className={styles.exportReadyActions}
+                    onSubmit={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      void confirmSend();
+                    }}
+                  >
                     <input
                       className={styles.lanCodeInput}
                       type="text"
-                      inputMode="text"
-                      enterKeyHint="done"
+                      inputMode="numeric"
+                      enterKeyHint="send"
                       autoComplete="one-time-code"
                       autoCorrect="off"
                       autoCapitalize="off"
                       spellCheck={false}
-                      maxLength={6}
+                      maxLength={LAN_PACK_CODE_DIGITS}
                       value={codeInput}
                       autoFocus
                       aria-label="受け取り号"
                       onPointerDown={(event) => event.stopPropagation()}
                       onKeyDown={(event) => event.stopPropagation()}
                       onChange={(event) => {
-                        if (composingRef.current) {
-                          setCodeInput(event.target.value);
-                          return;
-                        }
                         setCodeInput(normalizeLanPackDigits(event.target.value));
                       }}
-                      onCompositionStart={() => {
-                        composingRef.current = true;
-                      }}
                       onCompositionEnd={(event) => {
-                        composingRef.current = false;
                         setCodeInput(normalizeLanPackDigits(event.currentTarget.value));
                       }}
                     />
                     <button
-                      type="button"
+                      type="submit"
                       className={styles.newButton}
                       disabled={!isLanPackCode(codeInput) || sendProjectId == null}
-                      onClick={() => void confirmSend()}
                     >
                       送る
                     </button>
-                  </div>
+                  </form>
                 </>
               ) : (
                 <div className={styles.lanSpinnerWrap} role="status" aria-label="送信中" aria-busy="true">
