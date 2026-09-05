@@ -1,14 +1,27 @@
 import type { EditorDocument, ProjectMeta } from '../types';
 import { APP_SETTINGS_META_ID } from '../types';
 import { collectRasterIds } from '../rasterIds';
-import type { ProjectExportSnapshot, ProjectImportPayload, StorageDatabase } from './idb';
+import {
+  documentLiveRastersAreValid,
+  isQuotaExceededError,
+  rasterToArrayBuffer,
+  snapshotGuardPasses,
+  snapshotRastersToPut,
+  stripStoredDocument,
+  type CommitDocumentGenerationInput,
+  type CommitDocumentGenerationResult,
+} from '../generationSnapshot';
+import type { ProjectExportSnapshot, ProjectImportPayload, StorageDatabase } from '../idb';
 
 export class MemoryStorageDatabase implements StorageDatabase {
   readonly meta = new Map<string, ProjectMeta>();
   readonly documents = new Map<string, EditorDocument>();
-  readonly rasters = new Map<string, ArrayBuffer>();
+  readonly rasters = new Map<string, ArrayBuffer | Blob | unknown>();
+  readonly documentSnapshots = new Map<string, EditorDocument & { id: string }>();
+  readonly rasterSnapshots = new Map<string, ArrayBuffer | Blob | unknown>();
   failDeleteProjectRecords = false;
   failImportProjectAtomic = false;
+  failSnapshotQuota = false;
 
   async listMeta(): Promise<ProjectMeta[]> {
     return [...this.meta.values()].filter((item) => item.id !== APP_SETTINGS_META_ID);
@@ -27,8 +40,11 @@ export class MemoryStorageDatabase implements StorageDatabase {
   }
 
   async getDocument(id: string): Promise<EditorDocument | undefined> {
-    const doc = this.documents.get(id);
-    return doc ? structuredClone(doc) : undefined;
+    const stored = this.documents.get(id);
+    if (!stored) {
+      return undefined;
+    }
+    return structuredClone(stored);
   }
 
   async putDocument(doc: EditorDocument): Promise<void> {
@@ -40,8 +56,7 @@ export class MemoryStorageDatabase implements StorageDatabase {
   }
 
   async getRaster(rasterId: string): Promise<ArrayBuffer | undefined> {
-    const png = this.rasters.get(rasterId);
-    return png ? png.slice(0) : undefined;
+    return rasterToArrayBuffer(this.rasters.get(rasterId));
   }
 
   async putRaster(rasterId: string, png: ArrayBuffer): Promise<void> {
@@ -56,6 +71,99 @@ export class MemoryStorageDatabase implements StorageDatabase {
     return [...this.rasters.keys()];
   }
 
+  async getSnapshotDocument(id: string): Promise<EditorDocument | undefined> {
+    const stored = this.documentSnapshots.get(id);
+    const stripped = stripStoredDocument(stored);
+    return stripped ? structuredClone(stripped) : undefined;
+  }
+
+  async getSnapshotRaster(rasterId: string): Promise<ArrayBuffer | undefined> {
+    return rasterToArrayBuffer(this.rasterSnapshots.get(rasterId));
+  }
+
+  async listSnapshotRasterIds(): Promise<string[]> {
+    return [...this.rasterSnapshots.keys()];
+  }
+
+  async commitDocumentGeneration(
+    input: CommitDocumentGenerationInput,
+  ): Promise<CommitDocumentGenerationResult> {
+    const payload = input.rasters ?? new Map<string, ArrayBuffer>();
+    const mode = input.snapshot ?? 'guarded';
+    const liveBefore = new Map<string, ArrayBuffer>();
+    for (const rasterId of collectRasterIds(input.document)) {
+      const png = await this.getRaster(rasterId);
+      if (png) {
+        liveBefore.set(rasterId, png);
+      }
+    }
+
+    for (const [rasterId, png] of payload.entries()) {
+      await this.putRaster(rasterId, png);
+    }
+    await this.putDocument(input.document);
+    await this.putMeta(input.meta);
+
+    if (mode === 'none') {
+      return { snapshotUpdated: false };
+    }
+
+    try {
+      if (this.failSnapshotQuota) {
+        const err = new Error('QuotaExceededError');
+        err.name = 'QuotaExceededError';
+        throw err;
+      }
+
+      if (mode === 'name-only') {
+        const liveOk = await documentLiveRastersAreValid((id) => this.getRaster(id), input.document);
+        if (!liveOk) {
+          return { snapshotUpdated: false };
+        }
+        const snap = await this.getSnapshotDocument(input.document.projectId);
+        if (!snap) {
+          return { snapshotUpdated: false };
+        }
+        snap.name = input.document.name;
+        this.documentSnapshots.set(snap.projectId, { ...structuredClone(snap), id: snap.projectId });
+        return { snapshotUpdated: true };
+      }
+
+      if (!snapshotGuardPasses(input.document, payload, liveBefore)) {
+        return { snapshotUpdated: false };
+      }
+
+      const existingSnapshot = new Map<string, ArrayBuffer>();
+      for (const rasterId of collectRasterIds(input.document)) {
+        const png = await this.getSnapshotRaster(rasterId);
+        if (png) {
+          existingSnapshot.set(rasterId, png);
+        }
+      }
+      const toPut = snapshotRastersToPut(input.document, payload, liveBefore, existingSnapshot);
+      this.documentSnapshots.set(input.document.projectId, {
+        ...structuredClone(input.document),
+        id: input.document.projectId,
+      });
+      for (const [rasterId, png] of toPut.entries()) {
+        this.rasterSnapshots.set(rasterId, png.slice(0));
+      }
+      const prefix = `${input.document.projectId}:`;
+      const keep = new Set(collectRasterIds(input.document));
+      for (const key of [...this.rasterSnapshots.keys()]) {
+        if (key.startsWith(prefix) && !keep.has(key)) {
+          this.rasterSnapshots.delete(key);
+        }
+      }
+      return { snapshotUpdated: true };
+    } catch (err) {
+      if (isQuotaExceededError(err) || this.failSnapshotQuota) {
+        return { snapshotUpdated: false };
+      }
+      return { snapshotUpdated: false };
+    }
+  }
+
   async deleteProjectRecords(projectId: string): Promise<void> {
     if (this.failDeleteProjectRecords) {
       throw new Error('simulated idb delete failure');
@@ -66,7 +174,13 @@ export class MemoryStorageDatabase implements StorageDatabase {
         this.rasters.delete(key);
       }
     }
+    for (const key of [...this.rasterSnapshots.keys()]) {
+      if (key.startsWith(prefix)) {
+        this.rasterSnapshots.delete(key);
+      }
+    }
     this.documents.delete(projectId);
+    this.documentSnapshots.delete(projectId);
     this.meta.delete(projectId);
   }
 
@@ -93,12 +207,15 @@ export class MemoryStorageDatabase implements StorageDatabase {
     const rasterBackup = new Map(this.rasters);
     const documentsBackup = new Map(this.documents);
     const metaBackup = new Map(this.meta);
+    const documentSnapshotsBackup = new Map(this.documentSnapshots);
+    const rasterSnapshotsBackup = new Map(this.rasterSnapshots);
     try {
-      for (const [rasterId, png] of payload.rasters.entries()) {
-        this.rasters.set(rasterId, png.slice(0));
-      }
-      this.documents.set(payload.document.projectId, structuredClone(payload.document));
-      this.meta.set(payload.meta.id, { ...payload.meta });
+      await this.commitDocumentGeneration({
+        document: payload.document,
+        rasters: payload.rasters,
+        meta: payload.meta,
+        snapshot: 'guarded',
+      });
     } catch (err) {
       this.rasters.clear();
       for (const [key, value] of rasterBackup) {
@@ -111,6 +228,14 @@ export class MemoryStorageDatabase implements StorageDatabase {
       this.meta.clear();
       for (const [key, value] of metaBackup) {
         this.meta.set(key, value);
+      }
+      this.documentSnapshots.clear();
+      for (const [key, value] of documentSnapshotsBackup) {
+        this.documentSnapshots.set(key, value);
+      }
+      this.rasterSnapshots.clear();
+      for (const [key, value] of rasterSnapshotsBackup) {
+        this.rasterSnapshots.set(key, value);
       }
       throw err;
     }

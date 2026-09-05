@@ -3,6 +3,7 @@ import type { StorageDatabase } from './idb';
 import { getDefaultStorageDatabase } from './idb';
 import type { OpfsStorage } from './opfs';
 import { getDefaultOpfsStorage } from './opfs';
+import { metaFromDocument } from './generationSnapshot';
 import {
   prepareImportedProjectFromZip,
   type PreparedImportedProject,
@@ -54,12 +55,7 @@ function resolveDeps(deps: ProjectStoreDeps = {}) {
 }
 
 function toMeta(doc: EditorDocument, updatedAt: string): ProjectMeta {
-  return {
-    id: doc.projectId,
-    name: doc.name,
-    updatedAt,
-    pageCount: Object.keys(doc.pages).length,
-  };
+  return metaFromDocument(doc, updatedAt);
 }
 
 export async function listProjects(deps?: ProjectStoreDeps): Promise<ProjectMeta[]> {
@@ -78,13 +74,20 @@ export async function createProject(
   const document = createEditorDocument({ name, pageCount });
   assertStorableDocument(document);
   const transparent = copySharedTransparentPng();
+  const rasters = new Map<string, ArrayBuffer>();
   for (const rasterId of collectRasterIds(document)) {
-    await db.putRaster(rasterId, transparent.slice(0));
+    rasters.set(rasterId, transparent.slice(0));
   }
   const updatedAt = now();
   const meta = toMeta(document, updatedAt);
-  await db.putDocument(document);
-  await db.putMeta(meta);
+  // Snapshot is the created blank pages. Restore before the first idle save
+  // yields this empty state if live was torn by flushHidden.
+  await db.commitDocumentGeneration({
+    document,
+    meta,
+    rasters,
+    snapshot: 'guarded',
+  });
   return { meta, document };
 }
 
@@ -120,15 +123,20 @@ export async function saveProjectDocument(
   const { db, now } = resolveDeps(deps);
   const doc = cloneEditorDocument(document);
   assertStorableDocument(doc);
+  const rasters = new Map<string, ArrayBuffer>();
   for (const rasterId of collectRasterIds(doc)) {
     const png = encodedPng.get(rasterId);
     if (png) {
-      await db.putRaster(rasterId, png.slice(0));
+      rasters.set(rasterId, png.slice(0));
     }
   }
   const meta = toMeta(doc, now());
-  await db.putDocument(doc);
-  await db.putMeta(meta);
+  await db.commitDocumentGeneration({
+    document: doc,
+    meta,
+    rasters,
+    snapshot: 'guarded',
+  });
   return meta;
 }
 
@@ -185,8 +193,14 @@ export async function renameProject(
   }
   doc.name = name;
   const meta = toMeta(doc, now());
-  await db.putDocument(doc);
-  await db.putMeta(meta);
+  // Live name always updates. Snapshot gets a name patch only when live rasters
+  // are consistent — never copy torn live JSON onto snapshot.
+  await db.commitDocumentGeneration({
+    document: doc,
+    meta,
+    rasters: new Map(),
+    snapshot: 'name-only',
+  });
   return meta;
 }
 
@@ -248,6 +262,8 @@ export async function runStartupGc(deps?: ProjectStoreDeps): Promise<void> {
       await db.deleteRaster(rasterId);
     }
   }
+  // Snapshot stores are not GC'd here. Home may show torn live thumbs until
+  // editor boot restores from snapshot.
 }
 
 const LIST_THUMB_PAGE_LIMIT = 2;

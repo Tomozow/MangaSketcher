@@ -340,11 +340,17 @@ EditorDocument = {
 
 `defaultTextBox(rw, rh)` → `{ width: round(rw*0.08), height: round(rh*0.25) }`（1200 なら 96×425）。`createText` / `dropActions` / PDF ドロップは **この関数だけ**。`drop.ts` の 10×40 と Workspace の 8×22 は破棄。
 
-### 7.4 IndexedDB（version 1）
+### 7.4 IndexedDB（version 2）
 
 - `meta` keyPath `id`: `{ id, name, updatedAt, pageCount }`
 - `documents` keyPath `id`: EditorDocument JSON。画素・PDF バイト・base64・`uri` 禁止
-- `rasters` keyPath `rasterId`: PNG `ArrayBuffer`。`{projectId}:page:{pageId}` / `{projectId}:clip:{clipId}`。空でも透明 PNG（共有テンプレのコピー）
+- `rasters` keyPath `rasterId`: PNG `ArrayBuffer`。`{projectId}:page:{pageId}` / `{projectId}:clip:{clipId}`。空でも透明 PNG（共有テンプレのコピー）。`{projectId}:pdf` は IdbPdfStorage のフォールバックであり、文書ラスタ検査の対象外
+- `documentSnapshots` keyPath `id`: 最後に guard を通った世代の EditorDocument。1 プロジェクト 1 世代
+- `rasterSnapshots` keyPath `rasterId`: その世代の PNG。dirty 分と lazy-fill だけ put。未参照キーは snapshot 更新 tx で消す
+
+`DB_VERSION` は 2。`onupgradeneeded` は **空の snapshot ストアを作るだけ**。live PNG をコピーしない（iPad quota）。upgrade 完了までの snapshot は空で、起動時は復元しない。最初の guarded commit で lazy-fill する。
+
+必須ストア欠落時の `deleteDatabase` wipe 集合は **v1 の 3 ストア**（`meta` / `documents` / `rasters`）のまま。snapshot ストアを足すと v1 DB や upgrade 失敗をユーザーデータごと消す。snapshot 欠落は version bump の `onupgradeneeded` で作る。v1 タブが接続を握っている `onblocked` では DB を削除しない。
 
 ### 7.5 OPFS と削除順（1 本に固定）
 
@@ -353,10 +359,10 @@ EditorDocument = {
 **削除トランザクション（この順以外禁止）:**
 
 1. OPFS `pdfs/{id}.pdf` を delete（無くても続行）
-2. 1 つの IDB transaction: `rasters` を prefix 削除 → `documents` 削除 → `meta` 削除
+2. 1 つの IDB transaction: live `rasters` を prefix 削除（**cursor**。Safari で `getAllKeys` 禁止）→ snapshot `rasterSnapshots` を prefix 削除（cursor）→ `documents` 削除 → `documentSnapshots` 削除 → `meta` 削除
 3. 途中失敗は reject。**meta が残っていれば一覧に出る**（再開削除可能）
 4. 「先に meta から外す」は禁止（幽霊ファイル）
-5. 起動 GC: meta に無い `pdfs/*.pdf` と rasters を削除
+5. 起動 GC: meta に無い `pdfs/*.pdf` と **live** rasters を削除。**snapshot ストアは触らない**（ホームは torn live のサムネのまま。エディタ boot が復元する）
 
 ### 7.6 自動保存と Safari hidden flush
 
@@ -370,24 +376,27 @@ EditorDocument = {
 
 **debounce 書き込み（フォアグラウンド）:**
 
-- 非 VIEW_ONLY → 800 ms 後、save queue が `rasters` put（`encodedPng`）+ `documents` put
-- VIEW_ONLY ビュー類 → 1500 ms、`documents` のみ
-- **単一 save queue + 単調 `saveGen`。** 古い documents JSON が新しい PNG の後に上書きしてはならない。順序: その gen の dirty rasters を put してから documents を put。進行中の job がある間は最新 gen だけキューに残す
+- 非 VIEW_ONLY → 800 ms 後、save queue が live を **1 つの IDB transaction** で書く。issue 順: dirty `rasters` put → `documents` put → `meta` put。途中 abort は直前の live のまま（snapshot はこの経路の保険にしない）
+- VIEW_ONLY ビュー類 → 1500 ms、live `documents` / `meta` のみ（ラスタ payload 空）
+- live 成功後、`collectRasterIds(doc)` のすべてに payload または既存 live の **8 バイト PNG シグネチャ**付きバイトがあるときだけ、第二 tx で `documentSnapshots` と dirty/lazy-fill `rasterSnapshots` を更新する。欠けていれば live-only。snapshot put の `QuotaExceeded` で live を失敗させない
+- **単一 save queue + 単調 `saveGen`。** 古い documents JSON が新しい PNG の後に上書きしてはならない。進行中の job がある間は最新 gen だけキューに残す
+- `rename` は torn live JSON を snapshot にコピーしない。snapshot があるなら `name` だけパッチ。live が不整合なら snapshot スキップ
 
-**hidden / pagehide（await convertToBlob 禁止）:**
+**hidden / pagehide（await convertToBlob 禁止。snapshot を更新しない）:**
 
 1. 新しい `convertToBlob` / `createImageBitmap` / `getDocument` を **始めない**
-2. 既にメモリにある `encodedPng`（ベイク済みストローク）を、開済み IDB 接続があれば `store.put(arrayBuffer)` する（Blob 化しない）
+2. 既にメモリにある `encodedPng`（ベイク済みストローク）を、開済み IDB 接続があれば live `store.put(arrayBuffer)` する（Blob 化しない）。**generation snapshot は触らない**
 3. 進行中の convertToBlob Promise の結果は、完了しても hidden 中は put してよいが、**pagehide ハンドラはそれを await しない**
 4. ベイクからエンコード完了前にホームへ行った線: `encodedPng` は **前ストローク** のまま。未保存ドットを出し、foreground 復帰で未完了エンコードを再開する。§13.2.9 は「ベイク後にエンコードが完了した線」が残ること。エンコード未完了の最終ミリ秒は E14（製品を「消えた」と呼ばない。ドットで示す）
+5. pagehide は `flushHidden` のあと IndexedDB 接続を close する。iPad では `flushRouteLeave` はしばしば完了しない。snapshot は flushHidden の unordered put と JSON-only put のための直前成功世代である
 
 ルート離脱はフォアグラウンドなので 800ms を待たず queue flush を await してよい。
 
 履歴配列は IDB に書かない。
 
-新規: N≥1、`crypto.randomUUID()`、空 PNG を N 枚 put、documents put、それから `/p/{id}`。
+新規: N≥1、`crypto.randomUUID()`、空 PNG を N 枚 put、documents put、snapshot も同じ空白ページ、それから `/p/{id}`。作成直後・最初のアイドル保存前に live が torn なら、復元結果は作成時の空白である。
 
-開く: 1 タブ想定。二重タブ last-write-wins。ロックファイルなし。
+開く: 1 タブ想定。二重タブ last-write-wins。ロックファイルなし。live が consistent なら snapshot が古くても live を使う。欠 PDF では復元しない。
 
 ### 7.7 InkEngine — 画素の単一の正
 

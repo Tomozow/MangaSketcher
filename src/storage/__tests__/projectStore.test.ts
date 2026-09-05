@@ -9,6 +9,7 @@ import {
 } from '../projectStore';
 import { clipRasterId, collectRasterIds, pageRasterId } from '../rasterIds';
 import { DB_NAME, DB_VERSION } from '../types';
+import { REQUIRED_STORES } from '../idb';
 import { MemoryStorageDatabase } from '../testUtils/memoryDb';
 import { MemoryOpfsStorage } from '../testUtils/memoryOpfs';
 
@@ -135,8 +136,10 @@ describe('projectStore delete order §7.5', () => {
     expect(opfs.files.has(document.projectId)).toBe(false);
     expect(await db.getMeta(meta.id)).toBeUndefined();
     expect(await db.getDocument(document.projectId)).toBeUndefined();
+    expect(await db.getSnapshotDocument(document.projectId)).toBeUndefined();
     for (const rasterId of collectRasterIds(document)) {
       expect(await db.getRaster(rasterId)).toBeUndefined();
+      expect(await db.getSnapshotRaster(rasterId)).toBeUndefined();
     }
   });
 
@@ -156,9 +159,10 @@ describe('projectStore delete order §7.5', () => {
 });
 
 describe('IndexedDB schema contract', () => {
-  test('uses mangasketcher version 1 store names', () => {
+  test('uses mangasketcher version 2 live stores; snapshot stores are not in the wipe set', () => {
     expect(DB_NAME).toBe('mangasketcher');
-    expect(DB_VERSION).toBe(1);
+    expect(DB_VERSION).toBe(2);
+    expect([...REQUIRED_STORES]).toEqual(['meta', 'documents', 'rasters']);
   });
 });
 

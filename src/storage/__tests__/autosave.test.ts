@@ -161,6 +161,7 @@ describe('AutosaveManager', () => {
     const loaded = await db.getDocument('p1');
     expect(loaded?.pasteboardClips).toHaveLength(1);
     expect(loaded?.pasteboardClips[0]?.id).toBe('c1');
+    expect(await db.getSnapshotDocument('p1')).toBeUndefined();
     manager.dispose();
   });
 

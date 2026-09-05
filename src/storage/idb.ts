@@ -1,4 +1,17 @@
 import { cloneEditorDocument } from './editorDocument';
+import {
+  DOCUMENT_SNAPSHOTS,
+  RASTER_SNAPSHOTS,
+  isQuotaExceededError,
+  rasterToArrayBuffer,
+  rasterValueToArrayBuffer,
+  snapshotGuardPasses,
+  snapshotRastersToPut,
+  storedPngIsValid,
+  stripStoredDocument,
+  type CommitDocumentGenerationInput,
+  type CommitDocumentGenerationResult,
+} from './generationSnapshot';
 import { collectRasterIds } from './rasterIds';
 import { APP_SETTINGS_META_ID, DB_NAME, DB_VERSION, type EditorDocument, type ProjectMeta } from './types';
 import { ipadDebugLog } from '@/src/web/ipadDebugLog';
@@ -17,8 +30,11 @@ export type ProjectImportPayload = {
 export type MetaStore = 'meta';
 export type DocumentsStore = 'documents';
 export type RastersStore = 'rasters';
+export type DocumentSnapshotsStore = 'documentSnapshots';
+export type RasterSnapshotsStore = 'rasterSnapshots';
 
-export type StoreName = MetaStore | DocumentsStore | RastersStore;
+export type LiveStoreName = MetaStore | DocumentsStore | RastersStore;
+export type StoreName = LiveStoreName | DocumentSnapshotsStore | RasterSnapshotsStore;
 
 export interface StorageDatabase {
   listMeta(): Promise<ProjectMeta[]>;
@@ -35,6 +51,12 @@ export interface StorageDatabase {
   deleteRaster(rasterId: string): Promise<void>;
   listRasterIds(): Promise<string[]>;
 
+  getSnapshotDocument(id: string): Promise<EditorDocument | undefined>;
+  getSnapshotRaster(rasterId: string): Promise<ArrayBuffer | undefined>;
+  listSnapshotRasterIds(): Promise<string[]>;
+
+  commitDocumentGeneration(input: CommitDocumentGenerationInput): Promise<CommitDocumentGenerationResult>;
+
   deleteProjectRecords(projectId: string): Promise<void>;
 
   readProjectExportSnapshot(projectId: string): Promise<ProjectExportSnapshot | null>;
@@ -49,7 +71,8 @@ const META = 'meta';
 const DOCUMENTS = 'documents';
 const RASTERS = 'rasters';
 
-const REQUIRED_STORES: StoreName[] = [META, DOCUMENTS, RASTERS];
+/** Wipe-set for missing-schema deleteDatabase. Snapshot stores must NOT be listed. */
+export const REQUIRED_STORES: LiveStoreName[] = [META, DOCUMENTS, RASTERS];
 
 function projectMetaOnly(items: ProjectMeta[]): ProjectMeta[] {
   return items.filter((item) => item.id !== APP_SETTINGS_META_ID);
@@ -64,6 +87,13 @@ function ensureObjectStores(db: IDBDatabase): void {
   }
   if (!db.objectStoreNames.contains(RASTERS)) {
     db.createObjectStore(RASTERS, { keyPath: 'rasterId' });
+  }
+  // v2: empty snapshot stores only. Do not copy live PNGs (iPad quota).
+  if (!db.objectStoreNames.contains(DOCUMENT_SNAPSHOTS)) {
+    db.createObjectStore(DOCUMENT_SNAPSHOTS, { keyPath: 'id' });
+  }
+  if (!db.objectStoreNames.contains(RASTER_SNAPSHOTS)) {
+    db.createObjectStore(RASTER_SNAPSHOTS, { keyPath: 'rasterId' });
   }
 }
 
@@ -97,6 +127,14 @@ function openBrowserDatabase(allowReset = true): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
     request.onerror = () => reject(request.error ?? new Error('indexedDB.open failed'));
+    request.onblocked = () => {
+      ipadDebugLog({
+        sessionId: 'gen-snap',
+        hypothesisId: 'GS3',
+        location: 'idb.ts:openBrowserDatabase',
+        message: 'indexedDB.open blocked (another tab holds an older version)',
+      });
+    };
     request.onupgradeneeded = () => {
       ensureObjectStores(request.result);
     };
@@ -210,31 +248,67 @@ function collectStore<T>(
   });
 }
 
-async function rasterToArrayBuffer(value: unknown): Promise<ArrayBuffer | undefined> {
-  if (value == null) {
-    return undefined;
-  }
-  if (typeof Blob !== 'undefined' && value instanceof Blob) {
-    return value.arrayBuffer();
-  }
-  return rasterValueToArrayBuffer(value);
+function readRawRecords(
+  db: IDBDatabase,
+  storeName: StoreName,
+  keys: readonly string[],
+): Promise<Map<string, unknown>> {
+  return new Promise((resolve, reject) => {
+    const results = new Map<string, unknown>();
+    if (keys.length === 0) {
+      resolve(results);
+      return;
+    }
+    const transaction = db.transaction([storeName], 'readonly');
+    const store = transaction.objectStore(storeName);
+    for (const key of keys) {
+      const request = store.get(key);
+      request.onsuccess = () => {
+        results.set(key, request.result);
+      };
+      request.onerror = () => reject(request.error ?? new Error('idb get failed'));
+    }
+    transaction.oncomplete = () => resolve(results);
+    transaction.onerror = () => reject(transaction.error ?? new Error('idb read failed'));
+    transaction.onabort = () => reject(transaction.error ?? new Error('idb read aborted'));
+  });
 }
 
-function rasterValueToArrayBuffer(value: unknown): ArrayBuffer | undefined {
-  if (value == null) {
-    return undefined;
+async function readRasterBytes(
+  db: IDBDatabase,
+  storeName: StoreName,
+  keys: readonly string[],
+): Promise<Map<string, ArrayBuffer>> {
+  const raw = await readRawRecords(db, storeName, keys);
+  const bytes = new Map<string, ArrayBuffer>();
+  for (const [key, value] of raw) {
+    const png = await rasterToArrayBuffer(value);
+    if (png) {
+      bytes.set(key, png);
+    }
   }
-  if (value instanceof ArrayBuffer) {
-    return value.slice(0);
-  }
-  if (ArrayBuffer.isView(value)) {
-    const view = value as ArrayBufferView;
-    return view.buffer.slice(view.byteOffset, view.byteOffset + view.byteLength);
-  }
-  if (typeof value === 'object' && value !== null && 'png' in value) {
-    return rasterValueToArrayBuffer((value as { png: unknown }).png);
-  }
-  return undefined;
+  return bytes;
+}
+
+function deletePrefixWithCursor(
+  store: IDBObjectStore,
+  prefix: string,
+  onDone: () => void,
+  onFail: (error: unknown) => void,
+): void {
+  const request = store.openCursor();
+  request.onsuccess = () => {
+    const cursor = request.result;
+    if (!cursor) {
+      onDone();
+      return;
+    }
+    if (String(cursor.key).startsWith(prefix)) {
+      cursor.delete();
+    }
+    cursor.continue();
+  };
+  request.onerror = () => onFail(request.error ?? new Error('idb prefix cursor failed'));
 }
 
 export class BrowserStorageDatabase implements StorageDatabase {
@@ -308,11 +382,7 @@ export class BrowserStorageDatabase implements StorageDatabase {
   async getDocument(id: string): Promise<EditorDocument | undefined> {
     const db = await this.db();
     const stored = await tx(db, [DOCUMENTS], 'readonly', ({ documents }) => documents.get(id));
-    if (!stored) {
-      return undefined;
-    }
-    const { id: _key, ...doc } = stored as EditorDocument & { id: string };
-    return { ...doc, projectId: stored.id ?? doc.projectId } as EditorDocument;
+    return stripStoredDocument(stored);
   }
 
   async putDocument(doc: EditorDocument): Promise<void> {
@@ -348,25 +418,201 @@ export class BrowserStorageDatabase implements StorageDatabase {
     return collectStore(db, RASTERS, (cursor) => cursor.key as string);
   }
 
-  async deleteProjectRecords(projectId: string): Promise<void> {
+  async getSnapshotDocument(id: string): Promise<EditorDocument | undefined> {
     const db = await this.db();
+    if (!db.objectStoreNames.contains(DOCUMENT_SNAPSHOTS)) {
+      return undefined;
+    }
+    const stored = await tx(db, [DOCUMENT_SNAPSHOTS], 'readonly', (stores) =>
+      stores[DOCUMENT_SNAPSHOTS].get(id),
+    );
+    return stripStoredDocument(stored);
+  }
+
+  async getSnapshotRaster(rasterId: string): Promise<ArrayBuffer | undefined> {
+    const db = await this.db();
+    if (!db.objectStoreNames.contains(RASTER_SNAPSHOTS)) {
+      return undefined;
+    }
+    const stored = await tx(db, [RASTER_SNAPSHOTS], 'readonly', (stores) =>
+      stores[RASTER_SNAPSHOTS].get(rasterId),
+    );
+    return rasterToArrayBuffer(stored);
+  }
+
+  async listSnapshotRasterIds(): Promise<string[]> {
+    const db = await this.db();
+    if (!db.objectStoreNames.contains(RASTER_SNAPSHOTS)) {
+      return [];
+    }
+    return collectStore(db, RASTER_SNAPSHOTS, (cursor) => cursor.key as string);
+  }
+
+  async commitDocumentGeneration(
+    input: CommitDocumentGenerationInput,
+  ): Promise<CommitDocumentGenerationResult> {
+    const db = await this.db();
+    const payload = input.rasters ?? new Map<string, ArrayBuffer>();
+    const mode = input.snapshot ?? 'guarded';
+    const rasterIds = collectRasterIds(input.document);
+    const liveBefore = await readRasterBytes(db, RASTERS, rasterIds);
+
     await new Promise<void>((resolve, reject) => {
       const transaction = db.transaction([RASTERS, DOCUMENTS, META], 'readwrite');
       const rasters = transaction.objectStore(RASTERS);
       const documents = transaction.objectStore(DOCUMENTS);
       const meta = transaction.objectStore(META);
-      const prefix = `${projectId}:`;
+      for (const [rasterId, png] of payload.entries()) {
+        rasters.put({ rasterId, png: png.slice(0) });
+      }
+      documents.put({ ...input.document, id: input.document.projectId });
+      meta.put(input.meta);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error ?? new Error('commit live failed'));
+      transaction.onabort = () => reject(transaction.error ?? new Error('commit live aborted'));
+    });
 
-      const rasterRequest = rasters.getAllKeys();
-      rasterRequest.onsuccess = () => {
-        const keys = (rasterRequest.result as string[]).filter((key) => key.startsWith(prefix));
-        for (const key of keys) {
-          rasters.delete(key);
+    if (mode === 'none') {
+      return { snapshotUpdated: false };
+    }
+
+    try {
+      if (mode === 'name-only') {
+        const liveOk = rasterIds.every((id) => storedPngIsValid(payload.get(id) ?? liveBefore.get(id)));
+        if (!liveOk) {
+          return { snapshotUpdated: false };
         }
-        documents.delete(projectId);
-        meta.delete(projectId);
+        const snapshotDoc = await this.getSnapshotDocument(input.document.projectId);
+        if (!snapshotDoc) {
+          return { snapshotUpdated: false };
+        }
+        snapshotDoc.name = input.document.name;
+        await this.putSnapshotDocumentOnly(db, snapshotDoc);
+        return { snapshotUpdated: true };
+      }
+
+      if (!snapshotGuardPasses(input.document, payload, liveBefore)) {
+        return { snapshotUpdated: false };
+      }
+
+      const existingSnapshot = db.objectStoreNames.contains(RASTER_SNAPSHOTS)
+        ? await readRasterBytes(db, RASTER_SNAPSHOTS, rasterIds)
+        : new Map<string, ArrayBuffer>();
+      const toPut = snapshotRastersToPut(input.document, payload, liveBefore, existingSnapshot);
+      await this.commitSnapshotStores(db, input.document, toPut);
+      return { snapshotUpdated: true };
+    } catch (err) {
+      ipadDebugLog({
+        sessionId: 'gen-snap',
+        hypothesisId: 'GS1',
+        location: 'idb.ts:commitDocumentGeneration',
+        message: 'snapshot write failed; live kept',
+        data: {
+          quota: isQuotaExceededError(err),
+          name: err instanceof Error ? err.name : typeof err,
+          msg: err instanceof Error ? err.message : String(err),
+        },
+      });
+      return { snapshotUpdated: false };
+    }
+  }
+
+  private putSnapshotDocumentOnly(db: IDBDatabase, document: EditorDocument): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (!db.objectStoreNames.contains(DOCUMENT_SNAPSHOTS)) {
+        resolve();
+        return;
+      }
+      const transaction = db.transaction([DOCUMENT_SNAPSHOTS], 'readwrite');
+      transaction.objectStore(DOCUMENT_SNAPSHOTS).put({ ...document, id: document.projectId });
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error ?? new Error('snapshot document put failed'));
+      transaction.onabort = () => reject(transaction.error ?? new Error('snapshot document put aborted'));
+    });
+  }
+
+  private commitSnapshotStores(
+    db: IDBDatabase,
+    document: EditorDocument,
+    rasters: ReadonlyMap<string, ArrayBuffer>,
+  ): Promise<void> {
+    return new Promise((resolve, reject) => {
+      if (
+        !db.objectStoreNames.contains(DOCUMENT_SNAPSHOTS) ||
+        !db.objectStoreNames.contains(RASTER_SNAPSHOTS)
+      ) {
+        resolve();
+        return;
+      }
+      const transaction = db.transaction([DOCUMENT_SNAPSHOTS, RASTER_SNAPSHOTS], 'readwrite');
+      const snapshotDocs = transaction.objectStore(DOCUMENT_SNAPSHOTS);
+      const snapshotRasters = transaction.objectStore(RASTER_SNAPSHOTS);
+      snapshotDocs.put({ ...document, id: document.projectId });
+      for (const [rasterId, png] of rasters.entries()) {
+        snapshotRasters.put({ rasterId, png: png.slice(0) });
+      }
+      const prefix = `${document.projectId}:`;
+      const keep = new Set(collectRasterIds(document));
+      const cursorRequest = snapshotRasters.openCursor();
+      cursorRequest.onsuccess = () => {
+        const cursor = cursorRequest.result;
+        if (!cursor) {
+          return;
+        }
+        const key = String(cursor.key);
+        if (key.startsWith(prefix) && !keep.has(key)) {
+          cursor.delete();
+        }
+        cursor.continue();
       };
-      rasterRequest.onerror = () => reject(rasterRequest.error ?? new Error('raster key scan failed'));
+      cursorRequest.onerror = () => reject(cursorRequest.error ?? new Error('snapshot raster cursor failed'));
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error ?? new Error('commit snapshot failed'));
+      transaction.onabort = () => reject(transaction.error ?? new Error('commit snapshot aborted'));
+    });
+  }
+
+  async deleteProjectRecords(projectId: string): Promise<void> {
+    const db = await this.db();
+    await new Promise<void>((resolve, reject) => {
+      const storeNames: StoreName[] = [RASTERS, DOCUMENTS, META];
+      if (db.objectStoreNames.contains(DOCUMENT_SNAPSHOTS)) {
+        storeNames.push(DOCUMENT_SNAPSHOTS);
+      }
+      if (db.objectStoreNames.contains(RASTER_SNAPSHOTS)) {
+        storeNames.push(RASTER_SNAPSHOTS);
+      }
+      const transaction = db.transaction(storeNames, 'readwrite');
+      const rasters = transaction.objectStore(RASTERS);
+      const documents = transaction.objectStore(DOCUMENTS);
+      const meta = transaction.objectStore(META);
+      const snapshotRasters = db.objectStoreNames.contains(RASTER_SNAPSHOTS)
+        ? transaction.objectStore(RASTER_SNAPSHOTS)
+        : null;
+      const snapshotDocs = db.objectStoreNames.contains(DOCUMENT_SNAPSHOTS)
+        ? transaction.objectStore(DOCUMENT_SNAPSHOTS)
+        : null;
+      const prefix = `${projectId}:`;
+      const fail = (error: unknown) => reject(error);
+
+      deletePrefixWithCursor(
+        rasters,
+        prefix,
+        () => {
+          const afterSnapshotRasters = () => {
+            documents.delete(projectId);
+            snapshotDocs?.delete(projectId);
+            meta.delete(projectId);
+          };
+          if (!snapshotRasters) {
+            afterSnapshotRasters();
+            return;
+          }
+          deletePrefixWithCursor(snapshotRasters, prefix, afterSnapshotRasters, fail);
+        },
+        fail,
+      );
+
       transaction.oncomplete = () => resolve();
       transaction.onerror = () => reject(transaction.error ?? new Error('deleteProjectRecords failed'));
       transaction.onabort = () => reject(transaction.error ?? new Error('deleteProjectRecords aborted'));
@@ -418,22 +664,11 @@ export class BrowserStorageDatabase implements StorageDatabase {
   }
 
   async importProjectAtomic(payload: ProjectImportPayload): Promise<void> {
-    const db = await this.db();
-    await new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction([RASTERS, DOCUMENTS, META], 'readwrite');
-      const rasters = transaction.objectStore(RASTERS);
-      const documents = transaction.objectStore(DOCUMENTS);
-      const meta = transaction.objectStore(META);
-
-      for (const [rasterId, png] of payload.rasters.entries()) {
-        rasters.put({ rasterId, png: png.slice(0) });
-      }
-      documents.put({ ...payload.document, id: payload.document.projectId });
-      meta.put(payload.meta);
-
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error ?? new Error('importProjectAtomic failed'));
-      transaction.onabort = () => reject(transaction.error ?? new Error('importProjectAtomic aborted'));
+    await this.commitDocumentGeneration({
+      document: payload.document,
+      meta: payload.meta,
+      rasters: payload.rasters,
+      snapshot: 'guarded',
     });
   }
 }
@@ -472,4 +707,4 @@ export function releaseDefaultStorageDatabase(): void {
   }
 }
 
-export { openBrowserDatabase };
+export { openBrowserDatabase, rasterToArrayBuffer, rasterValueToArrayBuffer };

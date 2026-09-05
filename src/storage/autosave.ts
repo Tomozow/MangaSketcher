@@ -206,11 +206,11 @@ export class AutosaveManager {
     this.runningJob = job;
     try {
       const encoded = this.getEncodedPng();
-      const rasterIds = [...job.dirtyRasterIds];
-      for (const rasterId of rasterIds) {
+      const rasters = new Map<string, ArrayBuffer>();
+      for (const rasterId of job.dirtyRasterIds) {
         const png = encoded.get(rasterId);
         if (png && png.byteLength > 0) {
-          await this.db.putRaster(rasterId, png.slice(0));
+          rasters.set(rasterId, png.slice(0));
         }
       }
       const updatedAt = new Date().toISOString();
@@ -220,8 +220,12 @@ export class AutosaveManager {
         updatedAt,
         pageCount: Object.keys(job.doc.pages).length,
       };
-      await this.db.putDocument(job.doc);
-      await this.db.putMeta(meta);
+      await this.db.commitDocumentGeneration({
+        document: job.doc,
+        meta,
+        rasters,
+        snapshot: 'guarded',
+      });
       void requestPersistentStorage();
       if (job.saveGen === this.saveGen) {
         this.setUnsaved(false);
@@ -273,6 +277,7 @@ export class AutosaveManager {
   /**
    * §7.6 hidden/pagehide: put in-memory encoded PNG only. Never start convertToBlob here.
    * Also writes the pending document JSON so a reload does not drop unsaved clips.
+   * Must NEVER update generation snapshots — unordered puts can tear live JSON/PNGs.
    */
   flushHidden(): void {
     const encoded = this.getEncodedPng();

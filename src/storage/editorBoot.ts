@@ -6,6 +6,13 @@ import { getDefaultStorageDatabase } from './idb';
 import type { OpfsStorage } from './opfs';
 import { getDefaultOpfsStorage } from './opfs';
 import { loadProjectRasters } from './projectStore';
+import { collectRasterIds } from './rasterIds';
+import {
+  documentLiveRastersAreValid,
+  documentSnapshotRastersAreValid,
+  metaFromDocument,
+} from './generationSnapshot';
+import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 
 export type EditorBootResult = {
   document: EditorDocument;
@@ -19,11 +26,43 @@ export type EditorBootDeps = {
   opfs?: OpfsStorage;
 };
 
+async function restoreLiveFromSnapshot(
+  db: StorageDatabase,
+  snapshotDoc: EditorDocument,
+): Promise<EditorDocument> {
+  const document = cloneEditorDocument(snapshotDoc);
+  const rasters = new Map<string, ArrayBuffer>();
+  for (const rasterId of collectRasterIds(document)) {
+    const png = await db.getSnapshotRaster(rasterId);
+    if (png) {
+      rasters.set(rasterId, png);
+    }
+  }
+  await db.commitDocumentGeneration({
+    document,
+    meta: metaFromDocument(document, new Date().toISOString()),
+    rasters,
+    snapshot: 'none',
+  });
+  ipadDebugLog({
+    sessionId: 'gen-snap',
+    hypothesisId: 'GS2',
+    location: 'editorBoot.ts:restoreLiveFromSnapshot',
+    message: 'restored live from generation snapshot',
+    data: { projectId: document.projectId },
+  });
+  return document;
+}
+
 /**
  * §7.9 editor boot restore:
  * - load document JSON
  * - load all raster PNGs into encodedPng
  * - OPFS pdf when opfsPath exists; missing OPFS keeps text JSON and empty picker state
+ *
+ * Generation snapshot: silent restore of live only when live is inconsistent
+ * and the snapshot itself is valid. Consistent live wins even if snapshot is stale.
+ * Missing PDF never triggers restore. `{projectId}:pdf` in rasters is ignored.
  */
 export async function loadEditorBoot(
   projectId: string,
@@ -31,10 +70,30 @@ export async function loadEditorBoot(
 ): Promise<EditorBootResult | null> {
   const db = deps.db ?? getDefaultStorageDatabase();
   const opfs = deps.opfs ?? getDefaultOpfsStorage();
-  const loaded = await db.getDocument(projectId);
+  const meta = await db.getMeta(projectId);
+  let loaded = await db.getDocument(projectId);
+  const snapshotDoc = await db.getSnapshotDocument(projectId);
+  const snapshotValid = snapshotDoc
+    ? await documentSnapshotRastersAreValid((id) => db.getSnapshotRaster(id), snapshotDoc)
+    : false;
+
+  if (!loaded) {
+    if (meta && snapshotValid && snapshotDoc) {
+      loaded = await restoreLiveFromSnapshot(db, snapshotDoc);
+    } else {
+      return null;
+    }
+  } else if (meta) {
+    const liveOk = await documentLiveRastersAreValid((id) => db.getRaster(id), loaded);
+    if (!liveOk && snapshotValid && snapshotDoc) {
+      loaded = await restoreLiveFromSnapshot(db, snapshotDoc);
+    }
+  }
+
   if (!loaded) {
     return null;
   }
+
   const document = cloneEditorDocument(loaded);
   const encodedPng = await loadProjectRasters(document, { db });
   let pdfFile: File | null = null;

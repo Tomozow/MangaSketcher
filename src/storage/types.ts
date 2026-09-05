@@ -22,7 +22,7 @@ export type {
 export type PdfMeta = import('../domain/types').PdfDocument;
 
 export const DB_NAME = 'mangasketcher';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 /** Reserved `meta` row for app UI settings (excluded from project lists). */
 export const APP_SETTINGS_META_ID = 'mangasketcher:app-settings';
 

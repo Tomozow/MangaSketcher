@@ -60,6 +60,7 @@ async function main() {
   await import('./autosave.test.ts');
   await import('./history.test.ts');
   await import('./editorBoot.test.ts');
+  await import('./generationSnapshot.test.ts');
 }
 
 void main();
