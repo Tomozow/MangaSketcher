@@ -42,7 +42,7 @@ export function resolveLanPackHubBase(location: {
     return `https://${location.hostname}:${HUB_PORT}`;
   }
   if (port === '3001' && (location.hostname === '127.0.0.1' || location.hostname === 'localhost')) {
-    return `https://127.0.0.1:${HUB_PORT}`;
+    return '';
   }
   return null;
 }

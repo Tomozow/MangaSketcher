@@ -1,13 +1,14 @@
 import { createServer } from 'node:http';
 import { request as httpRequest } from 'node:http';
 import { createConnection } from 'node:net';
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, rmSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { stdin as stdinStream, stdout as stdoutStream } from 'node:process';
 import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { startLanServers } from './lan.mjs';
+import { handleLanPack, sweepLanPackDir } from './lanPackHub.mjs';
 import { listStaticRoots, resolveStaticRoot, warnIfRollback } from './roots.mjs';
 
 const repoRoot = process.cwd();
@@ -131,12 +132,36 @@ function findChrome() {
   return candidates.find((path) => path && existsSync(path));
 }
 
+const CHROME_PROFILE_MARKER = '.chrome-static-profile';
+
+function sleep(ms) {
+  return new Promise((done) => setTimeout(done, ms));
+}
+
+function countChromeForStaticProfile() {
+  try {
+    const out = execFileSync(
+      'powershell.exe',
+      [
+        '-NoProfile',
+        '-Command',
+        `@(Get-CimInstance Win32_Process -Filter "Name='chrome.exe'" | Where-Object { $_.CommandLine -like '*${CHROME_PROFILE_MARKER}*' }).Count`,
+      ],
+      { encoding: 'utf8', windowsHide: true, timeout: 8000 },
+    );
+    const n = Number.parseInt(String(out).trim(), 10);
+    return Number.isFinite(n) ? n : 0;
+  } catch {
+    return 0;
+  }
+}
+
 function openChromeApp() {
   const chrome = findChrome();
-  const profile = join(repoRoot, '.chrome-static-profile');
+  const profile = join(repoRoot, CHROME_PROFILE_MARKER);
   if (!chrome) {
     console.log(`Chrome not found. Open ${APP_URL}`);
-    return;
+    return false;
   }
   for (const extra of ['Default/Service Worker', 'Default/Cache', 'Default/Code Cache']) {
     rmSync(join(profile, extra), { recursive: true, force: true });
@@ -154,16 +179,30 @@ function openChromeApp() {
       '--disable-features=ServiceWorker',
       `--app=${APP_URL}`,
     ],
-    { detached: true, stdio: 'ignore' },
+    { detached: true, stdio: 'ignore', windowsHide: true },
   ).unref();
   console.log(`Chrome app: ${APP_URL}`);
+  return true;
+}
+
+async function waitWhileChromeAppOpen() {
+  const until = Date.now() + 30_000;
+  while (Date.now() < until && countChromeForStaticProfile() === 0) {
+    await sleep(200);
+  }
+  if (countChromeForStaticProfile() === 0) {
+    return;
+  }
+  while (countChromeForStaticProfile() > 0) {
+    await sleep(750);
+  }
 }
 
 function spawnServe(abs) {
   return spawn(
     'npx',
     ['--yes', 'serve', abs, '-l', `tcp://127.0.0.1:${SERVE_PORT}`, '-n', '--no-port-switching'],
-    { cwd: repoRoot, stdio: 'ignore', shell: true },
+    { cwd: repoRoot, stdio: 'ignore', shell: true, windowsHide: true },
   );
 }
 
@@ -201,7 +240,18 @@ export async function main(extra = {}) {
   });
   await waitForPort(SERVE_PORT, 30_000, true);
 
-  const httpServer = createServer(proxyToServe);
+  if (flags.lan) {
+    sweepLanPackDir(join(repoRoot, '.lan-transfer'));
+  }
+
+  const httpServer = createServer((req, res) => {
+    void (async () => {
+      if (flags.lan && (await handleLanPack(req, res, { repoRoot }))) {
+        return;
+      }
+      proxyToServe(req, res);
+    })();
+  });
   await new Promise((done) => httpServer.listen(HTTP_PORT, '127.0.0.1', done));
   console.log(`PC HTTP: ${APP_URL}`);
 
@@ -209,10 +259,6 @@ export async function main(extra = {}) {
   if (flags.lan) {
     lan = await startLanServers(repoRoot, proxyToServe);
   }
-  if (flags.chrome) {
-    openChromeApp();
-  }
-
   const shutdown = async (code) => {
     serving = false;
     await killServeTree(child);
@@ -223,6 +269,14 @@ export async function main(extra = {}) {
   process.on('SIGINT', () => {
     void shutdown(0);
   });
+
+  if (flags.chrome) {
+    if (openChromeApp()) {
+      await waitWhileChromeAppOpen();
+    }
+    await shutdown(0);
+    return;
+  }
 
   const wantRepl = stdinStream.isTTY || process.env.STATIC_HOST_REPL === '1';
   if (!wantRepl) {

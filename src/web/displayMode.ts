@@ -45,3 +45,15 @@ export function readAppleTouchDevice(): boolean {
   }
   return isAppleTouchDevice(navigator.userAgent, navigator.maxTouchPoints);
 }
+
+/** PC loopback (Chrome --app included) shows the iPad CA QR; LAN iPad PWA does not. */
+export function shouldShowIpadCaQr(input: {
+  hostname: string;
+  standalone: boolean;
+  appleTouch: boolean;
+}): boolean {
+  if (isLoopbackHost(input.hostname)) {
+    return true;
+  }
+  return !input.standalone && !input.appleTouch;
+}

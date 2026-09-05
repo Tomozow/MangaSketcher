@@ -3,7 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 
-import { isAppleTouchDevice, isLoopbackHost, isStandaloneDisplay } from '../displayMode';
+import { isAppleTouchDevice, isLoopbackHost, isStandaloneDisplay, shouldShowIpadCaQr } from '../displayMode';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const swSrc = readFileSync(join(here, '../../../public/sw.js'), 'utf8');
@@ -23,6 +23,21 @@ describe('offline home-screen shell', () => {
     expect(isStandaloneDisplay({ displayModeStandalone: true })).toBe(true);
     expect(isStandaloneDisplay({ displayModeFullscreen: true })).toBe(true);
     expect(isStandaloneDisplay({})).toBe(false);
+  });
+
+  test('iPad CA QR shows on loopback PC even in Chrome app standalone', () => {
+    expect(
+      shouldShowIpadCaQr({ hostname: '127.0.0.1', standalone: true, appleTouch: false }),
+    ).toBe(true);
+    expect(
+      shouldShowIpadCaQr({ hostname: 'localhost', standalone: true, appleTouch: false }),
+    ).toBe(true);
+    expect(
+      shouldShowIpadCaQr({ hostname: '192.168.0.2', standalone: true, appleTouch: true }),
+    ).toBe(false);
+    expect(
+      shouldShowIpadCaQr({ hostname: '192.168.0.2', standalone: false, appleTouch: false }),
+    ).toBe(true);
   });
 
   test('sw.js precaches the shell and does not unregister itself', () => {

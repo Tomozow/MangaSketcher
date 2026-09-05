@@ -24,10 +24,13 @@ describe('lan pack hub URL', () => {
     ).toBe('https://192.168.0.8:3443');
   });
 
-  test('static :3001 points at loopback :3443', () => {
+  test('static :3001 uses same-origin API (PC HTTP; no fetch to :3443 cert)', () => {
     expect(
       resolveLanPackHubBase({ protocol: 'http:', hostname: '127.0.0.1', port: '3001' }),
-    ).toBe('https://127.0.0.1:3443');
+    ).toBe('');
+    expect(
+      resolveLanPackHubBase({ protocol: 'http:', hostname: 'localhost', port: '3001' }),
+    ).toBe('');
   });
 
   test('unknown origins have no hub', () => {

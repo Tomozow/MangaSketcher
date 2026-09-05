@@ -77,6 +77,7 @@ Set-Location -LiteralPath $RepoRoot
 $script:DevProc = $null
 $script:StaticProc = $null
 $script:BuildProc = $null
+$script:PublishProc = $null
 $script:RestartDevAfterBuild = $false
 $script:StartLanAfterBuild = $false
 $script:TickLogsLeft = 5
@@ -445,6 +446,38 @@ function Start-StaticBuildThenLan {
   $script:BuildProc = New-RedirectedProcess -FileName $npm -Arguments 'run build:static' -LogBox $logBuild
 }
 
+function Start-PublishOut {
+  $outHtml = Join-Path $RepoRoot 'out\index.html'
+  if (-not (Test-Path -LiteralPath $outHtml)) {
+    [System.Windows.Forms.MessageBox]::Show(
+      'out がありません。先に静的ビルドしてください。',
+      'MangaSketcher',
+      [System.Windows.Forms.MessageBoxButtons]::OK,
+      [System.Windows.Forms.MessageBoxIcon]::Warning
+    ) | Out-Null
+    return
+  }
+  $r = [System.Windows.Forms.MessageBox]::Show(
+    "既存の out を publish\ にコピーし、MangaSketcher.lnk を作ります。`nLAN 配信中なら一度止めます。続けますか?",
+    'MangaSketcher',
+    [System.Windows.Forms.MessageBoxButtons]::YesNo,
+    [System.Windows.Forms.MessageBoxIcon]::Question
+  )
+  if ($r -ne [System.Windows.Forms.DialogResult]::Yes) { return }
+  if (Test-ProcAlive $script:PublishProc) {
+    if (-not (Confirm-RestartSlot '配布書き出し' $script:PublishProc)) { return }
+    Stop-TrackedProcess $script:PublishProc
+    $script:PublishProc = $null
+  }
+  Stop-TrackedProcess $script:StaticProc
+  $script:StaticProc = $null
+  Stop-ListenPorts @(3001, 3002, 3443, 13443)
+  $tabs.SelectedTab = $pageBuild
+  $bat = Join-Path $RepoRoot 'publish-out.bat'
+  Append-Log $logBuild 'publish-out.bat nopause ...'
+  $script:PublishProc = New-RedirectedProcess -FileName 'cmd.exe' -Arguments "/c `"$bat`" nopause" -LogBox $logBuild
+}
+
 function Set-PortLabel($Label, [int]$Port) {
   if ($null -eq $Label) { return }
   $up = Test-PortListening $Port
@@ -484,6 +517,19 @@ function On-Tick {
       Start-DevServer -Force
     }
   }
+  if ($null -ne $script:PublishProc -and $script:PublishProc.HasExited) {
+    $pubCode = $script:PublishProc.ExitCode
+    $script:PublishProc = $null
+    if ($pubCode -eq 0) {
+      Append-Log $logBuild 'publish-out finished.'
+      $pubDir = Join-Path $RepoRoot 'publish'
+      if (Test-Path -LiteralPath $pubDir) {
+        Start-Process -FilePath 'explorer.exe' -ArgumentList $pubDir
+      }
+    } else {
+      Append-Log $logBuild 'publish-out failed.'
+    }
+  }
   if ($script:TickLogsLeft -gt 0) {
     $script:TickLogsLeft -= 1
     #region agent log
@@ -501,9 +547,11 @@ function Stop-AllChildren {
   Stop-TrackedProcess $script:DevProc
   Stop-TrackedProcess $script:StaticProc
   Stop-TrackedProcess $script:BuildProc
+  Stop-TrackedProcess $script:PublishProc
   $script:DevProc = $null
   $script:StaticProc = $null
   $script:BuildProc = $null
+  $script:PublishProc = $null
 }
 
 # --- UI ---
@@ -563,11 +611,16 @@ $btnStopStatic = New-Object System.Windows.Forms.Button
 $btnStopStatic.Text = '静的を止める'
 $btnStopStatic.Location = New-Object System.Drawing.Point(558, $y)
 $btnStopStatic.Size = New-Object System.Drawing.Size(110, 28)
+$btnPublish = New-Object System.Windows.Forms.Button
+$btnPublish.Text = '配布フォルダを書き出す'
+$btnPublish.Location = New-Object System.Drawing.Point(674, $y)
+$btnPublish.Size = New-Object System.Drawing.Size(160, 28)
 $tips.SetToolTip($btnLan, 'すでに書き出した out を iPad 向け HTTPS（:3443）で出します。ビルドしません。')
 $tips.SetToolTip($btnChrome, 'すでに書き出した out を PC（:3001）で開き、同時に iPad 向け HTTPS（:3443）も出します。ビルドしません。')
 $tips.SetToolTip($btnBuild, 'out を作り直し、成功したら iPad 向け HTTPS を起動します。ホーム画面 / オフライン用にコードを取り込むとき。')
 $tips.SetToolTip($btnStopStatic, '静的ホスト（:3001 / :3002 / :3443）を止めます。')
-$top.Controls.AddRange(@($btnDev, $btnStopDev, $btnLan, $btnChrome, $btnBuild, $btnStopStatic))
+$tips.SetToolTip($btnPublish, '既存の out を publish\ にコピーし、MangaSketcher.lnk を作ります。静的ビルドはしません。')
+$top.Controls.AddRange(@($btnDev, $btnStopDev, $btnLan, $btnChrome, $btnBuild, $btnStopStatic, $btnPublish))
 
 $y = 74
 $lblRoots = New-Object System.Windows.Forms.Label
@@ -686,6 +739,7 @@ $btnDev.Add_Click({ Invoke-UiAction { Start-DevServer } })
 $btnLan.Add_Click({ Invoke-UiAction { Start-StaticHost -Lan } })
 $btnChrome.Add_Click({ Invoke-UiAction { Start-StaticHost -Lan -Chrome } })
 $btnBuild.Add_Click({ Invoke-UiAction { Start-StaticBuildThenLan } })
+$btnPublish.Add_Click({ Invoke-UiAction { Start-PublishOut } })
 $btnRefresh.Add_Click({ Invoke-UiAction { Refresh-RootCombo } })
 $btnSwitch.Add_Click({
   Invoke-UiAction {

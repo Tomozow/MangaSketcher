@@ -33,6 +33,7 @@ import {
 } from '@/src/web/shellUpdate';
 import { useAppShellHeight } from '@/src/web/appShellHeight';
 import { prepareImportedProjectOffThread } from '@/src/web/projectImport/prepareImportedProjectOffThread';
+import { IpadCaQrButton } from '@/src/web/IpadCaQrButton';
 import {
   LanTransferControls,
   type LanTransferControlsHandle,
@@ -676,10 +677,7 @@ export function ProjectList() {
           <p className={styles.hint}>エクスポートを準備しています…</p>
         ) : null}
       </section>
-
-      <p className={styles.settingsHint}>
-        自動保存の間隔は編集画面の設定から変えられます。タブを閉じる・バックグラウンドにするときはすぐ保存します。
-      </p>
+      <IpadCaQrButton />
     </div>
   );
 }

@@ -69,7 +69,7 @@ export function runMkcert(root, args) {
   const { mkcertPath, caDir } = certPaths(root);
   const result = spawnSync(mkcertPath, args, {
     cwd: root,
-    env: { ...process.env, CAROOT: caDir },
+    env: { ...process.env, CAROOT: caDir, TRUST_STORES: 'none' },
     encoding: 'utf8',
     windowsHide: true,
   });
@@ -80,16 +80,9 @@ export function runMkcert(root, args) {
 
 /** Issue (or refresh) the LAN leaf for current IPv4s + localhost. Does not recreate the CA. */
 export async function ensureLanLeaf(root) {
-  const { caDir, caPem, certFile, keyFile } = certPaths(root);
+  const { caDir, certFile, keyFile } = certPaths(root);
   mkdirSync(caDir, { recursive: true });
   await ensureMkcert(root);
-  if (!existsSync(caPem)) {
-    try {
-      runMkcert(root, ['-install']);
-    } catch {
-      // iPad trusts via mobileconfig from start:https-lan.
-    }
-  }
   const ip = lanIPv4();
   const extraIps = lanIPv4s().filter((item) => item !== ip);
   runMkcert(root, ['-cert-file', certFile, '-key-file', keyFile, ip, ...extraIps, '127.0.0.1', 'localhost']);
