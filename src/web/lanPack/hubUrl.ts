@@ -39,7 +39,7 @@ export function resolveLanPackHubBase(location: {
     return '';
   }
   if (port === '3000' && location.protocol === 'https:') {
-    return `https://${location.hostname}:${HUB_PORT}`;
+    return '';
   }
   if (port === '3001' && (location.hostname === '127.0.0.1' || location.hostname === 'localhost')) {
     return '';
@@ -76,7 +76,7 @@ export function lanPackOriginKind(
   if (url.protocol === 'https:' && url.port === '3000') {
     return 'pc';
   }
-  if (url.protocol === 'http:' && url.hostname === '127.0.0.1' && url.port === '3001') {
+  if (url.protocol === 'http:' && url.port === '3001' && (url.hostname === '127.0.0.1' || url.hostname === 'localhost')) {
     return 'pc';
   }
   if (url.protocol === 'https:' && url.port === '3443') {

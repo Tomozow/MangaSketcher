@@ -425,3 +425,16 @@
 {"message":"tick done","hypothesisId":"B","data":{"left":2,"runId":"post-fix","elapsedMs":467},"timestamp":1788578884178,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
 {"message":"tick done","hypothesisId":"B","data":{"left":1,"runId":"post-fix","elapsedMs":475},"timestamp":1788578885678,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
 {"message":"tick done","hypothesisId":"B","data":{"left":0,"runId":"post-fix","elapsedMs":473},"timestamp":1788578887182,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"script start","hypothesisId":"E","data":{"sta":"STA","scriptRoot":"A:\\dev\\MangaSketcher\\scripts","psVersion":"5.1.26100.9168"},"timestamp":1788579391099,"sessionId":"e15d93","location":"launcher.ps1:entry"}
+{"message":"Add-Type ok","hypothesisId":"A","data":{},"timestamp":1788579391249,"sessionId":"e15d93","location":"launcher.ps1:addtype"}
+{"message":"console hide","hypothesisId":"E","data":{"hidden":true,"hwnd":"8784466","runId":"post-fix"},"timestamp":1788579391342,"sessionId":"e15d93","location":"launcher.ps1:hide-console"}
+{"message":"before Refresh-RootCombo","hypothesisId":"C","data":{},"timestamp":1788579391567,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"after Refresh-RootCombo","hypothesisId":"C","data":{"count":11},"timestamp":1788579391619,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"before On-Tick","hypothesisId":"D","data":{},"timestamp":1788579391620,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"tick done","hypothesisId":"B","data":{"left":4,"runId":"post-fix","elapsedMs":502},"timestamp":1788579392123,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"after On-Tick","hypothesisId":"D","data":{},"timestamp":1788579392124,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"ShowDialog","hypothesisId":"E","data":{},"timestamp":1788579392126,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"tick done","hypothesisId":"B","data":{"left":3,"runId":"post-fix","elapsedMs":474},"timestamp":1788579394102,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"tick done","hypothesisId":"B","data":{"left":2,"runId":"post-fix","elapsedMs":473},"timestamp":1788579395599,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"tick done","hypothesisId":"B","data":{"left":1,"runId":"post-fix","elapsedMs":472},"timestamp":1788579397100,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"tick done","hypothesisId":"B","data":{"left":0,"runId":"post-fix","elapsedMs":471},"timestamp":1788579398599,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}

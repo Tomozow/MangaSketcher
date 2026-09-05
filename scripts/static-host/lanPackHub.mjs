@@ -45,7 +45,7 @@ export function lanPackOriginKind(origin, ipv4s) {
   if (url.protocol === 'https:' && url.port === '3000') {
     return 'pc';
   }
-  if (url.protocol === 'http:' && url.hostname === '127.0.0.1' && url.port === '3001') {
+  if (url.protocol === 'http:' && url.port === '3001' && (url.hostname === '127.0.0.1' || url.hostname === 'localhost')) {
     return 'pc';
   }
   if (url.protocol === 'https:' && url.port === '3443') {

@@ -249,11 +249,12 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
             }
             logLanPack('recv-loop', { name: err instanceof Error ? err.name : 'x' });
             dropRecvCode(code);
-            setHubDown(true);
             recvCodeRef.current = null;
             setRecvCode(null);
             code = null;
-            await sleep(8000);
+            const stillUp = hubBase != null && (await probeLanPackHub(hubBase, abort.signal));
+            setHubDown(!stillUp);
+            await sleep(stillUp ? 500 : 8000);
           }
         }
       };

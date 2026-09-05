@@ -15,13 +15,13 @@ describe('lan pack hub URL', () => {
     expect(lanPackApiUrl('', '/api/lan-pack/health')).toBe('/api/lan-pack/health');
   });
 
-  test('dev :3000 points at same hostname :3443', () => {
+  test('dev :3000 uses same-origin API (Next proxies to :3443)', () => {
     expect(
       resolveLanPackHubBase({ protocol: 'https:', hostname: '127.0.0.1', port: '3000' }),
-    ).toBe('https://127.0.0.1:3443');
+    ).toBe('');
     expect(
       resolveLanPackHubBase({ protocol: 'https:', hostname: '192.168.0.8', port: '3000' }),
-    ).toBe('https://192.168.0.8:3443');
+    ).toBe('');
   });
 
   test('static :3001 uses same-origin API (PC HTTP; no fetch to :3443 cert)', () => {
@@ -62,6 +62,7 @@ describe('lan pack codes and CORS kinds', () => {
     expect(lanPackOriginKind('https://localhost:3000', ips)).toBe('pc');
     expect(lanPackOriginKind('https://192.168.0.2:3000', ips)).toBe('pc');
     expect(lanPackOriginKind('http://127.0.0.1:3001', ips)).toBe('pc');
+    expect(lanPackOriginKind('http://localhost:3001', ips)).toBe('pc');
     expect(lanPackOriginKind('https://10.0.0.4:3443', ips)).toBe('hub');
     expect(lanPackOriginKind(null, ips)).toBe('hub');
   });

@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { request as httpRequest } from 'node:http';
 import { createConnection } from 'node:net';
 import { execFileSync, spawn } from 'node:child_process';
-import { existsSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, rmSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { stdin as stdinStream, stdout as stdoutStream } from 'node:process';
 import { join, resolve } from 'node:path';
@@ -15,6 +15,34 @@ const repoRoot = process.cwd();
 export const SERVE_PORT = 13443;
 export const HTTP_PORT = 3001;
 const APP_URL = `http://127.0.0.1:${HTTP_PORT}/`;
+
+/** Old out/ still fetches :3443; PC HTTP must stay on :3001. */
+const LAN_PACK_PC_FETCH_PATCH = `<script>(function(){var f=window.fetch;window.fetch=function(input,init){function map(u){if(typeof u!=="string")return u;try{var x=new URL(u,location.href);if(x.port==="3443"&&x.pathname.indexOf("/api/lan-pack")===0){return x.pathname+x.search;}}catch(e){}return u;}if(typeof input==="string"){input=map(input);}else if(input&&typeof input.url==="string"){input=new Request(map(input.url),input);}return f.call(this,input,init);};})();</script>`;
+
+function servePatchedIndex(abs, req, res) {
+  const pathname = new URL(req.url ?? '/', APP_URL).pathname;
+  if (req.method !== 'GET' && req.method !== 'HEAD') {
+    return false;
+  }
+  if (pathname !== '/' && pathname !== '/index.html') {
+    return false;
+  }
+  const file = join(abs, 'index.html');
+  if (!existsSync(file)) {
+    return false;
+  }
+  const html = readFileSync(file, 'utf8').replace('</head>', `${LAN_PACK_PC_FETCH_PATCH}</head>`);
+  res.writeHead(200, {
+    'Content-Type': 'text/html; charset=utf-8',
+    'Cache-Control': 'no-store',
+  });
+  if (req.method !== 'HEAD') {
+    res.end(html);
+  } else {
+    res.end();
+  }
+  return true;
+}
 
 function parseArgs(argv) {
   let chrome = false;
@@ -177,6 +205,7 @@ function openChromeApp() {
       '--disable-default-apps',
       '--disable-http-cache',
       '--disable-features=ServiceWorker',
+      '--allow-insecure-localhost',
       `--app=${APP_URL}`,
     ],
     { detached: true, stdio: 'ignore', windowsHide: true },
@@ -191,7 +220,8 @@ async function waitWhileChromeAppOpen() {
     await sleep(200);
   }
   if (countChromeForStaticProfile() === 0) {
-    return;
+    // CIM may not see CommandLine. Keep the host; launcher can stop ports.
+    await new Promise(() => {});
   }
   while (countChromeForStaticProfile() > 0) {
     await sleep(750);
@@ -247,6 +277,9 @@ export async function main(extra = {}) {
   const httpServer = createServer((req, res) => {
     void (async () => {
       if (flags.lan && (await handleLanPack(req, res, { repoRoot }))) {
+        return;
+      }
+      if (flags.lan && servePatchedIndex(current.abs, req, res)) {
         return;
       }
       proxyToServe(req, res);
