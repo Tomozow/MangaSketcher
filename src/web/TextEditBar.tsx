@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeEvent, type CSSProperties } from 'react';
-import type { TextId } from '@/src/domain/types';
+import type { TextId, WritingMode } from '@/src/domain/types';
+import { writingModeOf } from '@/src/domain/types';
 import { isTextContentEmpty, mapIndexAfterNewlineNormalize, normalizeEditNewlines } from '@/src/domain/text';
-import { TEXT_WRAP_LINE_HEIGHT, layoutVisibleTextBox, verticalCaretCell } from '@/src/domain/textWrap';
+import { TEXT_WRAP_LINE_HEIGHT, layoutVisibleTextBox, textCaretCell } from '@/src/domain/textWrap';
 import { isWhiteTextColor } from '@/src/web/text/whiteTextColor';
 import {
   planTextCommit,
@@ -30,6 +31,7 @@ export type TextEditSelection = {
   id: TextId;
   content: string;
   color?: string;
+  writingMode?: WritingMode;
 };
 
 type TextEditBarProps = {
@@ -51,6 +53,7 @@ function hudCaretCell(
   wrap: HTMLElement | null,
   pose: HudPose | null,
   input: HTMLTextAreaElement | null,
+  writingMode: WritingMode,
 ): { column: number; row: number } {
   const wrapFont = wrap ? Number.parseFloat(window.getComputedStyle(wrap).fontSize) : NaN;
   const fontSize = wrapFont > 0 ? wrapFont : (pose?.fontSize ?? 16);
@@ -60,12 +63,14 @@ function hudCaretCell(
     { x: 0, y: 0, width: Math.max(1, wrapW), height: Math.max(1, wrapH) },
     value,
     fontSize,
+    writingMode,
   );
-  return verticalCaretCell(
+  return textCaretCell(
     value,
     utf16Index,
     { x: 0, y: 0, width: fitted.width, height: fitted.height },
     fontSize,
+    writingMode,
   );
 }
 
@@ -162,7 +167,8 @@ export function TextEditBar({
     const value = el?.value ?? draftRef.current;
     const start = el?.selectionStart ?? value.length;
     const end = el?.selectionEnd ?? start;
-    const cell = hudCaretCell(value, start, wrap, pose, el);
+    const mode = writingModeOf(selectionRef.current?.writingMode);
+    const cell = hudCaretCell(value, start, wrap, pose, el, mode);
     setCaret({ ...cell, range: start !== end });
   }, [pose]);
 
@@ -478,6 +484,8 @@ export function TextEditBar({
         height: TEXT_EDIT_MIN_HEIGHT_PX,
       };
   const hudColor = isWhiteTextColor(selection.color) ? '#1A1A1A' : selection.color || '#1A1A1A';
+  const mode = writingModeOf(selection.writingMode);
+  const horizontal = mode === 'horizontal';
   return (
     <div
       ref={barRef}
@@ -488,7 +496,7 @@ export function TextEditBar({
     >
       <textarea
         ref={textareaRef}
-        className={styles.textEditInput}
+        className={`${styles.textEditInput}${horizontal ? ` ${styles.textEditInputHorizontal}` : ''}`}
         value={draft}
         autoFocus
         aria-label="テキスト編集"
@@ -510,14 +518,25 @@ export function TextEditBar({
         <div
           className={styles.textEditCaret}
           aria-hidden="true"
-          style={{
-            right: `${caret.column * TEXT_WRAP_LINE_HEIGHT}em`,
-            top: `${caret.row}em`,
-            width: `${TEXT_WRAP_LINE_HEIGHT}em`,
-            height: 2,
-            background: hudColor,
-            boxShadow: isWhiteTextColor(selection.color) ? '0 0 0 1px #000000' : undefined,
-          }}
+          style={
+            horizontal
+              ? {
+                  left: `${caret.column}em`,
+                  top: `${caret.row * TEXT_WRAP_LINE_HEIGHT}em`,
+                  width: 2,
+                  height: '1em',
+                  background: hudColor,
+                  boxShadow: isWhiteTextColor(selection.color) ? '0 0 0 1px #000000' : undefined,
+                }
+              : {
+                  right: `${caret.column * TEXT_WRAP_LINE_HEIGHT}em`,
+                  top: `${caret.row}em`,
+                  width: `${TEXT_WRAP_LINE_HEIGHT}em`,
+                  height: 2,
+                  background: hudColor,
+                  boxShadow: isWhiteTextColor(selection.color) ? '0 0 0 1px #000000' : undefined,
+                }
+          }
         />
       )}
     </div>

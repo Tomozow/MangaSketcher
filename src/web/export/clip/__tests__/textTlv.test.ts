@@ -22,6 +22,7 @@ import {
   serializeTextLayerAttributes,
   utf16CharCount,
   verticalTextMetrics,
+  horizontalTextMetrics,
 } from '../textTlv';
 
 const SAMPLE_SQLITE = join(process.cwd(), 'sample', '_analysis', 'export_sample.sqlite');
@@ -142,6 +143,16 @@ describe('textTlv', () => {
     });
     const id72 = getTlvPayload(attr.entries, 72)!;
     expect(new DataView(id72.buffer, id72.byteOffset).getUint32(0, true)).toBe(66);
+  });
+
+  test('horizontal metrics transpose vertical width and height', () => {
+    const text = 'あい\r\nうえ';
+    const v = verticalTextMetrics(text, 397);
+    const h = horizontalTextMetrics(text, 397);
+    expect(h.width).toBe(v.height);
+    expect(h.height).toBe(v.width);
+    expect(h.lineCount).toBe(v.lineCount);
+    expect(h.maxLineChars).toBe(v.maxLineChars);
   });
 
   test('vertical metrics scale linearly with font size', () => {

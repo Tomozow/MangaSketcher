@@ -17,6 +17,12 @@ export type Rgba = { r: number; g: number; b: number; a: number };
 
 export type Rect = { x: number; y: number; width: number; height: number };
 
+export type WritingMode = 'vertical' | 'horizontal';
+
+export function writingModeOf(mode?: WritingMode | null): WritingMode {
+  return mode === 'horizontal' ? 'horizontal' : 'vertical';
+}
+
 export type Raster = {
   width: number;
   height: number;
@@ -27,10 +33,12 @@ export type Raster = {
 export type PageText = {
   id: TextId;
   content: string;
-  /** Page-local coordinates. Vertical writing; no rotation. */
+  /** Page-local coordinates. No rotation. */
   box: Rect;
   fontSize: number;
   color: string;
+  /** Omitted on legacy documents = vertical. */
+  writingMode?: WritingMode;
 };
 
 export type PasteboardText = {
@@ -40,6 +48,7 @@ export type PasteboardText = {
   box: Rect;
   fontSize: number;
   color: string;
+  writingMode?: WritingMode;
 };
 
 export type Page = {
@@ -121,6 +130,8 @@ export type ToolProperties = {
   eraserOpacity: number;
   textColor: string;
   textFontSize: number;
+  /** Default for new text boxes. Omitted = vertical. */
+  textWritingMode?: WritingMode;
   /** When false, pen/eraser ignore stylus pressure (undefined treated as true). */
   pressureEnabled?: boolean;
   /** When set, overrides size pressure. Undefined follows `pressureEnabled`. */
@@ -349,6 +360,7 @@ export const DEFAULT_TOOL_PROPERTIES: ToolProperties = {
   eraserOpacity: 1,
   textColor: '#1A1A1A',
   textFontSize: 36,
+  textWritingMode: 'vertical',
   pressureEnabled: true,
   pressureAffectsSize: true,
   pressureAffectsOpacity: false,

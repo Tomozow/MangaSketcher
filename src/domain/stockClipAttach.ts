@@ -75,6 +75,7 @@ type ClipThumbTextSource = {
   box: Rect;
   fontSize: number;
   color: string;
+  writingMode?: import('./types').WritingMode;
 };
 
 /** Map bundled pasteboard texts into clip-raster space for `drawPageTextsOnThumb`. */
@@ -107,6 +108,7 @@ export function attachedTextsToClipRasterTexts(
       content: text.content,
       color: text.color,
       fontSize: text.fontSize / scaleX,
+      writingMode: text.writingMode,
       box: {
         x: att.offsetX * invX,
         y: att.offsetY * invY,

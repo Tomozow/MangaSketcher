@@ -190,7 +190,7 @@ export function buildTextInteractionElements(input: {
     if (!frame) continue;
     for (const text of input.pages[pageId]?.texts ?? []) {
       const fontSize = Number.isFinite(text.fontSize) ? text.fontSize : 12;
-      const visible = layoutVisibleTextBox(text.box, text.content, fontSize);
+      const visible = layoutVisibleTextBox(text.box, text.content, fontSize, text.writingMode);
       result.push({
         id: text.id,
         owner: { kind: 'page', pageId },

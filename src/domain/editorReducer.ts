@@ -3,7 +3,7 @@ import { layoutWorkspace } from './layout';
 import { pageTextToPasteboard, wrapExtractedText, workspaceFontSizeFromTool } from './pdfExtractPack';
 import { joinVerticalBody, rangeSelectBody } from './pdfText';
 import { applyFontSizeToText, isTextContentEmpty, resizeTextBox, selectedTextIdsOf } from './text';
-import { fitTextBoxToContent } from './textWrap';
+import { fitTextBoxToContent, layoutVisibleTextBox } from './textWrap';
 import {
   clampSplit,
   clampPdfDrawerHeight,
@@ -31,8 +31,9 @@ import type {
   TextId,
   ToolId,
   ToolProperties,
+  WritingMode,
 } from './types';
-import { isSelectionTool } from './types';
+import { isSelectionTool, writingModeOf } from './types';
 
 const VIEW_ONLY = new Set<string>([
   'selectPage',
@@ -187,6 +188,7 @@ export type EditorDocumentAction =
   | { type: 'setTextColor'; textId: TextId; color: string }
   | { type: 'setTextFontSize'; textId: TextId; fontSize: number }
   | { type: 'setTextsFontSize'; textIds: TextId[]; fontSize: number }
+  | { type: 'setTextsWritingMode'; textIds: TextId[]; writingMode: WritingMode }
   | { type: 'attachTextToPage'; textId: TextId; pageId: PageId; pageBox: Rect; fontSize?: number }
   | { type: 'detachTextToPasteboard'; textId: TextId; workspaceBox: Rect; fontSize?: number }
   | { type: 'selectText'; textId: TextId | null }
@@ -958,6 +960,7 @@ export function reduceEditorDocument(
         box: { ...a.box },
         fontSize: doc.tools.textFontSize,
         color: doc.tools.textColor,
+        writingMode: writingModeOf(doc.tools.textWritingMode),
       };
       if (a.attachment.kind === 'page') {
         const page = doc.pages[a.attachment.pageId];
@@ -980,7 +983,12 @@ export function reduceEditorDocument(
           found.where === 'pasteboard'
             ? workspaceFontSizeFromTool(found.node.fontSize, doc.rasterWidth)
             : found.node.fontSize;
-        found.node.box = fitTextBoxToContent(found.node.box, a.content, layoutFont);
+        found.node.box = fitTextBoxToContent(
+          found.node.box,
+          a.content,
+          layoutFont,
+          writingModeOf(found.node.writingMode),
+        );
       }
       return doc;
     }
@@ -1007,6 +1015,7 @@ export function reduceEditorDocument(
           },
           fontSize: found.node.fontSize,
           color: found.node.color,
+          writingMode: writingModeOf(found.node.writingMode),
         };
         if (found.where === 'page' && found.pageId) {
           doc.pages[found.pageId]?.texts.push(clone);
@@ -1131,6 +1140,22 @@ export function reduceEditorDocument(
       }
       return doc;
     }
+    case 'setTextsWritingMode': {
+      const mode = writingModeOf(a.writingMode);
+      for (const textId of a.textIds) {
+        const found = findEditorText(doc, textId);
+        if (!found) {
+          continue;
+        }
+        found.node.writingMode = mode;
+        const layoutFont =
+          found.where === 'pasteboard'
+            ? workspaceFontSizeFromTool(found.node.fontSize, doc.rasterWidth)
+            : found.node.fontSize;
+        found.node.box = layoutVisibleTextBox(found.node.box, found.node.content, layoutFont, mode);
+      }
+      return doc;
+    }
     case 'attachTextToPage': {
       const pbIndex = doc.pasteboardTexts.findIndex((t) => t.id === a.textId);
       if (pbIndex === -1) {
@@ -1147,6 +1172,7 @@ export function reduceEditorDocument(
         box: { ...a.pageBox },
         fontSize: a.fontSize ?? item.fontSize,
         color: item.color,
+        writingMode: writingModeOf(item.writingMode),
       });
       assignFocusedWorkspacePage(doc, a.pageId);
       return doc;
@@ -1162,6 +1188,7 @@ export function reduceEditorDocument(
             box: { ...a.workspaceBox },
             fontSize: a.fontSize ?? item.fontSize,
             color: item.color,
+            writingMode: writingModeOf(item.writingMode),
           });
           break;
         }
@@ -1204,6 +1231,7 @@ export function reduceEditorDocument(
         box: { ...a.box },
         fontSize: a.fontSize ?? doc.tools.textFontSize,
         color: doc.tools.textColor,
+        writingMode: 'vertical' as const,
       };
       if (a.attachment.kind === 'page') {
         doc.pages[a.attachment.pageId]?.texts.push(text);

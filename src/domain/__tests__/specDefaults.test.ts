@@ -18,6 +18,10 @@ describe('§13.1 spec defaults', () => {
 
     expect(box.width).toBe(Math.ceil(font * 1.5));
     expect(box.height).toBe(font);
+
+    const horizontal = defaultTextBox(DEFAULT_RASTER_WIDTH, DEFAULT_RASTER_HEIGHT, font, 'horizontal');
+    expect(horizontal.width).toBe(font);
+    expect(horizontal.height).toBe(Math.ceil(font * 1.5));
   });
 
   test('DEFAULT_TOOL_PROPERTIES.penSize is 12 (§6, §13.1)', () => {

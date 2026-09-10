@@ -33,6 +33,13 @@ describe('comparePageTextOrder', () => {
     expect(comparePageTextOrder(upper, lower, 0, 1)).toBeLessThan(0);
   });
 
+  test('horizontal texts sort left then top', () => {
+    const left = { ...text('L', 100, 50, 80, 20), writingMode: 'horizontal' as const };
+    const right = { ...text('R', 200, 10, 80, 20), writingMode: 'horizontal' as const };
+    const lower = { ...text('D', 100, 80, 80, 20), writingMode: 'horizontal' as const };
+    expect(sortPageTexts([right, lower, left]).map((item) => item.id)).toEqual(['L', 'D', 'R']);
+  });
+
   test('equal right and y uses original index', () => {
     const first = text('1', 10, 10, 10, 10);
     const second = text('2', 10, 10, 10, 10);

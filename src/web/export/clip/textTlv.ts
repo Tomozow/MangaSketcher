@@ -374,6 +374,16 @@ export function verticalTextMetrics(text: string, fontSizeValue: number): Vertic
   };
 }
 
+/** Horizontal-text layout: transpose of verticalTextMetrics (rows grow height). */
+export function horizontalTextMetrics(text: string, fontSizeValue: number): VerticalTextMetrics {
+  const vertical = verticalTextMetrics(text, fontSizeValue);
+  return {
+    ...vertical,
+    width: vertical.height,
+    height: vertical.width,
+  };
+}
+
 /**
  * Vertical-text bbox from top-right anchor (single- or multi-line).
  * Multi-line: width uses inter-column pitch; height uses max line length (not total chars).
@@ -391,6 +401,24 @@ export function estimateVerticalTextBBox(params: {
     left: right - metrics.width,
     top,
     right,
+    bottom: top + metrics.height,
+    metrics,
+  };
+}
+
+export function estimateHorizontalTextBBox(params: {
+  text: string;
+  fontSizeValue: number;
+  anchorLeft: number;
+  anchorTop: number;
+}): CanvasBBox & { metrics: VerticalTextMetrics } {
+  const metrics = horizontalTextMetrics(params.text, params.fontSizeValue);
+  const left = params.anchorLeft;
+  const top = params.anchorTop;
+  return {
+    left,
+    top,
+    right: left + metrics.width,
     bottom: top + metrics.height,
     metrics,
   };

@@ -18,6 +18,8 @@ import {
 } from '@/src/domain/stripGeometry';
 import type { EditorDocument } from '@/src/storage/types';
 import { layoutVisibleTextBox, TEXT_WRAP_LINE_HEIGHT, wrapPageTextToLines } from '@/src/domain/textWrap';
+import type { WritingMode } from '@/src/domain/types';
+import { writingModeOf } from '@/src/domain/types';
 import {
   effectiveTextBox,
   sanitizeTextBox,
@@ -130,13 +132,36 @@ function PageTextGlyphs({
   content,
   box,
   fontPx,
+  writingMode,
 }: {
   content: string;
   box: Rect;
   fontPx: number;
+  writingMode?: WritingMode;
 }) {
   const fs = Math.max(1, fontPx);
-  const lines = wrapPageTextToLines(content, { x: 0, y: 0, width: box.width, height: box.height }, fs);
+  const mode = writingModeOf(writingMode);
+  const lines = wrapPageTextToLines(
+    content,
+    { x: 0, y: 0, width: box.width, height: box.height },
+    fs,
+    mode,
+  );
+  if (mode === 'horizontal') {
+    return (
+      <>
+        {lines.map((line, row) => (
+          <span
+            key={row}
+            className={styles.pageTextRow}
+            style={{ top: `${row * TEXT_WRAP_LINE_HEIGHT}em` }}
+          >
+            {line}
+          </span>
+        ))}
+      </>
+    );
+  }
   return (
     <>
       {lines.map((line, column) => (
@@ -324,7 +349,7 @@ export function PageTextsOnFrame({
         const resizeScale = box0.width / Math.max(1, sanitizeTextBox(text.box).width);
         const content = liveTextContent?.id === text.id ? liveTextContent.content : text.content;
         const layoutFont = fontSize * resizeScale;
-        const box = layoutVisibleTextBox(box0, content, layoutFont);
+        const box = layoutVisibleTextBox(box0, content, layoutFont, text.writingMode);
         const cssFontSize = displayTextFontSize(layoutFont, scaleX);
         return (
           <div
@@ -343,7 +368,7 @@ export function PageTextsOnFrame({
                 color: text.color,
               }}
             >
-              <PageTextGlyphs content={content} box={box} fontPx={layoutFont} />
+              <PageTextGlyphs content={content} box={box} fontPx={layoutFont} writingMode={text.writingMode} />
             </div>
           </div>
         );
@@ -451,7 +476,7 @@ export function PasteboardTextsLayer({
       {items.map(({ text, box: itemBox, fontSize }) => {
         const selected = selectedIdSet.has(text.id);
         const content = liveTextContent?.id === text.id ? liveTextContent.content : text.content;
-        const box = layoutVisibleTextBox(itemBox, content, fontSize);
+        const box = layoutVisibleTextBox(itemBox, content, fontSize, text.writingMode);
         const fs = Math.max(1, fontSize);
         return (
           <div
@@ -473,7 +498,7 @@ export function PasteboardTextsLayer({
               className={`${styles.pageTextBox} ${selected ? styles.pageTextBoxSelected : ''} ${isWhiteTextColor(text.color) ? styles.pageTextBoxWhite : ''}`}
               style={{ color: text.color }}
             >
-              <PageTextGlyphs content={content} box={box} fontPx={fs} />
+              <PageTextGlyphs content={content} box={box} fontPx={fs} writingMode={text.writingMode} />
             </div>
           </div>
         );

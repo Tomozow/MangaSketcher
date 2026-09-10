@@ -11,6 +11,7 @@ import {
   verticalTextContentSize,
   wrapPageTextToLines,
   verticalCaretCell,
+  horizontalCaretCell,
 } from '../textWrap';
 
 type Call = { glyph: string; x: number; y: number };
@@ -290,5 +291,30 @@ describe('verticalCaretCell', () => {
         row: n,
       });
     }
+  });
+});
+
+describe('horizontal wrap', () => {
+  const box: Rect = { x: 10, y: 20, width: 108, height: 200 };
+
+  test('wraps by width into rows', () => {
+    expect(wrapPageTextToLines('あいうえおかきく', box, 36, 'horizontal')).toEqual(['あいう', 'えおか', 'きく']);
+  });
+
+  test('fitTextBoxToContent keeps the top-left corner', () => {
+    const fontSize = 36;
+    const start: Rect = { x: 100, y: 50, width: 20, height: 20 };
+    const next = fitTextBoxToContent(start, 'あい', fontSize, 'horizontal');
+    expect(next.x).toBe(100);
+    expect(next.y).toBe(50);
+    expect(next.width).toBe(72);
+    expect(next.height).toBe(Math.ceil(verticalColumnPitch(fontSize)));
+  });
+
+  test('horizontalCaretCell walks left to right then down', () => {
+    const rowBox: Rect = { x: 0, y: 0, width: 108, height: 200 };
+    expect(horizontalCaretCell('あいうえ', 0, rowBox, 36)).toEqual({ column: 0, row: 0 });
+    expect(horizontalCaretCell('あいうえ', 3, rowBox, 36)).toEqual({ column: 3, row: 0 });
+    expect(horizontalCaretCell('あいうえ', 4, rowBox, 36)).toEqual({ column: 1, row: 1 });
   });
 });

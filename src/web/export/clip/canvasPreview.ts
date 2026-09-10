@@ -186,7 +186,7 @@ export function compositePreviewRgba(
   return composed;
 }
 
-type PreviewText = { content: string; box: Rect; fontSize: number };
+type PreviewText = { content: string; box: Rect; fontSize: number; writingMode?: import('../../../domain/types').WritingMode };
 
 let previewCtx: OffscreenCanvasRenderingContext2D | null | undefined;
 

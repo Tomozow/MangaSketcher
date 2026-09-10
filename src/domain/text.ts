@@ -6,18 +6,26 @@ import type {
   Rect,
   TextDocument,
   TextId,
+  WritingMode,
 } from './types';
-import { DEFAULT_TOOL_PROPERTIES } from './types';
+import { DEFAULT_TOOL_PROPERTIES, writingModeOf } from './types';
 
 type SelectedTextDocument = TextDocument & Pick<EditorDocument, 'selectedTextId'>;
 
-/** One vertical column: width = glyph cell (same 1.5em as TEXT_WRAP_LINE_HEIGHT). */
+/** Empty box: vertical is one 1.5em column × 1em; horizontal is 1em × 1.5em row. */
 export function defaultTextBox(
   rw: number,
   rh: number,
   fontSize: number = DEFAULT_TOOL_PROPERTIES.textFontSize,
+  writingMode: WritingMode = 'vertical',
 ): Pick<Rect, 'width' | 'height'> {
   const fontPx = Math.max(1, Number.isFinite(fontSize) ? fontSize : DEFAULT_TOOL_PROPERTIES.textFontSize);
+  if (writingModeOf(writingMode) === 'horizontal') {
+    return {
+      width: Math.min(rw, Math.ceil(fontPx)),
+      height: Math.min(rh, Math.ceil(fontPx * 1.5)),
+    };
+  }
   return {
     width: Math.min(rw, Math.ceil(fontPx * 1.5)),
     height: Math.min(rh, Math.ceil(fontPx)),
@@ -46,6 +54,7 @@ export function createEmptyTextBox(
   box: Rect,
   color: string,
   fontSize: number,
+  writingMode: WritingMode = 'vertical',
 ): Omit<PageText, 'id'> & { id: string } {
   return {
     id,
@@ -53,6 +62,7 @@ export function createEmptyTextBox(
     box: { ...box },
     fontSize,
     color,
+    writingMode: writingModeOf(writingMode),
   };
 }
 
@@ -70,12 +80,13 @@ export function findText(
   return pb ? { node: pb, where: 'pasteboard' } : null;
 }
 
-/** 選択中テキスト枠の本文編集用。回転なし・縦書き。未選択は null。 */
+/** 選択中テキスト枠の本文編集用。回転なし。未選択は null。 */
 export function selectedTextForEditor(doc: SelectedTextDocument): {
   id: TextId;
   content: string;
   color: string;
   fontSize: number;
+  writingMode: WritingMode;
   where: 'page' | 'pasteboard';
   pageId?: PageId;
 } | null {
@@ -91,6 +102,7 @@ export function selectedTextForEditor(doc: SelectedTextDocument): {
     content: found.node.content,
     color: found.node.color,
     fontSize: found.node.fontSize,
+    writingMode: writingModeOf(found.node.writingMode),
     where: found.where,
     pageId: found.pageId,
   };
@@ -175,6 +187,7 @@ export function toPasteboardText(pageText: PageText, workspaceBox: Rect): Pasteb
     box: workspaceBox,
     fontSize: pageText.fontSize,
     color: pageText.color,
+    writingMode: writingModeOf(pageText.writingMode),
   };
 }
 
@@ -185,11 +198,8 @@ export function toPageText(pasteboardText: PasteboardText, pageBox: Rect): PageT
     box: pageBox,
     fontSize: pasteboardText.fontSize,
     color: pasteboardText.color,
+    writingMode: writingModeOf(pasteboardText.writingMode),
   };
-}
-
-export function isVerticalWriting(): true {
-  return true;
 }
 
 export function selectedTextIdsOf(doc: {

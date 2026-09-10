@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
-import { isLassoSelectMode, isSelectionTool, scissorsTargetFlagsOf, selectTargetFlagsOf, type ToolId } from '@/src/domain/types';
+import { isLassoSelectMode, isSelectionTool, scissorsTargetFlagsOf, selectTargetFlagsOf, type ToolId, type WritingMode, writingModeOf } from '@/src/domain/types';
 import { findText, selectedTextIdsOf } from '@/src/domain/text';
 import { inkPalette } from '@/src/theme/tokens';
 import type { EditorDocument, EditorHistory } from '@/src/storage/types';
@@ -180,6 +180,11 @@ export function CompactSidebar({
       ? findText(doc, selectedTextIds[selectedTextIds.length - 1]!)
       : null;
   const showSelectTextSize = Boolean(primarySelectedText);
+  const showWritingMode = doc.tool === 'text' || showSelectTextSize;
+  const activeWritingMode: WritingMode =
+    (doc.tool === 'text' || selectionTool) && selectedTextIds.length > 0
+      ? writingModeOf(findText(doc, selectedTextIds[selectedTextIds.length - 1]!)?.node.writingMode)
+      : writingModeOf(doc.tools.textWritingMode);
   const showSize = doc.tool !== 'scissors' && (!selectionTool || showSelectTextSize);
   const showColor = doc.tool === 'pen' || doc.tool === 'text';
 
@@ -219,6 +224,41 @@ export function CompactSidebar({
       dispatch({ type: 'setToolProperties', patch: { penColor: color } });
     }
   };
+
+  const handleWritingMode = (mode: WritingMode) => {
+    if ((doc.tool === 'text' || selectionTool) && selectedTextIds.length > 0) {
+      dispatch({ type: 'setTextsWritingMode', textIds: selectedTextIds, writingMode: mode });
+    }
+    if (doc.tool === 'text') {
+      dispatch({ type: 'setToolProperties', patch: { textWritingMode: mode } });
+    }
+  };
+
+  const writingModeRow = showWritingMode ? (
+    <div className={styles.toolFlyoutSection}>
+      <div className={styles.penPresetLabel}>向き</div>
+      <div className={styles.selectFilterRow} role="group" aria-label="書き方向">
+        <button
+          type="button"
+          className={`${styles.selectFilterButton} ${activeWritingMode === 'vertical' ? styles.toolButtonActive : ''}`}
+          aria-pressed={activeWritingMode === 'vertical'}
+          aria-label="縦書き"
+          onClick={() => handleWritingMode('vertical')}
+        >
+          縦
+        </button>
+        <button
+          type="button"
+          className={`${styles.selectFilterButton} ${activeWritingMode === 'horizontal' ? styles.toolButtonActive : ''}`}
+          aria-pressed={activeWritingMode === 'horizontal'}
+          aria-label="横書き"
+          onClick={() => handleWritingMode('horizontal')}
+        >
+          横
+        </button>
+      </div>
+    </div>
+  ) : null;
 
   const inkPresetIndex =
     doc.tool === 'eraser' ? appSettings.eraserSizePresetIndex : appSettings.penSizePresetIndex;
@@ -437,6 +477,7 @@ export function CompactSidebar({
           </div>
           {showSelectTextSize ? (
             <div className={styles.toolFlyoutSection}>
+              {writingModeRow}
               <ValueSlider
                 label="フォントサイズ"
                 min={12}
@@ -559,6 +600,8 @@ export function CompactSidebar({
             }}
           />
         ) : !selectionTool && showSize ? (
+          <>
+          {writingModeRow}
           <ValueSlider
             label="サイズ"
             min={12}
@@ -567,6 +610,7 @@ export function CompactSidebar({
             value={sizeValue}
             onChange={handleSizeChange}
           />
+          </>
         ) : null}
 
         {showColor ? (

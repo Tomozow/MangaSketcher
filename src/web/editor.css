@@ -1721,6 +1721,18 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   box-sizing: border-box;
 }
 
+.ms-pageTextRow {
+  position: absolute;
+  left: 0;
+  height: 1.5em;
+  width: 100%;
+  writing-mode: horizontal-tb;
+  white-space: pre;
+  word-break: break-all;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+
 .ms-pageTextBoxSelected {
   outline: calc(1px * var(--ms-screen-px, 1)) solid var(--ms-accent);
   outline-offset: calc(-1px * var(--ms-screen-px, 1));
@@ -1776,6 +1788,11 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   appearance: none;
   -webkit-text-size-adjust: 100%;
   text-size-adjust: 100%;
+}
+
+.ms-textEditInputHorizontal {
+  writing-mode: horizontal-tb;
+  text-orientation: mixed;
 }
 
 .ms-textEditInput::-webkit-scrollbar {

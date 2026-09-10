@@ -81,6 +81,19 @@ describe('pageTextToClipSpec', () => {
     expect(spec!.anchorTop).toBe(Math.round(box.y * (CLIP_CANVAS_HEIGHT / RASTER_H)));
   });
 
+  test('maps horizontal text from the top-left and wraps by width', () => {
+    const spec = pageTextToClipSpec(
+      { content: 'あいうえおかきく', box, fontSize: 36, writingMode: 'horizontal' },
+      RASTER_W,
+      RASTER_H,
+    );
+    expect(spec).not.toBeNull();
+    expect(spec!.writingMode).toBe('horizontal');
+    expect(spec!.content).toBe('あいうえおかきく'.slice(0, 5) + '\r\n' + 'あいうえおかきく'.slice(5));
+    expect(spec!.anchorLeft).toBe(Math.round(box.x * (CLIP_CANVAS_WIDTH / RASTER_W)));
+    expect(spec!.anchorTop).toBe(Math.round(box.y * (CLIP_CANVAS_HEIGHT / RASTER_H)));
+  });
+
   test('returns null when the app renders nothing', () => {
     expect(pageTextToClipSpec({ content: '   ', box, fontSize: 36 }, RASTER_W, RASTER_H)).toBeNull();
     expect(

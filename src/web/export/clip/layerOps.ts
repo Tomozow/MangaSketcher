@@ -7,6 +7,7 @@ import type { ClipExta } from './container';
 import {
   estimateVerticalBBox,
   estimateVerticalTextBBox,
+  estimateHorizontalTextBBox,
   encodeFontSizeValue,
   getTlvPayload,
   parseTextLayerAttributes,
@@ -416,6 +417,8 @@ export interface CloneTextLayerParams {
   anchorRight: number;
   anchorTop: number;
   fontSizePt: number;
+  writingMode?: 'vertical' | 'horizontal';
+  anchorLeft?: number;
   /** Override auto prototype pick (5/6/7 by line count). */
   prototypeMainId?: number;
 }
@@ -448,12 +451,20 @@ export function cloneTextLayer(
   const content = params.content;
   const charCount = utf16CharCount(content);
   const fontSizeValue = Math.round(params.fontSizePt * 49.625);
-  const estimated = estimateVerticalTextBBox({
-    text: content,
-    fontSizeValue,
-    anchorRight: params.anchorRight,
-    anchorTop: params.anchorTop,
-  });
+  const estimated =
+    params.writingMode === 'horizontal'
+      ? estimateHorizontalTextBBox({
+          text: content,
+          fontSizeValue,
+          anchorLeft: params.anchorLeft ?? Math.max(0, params.anchorRight),
+          anchorTop: params.anchorTop,
+        })
+      : estimateVerticalTextBBox({
+          text: content,
+          fontSizeValue,
+          anchorRight: params.anchorRight,
+          anchorTop: params.anchorTop,
+        });
 
   const srcBlobs = template?.blobs ?? readTextLayerBlobsFromDb(db, prototypeMainId);
   if (!srcBlobs) {

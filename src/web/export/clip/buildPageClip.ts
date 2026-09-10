@@ -5,7 +5,8 @@
  */
 import type { SqlJsStatic } from 'sql.js';
 import { convertWrapToExplicitNewlines } from '../../../domain/textWrap';
-import type { Rect } from '../../../domain/types';
+import type { Rect, WritingMode } from '../../../domain/types';
+import { writingModeOf } from '../../../domain/types';
 import { sortPageTexts } from '../sortPageTexts';
 import {
   rasterizeCanvasPreviewPng,
@@ -36,6 +37,7 @@ import {
   LINE_PITCH_8PT_PX,
   textLayerPrototypeMainId,
   verticalTextMetrics,
+  horizontalTextMetrics,
 } from './textTlv';
 
 export interface ClipPageTextInput {
@@ -44,6 +46,7 @@ export interface ClipPageTextInput {
   box: Rect;
   /** Font size in page raster px. */
   fontSize: number;
+  writingMode?: WritingMode;
 }
 
 /**
@@ -68,12 +71,38 @@ export function pageTextToClipSpec(
   rasterWidth: number,
   rasterHeight: number,
 ): CloneTextLayerParams | null {
-  const content = convertWrapToExplicitNewlines(text.content, text.box, text.fontSize);
+  const mode = writingModeOf(text.writingMode);
+  const content = convertWrapToExplicitNewlines(text.content, text.box, text.fontSize, mode);
   if (content.length === 0) {
     return null;
   }
 
   const fontSizePt = clipFontSizePt(text.fontSize, rasterWidth);
+  const fontSizeValue = Math.round(fontSizePt * FONT_SIZE_SCALE);
+
+  if (mode === 'horizontal') {
+    let anchorLeft = Math.round(text.box.x * (CLIP_CANVAS_WIDTH / rasterWidth));
+    const anchorTop = Math.max(
+      0,
+      Math.round(text.box.y * (CLIP_CANVAS_HEIGHT / rasterHeight)),
+    );
+    const metrics = horizontalTextMetrics(content, fontSizeValue);
+    if (anchorLeft < 0) {
+      anchorLeft = 0;
+    }
+    if (anchorLeft + metrics.width > CLIP_CANVAS_WIDTH) {
+      anchorLeft = Math.max(0, CLIP_CANVAS_WIDTH - metrics.width);
+    }
+    return {
+      content,
+      anchorLeft,
+      anchorRight: anchorLeft + metrics.width,
+      anchorTop,
+      fontSizePt,
+      writingMode: 'horizontal',
+    };
+  }
+
   let anchorRight = Math.round(
     (text.box.x + text.box.width) * (CLIP_CANVAS_WIDTH / rasterWidth),
   );
@@ -82,13 +111,12 @@ export function pageTextToClipSpec(
     Math.round(text.box.y * (CLIP_CANVAS_HEIGHT / rasterHeight)),
   );
 
-  // The TLV bbox is stored as u32; keep left >= 0 so it cannot wrap around.
-  const metrics = verticalTextMetrics(content, Math.round(fontSizePt * FONT_SIZE_SCALE));
+  const metrics = verticalTextMetrics(content, fontSizeValue);
   if (anchorRight - metrics.width < 0) {
     anchorRight = metrics.width;
   }
 
-  return { content, anchorRight, anchorTop, fontSizePt };
+  return { content, anchorRight, anchorTop, fontSizePt, writingMode: 'vertical' };
 }
 
 export interface BuildPageClipInput {

@@ -164,6 +164,7 @@ export async function runClipExport(input: RunClipExportInput): Promise<File> {
         content: t.content,
         box: { ...t.box },
         fontSize: t.fontSize,
+        writingMode: t.writingMode,
       })),
     })),
   };

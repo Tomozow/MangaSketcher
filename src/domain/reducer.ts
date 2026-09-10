@@ -22,7 +22,7 @@ import {
   clampStoredPagesPerColumn,
 } from './stripGeometry';
 import { clampPdfPage, clampPdfZoom, keepPdfViewOnReload, pdfViewAfterLoad } from './pdfView';
-import { isSelectionTool } from './types';
+import { isSelectionTool, writingModeOf } from './types';
 import type {
   ClipId,
   DocumentState,
@@ -726,6 +726,7 @@ export function reduceTestDocument(
         box: { ...action.box },
         fontSize: doc.tools.textFontSize,
         color: doc.tools.textColor,
+        writingMode: writingModeOf(doc.tools.textWritingMode),
       };
       if (action.attachment.kind === 'page') {
         const page = doc.pages[action.attachment.pageId];
@@ -747,7 +748,12 @@ export function reduceTestDocument(
           found.where === 'pasteboard'
             ? workspaceFontSizeFromTool(found.node.fontSize, doc.rasterWidth)
             : found.node.fontSize;
-        found.node.box = fitTextBoxToContent(found.node.box, action.content, layoutFont);
+        found.node.box = fitTextBoxToContent(
+          found.node.box,
+          action.content,
+          layoutFont,
+          writingModeOf(found.node.writingMode),
+        );
       }
       return doc;
     }
@@ -804,6 +810,7 @@ export function reduceTestDocument(
         box: { ...action.pageBox },
         fontSize: action.fontSize ?? item.fontSize,
         color: item.color,
+        writingMode: writingModeOf(item.writingMode),
       });
       return doc;
     }
@@ -818,6 +825,7 @@ export function reduceTestDocument(
             box: { ...action.workspaceBox },
             fontSize: action.fontSize ?? item.fontSize,
             color: item.color,
+            writingMode: writingModeOf(item.writingMode),
           });
           break;
         }
@@ -892,6 +900,7 @@ export function reduceTestDocument(
         box: { ...action.box },
         fontSize: action.fontSize ?? doc.tools.textFontSize,
         color: doc.tools.textColor,
+        writingMode: 'vertical' as const,
       };
       if (action.attachment.kind === 'page') {
         doc.pages[action.attachment.pageId]?.texts.push(text);

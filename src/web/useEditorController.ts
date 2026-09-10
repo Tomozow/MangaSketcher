@@ -528,12 +528,12 @@ function selectedTextFromDocument(doc: EditorDocument): TextEditSelection | null
   for (const page of Object.values(doc.pages)) {
     const text = page.texts.find((item) => item.id === doc.selectedTextId);
     if (text) {
-      return { id: text.id, content: text.content, color: text.color };
+      return { id: text.id, content: text.content, color: text.color, writingMode: text.writingMode };
     }
   }
   const pasteboard = doc.pasteboardTexts.find((item) => item.id === doc.selectedTextId);
   if (pasteboard) {
-    return { id: pasteboard.id, content: pasteboard.content, color: pasteboard.color };
+    return { id: pasteboard.id, content: pasteboard.content, color: pasteboard.color, writingMode: pasteboard.writingMode };
   }
   return null;
 }
@@ -720,6 +720,7 @@ export function useEditorController(projectId: string): EditorController {
       present.rasterWidth,
       present.rasterHeight,
       present.tools.textFontSize,
+      present.tools.textWritingMode,
     );
     const pasteboard = 'pasteboard' in pending && pending.pasteboard;
     const width = pasteboard

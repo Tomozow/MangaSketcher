@@ -94,7 +94,12 @@ function hitPageTexts(
   for (let i = texts.length - 1; i >= 0; i -= 1) {
     const text = texts[i]!;
     const box = expandTextHitBox(
-      layoutVisibleTextBox(text.box, text.content, Number.isFinite(text.fontSize) ? text.fontSize : 12),
+      layoutVisibleTextBox(
+        text.box,
+        text.content,
+        Number.isFinite(text.fontSize) ? text.fontSize : 12,
+        text.writingMode,
+      ),
       rasterWidth,
       rasterHeight,
     );

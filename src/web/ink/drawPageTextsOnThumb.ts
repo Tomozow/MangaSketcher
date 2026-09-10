@@ -5,6 +5,7 @@ import {
   verticalRlCanvasGlyph,
 } from '../../domain/text';
 import type { PageText, Rect } from '../../domain/types';
+import { writingModeOf } from '../../domain/types';
 import { expandTextBoxWidthToColumns, verticalColumnPitch } from '../../domain/textWrap';
 import { pageTextCanvasFont } from '../pageTextFont';
 import {
@@ -13,7 +14,7 @@ import {
   WHITE_TEXT_STROKE_COLOR,
 } from '../text/whiteTextColor';
 
-export type ThumbText = Pick<PageText, 'content' | 'box' | 'fontSize' | 'color'>;
+export type ThumbText = Pick<PageText, 'content' | 'box' | 'fontSize' | 'color' | 'writingMode'>;
 
 type ThumbTextContext = {
   save(): void;
@@ -45,8 +46,8 @@ function destRect(box: Rect, scaleX: number, scaleY: number): Rect {
 }
 
 /**
- * Paint page texts onto a thumbnail canvas (vertical-rl, overflow clipped).
- * Matches workspace DOM: fontSize is raster-local, scaled by dest/raster width.
+ * Paint page texts onto a thumbnail canvas (overflow clipped).
+ * Matches workspace wrap: fontSize is raster-local, scaled by dest/raster width.
  */
 export function drawPageTextsOnThumb(
   ctx: ThumbTextContext,
@@ -65,10 +66,12 @@ export function drawPageTextsOnThumb(
     if (isTextContentEmpty(text.content)) {
       continue;
     }
-    const layoutBox = expandTextBoxWidthToColumns(text.box, text.content, Number.isFinite(text.fontSize) ? text.fontSize : 12);
+    const fontSize = Number.isFinite(text.fontSize) ? text.fontSize : 12;
+    const mode = writingModeOf(text.writingMode);
+    const layoutBox = expandTextBoxWidthToColumns(text.box, text.content, fontSize, mode);
     const box = destRect(layoutBox, scaleX, scaleY);
-    const fontPx = Math.max(1, (Number.isFinite(text.fontSize) ? text.fontSize : 12) * scaleX);
-    const colW = verticalColumnPitch(fontPx);
+    const fontPx = Math.max(1, fontSize * scaleX);
+    const pitch = verticalColumnPitch(fontPx);
     if (box.width <= 0 || box.height <= 0) {
       continue;
     }
@@ -79,7 +82,6 @@ export function drawPageTextsOnThumb(
     ctx.clip();
     ctx.fillStyle = text.color || '#1A1A1A';
     ctx.font = pageTextCanvasFont(fontPx);
-    ctx.textAlign = 'center';
     ctx.textBaseline = 'top';
     const outline = isWhiteTextColor(text.color) && typeof ctx.strokeText === 'function';
     if (outline) {
@@ -89,26 +91,54 @@ export function drawPageTextsOnThumb(
       ctx.miterLimit = 2;
     }
 
-    let colX = box.x + box.width - colW;
-    let y = box.y;
-    for (const glyph of verticalGlyphs(text.content)) {
-      if (glyph === '\r') {
-        continue;
-      }
-      const wrap = glyph === '\n' || y + fontPx > box.y + box.height + 0.01;
-      if (wrap) {
-        colX -= colW;
-        y = box.y;
-        if (glyph === '\n') {
+    if (mode === 'horizontal') {
+      ctx.textAlign = 'left';
+      let x = box.x;
+      let y = box.y;
+      for (const glyph of verticalGlyphs(text.content)) {
+        if (glyph === '\r') {
           continue;
         }
+        const wrap = glyph === '\n' || x + fontPx > box.x + box.width + 0.01;
+        if (wrap) {
+          y += pitch;
+          x = box.x;
+          if (glyph === '\n') {
+            continue;
+          }
+        }
+        if (y + fontPx > box.y + box.height + 0.01) {
+          break;
+        }
+        if (outline) {
+          ctx.strokeText!(glyph, x, y);
+        }
+        ctx.fillText(glyph, x, y);
+        x += fontPx;
       }
-      if (colX + colW < box.x) {
-        break;
+    } else {
+      ctx.textAlign = 'center';
+      let colX = box.x + box.width - pitch;
+      let y = box.y;
+      for (const glyph of verticalGlyphs(text.content)) {
+        if (glyph === '\r') {
+          continue;
+        }
+        const wrap = glyph === '\n' || y + fontPx > box.y + box.height + 0.01;
+        if (wrap) {
+          colX -= pitch;
+          y = box.y;
+          if (glyph === '\n') {
+            continue;
+          }
+        }
+        if (colX + pitch < box.x) {
+          break;
+        }
+        const gx = colX + pitch / 2;
+        paintVerticalGlyph(ctx, glyph, gx, y, fontPx, outline);
+        y += fontPx;
       }
-      const gx = colX + colW / 2;
-      paintVerticalGlyph(ctx, glyph, gx, y, fontPx, outline);
-      y += fontPx;
     }
     ctx.restore();
   }
