@@ -180,7 +180,7 @@ describe('layerOps', () => {
     db.close();
   });
 
-  test('clone two-line content uses L6 prototype bbox (100×266)', async () => {
+  test('clone two-line content uses L6 prototype bbox (82×266)', async () => {
     const { db, extas } = await openSampleDb();
     const alloc = createIdAllocator(db);
     const template = exportTextLayerTemplate(db, 6);
@@ -203,12 +203,12 @@ describe('layerOps', () => {
     attrStmt.free();
     const attr = parseTextLayerAttributes(attrs);
     const bbox = readCanvasBBox(getTlvPayload(attr.entries, 42)!);
-    expect(bbox).toEqual({ left: 600, top: 800, right: 700, bottom: 1066 });
+    expect(bbox).toEqual({ left: 618, top: 800, right: 700, bottom: 1066 });
     const id63 = getTlvPayload(attr.entries, 63)!;
-    expect(new DataView(id63.buffer, id63.byteOffset).getUint32(0, true)).toBe(100);
+    expect(new DataView(id63.buffer, id63.byteOffset).getUint32(0, true)).toBe(82);
     expect(new DataView(id63.buffer, id63.byteOffset).getUint32(4, true)).toBe(266);
     const id72 = getTlvPayload(attr.entries, 72)!;
-    expect(new DataView(id72.buffer, id72.byteOffset).getUint32(0, true)).toBe(99);
+    expect(new DataView(id72.buffer, id72.byteOffset).getUint32(0, true)).toBe(81);
     db.close();
   });
 
@@ -235,7 +235,7 @@ describe('layerOps', () => {
     attrStmt.free();
     const attr = parseTextLayerAttributes(attrs);
     const bbox = readCanvasBBox(getTlvPayload(attr.entries, 42)!);
-    expect(bbox.right - bbox.left).toBe(165);
+    expect(bbox.right - bbox.left).toBe(131);
     expect(bbox.bottom - bbox.top).toBe(101);
     db.close();
   });

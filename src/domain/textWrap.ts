@@ -2,13 +2,19 @@ import { defaultTextBox, isTextContentEmpty, verticalGlyphs } from './text';
 import type { Rect, WritingMode } from './types';
 import { writingModeOf } from './types';
 
-/** Column pitch in vertical-rl / row pitch in horizontal-tb (CSS `line-height: 1.5`). */
+/** Column pitch in vertical-rl (CSS `line-height: 1.5`). */
 export const TEXT_WRAP_LINE_HEIGHT = 1.5;
+/** Row pitch in horizontal-tb (CSS `line-height: 1.2`). */
+export const TEXT_WRAP_HORIZONTAL_LINE_HEIGHT = 1.2;
 /** Must match the overflow epsilon in drawPageTextsOnThumb. */
 export const TEXT_WRAP_EPSILON = 0.01;
 
 export function verticalColumnPitch(fontPx: number): number {
   return fontPx * TEXT_WRAP_LINE_HEIGHT;
+}
+
+export function horizontalRowPitch(fontPx: number): number {
+  return fontPx * TEXT_WRAP_HORIZONTAL_LINE_HEIGHT;
 }
 
 function effectiveFontPx(fontSize: number): number {
@@ -48,7 +54,7 @@ function wrapVerticalToLines(content: string, box: Rect, fontSize: number): stri
 
 function wrapHorizontalToLines(content: string, box: Rect, fontSize: number): string[] {
   const fontPx = effectiveFontPx(fontSize);
-  const rowH = verticalColumnPitch(fontPx);
+  const rowH = horizontalRowPitch(fontPx);
   let x = box.x;
   let y = box.y;
   const lines: string[] = [''];
@@ -160,7 +166,7 @@ export function horizontalCaretCell(
   }
 
   const fontPx = effectiveFontPx(fontSize);
-  const rowH = verticalColumnPitch(fontPx);
+  const rowH = horizontalRowPitch(fontPx);
   let x = box.x;
   let y = box.y;
   let column = 0;
@@ -247,7 +253,7 @@ export function horizontalTextContentSize(
   fontSize: number,
 ): { width: number; height: number } {
   const fontPx = effectiveFontPx(fontSize);
-  const rowH = verticalColumnPitch(fontPx);
+  const rowH = horizontalRowPitch(fontPx);
   const lines = wrapPageTextToLines(
     content,
     { x: 0, y: 0, width: fontPx * 65536, height: rowH * 4096 },
@@ -331,7 +337,6 @@ export function expandTextBoxWidthToColumns(
     return box;
   }
   const fontPx = effectiveFontPx(fontSize);
-  const pitch = verticalColumnPitch(fontPx);
   const height = Math.max(0, Number.isFinite(box.height) ? box.height : 0);
   const width = Math.max(0, Number.isFinite(box.width) ? box.width : 0);
   if (width <= 0 || height <= 0) {
@@ -339,25 +344,27 @@ export function expandTextBoxWidthToColumns(
   }
   const mode = writingModeOf(writingMode);
   if (mode === 'horizontal') {
+    const rowH = horizontalRowPitch(fontPx);
     const lines = wrapPageTextToLines(
       content,
-      { x: 0, y: 0, width, height: pitch * 4096 },
+      { x: 0, y: 0, width, height: rowH * 4096 },
       fontSize,
       'horizontal',
     );
-    const needed = Math.ceil(Math.max(1, lines.length) * pitch);
+    const needed = Math.ceil(Math.max(1, lines.length) * rowH);
     if (needed <= height + 0.01) {
       return box;
     }
     return { ...box, height: needed };
   }
+  const colW = verticalColumnPitch(fontPx);
   const lines = wrapPageTextToLines(
     content,
-    { x: 0, y: 0, width: pitch * 4096, height },
+    { x: 0, y: 0, width: colW * 4096, height },
     fontSize,
     'vertical',
   );
-  const needed = Math.ceil(Math.max(1, lines.length) * pitch);
+  const needed = Math.ceil(Math.max(1, lines.length) * colW);
   if (needed <= width + 0.01) {
     return box;
   }

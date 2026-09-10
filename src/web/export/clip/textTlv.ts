@@ -5,17 +5,21 @@
 
 export const FONT_SIZE_SCALE = 49.625;
 export const MM_PER_PT = 2.8346457;
+/**
+ * CSP 行間 vs prototype default (id=13 = MM_PER_PT, id=37 = 283).
+ * 0.5 matches CSP usersave after 行間を半分 (id=13 = 1.4173228, id=37 = 142).
+ */
+export const LINE_SPACING_SCALE = 0.5;
+export const LINE_SPACING_MM = MM_PER_PT * LINE_SPACING_SCALE;
 /** L5 @ 8pt vertical column width and line pitch (px); scales linearly with font size. */
 export const COLUMN_WIDTH_8PT_PX = 33;
 export const LINE_PITCH_8PT_PX = 33;
 /**
  * Prototype L7 行間 at 8pt ((204−33)/3). Tighter than CSP's default after a
- * font-size change; bbox width uses 2× glyph column instead (see
+ * font-size change; bbox width uses 1.5em column pitch instead (see
  * verticalTextMetrics). Kept for documentation / sample comparison.
  */
 export const INTER_COLUMN_PITCH_8PT_PX = 57;
-/** L6 two-line width correction: +1px (was 91 = 33 + 57 + 1 @ 8pt). */
-export const TWO_LINE_WIDTH_ADJ_8PT_PX = 1;
 /** Multi-line bbox height padding (not scaled; L6/L7 and CSP usersave use +2). */
 export const MULTI_LINE_HEIGHT_PAD_8PT_PX = 2;
 export const BASE_FONT_SIZE_PT = 8;
@@ -72,6 +76,8 @@ export interface TextLayerPatch {
   floatCacheOffscreenId?: number;
   /** Multi-line vertical text (affects id=64 variant and id=72 width−1). */
   multiLine?: boolean;
+  /** Horizontal writing: id=33=0 and horizontal id=64/72 encodings. */
+  writingMode?: 'vertical' | 'horizontal';
 }
 
 function readU32(data: Uint8Array, offset: number): number {
@@ -297,6 +303,32 @@ export function encodeCacheWidthHint(width: number, multiLine = false): Uint8Arr
   return out;
 }
 
+/** CSP usersave (horizontal): id=64 = [0, 400, w×100, 400, w×100, h×100, 0, h×100]. */
+export const HORIZONTAL_CENTI_Y_OFFSET = 400;
+
+export function encodeHorizontalRenderRectCentiPx(width: number, height: number): Uint8Array {
+  const out = new Uint8Array(32);
+  const w100 = width * 100;
+  const h100 = height * 100;
+  writeI32(out, 0, 0);
+  writeI32(out, 4, HORIZONTAL_CENTI_Y_OFFSET);
+  writeI32(out, 8, w100);
+  writeI32(out, 12, HORIZONTAL_CENTI_Y_OFFSET);
+  writeI32(out, 16, w100);
+  writeI32(out, 20, h100);
+  writeI32(out, 24, 0);
+  writeI32(out, 28, h100);
+  return out;
+}
+
+/** CSP usersave (horizontal): id=72 = (0, −4). */
+export function encodeHorizontalCacheHint(): Uint8Array {
+  const out = new Uint8Array(8);
+  writeI32(out, 0, 0);
+  writeI32(out, 4, -4);
+  return out;
+}
+
 /** Split on explicit CRLF line breaks (CSP text layers). */
 export function splitExplicitLines(text: string): string[] {
   if (text.includes('\r\n')) {
@@ -343,19 +375,18 @@ export function verticalTextMetrics(text: string, fontSizeValue: number): Vertic
   const scale = fontSizePt / BASE_FONT_SIZE_PT;
   const glyphColumnWidth = Math.round(COLUMN_WIDTH_8PT_PX * scale);
   const linePitchPx = Math.round(LINE_PITCH_8PT_PX * scale);
-  // After font-size change, CSP lays out columns at ~1 em = 2× glyph box
-  // (iPad usersave 2026-08-30: 5.82pt 3-col width 120 = 24+2×48, not 106 from
-  // scaled prototype 57px). Scaled 57px clips the rightmost column.
-  const interColumnPitchPx = glyphColumnWidth * 2;
+  // Default CSP 行間 is ~1em extra (2em column pitch). LINE_SPACING_SCALE 0.5
+  // → 1.5em. floor() matches 2026-09-10 usersave 2-col @ 6.75pt width 69.
+  const interColumnPitchPx = Math.floor(
+    COLUMN_WIDTH_8PT_PX * (1 + LINE_SPACING_SCALE) * scale,
+  );
   const lineCount = explicitLineCount(text);
   const maxLineChars = maxLineUtf16CharCount(text);
   const multiLine = lineCount > 1;
 
   let width = glyphColumnWidth;
   if (multiLine) {
-    const twoLineAdj =
-      lineCount === 2 ? Math.round(TWO_LINE_WIDTH_ADJ_8PT_PX * scale) : 0;
-    width = glyphColumnWidth + (lineCount - 1) * interColumnPitchPx + twoLineAdj;
+    width = glyphColumnWidth + (lineCount - 1) * interColumnPitchPx;
   }
 
   const heightPad = multiLine ? MULTI_LINE_HEIGHT_PAD_8PT_PX : 0;
@@ -374,13 +405,33 @@ export function verticalTextMetrics(text: string, fontSizeValue: number): Vertic
   };
 }
 
-/** Horizontal-text layout: transpose of verticalTextMetrics (rows grow height). */
+/** Horizontal-text layout. Width follows max line glyphs; height uses 1.25em row pitch. */
 export function horizontalTextMetrics(text: string, fontSizeValue: number): VerticalTextMetrics {
-  const vertical = verticalTextMetrics(text, fontSizeValue);
+  const fontSizePt = fontSizeValue / FONT_SIZE_SCALE;
+  const scale = fontSizePt / BASE_FONT_SIZE_PT;
+  const glyphColumnWidth = Math.round(COLUMN_WIDTH_8PT_PX * scale);
+  const linePitchPx = Math.round(LINE_PITCH_8PT_PX * scale);
+  const rowPitchPx = Math.round(
+    LINE_PITCH_8PT_PX * (1 + 0.5 * LINE_SPACING_SCALE) * scale,
+  );
+  const interColumnPitchPx = Math.floor(
+    COLUMN_WIDTH_8PT_PX * (1 + LINE_SPACING_SCALE) * scale,
+  );
+  const lineCount = explicitLineCount(text);
+  const maxLineChars = maxLineUtf16CharCount(text);
+  const multiLine = lineCount > 1;
+  const width = maxLineChars * linePitchPx + (multiLine ? MULTI_LINE_HEIGHT_PAD_8PT_PX : 0);
+  const height = lineCount * rowPitchPx;
   return {
-    ...vertical,
-    width: vertical.height,
-    height: vertical.width,
+    fontSizePt,
+    glyphColumnWidth,
+    linePitchPx,
+    interColumnPitchPx,
+    lineCount,
+    maxLineChars,
+    width,
+    height,
+    multiLine,
   };
 }
 
@@ -434,13 +485,19 @@ export function encodeFontSizeValue(fontSizePt: number): Uint8Array {
   return out;
 }
 
-/** Patch id=13 full-form run inner f64[0] (mm/pt); compact form unchanged. */
+/** Patch id=13 full-form run inner f64[0] (行間 mm); compact form unchanged. */
 export function patchFontSizeId13Full(payload: Uint8Array, _fontSizePt: number): Uint8Array {
   const out = new Uint8Array(payload);
   if (out.length >= 16 + 10) {
     const view = new DataView(out.buffer, out.byteOffset, out.byteLength);
-    view.setFloat64(16 + 2, MM_PER_PT, true);
+    view.setFloat64(16 + 2, LINE_SPACING_MM, true);
   }
+  return out;
+}
+
+export function encodeLineSpacingId37(lineSpacingMm: number): Uint8Array {
+  const out = new Uint8Array(4);
+  writeU32(out, 0, Math.round(lineSpacingMm * 100));
   return out;
 }
 
@@ -530,15 +587,23 @@ function applyBBoxToEntries(
   bbox: CanvasBBox,
   centiVariant: 'simple' | 'offset',
   multiLine = false,
+  writingMode: 'vertical' | 'horizontal' = 'vertical',
 ): void {
   const size = bboxToSize(bbox);
   const bboxPayload = encodeCanvasBBox(bbox);
   const sizePayload = encodeRenderSize(size);
-  // Multi-line prototypes / CSP usersave: id=64 uses width−1 (L6 −9000 for
-  // 91px, usersave −11900 for 120px). id=72 already stores width−1.
-  const centiWidth = multiLine ? Math.max(0, size.width - 1) : size.width;
-  const centiPayload = encodeRenderRectCentiPx(centiWidth, size.height, centiVariant);
-  const hintPayload = encodeCacheWidthHint(size.width, multiLine);
+  const centiPayload =
+    writingMode === 'horizontal'
+      ? encodeHorizontalRenderRectCentiPx(size.width, size.height)
+      : encodeRenderRectCentiPx(
+          multiLine ? Math.max(0, size.width - 1) : size.width,
+          size.height,
+          centiVariant,
+        );
+  const hintPayload =
+    writingMode === 'horizontal'
+      ? encodeHorizontalCacheHint()
+      : encodeCacheWidthHint(size.width, multiLine);
 
   syncScalarPair(attrEntries, addEntries, 42, bboxPayload);
   syncScalarPair(attrEntries, addEntries, 63, sizePayload);
@@ -582,6 +647,10 @@ export function patchTextLayerTlv(
     if (id13) {
       setTlvPayload(attrEntries, 13, patchFontSizeId13Full(id13, patch.fontSizePt));
     }
+    const id37 = findTlvEntry(attrEntries, 37);
+    if (id37) {
+      syncScalarPair(attrEntries, addEntries, 37, encodeLineSpacingId37(LINE_SPACING_MM));
+    }
   }
 
   let bbox: CanvasBBox | undefined = patch.bbox;
@@ -605,6 +674,7 @@ export function patchTextLayerTlv(
       bbox,
       centiVariant,
       patch.multiLine ?? false,
+      patch.writingMode === 'horizontal' ? 'horizontal' : 'vertical',
     );
   } else if (patch.bboxScale != null && patch.bboxScale !== 1) {
     const id42 = getTlvPayload(attrEntries, 42);
@@ -620,7 +690,20 @@ export function patchTextLayerTlv(
       right: Math.round(cx + halfW),
       bottom: Math.round(cy + halfH),
     };
-    applyBBoxToEntries(attrEntries, addEntries, scaled, centiVariant, patch.multiLine ?? false);
+    applyBBoxToEntries(
+      attrEntries,
+      addEntries,
+      scaled,
+      centiVariant,
+      patch.multiLine ?? false,
+      patch.writingMode === 'horizontal' ? 'horizontal' : 'vertical',
+    );
+  }
+
+  if (patch.writingMode === 'horizontal') {
+    const dir = new Uint8Array(4);
+    writeU32(dir, 0, 0);
+    syncScalarPair(attrEntries, addEntries, 33, dir);
   }
 
   if (patch.floatCacheOffscreenId != null) {

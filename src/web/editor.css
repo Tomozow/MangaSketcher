@@ -1724,12 +1724,12 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 .ms-pageTextRow {
   position: absolute;
   left: 0;
-  height: 1.5em;
+  height: 1.2em;
   width: 100%;
   writing-mode: horizontal-tb;
   white-space: pre;
   word-break: break-all;
-  line-height: 1.5;
+  line-height: 1.2;
   box-sizing: border-box;
 }
 
@@ -1793,6 +1793,7 @@ html[data-ms-display='standalone'] .ms-editorRoot {
 .ms-textEditInputHorizontal {
   writing-mode: horizontal-tb;
   text-orientation: mixed;
+  line-height: 1.2;
 }
 
 .ms-textEditInput::-webkit-scrollbar {

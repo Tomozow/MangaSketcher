@@ -477,6 +477,7 @@ export function cloneTextLayer(
     bbox: estimated,
     multiLine: estimated.metrics.multiLine,
     floatCacheOffscreenId: 0,
+    writingMode: params.writingMode === 'horizontal' ? 'horizontal' : 'vertical',
   });
 
   const layerName = layerNameFromContent(content);

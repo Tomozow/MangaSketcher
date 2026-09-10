@@ -4,6 +4,7 @@ import type { Rect } from '../types';
 import { mapIndexAfterNewlineNormalize, normalizeEditNewlines, shouldRotateForVerticalRl, verticalRlCanvasGlyph } from '../text';
 import {
   verticalColumnPitch,
+  horizontalRowPitch,
   convertWrapToExplicitNewlines,
   expandTextBoxWidthToColumns,
   fitTextBoxToContent,
@@ -308,7 +309,7 @@ describe('horizontal wrap', () => {
     expect(next.x).toBe(100);
     expect(next.y).toBe(50);
     expect(next.width).toBe(72);
-    expect(next.height).toBe(Math.ceil(verticalColumnPitch(fontSize)));
+    expect(next.height).toBe(Math.ceil(horizontalRowPitch(fontSize)));
   });
 
   test('horizontalCaretCell walks left to right then down', () => {

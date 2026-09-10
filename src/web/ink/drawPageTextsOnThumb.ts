@@ -6,7 +6,11 @@ import {
 } from '../../domain/text';
 import type { PageText, Rect } from '../../domain/types';
 import { writingModeOf } from '../../domain/types';
-import { expandTextBoxWidthToColumns, verticalColumnPitch } from '../../domain/textWrap';
+import {
+  expandTextBoxWidthToColumns,
+  horizontalRowPitch,
+  verticalColumnPitch,
+} from '../../domain/textWrap';
 import { pageTextCanvasFont } from '../pageTextFont';
 import {
   isWhiteTextColor,
@@ -71,7 +75,7 @@ export function drawPageTextsOnThumb(
     const layoutBox = expandTextBoxWidthToColumns(text.box, text.content, fontSize, mode);
     const box = destRect(layoutBox, scaleX, scaleY);
     const fontPx = Math.max(1, fontSize * scaleX);
-    const pitch = verticalColumnPitch(fontPx);
+    const pitch = mode === 'horizontal' ? horizontalRowPitch(fontPx) : verticalColumnPitch(fontPx);
     if (box.width <= 0 || box.height <= 0) {
       continue;
     }

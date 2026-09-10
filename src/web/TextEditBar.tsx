@@ -4,7 +4,12 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ChangeE
 import type { TextId, WritingMode } from '@/src/domain/types';
 import { writingModeOf } from '@/src/domain/types';
 import { isTextContentEmpty, mapIndexAfterNewlineNormalize, normalizeEditNewlines } from '@/src/domain/text';
-import { TEXT_WRAP_LINE_HEIGHT, layoutVisibleTextBox, textCaretCell } from '@/src/domain/textWrap';
+import {
+  TEXT_WRAP_HORIZONTAL_LINE_HEIGHT,
+  TEXT_WRAP_LINE_HEIGHT,
+  layoutVisibleTextBox,
+  textCaretCell,
+} from '@/src/domain/textWrap';
 import { isWhiteTextColor } from '@/src/web/text/whiteTextColor';
 import {
   planTextCommit,
@@ -522,7 +527,7 @@ export function TextEditBar({
             horizontal
               ? {
                   left: `${caret.column}em`,
-                  top: `${caret.row * TEXT_WRAP_LINE_HEIGHT}em`,
+                  top: `${caret.row * TEXT_WRAP_HORIZONTAL_LINE_HEIGHT}em`,
                   width: 2,
                   height: '1em',
                   background: hudColor,

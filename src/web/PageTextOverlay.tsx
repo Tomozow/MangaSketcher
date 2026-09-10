@@ -17,7 +17,12 @@ import {
   type StripFrame,
 } from '@/src/domain/stripGeometry';
 import type { EditorDocument } from '@/src/storage/types';
-import { layoutVisibleTextBox, TEXT_WRAP_LINE_HEIGHT, wrapPageTextToLines } from '@/src/domain/textWrap';
+import {
+  layoutVisibleTextBox,
+  TEXT_WRAP_HORIZONTAL_LINE_HEIGHT,
+  TEXT_WRAP_LINE_HEIGHT,
+  wrapPageTextToLines,
+} from '@/src/domain/textWrap';
 import type { WritingMode } from '@/src/domain/types';
 import { writingModeOf } from '@/src/domain/types';
 import {
@@ -154,7 +159,7 @@ function PageTextGlyphs({
           <span
             key={row}
             className={styles.pageTextRow}
-            style={{ top: `${row * TEXT_WRAP_LINE_HEIGHT}em` }}
+            style={{ top: `${row * TEXT_WRAP_HORIZONTAL_LINE_HEIGHT}em` }}
           >
             {line}
           </span>

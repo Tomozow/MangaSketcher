@@ -12,7 +12,7 @@ import { DEFAULT_TOOL_PROPERTIES, writingModeOf } from './types';
 
 type SelectedTextDocument = TextDocument & Pick<EditorDocument, 'selectedTextId'>;
 
-/** Empty box: vertical is one 1.5em column × 1em; horizontal is 1em × 1.5em row. */
+/** Empty box: vertical is one 1.5em column × 1em; horizontal is 1em × 1.2em row. */
 export function defaultTextBox(
   rw: number,
   rh: number,
@@ -23,7 +23,7 @@ export function defaultTextBox(
   if (writingModeOf(writingMode) === 'horizontal') {
     return {
       width: Math.min(rw, Math.ceil(fontPx)),
-      height: Math.min(rh, Math.ceil(fontPx * 1.5)),
+      height: Math.min(rh, Math.ceil(fontPx * 1.2)),
     };
   }
   return {

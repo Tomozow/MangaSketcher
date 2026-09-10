@@ -26,16 +26,41 @@ Write-AgentLog 'E' 'launcher.ps1:entry' 'script start' @{
   scriptRoot = "$PSScriptRoot"
 }
 
+function Show-LauncherError([string]$Message) {
+  try {
+    Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue
+    [System.Windows.Forms.MessageBox]::Show(
+      $Message,
+      'MangaSketcher',
+      [System.Windows.Forms.MessageBoxButtons]::OK,
+      [System.Windows.Forms.MessageBoxIcon]::Error
+    ) | Out-Null
+  } catch {
+    Write-Host $Message
+  }
+}
+
 try {
   Add-Type -AssemblyName System.Windows.Forms
   Add-Type -AssemblyName System.Drawing
-  Add-Type -TypeDefinition @'
+  if (-not ('MsStaticRoot' -as [type])) {
+    Add-Type -TypeDefinition @'
 public class MsStaticRoot {
   public string Id { get; set; }
   public string Label { get; set; }
   public override string ToString() { return Label ?? Id ?? ""; }
 }
 '@
+  }
+  if (-not ('Native.AgentWin' -as [type])) {
+    Add-Type -Namespace Native -Name AgentWin -MemberDefinition @'
+[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
+[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+[DllImport("user32.dll")] public static extern bool IsIconic(IntPtr hWnd);
+[DllImport("user32.dll")] public static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
+'@
+  }
   [System.Windows.Forms.Application]::EnableVisualStyles()
   Write-AgentLog 'A' 'launcher.ps1:addtype' 'Add-Type ok' @{}
 } catch {
@@ -44,32 +69,28 @@ public class MsStaticRoot {
     msg = $_.Exception.Message
     line = $_.InvocationInfo.ScriptLineNumber
   }
+  Show-LauncherError $_.Exception.Message
   throw
 }
 
-#region agent log
+$LauncherWindowTitle = 'MangaSketcher'
+$script:LauncherMutex = $null
 try {
-  Add-Type -Namespace Native -Name AgentWin -MemberDefinition @'
-[DllImport("kernel32.dll")] public static extern IntPtr GetConsoleWindow();
-[DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
-'@
-  $consoleHwnd = [Native.AgentWin]::GetConsoleWindow()
-  $hidden = $false
-  if ($consoleHwnd -ne [IntPtr]::Zero) {
-    $hidden = [Native.AgentWin]::ShowWindow($consoleHwnd, 0)
-  }
-  Write-AgentLog 'E' 'launcher.ps1:hide-console' 'console hide' @{
-    hwnd = "$consoleHwnd"
-    hidden = $hidden
-    runId = 'post-fix'
+  $script:LauncherMutex = New-Object System.Threading.Mutex($false, 'Local\MangaSketcher.Launcher.ps1')
+  if (-not $script:LauncherMutex.WaitOne(0, $false)) {
+    $existing = [Native.AgentWin]::FindWindow($null, $LauncherWindowTitle)
+    if ($existing -ne [IntPtr]::Zero) {
+      if ([Native.AgentWin]::IsIconic($existing)) {
+        [void][Native.AgentWin]::ShowWindow($existing, 9)
+      }
+      [void][Native.AgentWin]::SetForegroundWindow($existing)
+    }
+    Write-AgentLog 'E' 'launcher.ps1:mutex' 'already running; activated existing' @{ hwnd = "$existing" }
+    exit 0
   }
 } catch {
-  Write-AgentLog 'E' 'launcher.ps1:hide-console' 'console hide failed' @{
-    msg = $_.Exception.Message
-    runId = 'post-fix'
-  }
+  Write-AgentLog 'E' 'launcher.ps1:mutex' 'mutex failed' @{ msg = $_.Exception.Message }
 }
-#endregion
 
 $RepoRoot = Split-Path -Parent $PSScriptRoot
 Set-Location -LiteralPath $RepoRoot
@@ -782,9 +803,24 @@ $txtCmd.Add_KeyDown({
   }
 })
 
+$form.Add_Shown({
+  try {
+    $consoleHwnd = [Native.AgentWin]::GetConsoleWindow()
+    if ($consoleHwnd -ne [IntPtr]::Zero) {
+      [void][Native.AgentWin]::ShowWindow($consoleHwnd, 0)
+    }
+    $form.Activate()
+    [void][Native.AgentWin]::SetForegroundWindow($form.Handle)
+  } catch { }
+})
 $form.Add_FormClosing({
   Stop-AllChildren
   Get-EventSubscriber -ErrorAction SilentlyContinue | Unregister-Event -Force -ErrorAction SilentlyContinue
+  if ($null -ne $script:LauncherMutex) {
+    try { [void]$script:LauncherMutex.ReleaseMutex() } catch { }
+    try { $script:LauncherMutex.Dispose() } catch { }
+    $script:LauncherMutex = $null
+  }
 })
 
 $timer = New-Object System.Windows.Forms.Timer
@@ -816,6 +852,7 @@ try {
     msg = $_.Exception.Message
     line = $_.InvocationInfo.ScriptLineNumber
   }
+  Show-LauncherError ("$($_.Exception.Message)`nline $($_.InvocationInfo.ScriptLineNumber)")
   throw
 }
 $timer.Stop()
