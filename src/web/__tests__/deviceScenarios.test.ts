@@ -208,6 +208,8 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(pageInkOverlaySrc).toContain('クリップを削除');
     expect(pageInkOverlaySrc).toContain('クリップを複製');
     expect(pageInkOverlaySrc).toContain('クリップをコマに挿入');
+    expect(pageInkOverlaySrc).toContain('クリップを結合');
+    expect(pageInkOverlaySrc).toContain('canMerge={clipIds.length >= 2}');
     expect(pageInkOverlaySrc).toContain('ClipChromeOverlay');
     expect(pageInkOverlaySrc).toContain('chromeScreenPoseFromWorldAabbs');
     expect(workspaceStripSrc).toContain('PasteboardClipsLayer');
@@ -233,6 +235,9 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(sidebarSrc).toContain("label: '線画'");
     expect(sidebarSrc).toContain("label: 'クリップ'");
     expect(sidebarSrc).toContain('setTextsFontSize');
+    expect(sidebarSrc).toContain("patch: { textFontSize: value }");
+    expect(sidebarSrc).toMatch(/doc\.tool === 'text'[\s\S]*setTextsFontSize[\s\S]*selectedTextIds/);
+    expect(sidebarSrc).toContain('PAGE_TEXT_CHROME_ATTR');
     expect(sidebarSrc).toContain('setFlyoutOpen');
     expect(sidebarSrc).toContain('toolFlyoutOnFirstTap');
     expect(sidebarSrc).toContain('PenSizePresetRow');
@@ -364,6 +369,7 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     expect(pageTextOverlaySrc).toContain('テキストを確定');
     expect(pageTextOverlaySrc).toContain('onConfirmText');
     expect(textEditBarSrc).toContain('PAGE_TEXT_WRAP_ATTR');
+    expect(textEditBarSrc).toContain('selection?.fontSize');
     expect(editorLayoutSrc).toContain(
       "doc.tool === 'text' && selectedTextIdsOf(doc).length <= 1 ? textSelection : null",
     );

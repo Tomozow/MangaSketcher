@@ -1019,6 +1019,66 @@ export class InkEngine {
     return { pageUndo, clipUndo: clip };
   }
 
+  /**
+   * Composite source clips onto a new raster with baked scale/rotation.
+   * Sources stay hot so document undo can restore them. Empty ink → dispose dest.
+   */
+  mergeClipsOntoRaster(
+    destRasterId: string,
+    destWidth: number,
+    destHeight: number,
+    sources: ReadonlyArray<{
+      rasterId: string;
+      destLocalX: number;
+      destLocalY: number;
+      scale: number;
+      rotation: number;
+      scaleY?: number;
+    }>,
+  ): { trim: { x: number; y: number; width: number; height: number } | null } {
+    const w = Math.max(1, Math.round(destWidth));
+    const h = Math.max(1, Math.round(destHeight));
+    this.registerClipRaster(destRasterId, w, h);
+    const dest = this.decode(destRasterId);
+    const destCtx = dest.getContext('2d');
+    if (!destCtx) {
+      this.disposeRaster(destRasterId);
+      return { trim: null };
+    }
+    destCtx.clearRect(0, 0, dest.width, dest.height);
+    for (const source of sources) {
+      const dims = this.getRasterDimensions(source.rasterId);
+      const clip = this.decode(source.rasterId);
+      canvasBakeClipOntoPage(
+        destCtx,
+        clip,
+        dims.width,
+        dims.height,
+        source.destLocalX,
+        source.destLocalY,
+        source.scale,
+        source.rotation,
+        source.scaleY ?? source.scale,
+      );
+    }
+    const trim = inkAlphaBounds(dest);
+    if (!trim) {
+      this.disposeRaster(destRasterId);
+      return { trim: null };
+    }
+    if (trim.x !== 0 || trim.y !== 0 || trim.width !== dest.width || trim.height !== dest.height) {
+      const cropped = cropCanvasToRect(dest, trim, (cw, ch) => this.canvasFactory(cw, ch));
+      this.hot.set(destRasterId, cropped);
+      this.rasterDimensions.set(destRasterId, { width: trim.width, height: trim.height });
+    }
+    this.bumpHotRevision(destRasterId);
+    this.invalidateThumb(destRasterId);
+    this.startEncode(destRasterId);
+    void this.generateThumb(destRasterId);
+    this.callbacks.onBake?.(destRasterId);
+    return { trim };
+  }
+
   private captureStrokeUndo(rasterId: string): void {
     const page = this.decode(rasterId);
     const dims = this.getRasterDimensions(rasterId);

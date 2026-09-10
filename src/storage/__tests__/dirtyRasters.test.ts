@@ -105,4 +105,50 @@ describe('dirtyRasterIdsForAction', () => {
     const next = reduceEditorDocument(prev, action, ids);
     expect(dirtyRasterIdsForAction(prev, next, action)).toEqual(['p1:clip:c1', 'p1:clip:c2']);
   });
+
+  test('commitClipMerge marks the new clip raster', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'n',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'commitMarqueeCut',
+        pageId,
+        clipId: 'c1',
+        rasterId: 'p1:clip:c1',
+        workspaceX: 0,
+        workspaceY: 0,
+      },
+      ids,
+    );
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'commitMarqueeCut',
+        pageId,
+        clipId: 'c2',
+        rasterId: 'p1:clip:c2',
+        workspaceX: 8,
+        workspaceY: 0,
+      },
+      ids,
+    );
+    const prev = doc;
+    const action = {
+      type: 'commitClipMerge' as const,
+      sourceClipIds: ['c1', 'c2'],
+      clipId: 'merged',
+      rasterId: 'p1:clip:merged',
+      x: 0,
+      y: 0,
+    };
+    const next = reduceEditorDocument(prev, action, ids);
+    expect(dirtyRasterIdsForAction(prev, next, action)).toEqual(['p1:clip:merged']);
+  });
 });

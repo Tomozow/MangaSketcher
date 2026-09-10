@@ -12,7 +12,7 @@ import {
 } from '@/src/domain/pdfExtractPack';
 import { brushOpacity, brushRadius, pressureAffectsOf } from '@/src/domain/pointers';
 import { pageLocalFromWorld, screenToWorld, buildStripFrames, stripLayoutFromDoc, PAGE_DISPLAY_H, PAGE_DISPLAY_W, type StripFrame } from '@/src/domain/stripGeometry';
-import { defaultTextBox, findText, isTextContentEmpty, clampTextBoxOrigin, rectsOverlap, selectedTextIdsOf } from '@/src/domain/text';
+import { defaultTextBox, findText, isTextContentEmpty, clampTextBoxOrigin, rectsOverlap, selectedTextForEditor, selectedTextIdsOf } from '@/src/domain/text';
 import type { StrokePoint } from '@/src/domain/stroke';
 import { AutosaveManager, type AutosaveStatus } from '@/src/storage/autosave';
 import { getAutosaveDelays, getInkIdleMs } from '@/src/storage/appSettings';
@@ -52,7 +52,7 @@ import {
   sanitizeTextBox,
 } from '@/src/web/text/textLiveTransform';
 import { stockedClipIds, stockedTextIds } from '@/src/domain/stockItems';
-import { clipAxisScale, clipTouchesPolygon, clipTouchesWorldRect, clipInsertTarget, clipPoseAfterPixelTrim, intersectRects, pageLocalRectToWorld, polygonAabb, rectTouchesPolygon, selectedClipIdsOf, worldPointsToPageLocal, worldPolygonToClipPixels, worldRectToPageLocalRect } from './clip/clipGeometry';
+import { clipAxisScale, clipMergeLayout, clipTouchesPolygon, clipTouchesWorldRect, clipInsertTarget, clipPoseAfterPixelTrim, intersectRects, pageLocalRectToWorld, polygonAabb, rectTouchesPolygon, selectedClipIdsOf, worldPointsToPageLocal, worldPolygonToClipPixels, worldRectToPageLocalRect } from './clip/clipGeometry';
 import { CLIP_DUPLICATE_OFFSET, MIN_MARQUEE_RASTER_PX } from './clip/constants';
 import { clipRasterId } from '@/src/storage/rasterIds';
 import {
@@ -505,6 +505,7 @@ type EditorController = {
   deleteClip: (clipId: string) => void;
   duplicateClip: (clipId: string) => void;
   insertClipOnPage: (clipId: string) => void;
+  mergeSelectedClips: (clipId: string) => void;
   setTextEditing: (editing: boolean) => void;
   undo: () => void;
   redo: () => void;
@@ -522,20 +523,17 @@ type EditorController = {
 };
 
 function selectedTextFromDocument(doc: EditorDocument): TextEditSelection | null {
-  if (!doc.selectedTextId) {
+  const found = selectedTextForEditor(doc);
+  if (!found) {
     return null;
   }
-  for (const page of Object.values(doc.pages)) {
-    const text = page.texts.find((item) => item.id === doc.selectedTextId);
-    if (text) {
-      return { id: text.id, content: text.content, color: text.color, writingMode: text.writingMode };
-    }
-  }
-  const pasteboard = doc.pasteboardTexts.find((item) => item.id === doc.selectedTextId);
-  if (pasteboard) {
-    return { id: pasteboard.id, content: pasteboard.content, color: pasteboard.color, writingMode: pasteboard.writingMode };
-  }
-  return null;
+  return {
+    id: found.id,
+    content: found.content,
+    color: found.color,
+    writingMode: found.writingMode,
+    fontSize: found.fontSize,
+  };
 }
 
 function collectRasterIds(doc: EditorDocument): string[] {
@@ -2122,6 +2120,70 @@ export function useEditorController(projectId: string): EditorController {
     [bakeClipOntoPage],
   );
 
+  const mergeSelectedClips = useCallback(
+    (clipId: string) => {
+      const present = historyRef.current?.present;
+      const api = inkApiRef.current;
+      if (!present || !api) {
+        return;
+      }
+      const selected = selectedClipIdsOf(present);
+      const requested = selected.includes(clipId) ? selected : [clipId];
+      const visible = new Set(eligibleScissorsClips(present).map((clip) => clip.id));
+      const ordered = present.pasteboardClips.filter((clip) => requested.includes(clip.id) && visible.has(clip.id));
+      if (ordered.length < 2) {
+        return;
+      }
+      const layoutClips = ordered.map((clip) => {
+        const pose = effectiveClipPose(clip, clipLiveRef.current.get(clip.id));
+        return {
+          clip: { ...clip, ...pose },
+          size: api.engine.getRasterDimensions(clip.rasterId),
+        };
+      });
+      const layout = clipMergeLayout(layoutClips, present.rasterWidth, present.rasterHeight);
+      if (!layout) {
+        return;
+      }
+      const nextClipId = randomId();
+      const nextRasterId = clipRasterId(present.projectId, nextClipId);
+      const merged = api.engine.mergeClipsOntoRaster(
+        nextRasterId,
+        layout.destWidth,
+        layout.destHeight,
+        ordered.map((clip, index) => {
+          const pose = layoutClips[index]!.clip;
+          const origin = layout.sources[index]!;
+          return {
+            rasterId: clip.rasterId,
+            destLocalX: origin.destLocalX,
+            destLocalY: origin.destLocalY,
+            scale: pose.scale,
+            rotation: pose.rotation,
+            scaleY: pose.scaleY,
+          };
+        }),
+      );
+      if (!merged.trim) {
+        return;
+      }
+      for (const clip of ordered) {
+        clipLiveRef.current.delete(clip.id);
+      }
+      bumpClipDragFrame();
+      dispatch({
+        type: 'commitClipMerge',
+        sourceClipIds: ordered.map((clip) => clip.id),
+        clipId: nextClipId,
+        rasterId: nextRasterId,
+        x: layout.aabb.minX + merged.trim.x * layout.sx,
+        y: layout.aabb.minY + merged.trim.y * layout.sy,
+      });
+      bumpInkFrame();
+    },
+    [bumpClipDragFrame, bumpInkFrame, dispatch],
+  );
+
   const commitTextEdit = useCallback(
     (textId: string, content: string) => {
       if (isTextContentEmpty(content)) {
@@ -2459,6 +2521,7 @@ export function useEditorController(projectId: string): EditorController {
     deleteClip,
     duplicateClip,
     insertClipOnPage,
+    mergeSelectedClips,
     setTextEditing,
     undo,
     redo,

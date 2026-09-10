@@ -406,4 +406,49 @@ describe('InkEngine production pixel truth', () => {
     engine.registerRaster('proj:clip:tiny', buf);
     expect(engine.getRasterDimensions('proj:clip:tiny')).toEqual({ width: 51, height: 222 });
   });
+
+  test('mergeClipsOntoRaster composites offset clips and keeps the sources', () => {
+    const engine = createTestEngine();
+    engine.registerClipRaster('clip-a', 4, 4);
+    engine.registerClipRaster('clip-b', 4, 4);
+    const aCtx = engine.getHotContext('clip-a')!;
+    const bCtx = engine.getHotContext('clip-b')!;
+    aCtx.fillStyle = '#000000';
+    aCtx.fillRect(0, 0, 4, 4);
+    bCtx.fillStyle = '#000000';
+    bCtx.fillRect(0, 0, 4, 4);
+    const merged = engine.mergeClipsOntoRaster('clip-merged', 20, 10, [
+      { rasterId: 'clip-a', destLocalX: 0, destLocalY: 0, scale: 1, rotation: 0 },
+      { rasterId: 'clip-b', destLocalX: 10, destLocalY: 0, scale: 1, rotation: 0 },
+    ]);
+    expect(merged.trim).not.toBeNull();
+    expect(engine.hot.has('clip-a')).toBe(true);
+    expect(engine.hot.has('clip-b')).toBe(true);
+    expect(engine.getRasterDimensions('clip-merged')).toEqual({
+      width: merged.trim!.width,
+      height: merged.trim!.height,
+    });
+    const destCtx = engine.getHotContext('clip-merged')!;
+    const destW = destCtx.canvas.width;
+    const destH = destCtx.canvas.height;
+    const left = destCtx.getImageData(1, 1, 1, 1).data[3]!;
+    const gap = destCtx.getImageData(6, 1, 1, 1).data[3]!;
+    const right = destCtx.getImageData(11, 1, 1, 1).data[3]!;
+    expect(left).toBeGreaterThan(0);
+    expect(gap).toBe(0);
+    expect(right).toBeGreaterThan(0);
+    expect(countAlphaPixels(destCtx, destW, destH)).toBeGreaterThan(16);
+  });
+
+  test('mergeClipsOntoRaster disposes an empty destination', () => {
+    const engine = createTestEngine();
+    engine.registerClipRaster('clip-empty-a', 4, 4);
+    engine.registerClipRaster('clip-empty-b', 4, 4);
+    const merged = engine.mergeClipsOntoRaster('clip-empty-out', 8, 8, [
+      { rasterId: 'clip-empty-a', destLocalX: 0, destLocalY: 0, scale: 1, rotation: 0 },
+      { rasterId: 'clip-empty-b', destLocalX: 4, destLocalY: 0, scale: 1, rotation: 0 },
+    ]);
+    expect(merged.trim).toBeNull();
+    expect(engine.hot.has('clip-empty-out')).toBe(false);
+  });
 });

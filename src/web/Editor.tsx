@@ -32,6 +32,7 @@ export default function Editor({ projectId }: EditorProps) {
     deleteClip,
     duplicateClip,
     insertClipOnPage,
+    mergeSelectedClips,
     setTextEditing,
     undo,
     redo,
@@ -139,6 +140,7 @@ export default function Editor({ projectId }: EditorProps) {
         deleteClip={deleteClip}
         duplicateClip={duplicateClip}
         insertClipOnPage={insertClipOnPage}
+        mergeSelectedClips={mergeSelectedClips}
         onTextEditingChange={setTextEditing}
         onUndo={undo}
         onRedo={redo}

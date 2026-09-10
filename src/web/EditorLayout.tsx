@@ -77,6 +77,7 @@ type EditorLayoutProps = {
   deleteClip: (clipId: string) => void;
   duplicateClip: (clipId: string) => void;
   insertClipOnPage: (clipId: string) => void;
+  mergeSelectedClips: (clipId: string) => void;
   onTextEditingChange: (editing: boolean) => void;
   onUndo: () => void;
   onRedo: () => void;
@@ -124,6 +125,7 @@ export function EditorLayout({
   deleteClip,
   duplicateClip,
   insertClipOnPage,
+  mergeSelectedClips,
   onTextEditingChange,
   onUndo,
   onRedo,
@@ -548,6 +550,7 @@ export function EditorLayout({
                 onDeleteClip={deleteClip}
                 onDuplicateClip={duplicateClip}
                 onInsertClip={insertClipOnPage}
+                onMergeClips={mergeSelectedClips}
               />
             ) : null}
           </div>

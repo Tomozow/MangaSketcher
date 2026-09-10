@@ -395,6 +395,155 @@ describe('clip chrome actions', () => {
     expect(doc.selectedClipId).toBe('c2');
   });
 
+  test('commitClipMerge removes sources and selects a scale-1 clip', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'commitMarqueeCut',
+        pageId,
+        clipId: 'c1',
+        rasterId: 'p1:clip:c1',
+        workspaceX: 10,
+        workspaceY: 20,
+      },
+      ids,
+    );
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'commitMarqueeCut',
+        pageId,
+        clipId: 'c2',
+        rasterId: 'p1:clip:c2',
+        workspaceX: 40,
+        workspaceY: 20,
+      },
+      ids,
+    );
+    doc = reduceEditorDocument(doc, { type: 'selectClips', clipIds: ['c1', 'c2'] }, ids);
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'commitClipMerge',
+        sourceClipIds: ['c1', 'c2'],
+        clipId: 'merged',
+        rasterId: 'p1:clip:merged',
+        x: 10,
+        y: 20,
+      },
+      ids,
+    );
+    expect(doc.trashClips ?? []).toEqual([]);
+    expect(doc.pasteboardClips.map((clip) => clip.id)).toEqual(['merged']);
+    expect(doc.selectedClipId).toBe('merged');
+    expect(doc.selectedClipIds).toEqual(['merged']);
+    expect(doc.pasteboardClips[0]).toMatchObject({
+      id: 'merged',
+      rasterId: 'p1:clip:merged',
+      x: 10,
+      y: 20,
+      scale: 1,
+      rotation: 0,
+    });
+  });
+
+  test('undo after commitClipMerge restores the source clips', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    const pageId = doc.workspaceOrder[0]!;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'commitMarqueeCut',
+        pageId,
+        clipId: 'c1',
+        rasterId: 'p1:clip:c1',
+        workspaceX: 10,
+        workspaceY: 20,
+      },
+      ids,
+    );
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'commitMarqueeCut',
+        pageId,
+        clipId: 'c2',
+        rasterId: 'p1:clip:c2',
+        workspaceX: 40,
+        workspaceY: 20,
+      },
+      ids,
+    );
+    let history = createEditorHistory(doc);
+    history = reduceEditorHistory(
+      history,
+      {
+        type: 'commitClipMerge',
+        sourceClipIds: ['c1', 'c2'],
+        clipId: 'merged',
+        rasterId: 'p1:clip:merged',
+        x: 10,
+        y: 20,
+      },
+      ids,
+    );
+    expect(history.present.pasteboardClips.map((clip) => clip.id)).toEqual(['merged']);
+    history = reduceEditorHistory(history, { type: 'undo' }, ids);
+    expect(history.present.pasteboardClips.map((clip) => clip.id)).toEqual(['c1', 'c2']);
+    expect(history.present.trashClips ?? []).toEqual([]);
+  });
+
+  test('commitClipMerge is a no-op with fewer than two live sources', () => {
+    const ids = sequentialIds('id');
+    let doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'test',
+      pageCount: 1,
+      ids: sequentialIds('page'),
+    });
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'commitMarqueeCut',
+        pageId: doc.workspaceOrder[0]!,
+        clipId: 'c1',
+        rasterId: 'p1:clip:c1',
+        workspaceX: 10,
+        workspaceY: 20,
+      },
+      ids,
+    );
+    const before = doc;
+    doc = reduceEditorDocument(
+      doc,
+      {
+        type: 'commitClipMerge',
+        sourceClipIds: ['c1', 'missing'],
+        clipId: 'merged',
+        rasterId: 'p1:clip:merged',
+        x: 0,
+        y: 0,
+      },
+      ids,
+    );
+    expect(doc.pasteboardClips).toHaveLength(before.pasteboardClips.length);
+    expect(doc.selectedClipId).toBe('c1');
+  });
+
   test('commitClipScissorsCut adds the piece and updates or trashes the source', () => {
     const ids = sequentialIds('id');
     let doc = createEditorDocument({

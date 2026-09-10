@@ -89,6 +89,71 @@ export function worldAabbFromRect(box: { x: number; y: number; width: number; he
   };
 }
 
+export function unionWorldAabbs(aabbs: readonly WorldAabb[]): WorldAabb | null {
+  if (aabbs.length === 0) {
+    return null;
+  }
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const box of aabbs) {
+    minX = Math.min(minX, box.minX);
+    minY = Math.min(minY, box.minY);
+    maxX = Math.max(maxX, box.maxX);
+    maxY = Math.max(maxY, box.maxY);
+  }
+  if (!Number.isFinite(minX) || !Number.isFinite(minY) || !Number.isFinite(maxX) || !Number.isFinite(maxY)) {
+    return null;
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+export type ClipMergeLayout = {
+  aabb: WorldAabb;
+  destWidth: number;
+  destHeight: number;
+  sx: number;
+  sy: number;
+  sources: Array<{ destLocalX: number; destLocalY: number }>;
+};
+
+/** Destination raster and per-clip bake origins for merging clips in their current world poses. */
+export function clipMergeLayout(
+  clips: ReadonlyArray<{ clip: ClipMetaLike; size: ClipRasterSize }>,
+  rasterWidth: number,
+  rasterHeight: number,
+): ClipMergeLayout | null {
+  if (clips.length < 2) {
+    return null;
+  }
+  const aabbs: WorldAabb[] = [];
+  for (const item of clips) {
+    aabbs.push(
+      clipWorldAxisAlignedBounds(clipWorldBounds(item.clip, item.size, rasterWidth, rasterHeight)),
+    );
+  }
+  const aabb = unionWorldAabbs(aabbs);
+  if (!aabb) {
+    return null;
+  }
+  const { sx, sy } = rasterToDisplayScale(rasterWidth, rasterHeight);
+  if (!(sx > 0) || !(sy > 0)) {
+    return null;
+  }
+  return {
+    aabb,
+    destWidth: Math.max(1, Math.round((aabb.maxX - aabb.minX) / sx)),
+    destHeight: Math.max(1, Math.round((aabb.maxY - aabb.minY) / sy)),
+    sx,
+    sy,
+    sources: clips.map((item) => ({
+      destLocalX: (item.clip.x - aabb.minX) / sx,
+      destLocalY: (item.clip.y - aabb.minY) / sy,
+    })),
+  };
+}
+
 /** Screen-space chrome origin relative to the workspace surface (outside CSS scale). */
 export function chromeScreenPoseFromWorldAabbs(
   aabbs: readonly WorldAabb[],

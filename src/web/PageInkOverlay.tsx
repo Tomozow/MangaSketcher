@@ -2,7 +2,7 @@
 
 import type { ClipId, TextId } from '@/src/domain/types';
 import type { EditorDocument } from '@/src/storage/types';
-import { CLIP_CHROME_ATTR, CLIP_COPY_ATTR, CLIP_DELETE_ATTR, CLIP_INSERT_ATTR } from './clip/constants';
+import { CLIP_CHROME_ATTR, CLIP_COPY_ATTR, CLIP_DELETE_ATTR, CLIP_INSERT_ATTR, CLIP_MERGE_ATTR } from './clip/constants';
 import {
   chromeScreenPoseFromWorldAabbs,
   clipInsertTarget,
@@ -32,6 +32,7 @@ type PageInkOverlayProps = {
   onDeleteClip: (clipId: ClipId) => void;
   onDuplicateClip: (clipId: ClipId) => void;
   onInsertClip: (clipId: ClipId) => void;
+  onMergeClips: (clipId: ClipId) => void;
 };
 
 function DeleteMark({ icon, batch }: { icon: number; batch: boolean }) {
@@ -74,20 +75,24 @@ function ClipBoxChrome({
   gapPx,
   style,
   canInsert,
+  canMerge,
   batch,
   onDeleteClip,
   onDuplicateClip,
   onInsertClip,
+  onMergeClips,
 }: {
   clipId: ClipId;
   buttonPx: number;
   gapPx: number;
   style?: { left: number; top: number };
   canInsert: boolean;
+  canMerge?: boolean;
   batch?: boolean;
   onDeleteClip: (clipId: ClipId) => void;
   onDuplicateClip: (clipId: ClipId) => void;
   onInsertClip: (clipId: ClipId) => void;
+  onMergeClips: (clipId: ClipId) => void;
 }) {
   const size = { width: buttonPx, height: buttonPx };
   const icon = Math.max(6, buttonPx * 0.6);
@@ -132,6 +137,24 @@ function ClipBoxChrome({
           <rect x="1.5" y="3.5" width="7" height="7" fill="var(--ms-background)" stroke="currentColor" strokeWidth="1.4" />
         </svg>
       </div>
+      {canMerge ? (
+        <div
+          role="button"
+          className={styles.pageTextChromeButton}
+          style={{ height: buttonPx, padding: `0 ${Math.max(6, buttonPx * 0.35)}px` }}
+          {...{ [CLIP_MERGE_ATTR]: '' }}
+          aria-label="クリップを結合"
+          onPointerDown={(event) => {
+            event.stopPropagation();
+          }}
+          onClick={(event) => {
+            event.stopPropagation();
+            onMergeClips(clipId);
+          }}
+        >
+          <span style={{ fontSize: Math.max(9, buttonPx * 0.48), fontWeight: 600, lineHeight: 1 }}>結合</span>
+        </div>
+      ) : null}
       {canInsert ? (
         <div
           role="button"
@@ -209,6 +232,7 @@ function ClipChromeOverlay({
   onDeleteClip,
   onDuplicateClip,
   onInsertClip,
+  onMergeClips,
   canInsert,
 }: {
   pose: { left: number; top: number; button: number; gap: number };
@@ -218,6 +242,7 @@ function ClipChromeOverlay({
   onDeleteClip: (clipId: ClipId) => void;
   onDuplicateClip: (clipId: ClipId) => void;
   onInsertClip: (clipId: ClipId) => void;
+  onMergeClips: (clipId: ClipId) => void;
 }) {
   const primaryId = clipIds[clipIds.length - 1];
   if (!primaryId) {
@@ -233,10 +258,12 @@ function ClipChromeOverlay({
         gapPx={pose.gap}
         style={{ left: pose.left, top: pose.top }}
         canInsert={canInsert}
+        canMerge={clipIds.length >= 2}
         batch={batch}
         onDeleteClip={onDeleteClip}
         onDuplicateClip={onDuplicateClip}
         onInsertClip={onInsertClip}
+        onMergeClips={onMergeClips}
       />
     </div>
   );
@@ -252,6 +279,7 @@ export function PageInkOverlay({
   onDeleteClip,
   onDuplicateClip,
   onInsertClip,
+  onMergeClips,
 }: PageInkOverlayProps) {
   const { frames } = buildStripFrames(doc.workspaceOrder, stripLayoutFromDoc(doc));
   const visibleClips = withoutStockedClips(doc.pasteboardClips, doc.stock, doc.trashClips);
@@ -373,6 +401,7 @@ export function PageInkOverlay({
           onDeleteClip={onDeleteClip}
           onDuplicateClip={onDuplicateClip}
           onInsertClip={onInsertClip}
+          onMergeClips={onMergeClips}
           canInsert={canInsert}
         />
       ) : null}

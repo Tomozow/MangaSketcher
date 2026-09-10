@@ -40,6 +40,7 @@ export function dirtyRasterIdsForAction(
       const page = next.pages[action.pageId];
       return uniqueIds([page?.rasterId, ...added]);
     }
+    case 'commitClipMerge':
     case 'duplicateClip':
       return uniqueIds([action.rasterId, ...added]);
     case 'commitInkBake':

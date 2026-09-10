@@ -37,6 +37,7 @@ export type TextEditSelection = {
   content: string;
   color?: string;
   writingMode?: WritingMode;
+  fontSize?: number;
 };
 
 type TextEditBarProps = {
@@ -271,7 +272,7 @@ export function TextEditBar({
       }
       return next;
     });
-  }, [draft, selection?.id]);
+  }, [draft, selection?.id, selection?.fontSize]);
 
   useLayoutEffect(() => {
     if (!selection) {
@@ -312,7 +313,7 @@ export function TextEditBar({
       window.removeEventListener('resize', update);
       observer?.disconnect();
     };
-  }, [layoutKey, selection?.id]);
+  }, [layoutKey, selection?.id, selection?.fontSize]);
 
   useEffect(() => {
     const el = textareaRef.current;

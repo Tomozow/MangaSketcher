@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { EditorDocumentAction } from '@/src/domain/editorReducer';
 import { isLassoSelectMode, isSelectionTool, scissorsTargetFlagsOf, selectTargetFlagsOf, type ToolId, type WritingMode, writingModeOf } from '@/src/domain/types';
 import { findText, selectedTextIdsOf } from '@/src/domain/text';
+import { PAGE_TEXT_CHROME_ATTR } from '@/src/web/gestures/pageTextDom';
 import { inkPalette } from '@/src/theme/tokens';
 import type { EditorDocument, EditorHistory } from '@/src/storage/types';
 import {
@@ -176,7 +177,7 @@ export function CompactSidebar({
   const scissorsTargets = scissorsTargetFlagsOf(doc.tools);
   const scissorsSwitchToSelect = doc.tools.scissorsSwitchToSelect === true;
   const primarySelectedText =
-    selectionTool && selectedTextIds.length > 0
+    selectedTextIds.length > 0
       ? findText(doc, selectedTextIds[selectedTextIds.length - 1]!)
       : null;
   const showSelectTextSize = Boolean(primarySelectedText);
@@ -199,15 +200,18 @@ export function CompactSidebar({
   }, [doc.tool, doc.tools.penColor, doc.tools.textColor, selectionTool]);
 
   const sizeValue =
-    doc.tool === 'text'
-      ? doc.tools.textFontSize
-      : selectionTool && primarySelectedText
-        ? primarySelectedText.node.fontSize
+    (doc.tool === 'text' || selectionTool) && primarySelectedText
+      ? primarySelectedText.node.fontSize
+      : doc.tool === 'text'
+        ? doc.tools.textFontSize
         : doc.tools.penSize;
 
   const handleSizeChange = (value: number) => {
     if (doc.tool === 'text') {
       dispatch({ type: 'setToolProperties', patch: { textFontSize: value } });
+      if (selectedTextIds.length > 0) {
+        dispatch({ type: 'setTextsFontSize', textIds: selectedTextIds, fontSize: value });
+      }
       return;
     }
     if (selectionTool && selectedTextIds.length > 0) {
@@ -339,7 +343,11 @@ export function CompactSidebar({
       </div>
 
       {flyoutOpen ? (
-      <aside className={styles.toolFlyout} aria-label={`${TOOL_FLYOUT_TITLES[doc.tool]}の設定`}>
+      <aside
+        className={styles.toolFlyout}
+        aria-label={`${TOOL_FLYOUT_TITLES[doc.tool]}の設定`}
+        {...{ [PAGE_TEXT_CHROME_ATTR]: '' }}
+      >
         <h4 className={styles.toolFlyoutTitle}>{TOOL_FLYOUT_TITLES[doc.tool]}</h4>
 
         {doc.tool === 'scissors' ? (

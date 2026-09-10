@@ -144,6 +144,14 @@ export type EditorDocumentAction =
       };
     }
   | { type: 'commitClipBake'; clipId: ClipId; pageId: PageId }
+  | {
+      type: 'commitClipMerge';
+      sourceClipIds: ClipId[];
+      clipId: ClipId;
+      rasterId: string;
+      x: number;
+      y: number;
+    }
   | { type: 'transformClip'; clipId: ClipId; x?: number; y?: number; scale?: number; scaleY?: number; rotation?: number }
   | { type: 'deleteClip'; clipIds: ClipId[] }
   | {
@@ -895,6 +903,30 @@ export function reduceEditorDocument(
         clipSelection((doc.selectedClipIds ?? (doc.selectedClipId ? [doc.selectedClipId] : [])).filter((id) => id !== a.clipId)),
       );
       assignFocusedWorkspacePage(doc, a.pageId);
+      return doc;
+    }
+    case 'commitClipMerge': {
+      const hidden = new Set(doc.trashClips ?? []);
+      const sources = [...new Set(a.sourceClipIds)].filter(
+        (id) => doc.pasteboardClips.some((clip) => clip.id === id) && !hidden.has(id),
+      );
+      if (sources.length < 2) {
+        return doc;
+      }
+      const sourceSet = new Set(sources);
+      doc.pasteboardClips = doc.pasteboardClips.filter((clip) => !sourceSet.has(clip.id));
+      doc.stock = doc.stock.filter((item) => !(isStockClipItem(item) && sourceSet.has(item.clipId)));
+      doc.pasteboardClips.push({
+        id: a.clipId,
+        rasterId: a.rasterId,
+        x: a.x,
+        y: a.y,
+        scale: 1,
+        scaleY: 1,
+        rotation: 0,
+      });
+      Object.assign(doc, clipSelection([a.clipId]));
+      Object.assign(doc, textSelection([]));
       return doc;
     }
     case 'transformClip': {

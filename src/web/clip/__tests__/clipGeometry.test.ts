@@ -7,12 +7,14 @@ import {
   clipTouchesWorldRect,
   clipWorldAxisAlignedBounds,
   clipWorldBounds,
+  clipMergeLayout,
   freeScaleFromCornerDrag,
   hitClipAt,
   normalizeMarqueeRect,
   polygonAabb,
   rectTouchesPolygon,
   scaleFromCornerDrag,
+  unionWorldAabbs,
   worldPointToClipPixel,
 } from '../clipGeometry';
 import { MIN_CLIP_SCALE } from '../constants';
@@ -187,5 +189,33 @@ describe('clipGeometry', () => {
     expect(pose).not.toBeNull();
     expect(pose!.left).toBe(10 * 2 + 5);
     expect(pose!.top).toBe(40 * 2 + 7 - pose!.button - pose!.gap);
+  });
+
+  test('unionWorldAabbs covers every box', () => {
+    expect(
+      unionWorldAabbs([
+        { minX: 2, minY: 4, maxX: 10, maxY: 8 },
+        { minX: 6, minY: 1, maxX: 12, maxY: 5 },
+      ]),
+    ).toEqual({ minX: 2, minY: 1, maxX: 12, maxY: 8 });
+    expect(unionWorldAabbs([])).toBeNull();
+  });
+
+  test('clipMergeLayout maps current poses onto one destination raster', () => {
+    const size = { width: 100, height: 80 };
+    const layout = clipMergeLayout(
+      [
+        { clip: { id: 'a', x: 0, y: 0, scale: 1, rotation: 0 }, size },
+        { clip: { id: 'b', x: 36, y: 0, scale: 1, rotation: 0 }, size },
+      ],
+      1200,
+      1700,
+    );
+    expect(layout).not.toBeNull();
+    const { sx } = layout!;
+    expect(layout!.destWidth).toBe(Math.round((layout!.aabb.maxX - layout!.aabb.minX) / sx));
+    expect(layout!.sources[0]).toEqual({ destLocalX: 0, destLocalY: 0 });
+    expect(layout!.sources[1]!.destLocalX).toBeCloseTo(36 / sx);
+    expect(clipMergeLayout([{ clip: { id: 'a', x: 0, y: 0, scale: 1, rotation: 0 }, size }], 1200, 1700)).toBeNull();
   });
 });

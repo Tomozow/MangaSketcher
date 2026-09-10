@@ -16,3 +16,4 @@ export const CLIP_CHROME_ATTR = 'data-clip-chrome';
 export const CLIP_DELETE_ATTR = 'data-clip-delete';
 export const CLIP_COPY_ATTR = 'data-clip-copy';
 export const CLIP_INSERT_ATTR = 'data-clip-insert';
+export const CLIP_MERGE_ATTR = 'data-clip-merge';
