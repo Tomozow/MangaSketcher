@@ -475,3 +475,39 @@
 {"message":"tick done","hypothesisId":"B","data":{"left":2,"runId":"post-fix","elapsedMs":377},"timestamp":1789004635994,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
 {"message":"tick done","hypothesisId":"B","data":{"left":1,"runId":"post-fix","elapsedMs":374},"timestamp":1789004637492,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
 {"message":"tick done","hypothesisId":"B","data":{"left":0,"runId":"post-fix","elapsedMs":380},"timestamp":1789004638992,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"script start","hypothesisId":"E","data":{"sta":"STA","scriptRoot":"A:\\dev\\MangaSketcher\\scripts","psVersion":"5.1.26100.9444"},"timestamp":1789108845271,"sessionId":"e15d93","location":"launcher.ps1:entry"}
+{"message":"Add-Type ok","hypothesisId":"A","data":{},"timestamp":1789108845638,"sessionId":"e15d93","location":"launcher.ps1:addtype"}
+{"message":"before Refresh-RootCombo","hypothesisId":"C","data":{},"timestamp":1789108846401,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"after Refresh-RootCombo","hypothesisId":"C","data":{"count":11},"timestamp":1789108846722,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"before On-Tick","hypothesisId":"D","data":{},"timestamp":1789108846723,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"tick done","hypothesisId":"B","data":{"left":4,"runId":"post-fix","elapsedMs":517},"timestamp":1789108847245,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"after On-Tick","hypothesisId":"D","data":{},"timestamp":1789108847246,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"ShowDialog","hypothesisId":"E","data":{},"timestamp":1789108847248,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"tick done","hypothesisId":"B","data":{"left":3,"runId":"post-fix","elapsedMs":472},"timestamp":1789108849226,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"tick done","hypothesisId":"B","data":{"left":2,"runId":"post-fix","elapsedMs":477},"timestamp":1789108850725,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"tick done","hypothesisId":"B","data":{"left":1,"runId":"post-fix","elapsedMs":471},"timestamp":1789108852223,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"tick done","hypothesisId":"B","data":{"left":0,"runId":"post-fix","elapsedMs":476},"timestamp":1789108853724,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"script start","hypothesisId":"E","data":{"sta":"STA","scriptRoot":"A:\\dev\\MangaSketcher\\scripts","psVersion":"5.1.26100.9444"},"timestamp":1789113842149,"sessionId":"e15d93","location":"launcher.ps1:entry"}
+{"message":"Add-Type ok","hypothesisId":"A","data":{},"timestamp":1789113842578,"sessionId":"e15d93","location":"launcher.ps1:addtype"}
+{"message":"before Refresh-RootCombo","hypothesisId":"C","data":{},"timestamp":1789113843476,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"after Refresh-RootCombo","hypothesisId":"C","data":{"count":11},"timestamp":1789113843604,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"before On-Tick","hypothesisId":"D","data":{},"timestamp":1789113843606,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"tick done","hypothesisId":"B","data":{"left":4,"runId":"post-fix","elapsedMs":531},"timestamp":1789113844141,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"after On-Tick","hypothesisId":"D","data":{},"timestamp":1789113844143,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"ShowDialog","hypothesisId":"E","data":{},"timestamp":1789113844146,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"tick done","hypothesisId":"B","data":{"left":3,"runId":"post-fix","elapsedMs":468},"timestamp":1789113846111,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"tick done","hypothesisId":"B","data":{"left":2,"runId":"post-fix","elapsedMs":477},"timestamp":1789113847614,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"tick done","hypothesisId":"B","data":{"left":1,"runId":"post-fix","elapsedMs":467},"timestamp":1789113849111,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"tick done","hypothesisId":"B","data":{"left":0,"runId":"post-fix","elapsedMs":476},"timestamp":1789113850612,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"script start","hypothesisId":"E","data":{"sta":"STA","scriptRoot":"A:\\dev\\MangaSketcher\\scripts","psVersion":"5.1.26100.9444"},"timestamp":1789113914979,"sessionId":"e15d93","location":"launcher.ps1:entry"}
+{"message":"Add-Type ok","hypothesisId":"A","data":{},"timestamp":1789113915275,"sessionId":"e15d93","location":"launcher.ps1:addtype"}
+{"message":"before Refresh-RootCombo","hypothesisId":"C","data":{},"timestamp":1789113915472,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"after Refresh-RootCombo","hypothesisId":"C","data":{"count":11},"timestamp":1789113915575,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"before On-Tick","hypothesisId":"D","data":{},"timestamp":1789113915577,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"tick done","hypothesisId":"B","data":{"left":4,"runId":"post-fix","elapsedMs":517},"timestamp":1789113916098,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"after On-Tick","hypothesisId":"D","data":{},"timestamp":1789113916099,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"ShowDialog","hypothesisId":"E","data":{},"timestamp":1789113916102,"sessionId":"e15d93","location":"launcher.ps1:init"}
+{"message":"tick done","hypothesisId":"B","data":{"left":3,"runId":"post-fix","elapsedMs":496},"timestamp":1789113918093,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"tick done","hypothesisId":"B","data":{"left":2,"runId":"post-fix","elapsedMs":472},"timestamp":1789113919563,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"tick done","hypothesisId":"B","data":{"left":1,"runId":"post-fix","elapsedMs":471},"timestamp":1789113921065,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}
+{"message":"tick done","hypothesisId":"B","data":{"left":0,"runId":"post-fix","elapsedMs":471},"timestamp":1789113922567,"sessionId":"e15d93","location":"launcher.ps1:On-Tick"}

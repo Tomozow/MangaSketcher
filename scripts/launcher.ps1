@@ -73,20 +73,20 @@ public class MsStaticRoot {
   throw
 }
 
-$LauncherWindowTitle = 'MangaSketcher'
+$LauncherWindowTitle = 'MangaSketcher ランチャ'
 $script:LauncherMutex = $null
 try {
   $script:LauncherMutex = New-Object System.Threading.Mutex($false, 'Local\MangaSketcher.Launcher.ps1')
   if (-not $script:LauncherMutex.WaitOne(0, $false)) {
     $existing = [Native.AgentWin]::FindWindow($null, $LauncherWindowTitle)
+    Write-AgentLog 'E' 'launcher.ps1:mutex' 'already running' @{ hwnd = "$existing" }
     if ($existing -ne [IntPtr]::Zero) {
       if ([Native.AgentWin]::IsIconic($existing)) {
         [void][Native.AgentWin]::ShowWindow($existing, 9)
       }
       [void][Native.AgentWin]::SetForegroundWindow($existing)
+      exit 0
     }
-    Write-AgentLog 'E' 'launcher.ps1:mutex' 'already running; activated existing' @{ hwnd = "$existing" }
-    exit 0
   }
 } catch {
   Write-AgentLog 'E' 'launcher.ps1:mutex' 'mutex failed' @{ msg = $_.Exception.Message }
@@ -577,7 +577,7 @@ function Stop-AllChildren {
 
 # --- UI ---
 $form = New-Object System.Windows.Forms.Form
-$form.Text = 'MangaSketcher'
+$form.Text = $LauncherWindowTitle
 $form.StartPosition = 'CenterScreen'
 $form.Size = New-Object System.Drawing.Size(980, 740)
 $form.MinimumSize = New-Object System.Drawing.Size(820, 560)

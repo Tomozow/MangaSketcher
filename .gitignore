@@ -9,6 +9,7 @@ node_modules/
 out/
 out-backup/
 publish/
+.publish-staging/
 .static-export-park/
 .out-publish-tmp/
 certs/
