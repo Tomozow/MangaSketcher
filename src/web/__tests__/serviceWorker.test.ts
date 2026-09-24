@@ -38,6 +38,9 @@ describe('offline home-screen shell', () => {
     expect(
       shouldShowIpadCaQr({ hostname: '192.168.0.2', standalone: false, appleTouch: false }),
     ).toBe(true);
+    expect(
+      shouldShowIpadCaQr({ hostname: 'tomozow.github.io', standalone: false, appleTouch: false }),
+    ).toBe(false);
   });
 
   test('sw.js precaches the shell and does not unregister itself', () => {

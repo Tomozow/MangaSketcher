@@ -46,12 +46,20 @@ export function readAppleTouchDevice(): boolean {
   return isAppleTouchDevice(navigator.userAgent, navigator.maxTouchPoints);
 }
 
-/** PC loopback (Chrome --app included) shows the iPad CA QR; LAN iPad PWA does not. */
+export function isGitHubPagesHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return host === 'github.io' || host.endsWith('.github.io');
+}
+
+/** PC loopback (Chrome --app included) shows the iPad CA QR; LAN iPad PWA and GitHub Pages do not. */
 export function shouldShowIpadCaQr(input: {
   hostname: string;
   standalone: boolean;
   appleTouch: boolean;
 }): boolean {
+  if (isGitHubPagesHost(input.hostname)) {
+    return false;
+  }
   if (isLoopbackHost(input.hostname)) {
     return true;
   }
