@@ -35,6 +35,7 @@ import { WorkspaceLayoutMenu } from './WorkspaceLayoutMenu';
 import { WorkspaceStrip } from './WorkspaceStrip';
 import { navigateHomeAfterCheckpoint } from './editorNavigate';
 import { hardNavigate } from './hardNavigate';
+import { publicUrl } from '@/src/web/publicUrl';
 import { IconBack, IconMoon, IconPdf, IconStock, IconSun } from './chromeIcons';
 import { useChromeTheme } from './useChromeTheme';
 import { useAppSettings } from './useAppSettings';
@@ -558,7 +559,7 @@ export function EditorLayout({
       </div>
 
       <header className={styles.topbar} data-ms-shell="nav">
-        <a href="/" className={styles.chromeIcon} onClick={handleNavigateHome} aria-label="一覧へ" title="一覧へ">
+        <a href={publicUrl('/')} className={styles.chromeIcon} onClick={handleNavigateHome} aria-label="一覧へ" title="一覧へ">
           <IconBack />
         </a>
         <div className={styles.topbarTitle}>

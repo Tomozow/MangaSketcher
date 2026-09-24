@@ -6,6 +6,7 @@ import { loadDocument } from '@/src/storage';
 import { EditorMount } from '@/src/web/EditorMount';
 import { EditorLoadingSurface } from '@/src/web/EditorLoadingSurface';
 import { hardNavigate } from '@/src/web/hardNavigate';
+import { publicUrl } from '@/src/web/publicUrl';
 import { projectIdFromSearchParam } from '@/src/web/projectRoutes';
 
 function EditorPageInner() {
@@ -15,7 +16,7 @@ function EditorPageInner() {
 
   useEffect(() => {
     if (!id) {
-      hardNavigate('/', 'replace');
+      hardNavigate(publicUrl('/'), 'replace');
       return;
     }
 
@@ -25,7 +26,7 @@ function EditorPageInner() {
         return;
       }
       if (!document) {
-        hardNavigate('/', 'replace');
+        hardNavigate(publicUrl('/'), 'replace');
         return;
       }
       setReady(true);

@@ -1,3 +1,5 @@
+import { pathnameWithoutBase, publicUrl } from '@/src/web/publicUrl';
+
 const PROJECT_ID_PATTERN = /^[\w-]+$/;
 
 export function isValidProjectId(id: string): boolean {
@@ -6,7 +8,7 @@ export function isValidProjectId(id: string): boolean {
 }
 
 export function projectHref(id: string): string {
-  return `/p?id=${encodeURIComponent(id)}`;
+  return `${publicUrl('/p/')}?id=${encodeURIComponent(id)}`;
 }
 
 export function projectIdFromSearchParam(id: string | null | undefined): string | null {
@@ -19,7 +21,7 @@ export function projectIdFromSearchParam(id: string | null | undefined): string 
 
 /** `/p/:id` bookmarks from the previous App Router path. */
 export function legacyProjectIdFromPathname(pathname: string): string | null {
-  const match = pathname.match(/^\/p\/([^/]+)\/?$/);
+  const match = pathnameWithoutBase(pathname).match(/^\/p\/([^/]+)\/?$/);
   if (!match) {
     return null;
   }

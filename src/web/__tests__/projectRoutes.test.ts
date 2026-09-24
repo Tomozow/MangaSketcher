@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'vitest';
+import { afterEach, describe, expect, test } from 'vitest';
 import {
   isValidProjectId,
   legacyProjectIdFromPathname,
@@ -7,8 +7,24 @@ import {
 } from '../projectRoutes';
 
 describe('projectRoutes', () => {
+  const previousBase = process.env.NEXT_PUBLIC_BASE_PATH;
+
+  afterEach(() => {
+    if (previousBase === undefined) {
+      delete process.env.NEXT_PUBLIC_BASE_PATH;
+    } else {
+      process.env.NEXT_PUBLIC_BASE_PATH = previousBase;
+    }
+  });
+
   test('projectHref uses a query id so static hosts can serve one editor page', () => {
-    expect(projectHref('abc-123')).toBe('/p?id=abc-123');
+    expect(projectHref('abc-123')).toBe('/p/?id=abc-123');
+  });
+
+  test('projectHref keeps the trailing slash under a Pages base path', () => {
+    process.env.NEXT_PUBLIC_BASE_PATH = '/MangaSketcher';
+    expect(projectHref('abc-123')).toBe('/MangaSketcher/p/?id=abc-123');
+    expect(legacyProjectIdFromPathname('/MangaSketcher/p/abc-123')).toBe('abc-123');
   });
 
   test('rejects empty or oversized ids', () => {

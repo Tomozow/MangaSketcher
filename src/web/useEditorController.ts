@@ -909,7 +909,7 @@ export function useEditorController(projectId: string): EditorController {
       }
       if (!boot) {
         setMissing(true);
-        hardNavigate('/', 'replace');
+        hardNavigate(publicUrl('/'), 'replace');
         return;
       }
 

@@ -1,4 +1,5 @@
 import { ipadDebugLog } from '@/src/web/ipadDebugLog';
+import { publicUrl } from '@/src/web/publicUrl';
 
 export async function navigateHomeAfterCheckpoint(
   checkpoint: () => Promise<void>,
@@ -15,7 +16,7 @@ export async function navigateHomeAfterCheckpoint(
       message: 'checkpoint ok, navigating home',
     });
     // #endregion
-    push('/');
+    push(publicUrl('/'));
     return true;
   } catch (err) {
     // #region agent log
