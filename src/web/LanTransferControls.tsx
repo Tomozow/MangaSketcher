@@ -28,14 +28,11 @@ import {
   normalizeLanPackDigits,
   resolveLanPackHubBase,
 } from '@/src/web/lanPack/hubUrl';
-import { isGitHubPagesHost } from '@/src/web/displayMode';
+import { isGitHubPagesApp } from '@/src/web/displayMode';
 import styles from '@/app/page.module.css';
 
 function hideLanHubDownHint(): boolean {
-  if ((process.env.NEXT_PUBLIC_BASE_PATH ?? '').trim()) {
-    return true;
-  }
-  return typeof window !== 'undefined' && isGitHubPagesHost(window.location.hostname);
+  return isGitHubPagesApp();
 }
 
 function waitForPaint(): Promise<void> {

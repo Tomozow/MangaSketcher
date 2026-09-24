@@ -33,6 +33,7 @@ import {
 } from '@/src/web/shellUpdate';
 import { useAppShellHeight } from '@/src/web/appShellHeight';
 import { prepareImportedProjectOffThread } from '@/src/web/projectImport/prepareImportedProjectOffThread';
+import { isGitHubPagesApp } from '@/src/web/displayMode';
 import { IpadCaQrButton } from '@/src/web/IpadCaQrButton';
 import {
   LanTransferControls,
@@ -469,12 +470,16 @@ export function ProjectList() {
             </div>
             <div>
               <h1 className={styles.title}>MangaSketcher</h1>
-              <span className={styles.subtitle}>端末内 · 自動保存</span>
-              {shellLabel ? (
-                <span className={styles.shellStatus} aria-live="polite">
-                  {shellLabel}
-                </span>
-              ) : null}
+              {isGitHubPagesApp() ? null : (
+                <>
+                  <span className={styles.subtitle}>端末内 · 自動保存</span>
+                  {shellLabel ? (
+                    <span className={styles.shellStatus} aria-live="polite">
+                      {shellLabel}
+                    </span>
+                  ) : null}
+                </>
+              )}
             </div>
           </div>
           <LanTransferControls

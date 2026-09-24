@@ -51,6 +51,13 @@ export function isGitHubPagesHost(hostname: string): boolean {
   return host === 'github.io' || host.endsWith('.github.io');
 }
 
+export function isGitHubPagesApp(): boolean {
+  if ((process.env.NEXT_PUBLIC_BASE_PATH ?? '').trim()) {
+    return true;
+  }
+  return typeof window !== 'undefined' && isGitHubPagesHost(window.location.hostname);
+}
+
 /** PC loopback (Chrome --app included) shows the iPad CA QR; LAN iPad PWA and GitHub Pages do not. */
 export function shouldShowIpadCaQr(input: {
   hostname: string;

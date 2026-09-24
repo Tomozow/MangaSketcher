@@ -3,7 +3,13 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, test } from 'vitest';
 
-import { isAppleTouchDevice, isLoopbackHost, isStandaloneDisplay, shouldShowIpadCaQr } from '../displayMode';
+import {
+  isAppleTouchDevice,
+  isGitHubPagesApp,
+  isLoopbackHost,
+  isStandaloneDisplay,
+  shouldShowIpadCaQr,
+} from '../displayMode';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const swSrc = readFileSync(join(here, '../../../public/sw.js'), 'utf8');
@@ -41,6 +47,14 @@ describe('offline home-screen shell', () => {
     expect(
       shouldShowIpadCaQr({ hostname: 'tomozow.github.io', standalone: false, appleTouch: false }),
     ).toBe(false);
+    const previous = process.env.NEXT_PUBLIC_BASE_PATH;
+    process.env.NEXT_PUBLIC_BASE_PATH = '/MangaSketcher';
+    expect(isGitHubPagesApp()).toBe(true);
+    if (previous === undefined) {
+      delete process.env.NEXT_PUBLIC_BASE_PATH;
+    } else {
+      process.env.NEXT_PUBLIC_BASE_PATH = previous;
+    }
   });
 
   test('sw.js precaches the shell and does not unregister itself', () => {
