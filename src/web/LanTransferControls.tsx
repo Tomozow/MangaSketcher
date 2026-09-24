@@ -28,7 +28,15 @@ import {
   normalizeLanPackDigits,
   resolveLanPackHubBase,
 } from '@/src/web/lanPack/hubUrl';
+import { isGitHubPagesHost } from '@/src/web/displayMode';
 import styles from '@/app/page.module.css';
+
+function hideLanHubDownHint(): boolean {
+  if ((process.env.NEXT_PUBLIC_BASE_PATH ?? '').trim()) {
+    return true;
+  }
+  return typeof window !== 'undefined' && isGitHubPagesHost(window.location.hostname);
+}
 
 function waitForPaint(): Promise<void> {
   return new Promise((resolve) => {
@@ -355,7 +363,7 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
 
     return (
       <>
-        {mode !== 'send-code' ? (
+        {mode !== 'send-code' && !hideLanHubDownHint() ? (
           <div className={styles.lanRecvStrip} aria-live="polite">
             {recvCode ? (
               <>
