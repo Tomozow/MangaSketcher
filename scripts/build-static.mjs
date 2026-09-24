@@ -12,6 +12,7 @@ import {
 } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join } from 'node:path';
+import { pagesBasePath, withPagesBase } from './pagesBasePath.mjs';
 import { SCHEMA_GENERATION, pruneBackups } from './static-host/roots.mjs';
 
 const root = process.cwd();
@@ -57,7 +58,7 @@ function writePrecacheManifest(outDir) {
   const urls = new Set();
   for (const file of walkFiles(outDir)) {
     for (const url of urlsForExportedFile(posixRel(file, outDir))) {
-      urls.add(url);
+      urls.add(withPagesBase(url));
     }
   }
   const list = [...urls].sort();
@@ -69,9 +70,19 @@ function stampExportedServiceWorker(outDir) {
   if (!existsSync(swPath)) {
     return;
   }
+  const base = pagesBasePath();
+  if (!/^[A-Za-z0-9._/-]*$/.test(base)) {
+    throw new Error(`Invalid NEXT_PUBLIC_BASE_PATH: ${base}`);
+  }
   const stamp = Date.now().toString(36);
   const src = readFileSync(swPath, 'utf8');
-  const stamped = src.replace(
+  const withBase = base
+    ? src.replace("const BASE_PATH = '';", `const BASE_PATH = '${base}';`)
+    : src;
+  if (base && withBase === src) {
+    throw new Error('out/sw.js is missing the BASE_PATH stamp');
+  }
+  const stamped = withBase.replace(
     /const SHELL_CACHE = 'mangasketcher-shell-v[^']*'/,
     `const SHELL_CACHE = 'mangasketcher-shell-v13-${stamp}'`,
   );
@@ -112,6 +123,32 @@ function writeBuildMeta(outDir) {
   );
 }
 
+function prefixCssRootUrls(outDir, base) {
+  if (!base) {
+    return;
+  }
+  const cssDir = join(outDir, '_next', 'static', 'css');
+  for (const file of walkFiles(cssDir)) {
+    if (!file.endsWith('.css')) {
+      continue;
+    }
+    const src = readFileSync(file, 'utf8');
+    const next = src
+      .replaceAll(`url(${base}/`, 'url(__PAGES_BASE__/')
+      .replaceAll(`url('${base}/`, "url('__PAGES_BASE__/")
+      .replaceAll(`url("${base}/`, 'url("__PAGES_BASE__/')
+      .replaceAll('url(/', `url(${base}/`)
+      .replaceAll("url('/", `url('${base}/`)
+      .replaceAll('url("/', `url("${base}/`)
+      .replaceAll('url(__PAGES_BASE__/', `url(${base}/`)
+      .replaceAll("url('__PAGES_BASE__/", `url('${base}/`)
+      .replaceAll('url("__PAGES_BASE__/', `url("${base}/`);
+    if (next !== src) {
+      writeFileSync(file, next);
+    }
+  }
+}
+
 function writeOutArtifacts(outDir) {
   writeFileSync(join(outDir, '.nojekyll'), '');
   writeFileSync(
@@ -133,6 +170,7 @@ function writeOutArtifacts(outDir) {
       2,
     )}\n`,
   );
+  prefixCssRootUrls(outDir, pagesBasePath());
   writePrecacheManifest(outDir);
   stampExportedServiceWorker(outDir);
   writeBuildMeta(outDir);

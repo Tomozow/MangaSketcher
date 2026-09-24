@@ -4,9 +4,10 @@ import { useEffect, useRef } from 'react';
 import type { PageId, PageText } from '@/src/domain/types';
 import { THUMB_HEIGHT, THUMB_WIDTH } from '@/src/web/ink/InkEngine';
 import { drawPageTextsOnThumb } from '@/src/web/ink/drawPageTextsOnThumb';
+import { publicUrl } from '@/src/web/publicUrl';
 import { styles } from './editorStyles';
 
-export const PAGE_TEMPLATE_URL = '/page_template.jpg';
+export const PAGE_TEMPLATE_URL = publicUrl('/page_template.jpg');
 
 type PageThumbLayersProps = {
   pageId: PageId;

@@ -34,7 +34,7 @@ npm install
 npm run build:static
 ```
 
-2. `out/` を HTTPS で公開する（GitHub Pages など）。ルート直下に置く（`/_next/` が必要です）。GitHub Pages 用に `out/.nojekyll` を書き出します。
+2. `out/` を HTTPS で公開する。手元の LAN 配信はサイトルートに置く。GitHub Pages は `.github/workflows/pages.yml` が `out/` を載せる。プロジェクトサイト（`https://<user>.github.io/<repo>/`）ではビルド時に `NEXT_PUBLIC_BASE_PATH` が付く。`*.github.io` リポジトリはルートのまま。`out/.nojekyll` も書き出します。
 3. iPad の Safari でその URL を開く → 共有 → **ホーム画面に追加**
 4. 追加したアイコンから起動して作業する。Wi-Fi がなくても、一覧と開いたことのあるエディタ画面は動きます
 

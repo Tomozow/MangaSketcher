@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { publicUrl } from '@/src/web/publicUrl';
 import { reduceEditorDocument, type EditorDocumentAction } from '@/src/domain/editorReducer';
 import {
   nextExtractPack,
@@ -892,7 +893,7 @@ export function useEditorController(projectId: string): EditorController {
 
   useEffect(() => {
     const img = new Image();
-    img.src = '/page_template.jpg';
+    img.src = publicUrl('/page_template.jpg');
     img.onload = () => {
       templateImageRef.current = img;
     };

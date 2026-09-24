@@ -4,6 +4,7 @@ import { DisableContextMenu } from '@/src/web/DisableContextMenu';
 import { ServiceWorkerRegistrar } from '@/src/web/ServiceWorkerRegistrar';
 import { StandaloneHtmlFlag } from '@/src/web/StandaloneHtmlFlag';
 import { MARK_STANDALONE_SCRIPT } from '@/src/web/displayMode';
+import { publicUrl } from '@/src/web/publicUrl';
 import './globals.css';
 import '@/src/web/editor.css';
 
@@ -30,12 +31,12 @@ export const metadata: Metadata = {
   },
   icons: {
     apple: [
-      { url: '/icons/icon-180.png', sizes: '180x180' },
-      { url: '/icons/icon-192.png', sizes: '192x192' },
+      { url: publicUrl('/icons/icon-180.png'), sizes: '180x180' },
+      { url: publicUrl('/icons/icon-192.png'), sizes: '192x192' },
     ],
     icon: [
-      { url: '/icons/icon-192.png', sizes: '192x192' },
-      { url: '/icons/icon-512.png', sizes: '512x512' },
+      { url: publicUrl('/icons/icon-192.png'), sizes: '192x192' },
+      { url: publicUrl('/icons/icon-512.png'), sizes: '512x512' },
     ],
   },
 };

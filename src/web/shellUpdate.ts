@@ -1,5 +1,7 @@
+import { publicUrl } from '@/src/web/publicUrl';
+
 export const SHELL_UPDATE_SESSION_KEY = 'ms-shell-update';
-export const SHELL_PROBE_PATH = '/sw.js';
+export const SHELL_PROBE_PATH = publicUrl('/sw.js');
 export const SHELL_PROBE_TIMEOUT_MS = 2500;
 
 export type ShellUpdateStatus = 'idle' | 'checking' | 'current' | 'offline' | 'updated';

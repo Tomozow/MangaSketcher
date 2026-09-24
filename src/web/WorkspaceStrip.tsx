@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { publicUrl } from '@/src/web/publicUrl';
 import { spreadPageIdsContaining } from '@/src/domain/layout';
 import {
   buildStripFrames,
@@ -55,7 +56,7 @@ import {
 } from '@/src/web/workspaceViewportCulling';
 import { styles } from './editorStyles';
 
-const TEMPLATE_URL = '/page_template.jpg';
+const TEMPLATE_URL = publicUrl('/page_template.jpg');
 
 type WorkspaceStripProps = {
   workspaceOrder: PageId[];

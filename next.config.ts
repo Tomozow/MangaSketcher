@@ -1,7 +1,9 @@
 import { networkInterfaces } from 'node:os';
 import type { NextConfig } from 'next';
+import { pagesBasePath } from './scripts/pagesBasePath.mjs';
 
 const isStaticExport = process.env.NEXT_OUTPUT === 'export';
+const staticBasePath = isStaticExport ? pagesBasePath() : '';
 
 function lanDevOrigins(): string[] {
   const hosts = ['127.0.0.1', 'localhost'];
@@ -20,7 +22,12 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   ...(isStaticExport
-    ? { output: 'export' as const, trailingSlash: true, distDir: '.next-export' }
+    ? {
+        output: 'export' as const,
+        trailingSlash: true,
+        distDir: '.next-export',
+        ...(staticBasePath ? { basePath: staticBasePath } : {}),
+      }
     : { allowedDevOrigins: lanDevOrigins() }),
   serverExternalPackages: ['pdfjs-dist', 'fflate'],
   turbopack: {

@@ -1,8 +1,10 @@
+import { publicUrl } from '@/src/web/publicUrl';
+
 export const MAX_WORKSPACE_EXPORT_PAGES = 200;
 export const INK_ENCODE_WAIT_TIMEOUT_MS = 15_000;
 export const INK_ENCODE_POLL_MS = 50;
 export const DOWNLOAD_OBJECT_URL_REVOKE_MS = 60_000;
-export const PAGE_TEMPLATE_URL = '/page_template.jpg';
+export const PAGE_TEMPLATE_URL = publicUrl('/page_template.jpg');
 export const EXPORT_FAILED_MESSAGE = '書き出しに失敗しました';
 export const EXPORT_DOWNLOAD_LABEL = 'ダウンロード';
 export const EXPORT_BUTTON_LABEL = '書き出し';

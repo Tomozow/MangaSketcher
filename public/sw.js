@@ -1,5 +1,17 @@
 const SHELL_CACHE = 'mangasketcher-shell-v14';
 const NETWORK_TIMEOUT_MS = 4000;
+const BASE_PATH = '';
+
+function withBase(path) {
+  if (!BASE_PATH) {
+    return path;
+  }
+  if (path === '/') {
+    return `${BASE_PATH}/`;
+  }
+  return `${BASE_PATH}${path}`;
+}
+
 const PRECACHE_PATHS = [
   '/',
   '/p',
@@ -8,16 +20,16 @@ const PRECACHE_PATHS = [
   '/pdf.worker.min.mjs',
   '/sql-wasm-browser.wasm',
   '/manifest.webmanifest',
-];
+].map(withBase);
 
 function shouldPrecache(path) {
   if (typeof path !== 'string' || !path.startsWith('/')) {
     return false;
   }
-  if (path === '/sw.js' || path === '/serve.json' || path === '/.nojekyll') {
+  if (path === withBase('/sw.js') || path === withBase('/serve.json') || path === withBase('/.nojekyll')) {
     return false;
   }
-  if (path.startsWith('/api/')) {
+  if (path.startsWith('/api/') || (BASE_PATH && path.startsWith(`${BASE_PATH}/api/`))) {
     return false;
   }
   return true;
@@ -44,7 +56,7 @@ async function cachePutWithTimeout(cache, path) {
 
 async function fillPrecache(cache) {
   try {
-    const manifest = await fetchWithTimeout('/precache-manifest.json', NETWORK_TIMEOUT_MS, {
+    const manifest = await fetchWithTimeout(withBase('/precache-manifest.json'), NETWORK_TIMEOUT_MS, {
       cache: 'no-store',
     });
     if (!manifest.ok) {
@@ -92,20 +104,25 @@ self.addEventListener('message', (event) => {
 
 function navigationCacheKeys(url) {
   const path = url.pathname;
-  if (path === '/' || path === '') {
-    return ['/'];
+  const home = withBase('/');
+  const homeBare = BASE_PATH || '/';
+  if (path === home || path === homeBare || path === '') {
+    return [home];
   }
-  if (path === '/p' || path === '/p/') {
-    return ['/p', '/p/'];
+  const editor = withBase('/p');
+  const editorSlash = withBase('/p/');
+  if (path === editor || path === editorSlash) {
+    return [editor, editorSlash];
   }
   return [];
 }
 
 function bypassServiceWorker(url) {
   return (
-    url.pathname === '/sw.js' ||
-    url.pathname === '/precache-manifest.json' ||
-    url.pathname.startsWith('/api/')
+    url.pathname === withBase('/sw.js') ||
+    url.pathname === withBase('/precache-manifest.json') ||
+    url.pathname.startsWith('/api/') ||
+    (BASE_PATH !== '' && url.pathname.startsWith(`${BASE_PATH}/api/`))
   );
 }
 
@@ -131,7 +148,7 @@ async function respondCacheFirst(request, cacheKeys) {
     return response;
   } catch {
     return (
-      (await cache.match('/')) ||
+      (await cache.match(withBase('/'))) ||
       new Response('オフラインです', {
         status: 503,
         headers: { 'Content-Type': 'text/plain; charset=utf-8' },

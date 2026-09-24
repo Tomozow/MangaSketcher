@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import { isLoopbackHost, readAppleTouchDevice, readStandaloneDisplay } from '@/src/web/displayMode';
+import { publicUrl } from '@/src/web/publicUrl';
 import {
   SHELL_PROBE_TIMEOUT_MS,
   probeShellServer,
@@ -15,7 +16,11 @@ import {
 async function runBrowserShellStartup(): Promise<void> {
   await runShellStartup({
     getRegistration: () => navigator.serviceWorker.getRegistration(),
-    register: () => navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }),
+    register: () =>
+      navigator.serviceWorker.register(publicUrl('/sw.js'), {
+        scope: publicUrl('/'),
+        updateViaCache: 'none',
+      }),
     probe: () => probeShellServer(window.fetch.bind(window), SHELL_PROBE_TIMEOUT_MS),
     readSession: () => readShellUpdateSession(window.sessionStorage),
     writeSession: (status) => writeShellUpdateSession(window.sessionStorage, status),

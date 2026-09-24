@@ -4,6 +4,8 @@
  * and describe public/clip-export-template.clip.
  */
 
+import { publicUrl } from '@/src/web/publicUrl';
+
 /** CSP canvas size baked into the export template (600 DPI). */
 export const CLIP_CANVAS_WIDTH = 1518;
 export const CLIP_CANVAS_HEIGHT = 2150;
@@ -15,5 +17,5 @@ export const CLIP_LINEART_OFFSCREEN_ID = 48;
 export const CLIP_PAGE_TEMPLATE_OFFSCREEN_ID = 5;
 
 /** Static assets served from public/. */
-export const CLIP_TEMPLATE_URL = '/clip-export-template.clip';
-export const CLIP_SQL_WASM_URL = '/sql-wasm-browser.wasm';
+export const CLIP_TEMPLATE_URL = publicUrl('/clip-export-template.clip');
+export const CLIP_SQL_WASM_URL = publicUrl('/sql-wasm-browser.wasm');

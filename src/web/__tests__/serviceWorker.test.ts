@@ -54,8 +54,8 @@ describe('offline home-screen shell', () => {
     expect(swSrc).toContain('function fetchWithTimeout');
     expect(swSrc).toContain('NETWORK_TIMEOUT_MS = 4000');
     expect(swSrc).toContain('event.respondWith(respondCacheFirst(request, keys))');
-    expect(swSrc).toContain("url.pathname === '/sw.js'");
-    expect(swSrc).toContain("url.pathname === '/precache-manifest.json'");
+    expect(swSrc).toContain("url.pathname === withBase('/sw.js')");
+    expect(swSrc).toContain("url.pathname === withBase('/precache-manifest.json')");
     expect(swSrc).toContain("event.data.type === 'SKIP_WAITING'");
     expect(swSrc).not.toMatch(/fetch\(request\)\s*\n\s*\.then\(\(response\) =>/);
   });
@@ -68,7 +68,7 @@ describe('offline home-screen shell', () => {
 
   test('iOS Safari tabs skip registration; standalone registers', () => {
     expect(registrarSrc).toContain('readAppleTouchDevice() && !readStandaloneDisplay()');
-    expect(registrarSrc).toContain("register('/sw.js'");
+    expect(registrarSrc).toContain("register(publicUrl('/sw.js')");
     expect(registrarSrc).toContain('restoreShellUpdateSession');
     expect(registrarSrc).toContain('runShellStartup');
     expect(registrarSrc).toContain('probeShellServer');
