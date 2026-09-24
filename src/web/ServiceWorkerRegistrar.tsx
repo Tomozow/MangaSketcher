@@ -48,9 +48,7 @@ export function ServiceWorkerRegistrar() {
       return;
     }
 
-    if (restoreShellUpdateSession(window.sessionStorage)) {
-      return;
-    }
+    restoreShellUpdateSession(window.sessionStorage);
 
     let cancelled = false;
     let timer = 0;

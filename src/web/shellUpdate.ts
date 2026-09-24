@@ -143,11 +143,6 @@ export function restoreShellUpdateSession(storage: Pick<Storage, 'getItem'>): bo
 
 export async function runShellStartup(host: ShellStartupHost): Promise<void> {
   const session = host.readSession();
-  if (session) {
-    host.setStatus(session === 'updated' ? 'current' : session);
-    return;
-  }
-
   const existing = await host.getRegistration();
   if (!existing) {
     try {
@@ -160,19 +155,28 @@ export async function runShellStartup(host: ShellStartupHost): Promise<void> {
     return;
   }
 
-  host.setStatus('checking');
+  if (session) {
+    host.setStatus(session === 'updated' ? 'current' : session);
+  } else {
+    host.setStatus('checking');
+  }
+
   const probe = await host.probe();
   if (probe !== 'ok') {
-    host.writeSession('offline');
-    host.setStatus('offline');
+    if (!session) {
+      host.writeSession('offline');
+      host.setStatus('offline');
+    }
     return;
   }
 
   try {
     await withTimeout(existing.update(), host.updateTimeoutMs ?? SHELL_PROBE_TIMEOUT_MS);
   } catch {
-    host.writeSession('offline');
-    host.setStatus('offline');
+    if (!session) {
+      host.writeSession('offline');
+      host.setStatus('offline');
+    }
     return;
   }
 
@@ -184,6 +188,8 @@ export async function runShellStartup(host: ShellStartupHost): Promise<void> {
     return;
   }
 
-  host.writeSession('current');
-  host.setStatus('current');
+  if (!session) {
+    host.writeSession('current');
+    host.setStatus('current');
+  }
 }

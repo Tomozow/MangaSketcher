@@ -84,8 +84,7 @@ self.addEventListener('install', (event) => {
         Promise.all(PRECACHE_PATHS.map((path) => cachePutWithTimeout(cache, path))).then(() =>
           fillPrecache(cache),
         ),
-      )
-      .then(() => self.skipWaiting()),
+      ),
   );
 });
 
@@ -230,11 +229,7 @@ self.addEventListener('fetch', (event) => {
     if (keys.length === 0) {
       return;
     }
-    if (url.search) {
-      event.respondWith(respondProjectNavigation(url, keys));
-      return;
-    }
-    event.respondWith(respondCacheFirst(request, keys));
+    event.respondWith(respondProjectNavigation(url, keys));
     return;
   }
 

@@ -67,24 +67,27 @@ describe('shellUpdateStatusLabel', () => {
 });
 
 describe('session restore', () => {
-  test('restores a finished check and skips another probe', async () => {
+  test('restores a finished check and still looks for a newer shell', async () => {
     const storage = memoryStorage();
     writeShellUpdateSession(storage, 'offline');
     expect(readShellUpdateSession(storage)).toBe('offline');
     expect(restoreShellUpdateSession(storage)).toBe(true);
     expect(getShellUpdateStatus()).toBe('offline');
 
+    const registration: ShellRegistrationLike = {
+      installing: null,
+      waiting: null,
+      update: vi.fn(async () => undefined),
+    };
     const startup = host({
-      getRegistration: vi.fn(async () => ({
-        installing: null,
-        waiting: null,
-        update: vi.fn(),
-      })),
+      getRegistration: vi.fn(async () => registration),
       readSession: () => readShellUpdateSession(storage),
     });
     await runShellStartup(startup);
-    expect(startup.probe).not.toHaveBeenCalled();
+    expect(startup.probe).toHaveBeenCalled();
+    expect(registration.update).toHaveBeenCalledTimes(1);
     expect(startup.register).not.toHaveBeenCalled();
+    expect(startup.reload).not.toHaveBeenCalled();
     expect(startup.setStatus).toHaveBeenCalledWith('offline');
   });
 

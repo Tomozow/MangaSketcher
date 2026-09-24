@@ -70,7 +70,7 @@ describe('offline home-screen shell', () => {
   test('navigation is cache-first with a short network timeout', () => {
     expect(swSrc).toContain('function fetchWithTimeout');
     expect(swSrc).toContain('NETWORK_TIMEOUT_MS = 4000');
-    expect(swSrc).toContain('event.respondWith(respondCacheFirst(request, keys))');
+    expect(swSrc).toContain('event.respondWith(respondProjectNavigation(url, keys))');
     expect(swSrc).toContain('respondProjectNavigation');
     expect(swSrc).toContain('response.redirected');
     expect(swSrc).toContain("url.pathname === withBase('/sw.js')");
