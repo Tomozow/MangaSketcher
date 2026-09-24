@@ -14,7 +14,6 @@ function withBase(path) {
 
 const PRECACHE_PATHS = [
   '/',
-  '/p',
   '/p/',
   '/page_template.jpg',
   '/pdf.worker.min.mjs',
@@ -26,7 +25,12 @@ function shouldPrecache(path) {
   if (typeof path !== 'string' || !path.startsWith('/')) {
     return false;
   }
-  if (path === withBase('/sw.js') || path === withBase('/serve.json') || path === withBase('/.nojekyll')) {
+  if (
+    path === withBase('/sw.js') ||
+    path === withBase('/serve.json') ||
+    path === withBase('/.nojekyll') ||
+    path === withBase('/p')
+  ) {
     return false;
   }
   if (path.startsWith('/api/') || (BASE_PATH && path.startsWith(`${BASE_PATH}/api/`))) {
@@ -109,12 +113,33 @@ function navigationCacheKeys(url) {
   if (path === home || path === homeBare || path === '') {
     return [home];
   }
-  const editor = withBase('/p');
   const editorSlash = withBase('/p/');
-  if (path === editor || path === editorSlash) {
-    return [editor, editorSlash];
+  if (path === withBase('/p') || path === editorSlash) {
+    return [editorSlash];
   }
   return [];
+}
+
+function isUsableResponse(response) {
+  return Boolean(response && response.ok && response.type !== 'opaqueredirect' && !response.redirected);
+}
+
+async function fetchPage(url) {
+  const response = await fetchWithTimeout(url, NETWORK_TIMEOUT_MS, {
+    redirect: 'follow',
+    cache: 'no-store',
+  });
+  if (!isUsableResponse(response)) {
+    if (!response || response.type === 'opaqueredirect' || !response.ok) {
+      return null;
+    }
+    return new Response(response.body, {
+      status: response.status,
+      statusText: response.statusText,
+      headers: response.headers,
+    });
+  }
+  return response;
 }
 
 function bypassServiceWorker(url) {
@@ -126,35 +151,64 @@ function bypassServiceWorker(url) {
   );
 }
 
+function offlineResponse() {
+  return new Response('オフラインです', {
+    status: 503,
+    headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+  });
+}
+
+async function cachedPage(cacheKeys) {
+  const cache = await caches.open(SHELL_CACHE);
+  for (const key of cacheKeys) {
+    const cached = await cache.match(key);
+    if (isUsableResponse(cached)) {
+      return cached;
+    }
+  }
+  const home = await cache.match(withBase('/'));
+  if (isUsableResponse(home)) {
+    return home;
+  }
+  return null;
+}
+
 async function respondCacheFirst(request, cacheKeys) {
   const cache = await caches.open(SHELL_CACHE);
   for (const key of cacheKeys) {
     const cached = await cache.match(key);
-    if (cached) {
+    if (isUsableResponse(cached)) {
       return cached;
     }
   }
   const cachedRequest = await cache.match(request);
-  if (cachedRequest) {
+  if (isUsableResponse(cachedRequest)) {
     return cachedRequest;
   }
   try {
     const response = await fetchWithTimeout(request, NETWORK_TIMEOUT_MS);
-    if (response && response.ok) {
+    if (isUsableResponse(response)) {
       const copy = response.clone();
       const putKey = cacheKeys[0] ?? request;
       void cache.put(putKey, copy);
+      return response;
     }
-    return response;
   } catch {
-    return (
-      (await cache.match(withBase('/'))) ||
-      new Response('オフラインです', {
-        status: 503,
-        headers: { 'Content-Type': 'text/plain; charset=utf-8' },
-      })
-    );
+    // Fall through to the cached shell.
   }
+  return (await cachedPage(cacheKeys)) ?? offlineResponse();
+}
+
+async function respondProjectNavigation(url, cacheKeys) {
+  try {
+    const response = await fetchPage(url.href);
+    if (response) {
+      return response;
+    }
+  } catch {
+    // Offline: serve the cached editor shell.
+  }
+  return (await cachedPage(cacheKeys)) ?? offlineResponse();
 }
 
 self.addEventListener('fetch', (event) => {
@@ -174,6 +228,10 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     const keys = navigationCacheKeys(url);
     if (keys.length === 0) {
+      return;
+    }
+    if (url.search) {
+      event.respondWith(respondProjectNavigation(url, keys));
       return;
     }
     event.respondWith(respondCacheFirst(request, keys));

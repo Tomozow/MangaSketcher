@@ -54,6 +54,8 @@ describe('offline home-screen shell', () => {
     expect(swSrc).toContain('function fetchWithTimeout');
     expect(swSrc).toContain('NETWORK_TIMEOUT_MS = 4000');
     expect(swSrc).toContain('event.respondWith(respondCacheFirst(request, keys))');
+    expect(swSrc).toContain('respondProjectNavigation');
+    expect(swSrc).toContain('response.redirected');
     expect(swSrc).toContain("url.pathname === withBase('/sw.js')");
     expect(swSrc).toContain("url.pathname === withBase('/precache-manifest.json')");
     expect(swSrc).toContain("event.data.type === 'SKIP_WAITING'");
