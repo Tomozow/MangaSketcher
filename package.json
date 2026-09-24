@@ -29,7 +29,6 @@
     "clip:wasm:copy": "node -e \"require('fs').copyFileSync(require.resolve('sql.js/dist/sql-wasm-browser.wasm'), 'public/sql-wasm-browser.wasm')\""
   },
   "dependencies": {
-    "@rollup/rollup-win32-x64-msvc": "^4.63.0",
     "fflate": "^0.8.3",
     "next": "^15.5.24",
     "pdf-lib": "^1.17.1",
