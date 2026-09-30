@@ -63,6 +63,7 @@ import {
 type EditorLayoutProps = {
   doc: EditorDocument;
   history: EditorHistory;
+  pendingInkCount?: number;
   pdfMissing: boolean;
   textEditing: boolean;
   textSelection: TextEditSelection | null;
@@ -115,6 +116,7 @@ function saveStatusLabel(status: AutosaveStatus): string {
 export function EditorLayout({
   doc,
   history,
+  pendingInkCount,
   pdfMissing,
   textEditing,
   textSelection,
@@ -611,6 +613,7 @@ export function EditorLayout({
         <CompactSidebar
           doc={doc}
           history={history}
+          pendingInkCount={pendingInkCount}
           textEditing={textEditing}
           dispatch={dispatch}
           onUndo={onUndo}

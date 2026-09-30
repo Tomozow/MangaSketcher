@@ -20,6 +20,7 @@ export default function Editor({ projectId }: EditorProps) {
     ready,
     missing,
     history,
+    pendingInkCount,
     pdfMissing,
     pdfBytes,
     textEditing,
@@ -128,6 +129,7 @@ export default function Editor({ projectId }: EditorProps) {
       <EditorLayout
         doc={history.present}
         history={history}
+        pendingInkCount={pendingInkCount}
         pdfMissing={pdfMissing}
         pdfBytes={pdfBytes}
         textEditing={textEditing}

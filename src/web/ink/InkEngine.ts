@@ -629,6 +629,23 @@ export class InkEngine {
     return encoded ? encoded.slice(0) : undefined;
   }
 
+  /**
+   * Live pixels for undo/redo capture. encodedPng lags behind hot until the deferred encode
+   * finishes, so prefer a copy of the hot canvas; fall back to the encoded PNG when not hot.
+   */
+  captureRasterPixels(rasterId: string): InkUndoPixels | undefined {
+    const hot = this.hot.get(rasterId);
+    if (hot) {
+      const copy = this.canvasFactory(hot.width, hot.height);
+      const ctx = copy.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(hot as unknown as CanvasImageSource, 0, 0);
+        return copy as unknown as InkUndoPixels;
+      }
+    }
+    return this.captureRasterPng(rasterId);
+  }
+
   invalidateThumb(rasterId: string): void {
     const thumb = this.thumbs.get(rasterId);
     if (thumb) {
@@ -1176,12 +1193,12 @@ export class InkEngine {
 
 export function createInkRestoreSink(engine: InkEngine): {
   restoreRaster(rasterId: string, png: ArrayBuffer | OffscreenCanvas): void;
-  captureRaster(rasterId: string): ArrayBuffer | undefined;
+  captureRaster(rasterId: string): InkUndoPixels | undefined;
   invalidateThumb(rasterId: string): void;
 } {
   return {
     restoreRaster: (rasterId, png) => engine.restoreRasterFromUndo(rasterId, png),
-    captureRaster: (rasterId) => engine.captureRasterPng(rasterId),
+    captureRaster: (rasterId) => engine.captureRasterPixels(rasterId),
     invalidateThumb: (rasterId) => engine.invalidateThumb(rasterId),
   };
 }

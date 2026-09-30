@@ -137,6 +137,29 @@ describe('InkEngine production pixel truth', () => {
     expect(countAlphaPixels(engine.getHotContext(rasterId)!, TEST_W, TEST_H)).toBeGreaterThan(0);
   });
 
+  test('captureRasterPixels reflects unencoded ink so undo→redo restores the stroke', () => {
+    const rasterId = 'p1:page:redo-capture';
+    const engine = createTestEngine();
+    engine.registerRaster(rasterId);
+    const overlayCtx = engine.beginPenOverlay(rasterId);
+    drawBrushStroke(overlayCtx, inkLine([{ x: 10, y: 10, pressure: 1 }]), {
+      color: '#000000',
+      lineWidth: 8,
+      globalAlpha: 1,
+      composite: 'source-over',
+    });
+    engine.blitPenOverlay(rasterId);
+    const [pre] = engine.drainPendingBakeWork(1, { encode: false });
+
+    // encode has not run: encodedPng is stale, hot has the stroke
+    const captured = engine.captureRasterPixels(rasterId)!;
+    engine.restoreRasterFromUndo(rasterId, pre!.canvas);
+    expect(countAlphaPixels(engine.getHotContext(rasterId)!, TEST_W, TEST_H)).toBe(0);
+
+    engine.restoreRasterFromUndo(rasterId, captured);
+    expect(countAlphaPixels(engine.getHotContext(rasterId)!, TEST_W, TEST_H)).toBeGreaterThan(0);
+  });
+
   test('100× setWorkspaceView does not clone pages or allocate Uint8ClampedArray', () => {
     const doc = createEditorDocument({
       projectId: 'p1',

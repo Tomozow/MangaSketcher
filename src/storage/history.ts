@@ -118,7 +118,7 @@ export function trimEditorHistoryDepth(history: EditorHistory, maxDepth: number)
 
 export type InkRestoreSink = {
   restoreRaster(rasterId: string, png: InkUndoPixels): void;
-  captureRaster(rasterId: string): ArrayBuffer | undefined;
+  captureRaster(rasterId: string): InkUndoPixels | undefined;
   invalidateThumb(rasterId: string): void;
 };
 
@@ -134,11 +134,11 @@ export function undoEditorHistory(
   if (!entry) {
     return null;
   }
-  const futureInkUndo = new Map<string, ArrayBuffer>();
+  const futureInkUndo = new Map<string, InkUndoPixels>();
   for (const rasterId of entry.inkUndo.keys()) {
     const current = ink.captureRaster(rasterId);
     if (current) {
-      futureInkUndo.set(rasterId, current.slice(0));
+      futureInkUndo.set(rasterId, current);
     }
   }
   for (const [rasterId, png] of entry.inkUndo.entries()) {
@@ -169,11 +169,11 @@ export function redoEditorHistory(
   if (!entry) {
     return null;
   }
-  const pastInkUndo = new Map<string, ArrayBuffer>();
+  const pastInkUndo = new Map<string, InkUndoPixels>();
   for (const rasterId of entry.inkUndo.keys()) {
     const current = ink.captureRaster(rasterId);
     if (current) {
-      pastInkUndo.set(rasterId, current.slice(0));
+      pastInkUndo.set(rasterId, current);
     }
   }
   for (const [rasterId, png] of entry.inkUndo.entries()) {

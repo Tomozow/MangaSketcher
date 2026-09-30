@@ -691,6 +691,10 @@ export function useEditorController(projectId: string): EditorController {
   const autosaveRef = useRef<AutosaveManager | null>(null);
   const inkUndoRef = useRef<Map<string, InkUndoPixels>>(new Map());
   const pendingInkHistoryRef = useRef<PendingInkHistoryItem[]>([]);
+  const [pendingInkCount, setPendingInkCount] = useState(0);
+  const syncPendingInkCount = useCallback(() => {
+    setPendingInkCount(pendingInkHistoryRef.current.length);
+  }, []);
   const idleInkFlushRef = useRef<() => Promise<void>>(async () => {});
   const inkIdleScheduler = useMemo(
     () =>
@@ -976,6 +980,7 @@ export function useEditorController(projectId: string): EditorController {
       const pending = pendingInkHistoryRef.current;
       if (pending.length > 0) {
         pendingInkHistoryRef.current = [];
+        syncPendingInkCount();
         setHistory((prev) => {
           if (!prev) {
             pendingInkHistoryRef.current = pending.concat(pendingInkHistoryRef.current);
@@ -1915,6 +1920,7 @@ export function useEditorController(projectId: string): EditorController {
             for (const item of drained) {
               pendingInkHistoryRef.current.push(item);
             }
+            syncPendingInkCount();
             autosaveRef.current?.markUnsaved();
             inkIdleScheduler.schedule();
             visualBump = true;
@@ -2244,6 +2250,7 @@ export function useEditorController(projectId: string): EditorController {
       pendingInkHistory: pendingInkHistoryRef.current,
       clearPendingInkHistory: () => {
         pendingInkHistoryRef.current = [];
+        syncPendingInkCount();
       },
       ink: api?.engine ?? null,
       mergeEncodedPng: (encoded) => {
@@ -2279,6 +2286,7 @@ export function useEditorController(projectId: string): EditorController {
         pendingInkHistory: pendingInkHistoryRef.current,
         clearPendingInkHistory: () => {
           pendingInkHistoryRef.current = [];
+          syncPendingInkCount();
         },
         ink: api?.engine ?? null,
         mergeEncodedPng: (encoded) => {
@@ -2377,10 +2385,15 @@ export function useEditorController(projectId: string): EditorController {
     }
     const pending = pendingInkHistoryRef.current;
     pendingInkHistoryRef.current = [];
+    syncPendingInkCount();
     takePendingInkUndo(inkUndoRef.current);
     const withInk = consumePendingInkHistory(prev, pending);
     const next = undoEditorHistory(withInk, inkRestoreSink);
     if (!next) {
+      if (withInk !== prev) {
+        historyRef.current = withInk;
+        setHistory(withInk);
+      }
       return;
     }
     historyRef.current = next;
@@ -2400,10 +2413,15 @@ export function useEditorController(projectId: string): EditorController {
     }
     const pending = pendingInkHistoryRef.current;
     pendingInkHistoryRef.current = [];
+    syncPendingInkCount();
     takePendingInkUndo(inkUndoRef.current);
     const withInk = consumePendingInkHistory(prev, pending);
     const next = redoEditorHistory(withInk, inkRestoreSink);
     if (!next) {
+      if (withInk !== prev) {
+        historyRef.current = withInk;
+        setHistory(withInk);
+      }
       return;
     }
     historyRef.current = next;
@@ -2512,6 +2530,7 @@ export function useEditorController(projectId: string): EditorController {
     clipLiveTransforms,
     textLiveTransforms,
     autosaveStatus,
+    pendingInkCount,
     getPageThumb,
     getClipRasterSize,
     dispatch,
