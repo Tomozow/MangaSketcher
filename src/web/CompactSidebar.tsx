@@ -64,6 +64,8 @@ const SCISSORS_FILTERS: { key: 'scissorsSelectText' | 'scissorsSelectInk' | 'sci
 type CompactSidebarProps = {
   doc: EditorDocument;
   history: EditorHistory;
+  /** Strokes not yet folded into history.past; undo is already possible. */
+  pendingInkCount?: number;
   textEditing: boolean;
   dispatch: (action: EditorDocumentAction) => void;
   onUndo: () => void;
@@ -108,6 +110,7 @@ function ToolGlyph({ id, lasso }: { id: ToolId; lasso?: boolean }) {
 export function CompactSidebar({
   doc,
   history,
+  pendingInkCount = 0,
   textEditing,
   dispatch,
   onUndo,
@@ -323,7 +326,7 @@ export function CompactSidebar({
         <button
           type="button"
           className={styles.chromeIcon}
-          disabled={historyControlsDisabled(textEditing, history.past.length)}
+          disabled={historyControlsDisabled(textEditing, history.past.length + pendingInkCount)}
           onClick={onUndo}
           aria-label={`取り消し（${shortcutLabelFromCode(shortcuts.undo)} / Ctrl+Z）`}
           title={`取り消し（${shortcutLabelFromCode(shortcuts.undo)} / Ctrl+Z）`}
