@@ -21,6 +21,14 @@ export type AutosaveStatus = {
 /** A commit that has not settled by then is treated as hung and failed. */
 export const COMMIT_TIMEOUT_MS = 30_000;
 
+/**
+ * A commit writes the document JSON together with the PNGs of its dirty rasters. While an encode
+ * is still in flight those PNGs are stale, so committing would persist a torn state (clip removed,
+ * page ink not yet baked). Wait for encodes to settle, but never longer than this.
+ */
+export const ENCODE_SETTLE_MAX_MS = 15_000;
+const ENCODE_SETTLE_POLL_MS = 50;
+
 export class AutosaveCommitTimeoutError extends Error {
   constructor() {
     super('autosave commit timed out');
@@ -269,6 +277,16 @@ export class AutosaveManager {
     await turn;
     this.runningJob = job;
     try {
+      await this.waitForEncodesSettled();
+      const newer = this.pendingJob;
+      if (newer && newer.saveGen > job.saveGen) {
+        // A later save already carries the latest document; fold this one's rasters into it.
+        for (const id of job.dirtyRasterIds) {
+          newer.dirtyRasterIds.add(id);
+        }
+        newer.viewOnly = newer.viewOnly && newer.dirtyRasterIds.size === 0;
+        return;
+      }
       const encoded = this.getEncodedPng();
       const rasters = new Map<string, ArrayBuffer>();
       for (const rasterId of job.dirtyRasterIds) {
@@ -330,6 +348,13 @@ export class AutosaveManager {
     } finally {
       this.runningJob = null;
       done();
+    }
+  }
+
+  private async waitForEncodesSettled(): Promise<void> {
+    const startedAt = Date.now();
+    while (this.encoding.size > 0 && !this.disposed && Date.now() - startedAt < ENCODE_SETTLE_MAX_MS) {
+      await new Promise((resolve) => setTimeout(resolve, ENCODE_SETTLE_POLL_MS));
     }
   }
 
@@ -412,7 +437,45 @@ export class AutosaveManager {
    * Must NEVER update generation snapshots — unordered puts can tear live JSON/PNGs.
    */
   flushHidden(): void {
+    if (this.encoding.size > 0) {
+      // Some dirty rasters have no fresh PNG yet. Writing the new document (or only some PNGs)
+      // would tear live storage; keep the last consistent generation instead.
+      inkLog('autosave.flushHidden', 'skipped: encodes in flight', { encoding: [...this.encoding] });
+      return;
+    }
     const encoded = this.getEncodedPng();
+    const atomicDoc = this.pendingJob?.doc;
+    if (atomicDoc && this.db.putLiveAtomic) {
+      // One transaction: PNGs and the document that references them land together or not at all.
+      const rasters = new Map<string, ArrayBuffer>();
+      const dirty = new Set(this.pendingJob?.dirtyRasterIds);
+      for (const id of this.queuedAfterRun?.dirtyRasterIds ?? []) {
+        dirty.add(id);
+      }
+      for (const id of dirty) {
+        const png = encoded.get(id);
+        if (png && png.byteLength > 0) {
+          rasters.set(id, png.slice(0));
+        }
+      }
+      void this.db
+        .putLiveAtomic({
+          document: atomicDoc,
+          meta: {
+            id: atomicDoc.projectId,
+            name: atomicDoc.name,
+            updatedAt: new Date().toISOString(),
+            pageCount: Object.keys(atomicDoc.pages).length,
+          },
+          rasters,
+        })
+        .catch((err) => {
+          if (!(err instanceof DOMException && err.name === 'InvalidStateError')) {
+            inkLog('autosave.flushHidden', 'atomic write failed', { msg: err instanceof Error ? err.message : String(err) });
+          }
+        });
+      return;
+    }
     for (const [rasterId, png] of encoded.entries()) {
       if (png.byteLength > 0) {
         void this.db.putRaster(rasterId, png.slice(0)).catch((err) => {

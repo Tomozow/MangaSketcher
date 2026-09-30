@@ -72,3 +72,64 @@ describe('autosave failure handling', () => {
     expect(mgr.getStatus().encodingCount).toBe(0);
   });
 });
+
+describe('torn generation protection', () => {
+  test('commit waits for in-flight encodes, then writes everything at once', async () => {
+    const commits: string[][] = [];
+    const png = new Uint8Array([1, 2, 3]).buffer;
+    const encoded = new Map<string, ArrayBuffer>();
+    const mgr = new AutosaveManager({
+      db: {
+        commitDocumentGeneration: async (input: { rasters?: Map<string, ArrayBuffer> }) => {
+          commits.push([...(input.rasters?.keys() ?? [])].sort());
+          return { snapshotUpdated: true };
+        },
+      } as never,
+      getEncodedPng: () => encoded,
+      getDelays: () => ({ documentMs: 0, viewOnlyMs: 0 }),
+    });
+    mgr.notifyEncodingStarted('a');
+    mgr.notifyEncodingStarted('b');
+    mgr.scheduleSave(doc(), ['a', 'b']);
+    await tick(120);
+    expect(commits).toEqual([]);
+    encoded.set('a', png);
+    encoded.set('b', png);
+    mgr.notifyEncodingComplete('a', png);
+    mgr.notifyEncodingComplete('b', png);
+    await tick(150);
+    expect(commits).toEqual([['a', 'b']]);
+  });
+
+  test('flushHidden writes nothing while an encode is in flight', async () => {
+    let atomic = 0;
+    const mgr = new AutosaveManager({
+      db: {
+        putLiveAtomic: async () => {
+          atomic += 1;
+        },
+        putRaster: async () => {
+          atomic += 1;
+        },
+        putDocument: async () => {
+          atomic += 1;
+        },
+        putMeta: async () => {
+          atomic += 1;
+        },
+      } as never,
+      getEncodedPng: () => new Map([['a', new Uint8Array([1]).buffer]]),
+      getDelays: () => ({ documentMs: 1000, viewOnlyMs: 1000 }),
+    });
+    mgr.scheduleSave(doc(), ['a']);
+    mgr.notifyEncodingStarted('a');
+    mgr.flushHidden();
+    await tick(10);
+    expect(atomic).toBe(0);
+    mgr.notifyEncodingComplete('a', new ArrayBuffer(1));
+    mgr.flushHidden();
+    await tick(10);
+    expect(atomic).toBe(1);
+    mgr.dispose();
+  });
+});

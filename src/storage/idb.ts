@@ -56,6 +56,8 @@ export interface StorageDatabase {
   listSnapshotRasterIds(): Promise<string[]>;
 
   commitDocumentGeneration(input: CommitDocumentGenerationInput): Promise<CommitDocumentGenerationResult>;
+  /** Optional: rasters + document + meta in ONE transaction (no reads, no snapshot). Used when the page is going away. */
+  putLiveAtomic?(input: { document: EditorDocument; meta: ProjectMeta; rasters: ReadonlyMap<string, ArrayBuffer> }): Promise<void>;
 
   deleteProjectRecords(projectId: string): Promise<void>;
 
@@ -576,6 +578,34 @@ export class BrowserStorageDatabase implements StorageDatabase {
       });
       return { snapshotUpdated: false };
     }
+  }
+
+  async putLiveAtomic(input: {
+    document: EditorDocument;
+    meta: ProjectMeta;
+    rasters: ReadonlyMap<string, ArrayBuffer>;
+  }): Promise<void> {
+    const db = await this.db();
+    await new Promise<void>((resolve, reject) => {
+      const transaction = db.transaction([RASTERS, DOCUMENTS, META], 'readwrite');
+      for (const [rasterId, png] of input.rasters) {
+        transaction.objectStore(RASTERS).put({ rasterId, png: png.slice(0) });
+      }
+      transaction.objectStore(DOCUMENTS).put({ ...input.document, id: input.document.projectId });
+      transaction.objectStore(META).put(input.meta);
+      transaction.oncomplete = () => {
+        for (const [rasterId, png] of input.rasters) {
+          if (storedPngIsValid(png)) {
+            this.liveValid.add(rasterId);
+          } else {
+            this.liveValid.delete(rasterId);
+          }
+        }
+        resolve();
+      };
+      transaction.onerror = () => reject(transaction.error ?? new Error('putLiveAtomic failed'));
+      transaction.onabort = () => reject(transaction.error ?? new Error('putLiveAtomic aborted'));
+    });
   }
 
   private putSnapshotDocumentOnly(db: IDBDatabase, document: EditorDocument): Promise<void> {
