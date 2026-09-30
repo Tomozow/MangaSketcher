@@ -51,6 +51,8 @@ export type InkAutosaveSink = {
 };
 
 const HOT_CANVAS_LIMIT = 8;
+/** iPad Safari fails encodes (and drops canvas backing) when many full-size convertToBlob run at once. */
+const MAX_CONCURRENT_ENCODES = 2;
 const ENCODE_MAX_ATTEMPTS = 3;
 const ENCODE_RETRY_BASE_MS = 500;
 
@@ -131,6 +133,8 @@ export class InkEngine {
   /** Visible strip rasters kept decoded (§9.6); never LRU-evicted. */
   private readonly pinnedHotRasterIds = new Set<string>();
   private readonly rasterDimensions = new Map<string, { width: number; height: number }>();
+  private activeEncodes = 0;
+  private readonly encodeWaiters: Array<() => void> = [];
   private readonly thumbReadyListeners = new Set<(rasterId: string) => void>();
 
   constructor(options: {
@@ -1201,6 +1205,19 @@ export class InkEngine {
     return out.buffer;
   }
 
+  private async encodeLimited(canvas: InkCanvas): Promise<ArrayBuffer> {
+    if (this.activeEncodes >= MAX_CONCURRENT_ENCODES) {
+      await new Promise<void>((resolve) => this.encodeWaiters.push(resolve));
+    }
+    this.activeEncodes += 1;
+    try {
+      return await this.encodePng(canvas);
+    } finally {
+      this.activeEncodes -= 1;
+      this.encodeWaiters.shift()?.();
+    }
+  }
+
   private startEncode(rasterId: string, attempt = 1): void {
     const canvas = this.hot.get(rasterId);
     if (!canvas) {
@@ -1213,7 +1230,7 @@ export class InkEngine {
     inkLog('InkEngine.startEncode', 'encode start', { rasterId, attempt, gen, w: canvas.width, h: canvas.height });
     this.pendingEncodes.add(rasterId);
     this.callbacks.onEncodingStarted?.(rasterId);
-    void this.encodePng(canvas)
+    void this.encodeLimited(canvas)
       .then((buffer) => {
         if (this.encodeGeneration.get(rasterId) !== gen) {
           return;

@@ -65,3 +65,34 @@ describe('encode lifecycle notifications', () => {
     vi.useRealTimers();
   });
 });
+
+describe('encode concurrency', () => {
+  test('never runs more than two encodes at once, and all still finish', async () => {
+    let active = 0;
+    let peak = 0;
+    const done = vi.fn();
+    const e = new InkEngine({
+      rasterWidth: 8,
+      rasterHeight: 8,
+      emptyPng: new ArrayBuffer(0),
+      canvasFactory: (w, h) => new FakeOffscreenCanvas(w, h) as unknown as OffscreenCanvas,
+      encodePng: async () => {
+        active += 1;
+        peak = Math.max(peak, active);
+        await tick(5);
+        active -= 1;
+        return PNG;
+      },
+    });
+    e.setCallbacks({ onEncodingComplete: done });
+    const ids = Array.from({ length: 8 }, (_, i) => `p:page:${i}`);
+    for (const id of ids) {
+      e.registerRaster(id);
+      e.beginEraseDirect(id);
+      e.finishEraseDirect(id);
+    }
+    await tick(100);
+    expect(peak).toBe(2);
+    expect(done).toHaveBeenCalledTimes(8);
+  });
+});
