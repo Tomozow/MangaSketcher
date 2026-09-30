@@ -43,6 +43,11 @@ export type InkEngineCallbacks = {
   onHotPixelsReady?: (rasterId: string) => void;
   /** A reduced-size preview of a cold raster is ready to paint. */
   onPreviewReady?: (rasterId: string) => void;
+  /**
+   * These rasters were created, consumed or restored by an edit that goes with a document change
+   * (cut, bake, merge, undo). The document must not be saved before their PNGs are.
+   */
+  onDocumentNeeds?: (rasterIds: string[]) => void;
 };
 
 export type InkAutosaveSink = {
@@ -50,6 +55,7 @@ export type InkAutosaveSink = {
   notifyEncodingComplete(rasterId: string, buffer: ArrayBuffer): void;
   notifyEncodingFailed?(rasterId: string): void;
   notifyEncodingAborted?(rasterId: string): void;
+  notifyDocumentNeeds?(rasterIds: string[]): void;
   scheduleDocumentSave(dirtyRasterIds: string[]): void;
 };
 
@@ -234,6 +240,7 @@ export class InkEngine {
     ctx.drawImage(source as unknown as CanvasImageSource, 0, 0);
     this.bumpHotRevision(destRasterId);
     this.invalidateThumb(destRasterId);
+    this.callbacks.onDocumentNeeds?.([destRasterId]);
     this.startEncode(destRasterId);
     void this.generateThumb(destRasterId);
     this.callbacks.onBake?.(destRasterId);
@@ -810,6 +817,7 @@ export class InkEngine {
       }
       this.bumpHotRevision(rasterId);
       this.invalidateThumb(rasterId);
+      this.callbacks.onDocumentNeeds?.([rasterId]);
       this.pendingEncodeIds.add(rasterId);
       return;
     }
@@ -841,11 +849,13 @@ export class InkEngine {
       ctx.drawImage(undo, 0, 0);
     }
     this.invalidateThumb(rasterId);
+    this.callbacks.onDocumentNeeds?.([rasterId]);
     this.pendingEncodeIds.add(rasterId);
   }
 
   restoreRasterFromPng(rasterId: string, png: ArrayBuffer): void {
     this.cancelPendingEncode(rasterId);
+    this.callbacks.onDocumentNeeds?.([rasterId]);
     this.noteEncodedPng(rasterId, png);
     this.bumpHotRevision(rasterId);
     const canvas = this.hot.get(rasterId);
@@ -1124,6 +1134,7 @@ export class InkEngine {
     const pageUndo = this.takeStrokeUndoSnapshot(pageRasterId);
     this.invalidateThumb(pageRasterId);
     this.invalidateThumb(clipRasterId);
+    this.callbacks.onDocumentNeeds?.([pageRasterId, clipRasterId]);
     this.startEncode(pageRasterId);
     this.startEncode(clipRasterId);
     void this.generateThumb(pageRasterId);
@@ -1176,6 +1187,7 @@ export class InkEngine {
     const pageUndo = this.takeStrokeUndoSnapshot(pageRasterId);
     this.invalidateThumb(pageRasterId);
     this.invalidateThumb(clipRasterId);
+    this.callbacks.onDocumentNeeds?.([pageRasterId, clipRasterId]);
     this.startEncode(pageRasterId);
     this.startEncode(clipRasterId);
     void this.generateThumb(pageRasterId);
@@ -1262,6 +1274,7 @@ export class InkEngine {
     const sourceUndo = this.takeStrokeUndoSnapshot(sourceRasterId);
     this.invalidateThumb(sourceRasterId);
     this.invalidateThumb(destRasterId);
+    this.callbacks.onDocumentNeeds?.([sourceRasterId, destRasterId]);
     this.startEncode(sourceRasterId);
     this.startEncode(destRasterId);
     void this.generateThumb(sourceRasterId);
@@ -1307,6 +1320,7 @@ export class InkEngine {
     this.disposeRaster(clipRasterId);
     this.invalidateThumb(pageRasterId);
     void this.generateThumb(pageRasterId);
+    this.callbacks.onDocumentNeeds?.([pageRasterId]);
     this.startEncode(pageRasterId);
     this.callbacks.onBake?.(pageRasterId);
     return { pageUndo, clipUndo: clip };
@@ -1366,6 +1380,7 @@ export class InkEngine {
     }
     this.bumpHotRevision(destRasterId);
     this.invalidateThumb(destRasterId);
+    this.callbacks.onDocumentNeeds?.([destRasterId]);
     this.startEncode(destRasterId);
     void this.generateThumb(destRasterId);
     this.callbacks.onBake?.(destRasterId);
@@ -1527,6 +1542,7 @@ export function wireInkAutosave(engine: InkEngine, sink: InkAutosaveSink): () =>
     },
     onEncodingFailed: (rasterId) => sink.notifyEncodingFailed?.(rasterId),
     onEncodingAborted: (rasterId) => sink.notifyEncodingAborted?.(rasterId),
+    onDocumentNeeds: (rasterIds) => sink.notifyDocumentNeeds?.(rasterIds),
     onBake: (rasterId) => sink.scheduleDocumentSave([rasterId]),
   });
   return () => engine.setCallbacks({});

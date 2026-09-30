@@ -899,6 +899,9 @@ export function useEditorController(projectId: string): EditorController {
       notifyEncodingAborted: (rasterId) => {
         autosaveRef.current?.notifyEncodingAborted(rasterId);
       },
+      notifyDocumentNeeds: (rasterIds) => {
+        autosaveRef.current?.notifyDocumentNeeds(rasterIds);
+      },
       scheduleDocumentSave: (dirtyRasterIds) => {
         const present = historyRef.current?.present;
         if (present) {
@@ -2529,6 +2532,9 @@ export function useEditorController(projectId: string): EditorController {
     }
     historyRef.current = next;
     setHistory(next);
+    // Start encoding the restored rasters now: the document just changed with them, and until
+    // their PNGs exist the save is held back.
+    inkApiRef.current?.engine.flushPendingEncodes();
     autosaveRef.current?.scheduleSave(next.present, [...(next.future[0]?.inkUndo.keys() ?? [])], false);
     bumpInkFrame();
   }, [inkRestoreSink]);
@@ -2557,6 +2563,7 @@ export function useEditorController(projectId: string): EditorController {
     }
     historyRef.current = next;
     setHistory(next);
+    inkApiRef.current?.engine.flushPendingEncodes();
     autosaveRef.current?.scheduleSave(
       next.present,
       [...(next.past[next.past.length - 1]?.inkUndo.keys() ?? [])],

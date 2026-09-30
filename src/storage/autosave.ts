@@ -23,9 +23,8 @@ export type AutosaveStatus = {
 export const COMMIT_TIMEOUT_MS = 30_000;
 
 /**
- * A commit writes the document JSON together with the PNGs of its dirty rasters. While an encode
- * is still in flight those PNGs are stale, so committing would persist a torn state (clip removed,
- * page ink not yet baked). Wait for encodes to settle, but never longer than this.
+ * How long a save waits for running encodes so their PNGs go out with it. After that it goes ahead
+ * without them, unless the document needs one of them (see `notifyDocumentNeeds`).
  */
 export const ENCODE_SETTLE_MAX_MS = 15_000;
 const ENCODE_SETTLE_POLL_MS = 50;
@@ -37,7 +36,7 @@ export class AutosaveCommitTimeoutError extends Error {
   }
 }
 
-/** Some raster has no fresh PNG (encode still running or given up); committing now would tear the generation. */
+/** A raster the document depends on has no fresh PNG yet (encode running or given up). */
 export class AutosaveEncodePendingError extends Error {
   constructor() {
     super('autosave waiting for raster encodes');
@@ -105,11 +104,18 @@ export class AutosaveManager {
   private runningJob: PendingJob | null = null;
   private queuedAfterRun: PendingJob | null = null;
   private serialTail: Promise<void> = Promise.resolve();
-  private encoding = new Set<string>();
+  /** Rasters whose stored PNG is behind their pixels: encode running, or given up. */
+  private readonly unsettled = new Map<string, 'encoding' | 'failed'>();
+  /**
+   * Rasters whose fresh PNG the document depends on: created, consumed or restored by an edit that
+   * also changed the document (cut, bake, merge, undo). Saving the document before their PNG would
+   * store a state that never existed. A plain stroke is not in here: the document does not depend
+   * on it, so the rest can be saved while it encodes.
+   */
+  private readonly docNeeds = new Set<string>();
   private unsaved = false;
   private disposed = false;
   private failures = 0;
-  private readonly failedEncodes = new Set<string>();
   private readonly commitTimeoutMs: number;
   private readonly encodeSettleMaxMs: number;
   /**
@@ -142,12 +148,32 @@ export class AutosaveManager {
   }
 
   getStatus(): AutosaveStatus {
-    const status: AutosaveStatus = { unsaved: this.unsaved, encodingCount: this.encoding.size };
-    const failures = this.failures + this.failedEncodes.size;
+    const status: AutosaveStatus = { unsaved: this.unsaved, encodingCount: this.idsIn('encoding').length };
+    const failures = this.failures + this.idsIn('failed').length;
     if (failures > 0) {
       status.saveFailures = failures;
     }
     return status;
+  }
+
+  private idsIn(state: 'encoding' | 'failed'): string[] {
+    return [...this.unsettled].filter(([, value]) => value === state).map(([rasterId]) => rasterId);
+  }
+
+  /** The document cannot be saved yet: a raster it depends on has no fresh PNG. */
+  private blocked(): boolean {
+    for (const rasterId of this.docNeeds) {
+      if (this.unsettled.has(rasterId)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  notifyDocumentNeeds(rasterIds: readonly string[]): void {
+    for (const rasterId of rasterIds) {
+      this.docNeeds.add(rasterId);
+    }
   }
 
   private emitStatus(): void {
@@ -171,7 +197,7 @@ export class AutosaveManager {
     if (this.disposed) {
       return;
     }
-    this.encoding.add(rasterId);
+    this.unsettled.set(rasterId, 'encoding');
     this.setUnsaved(true);
     this.setEncodingCount();
   }
@@ -181,8 +207,7 @@ export class AutosaveManager {
     if (this.disposed) {
       return;
     }
-    this.encoding.delete(rasterId);
-    this.failedEncodes.add(rasterId);
+    this.unsettled.set(rasterId, 'failed');
     this.emitStatus();
   }
 
@@ -191,23 +216,22 @@ export class AutosaveManager {
     if (this.disposed) {
       return;
     }
-    const had = this.encoding.delete(rasterId);
-    const hadFailed = this.failedEncodes.delete(rasterId);
-    if (had || hadFailed) {
+    this.docNeeds.delete(rasterId);
+    if (this.unsettled.delete(rasterId)) {
       this.emitStatus();
     }
   }
 
   getFailedEncodeIds(): string[] {
-    return [...this.failedEncodes];
+    return this.idsIn('failed');
   }
 
   notifyEncodingComplete(rasterId: string, _buffer: ArrayBuffer): void {
     if (this.disposed) {
       return;
     }
-    this.failedEncodes.delete(rasterId);
-    this.encoding.delete(rasterId);
+    this.unsettled.delete(rasterId);
+    this.docNeeds.delete(rasterId);
     this.setEncodingCount();
   }
 
@@ -324,7 +348,7 @@ export class AutosaveManager {
         newer.viewOnly = newer.viewOnly && newer.dirtyRasterIds.size === 0;
         return;
       }
-      if (this.encoding.size > 0 || this.failedEncodes.size > 0) {
+      if (this.blocked()) {
         // The job stays queued; the encode's completion schedules the next attempt.
         throw new AutosaveEncodePendingError();
       }
@@ -433,7 +457,11 @@ export class AutosaveManager {
 
   private async waitForEncodesSettled(): Promise<void> {
     const startedAt = Date.now();
-    while (this.encoding.size > 0 && !this.disposed && Date.now() - startedAt < this.encodeSettleMaxMs) {
+    while (
+      this.idsIn('encoding').length > 0 &&
+      !this.disposed &&
+      Date.now() - startedAt < this.encodeSettleMaxMs
+    ) {
       await new Promise((resolve) => setTimeout(resolve, ENCODE_SETTLE_POLL_MS));
     }
   }
@@ -517,12 +545,11 @@ export class AutosaveManager {
    * Must NEVER update generation snapshots — unordered puts can tear live JSON/PNGs.
    */
   flushHidden(): void {
-    if (this.encoding.size > 0 || this.failedEncodes.size > 0) {
-      // Some dirty rasters have no fresh PNG yet. Writing the new document (or only some PNGs)
-      // would tear live storage; keep the last consistent generation instead.
-      inkLog('autosave.flushHidden', 'skipped: encodes not settled', {
-        encoding: [...this.encoding],
-        failed: [...this.failedEncodes],
+    if (this.blocked()) {
+      // The document depends on a PNG that is not ready; keep the last stored generation instead.
+      inkLog('autosave.flushHidden', 'skipped: document needs an unfinished encode', {
+        encoding: this.idsIn('encoding'),
+        failed: this.idsIn('failed'),
       });
       return;
     }
@@ -551,7 +578,7 @@ export class AutosaveManager {
   }
 
   resumePendingEncodes(restart: (rasterId: string) => void): void {
-    for (const rasterId of this.encoding) {
+    for (const rasterId of this.idsIn('encoding')) {
       restart(rasterId);
     }
   }

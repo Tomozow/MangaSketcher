@@ -102,7 +102,7 @@ describe('torn generation protection', () => {
     expect(commits).toEqual([[A, B].sort()]);
   });
 
-  test('flushHidden writes nothing while an encode is in flight', async () => {
+  test('flushHidden writes nothing while an encode the document needs is in flight', async () => {
     let atomic = 0;
     const mgr = new AutosaveManager({
       db: {
@@ -123,6 +123,7 @@ describe('torn generation protection', () => {
       getDelays: () => ({ documentMs: 1000, viewOnlyMs: 1000 }),
     });
     mgr.scheduleSave(doc(), [A]);
+    mgr.notifyDocumentNeeds([A]);
     mgr.notifyEncodingStarted(A);
     mgr.flushHidden();
     await tick(10);
@@ -150,10 +151,11 @@ describe('commit gate', () => {
     });
   }
 
-  test('an encode that never settles blocks the commit and keeps the job', async () => {
+  test('an encode the document needs blocks the commit until it settles, and keeps the job', async () => {
     const commits: string[][] = [];
     const encoded = new Map<string, ArrayBuffer>();
     const mgr = gated(encoded, commits);
+    mgr.notifyDocumentNeeds([A]);
     mgr.notifyEncodingStarted(A);
     mgr.scheduleSave(doc(), [A]);
     await tick(120);
@@ -166,10 +168,11 @@ describe('commit gate', () => {
     expect(mgr.getStatus()).toEqual({ unsaved: false, encodingCount: 0 });
   });
 
-  test('a failed encode blocks the commit until it is retried', async () => {
+  test('a failed encode the document needs blocks the commit until it is retried', async () => {
     const commits: string[][] = [];
     const encoded = new Map<string, ArrayBuffer>([[A, new Uint8Array([1]).buffer]]);
     const mgr = gated(encoded, commits);
+    mgr.notifyDocumentNeeds([A]);
     mgr.notifyEncodingStarted(A);
     mgr.notifyEncodingFailed(A);
     mgr.scheduleSave(doc(), [A]);
@@ -179,6 +182,34 @@ describe('commit gate', () => {
     mgr.notifyEncodingComplete(A, encoded.get(A)!);
     expect(await mgr.retry()).toBe(true);
     expect(commits).toEqual([[A]]);
+  });
+
+  test('a stroke still encoding does not hold back the rest of the save', async () => {
+    const commits: string[][] = [];
+    const encoded = new Map<string, ArrayBuffer>([[B, new Uint8Array([2]).buffer]]);
+    const mgr = gated(encoded, commits);
+    mgr.notifyEncodingStarted(A);
+    mgr.scheduleSave(doc(), [A, B]);
+    await tick(120);
+    expect(commits).toEqual([[B]]);
+    expect(mgr.getStatus().saveFailures).toBeUndefined();
+    encoded.set(A, new Uint8Array([1]).buffer);
+    mgr.notifyEncodingComplete(A, encoded.get(A)!);
+    mgr.scheduleSave(doc(), [A]);
+    await mgr.flushRouteLeave();
+    expect(commits).toEqual([[B], [A]]);
+  });
+
+  test('a failed stroke encode is reported but does not stop other saves', async () => {
+    const commits: string[][] = [];
+    const encoded = new Map<string, ArrayBuffer>([[B, new Uint8Array([2]).buffer]]);
+    const mgr = gated(encoded, commits);
+    mgr.notifyEncodingStarted(A);
+    mgr.notifyEncodingFailed(A);
+    mgr.scheduleSave(doc(), [B]);
+    await mgr.flushRouteLeave();
+    expect(commits).toEqual([[B]]);
+    expect(mgr.getStatus()).toMatchObject({ unsaved: false, saveFailures: 1 });
   });
 
   test('a raster whose PNG is unchanged since the last commit is not written again', async () => {

@@ -84,3 +84,22 @@ describe('edits on a raster whose PNG is still decoding', () => {
     expect(alpha(e, id)).toBe(100);
   });
 });
+
+describe('which edits the document depends on', () => {
+  test('a cut reports both rasters; a pen stroke reports none; undo reports the restored raster', () => {
+    const e = engine();
+    const needs: string[][] = [];
+    e.setCallbacks({ onDocumentNeeds: (ids) => needs.push(ids) });
+    const page = 'p:page:a';
+    e.registerRaster(page);
+    const undo = stroke(e, page, 20, 20, true);
+    expect(needs).toEqual([]);
+
+    const cut = e.marqueeCut(page, 'p:clip:c', { x: 0, y: 0, width: W, height: H });
+    expect(cut.trim).not.toBeNull();
+    expect(needs).toEqual([[page, 'p:clip:c']]);
+
+    e.restoreRasterFromUndo(page, undo);
+    expect(needs[1]).toEqual([page]);
+  });
+});
