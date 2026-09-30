@@ -239,6 +239,7 @@ export class InkEngine {
     this.deferredHotRefresh.delete(rasterId);
     this.hotRevision.delete(rasterId);
     this.encodeGeneration.delete(rasterId);
+    this.thumbGeneration.delete(rasterId);
     const thumb = this.thumbs.get(rasterId);
     if (thumb) {
       thumb.close();

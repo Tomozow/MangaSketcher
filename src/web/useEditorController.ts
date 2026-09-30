@@ -1032,6 +1032,7 @@ export function useEditorController(projectId: string): EditorController {
   const persist = useCallback((nextHistory: EditorHistory, viewOnly: boolean, dirtyRasterIds: string[], skipSchedule = false) => {
     const dirty = viewOnly ? [] : dirtyRasterIds;
     const engine = inkApiRef.current?.engine;
+    const perfStart = performance.now(); // TODO(perf-investigation): 計測後に削除
     if (engine) {
       for (const [rasterId, png] of engine.encodedPng) {
         if (png.byteLength > 0) {
@@ -1043,6 +1044,21 @@ export function useEditorController(projectId: string): EditorController {
       autosaveRef.current?.updatePendingDocument?.(nextHistory.present);
     } else {
       autosaveRef.current?.scheduleSave(nextHistory.present, dirty, viewOnly);
+    }
+    if (!viewOnly) {
+      // TODO(perf-investigation): 計測後に削除
+      const doc = nextHistory.present;
+      console.log('[perf] persist', {
+        ms: Math.round((performance.now() - perfStart) * 100) / 100,
+        encodedPng: engine?.encodedPng.size,
+        encodedPngRef: encodedPngRef.current.size,
+        past: nextHistory.past.length,
+        future: nextHistory.future.length,
+        clips: doc.pasteboardClips.length,
+        trashClips: doc.trashClips.length,
+        texts: doc.pasteboardTexts.length,
+        trashTexts: doc.trashTexts.length,
+      });
     }
     const pdf = nextHistory.present.pdf;
     if (pdf) {

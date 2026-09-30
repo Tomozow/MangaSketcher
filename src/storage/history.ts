@@ -49,7 +49,20 @@ function cloneInkUndo(inkUndo: Map<string, InkUndoPixels>): Map<string, InkUndoP
 }
 
 function releaseEntry(entry: EditorHistoryEntry): void {
+  for (const pixels of entry.inkUndo.values()) {
+    if (!(pixels instanceof ArrayBuffer)) {
+      // GC を待たず canvas のバッキングストアを手放す
+      pixels.width = 0;
+      pixels.height = 0;
+    }
+  }
   entry.inkUndo.clear();
+}
+
+function releaseEntries(entries: readonly EditorHistoryEntry[]): void {
+  for (const entry of entries) {
+    releaseEntry(entry);
+  }
 }
 
 export function pushEditorHistory(
@@ -78,6 +91,7 @@ export function pushEditorHistory(
       releaseEntry(dropped);
     }
   }
+  releaseEntries(history.future);
   return {
     present: cloneEditorDocument(nextPresent),
     past,
@@ -131,6 +145,7 @@ export function undoEditorHistory(
     ink.restoreRaster(rasterId, cloneInkUndoPixels(png));
     ink.invalidateThumb(rasterId);
   }
+  releaseEntry(entry);
   const futureEntry: EditorHistoryEntry = {
     doc: cloneHistoryStackDocument(history.present),
     inkUndo: futureInkUndo,
@@ -165,6 +180,7 @@ export function redoEditorHistory(
     ink.restoreRaster(rasterId, cloneInkUndoPixels(png));
     ink.invalidateThumb(rasterId);
   }
+  releaseEntry(entry);
   const pastEntry: EditorHistoryEntry = {
     doc: cloneHistoryStackDocument(history.present),
     inkUndo: pastInkUndo,
