@@ -9,7 +9,7 @@ import type { StorageDatabase } from './idb';
 import { getDefaultStorageDatabase } from './idb';
 import { requestPersistentStorage } from './persistentStorage';
 import { ipadDebugLog } from '@/src/web/ipadDebugLog';
-import { inkLog } from '@/src/web/ink/inkDebugLog';
+import { docShape, inkLog } from '@/src/web/ink/inkDebugLog';
 
 export type AutosaveStatus = {
   unsaved: boolean;
@@ -291,6 +291,7 @@ export class AutosaveManager {
         dirty: [...job.dirtyRasterIds],
         payload: [...rasters].map(([id, buf]) => [id, buf.byteLength]),
         pageCount: meta.pageCount,
+        doc: docShape(job.doc, false),
       });
       await this.commitWithTimeout({
         document: job.doc,
