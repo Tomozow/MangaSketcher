@@ -22,3 +22,22 @@ describe('hot canvas eviction', () => {
     expect(e.hot.has(ids[0]!)).toBe(true);
   });
 });
+
+describe('needsDecode / ensureDecoded', () => {
+  test('a raster with a stored PNG but no hot canvas must be decoded before edits', async () => {
+    const e = new InkEngine({
+      rasterWidth: 8,
+      rasterHeight: 8,
+      emptyPng: new ArrayBuffer(0),
+      canvasFactory: (w, h) => new FakeOffscreenCanvas(w, h) as unknown as OffscreenCanvas,
+      encodePng: async () => PNG,
+    });
+    e.registerRaster('p:clip:a', PNG);
+    e.registerRaster('p:clip:blank');
+    expect(e.needsDecode('p:clip:a')).toBe(true);
+    expect(e.needsDecode('p:clip:blank')).toBe(false);
+    await e.ensureDecoded(['p:clip:a']);
+    expect(e.hot.has('p:clip:a')).toBe(true);
+    expect(e.needsDecode('p:clip:a')).toBe(false);
+  });
+});

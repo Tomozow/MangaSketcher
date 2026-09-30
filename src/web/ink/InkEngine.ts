@@ -133,6 +133,8 @@ export class InkEngine {
   /** Visible strip rasters kept decoded (§9.6); never LRU-evicted. */
   private readonly pinnedHotRasterIds = new Set<string>();
   private readonly rasterDimensions = new Map<string, { width: number; height: number }>();
+  /** Async PNG blits still landing on a recreated hot canvas (canvas is blank until then). */
+  private readonly blitPending = new Map<string, Promise<void>>();
   private activeEncodes = 0;
   private readonly encodeWaiters: Array<() => void> = [];
   private readonly thumbReadyListeners = new Set<(rasterId: string) => void>();
@@ -268,6 +270,24 @@ export class InkEngine {
     }
   }
 
+  /**
+   * True while the raster's ink is not yet on its hot canvas: evicted, or recreated with the PNG
+   * still decoding. Edits that consume or overwrite the canvas must wait, or they act on blank pixels.
+   */
+  needsDecode(rasterId: string): boolean {
+    if ((this.encodedPng.get(rasterId)?.byteLength ?? 0) === 0) {
+      return false;
+    }
+    return !this.hot.has(rasterId) || this.blitPending.has(rasterId);
+  }
+
+  async ensureDecoded(rasterIds: readonly string[]): Promise<void> {
+    for (const rasterId of rasterIds) {
+      this.decode(rasterId);
+    }
+    await Promise.all(rasterIds.map((rasterId) => this.blitPending.get(rasterId)));
+  }
+
   getHotContext(rasterId: string): Ink2DContext | null {
     return this.decode(rasterId).getContext('2d');
   }
@@ -371,7 +391,7 @@ export class InkEngine {
       ctx.clearRect(0, 0, dims.width, dims.height);
       return;
     }
-    void this.blitEncodedPngAsync(
+    const pending = this.blitEncodedPngAsync(
       canvas,
       png,
       rasterId,
@@ -379,6 +399,12 @@ export class InkEngine {
       this.encodedGeneration.get(rasterId) ?? 0,
       this.hotRevision.get(rasterId) ?? 0,
     );
+    this.blitPending.set(rasterId, pending);
+    void pending.finally(() => {
+      if (this.blitPending.get(rasterId) === pending) {
+        this.blitPending.delete(rasterId);
+      }
+    });
   }
 
   private ensureCanvasSize(rasterId: string, canvas: InkCanvas, width: number, height: number): void {

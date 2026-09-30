@@ -29,6 +29,7 @@ import {
 } from '@/src/storage/history';
 import { copySharedTransparentPng, encodeTransparentPngBuffer } from '@/src/storage/transparentPng';
 import { buildProjectPackFileName, buildProjectPackZip } from '@/src/storage/projectPack';
+import { inkLog } from '@/src/web/ink/inkDebugLog';
 import { startExportDownload } from '@/src/web/export/saveExportZip';
 import { dirtyRasterIdsForAction } from '@/src/storage/dirtyRasters';
 import { releaseDefaultStorageDatabase, isDefaultStorageReleased } from '@/src/storage/idb';
@@ -1164,6 +1165,17 @@ export function useEditorController(projectId: string): EditorController {
       if (!page || !frame) {
         return;
       }
+      if (api.engine.needsDecode(clip.rasterId) || api.engine.needsDecode(page.rasterId)) {
+        // Baking onto a still-blank canvas would overwrite the page and drop the clip's ink.
+        inkLog('controller.bakeClip', 'wait for decode', { clipId, pageRasterId: page.rasterId, clipRasterId: clip.rasterId });
+        void api.engine.ensureDecoded([clip.rasterId, page.rasterId]).then(() => {
+          const latest = historyRef.current?.present;
+          if (latest) {
+            bakeClipOntoPage(clipId, latest);
+          }
+        });
+        return;
+      }
       const local = pageLocalFromWorld(
         frame,
         pose.x,
@@ -2162,8 +2174,18 @@ export function useEditorController(projectId: string): EditorController {
       if (!layout) {
         return;
       }
+      const sourceRasterIds = ordered.map((clip) => clip.rasterId);
+      if (sourceRasterIds.some((id) => api.engine.needsDecode(id))) {
+        // Merging blank canvases would delete the source clips without their ink.
+        inkLog('controller.mergeClips', 'wait for decode', { sources: sourceRasterIds.length });
+        void api.engine.ensureDecoded(sourceRasterIds).then(() => mergeSelectedClips(clipId));
+        return;
+      }
       const nextClipId = randomId();
       const nextRasterId = clipRasterId(present.projectId, nextClipId);
+      inkLog('controller.mergeClips', 'merge', {
+        sources: sourceRasterIds.map((id) => [id.slice(-4), api.engine.encodedPng.get(id)?.byteLength ?? 0, api.engine.hot.has(id)]),
+      });
       const merged = api.engine.mergeClipsOntoRaster(
         nextRasterId,
         layout.destWidth,
@@ -2181,6 +2203,7 @@ export function useEditorController(projectId: string): EditorController {
           };
         }),
       );
+      inkLog('controller.mergeClips', 'merged', { dest: nextRasterId.slice(-4), trim: merged.trim });
       if (!merged.trim) {
         return;
       }
@@ -2198,6 +2221,7 @@ export function useEditorController(projectId: string): EditorController {
       });
       bumpInkFrame();
     },
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- self-reference for the deferred retry
     [bumpClipDragFrame, bumpInkFrame, dispatch],
   );
 
