@@ -265,6 +265,12 @@ export type DocumentState = {
 export type EditorDocument = {
   projectId: ProjectId;
   name: string;
+  /**
+   * Storage-owned (set on every commit, ignored on input): the saved generation number and,
+   * per raster id, the generation whose PNG this document uses. Absent / 0 = the un-revisioned key.
+   */
+  generation?: number;
+  rasterRevs?: Record<string, number>;
   rasterWidth: number;
   rasterHeight: number;
   pages: Record<PageId, PageMeta>;

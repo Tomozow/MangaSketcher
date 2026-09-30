@@ -2,11 +2,9 @@ import type { EditorDocument, ProjectMeta } from '../types';
 import { APP_SETTINGS_META_ID } from '../types';
 import { collectRasterIds } from '../rasterIds';
 import {
-  documentLiveRastersAreValid,
-  isQuotaExceededError,
+  documentRasterKey,
+  planGeneration,
   rasterToArrayBuffer,
-  snapshotGuardPasses,
-  snapshotRastersToPut,
   stripStoredDocument,
   type CommitDocumentGenerationInput,
   type CommitDocumentGenerationResult,
@@ -19,9 +17,12 @@ export class MemoryStorageDatabase implements StorageDatabase {
   readonly rasters = new Map<string, ArrayBuffer | Blob | unknown>();
   readonly documentSnapshots = new Map<string, EditorDocument & { id: string }>();
   readonly rasterSnapshots = new Map<string, ArrayBuffer | Blob | unknown>();
+  /** Raster ids written by each commit, in order. */
+  readonly commits: string[][] = [];
+  /** Awaited at the start of every commit (lets a test hold a save open). */
+  beforeCommit: (() => Promise<void>) | null = null;
   failDeleteProjectRecords = false;
   failImportProjectAtomic = false;
-  failSnapshotQuota = false;
 
   async listMeta(): Promise<ProjectMeta[]> {
     return [...this.meta.values()].filter((item) => item.id !== APP_SETTINGS_META_ID);
@@ -47,8 +48,13 @@ export class MemoryStorageDatabase implements StorageDatabase {
     return structuredClone(stored);
   }
 
+  /** Raw write of the live document JSON. Storage-owned fields of the stored document are kept. */
   async putDocument(doc: EditorDocument): Promise<void> {
-    this.documents.set(doc.projectId, structuredClone(doc));
+    const stored = this.documents.get(doc.projectId);
+    this.documents.set(doc.projectId, {
+      ...structuredClone(doc),
+      ...(stored ? { generation: stored.generation, rasterRevs: stored.rasterRevs } : {}),
+    });
   }
 
   async deleteDocument(id: string): Promise<void> {
@@ -71,6 +77,18 @@ export class MemoryStorageDatabase implements StorageDatabase {
     return [...this.rasters.keys()];
   }
 
+  /** The PNG the stored live document uses for `rasterId`. */
+  async liveRaster(rasterId: string): Promise<ArrayBuffer | undefined> {
+    const doc = this.documents.get(rasterId.split(':')[0]!);
+    return doc ? this.getRaster(documentRasterKey(doc, rasterId)) : undefined;
+  }
+
+  /** Replace the PNG the stored live document uses for `rasterId` (simulates damage / old data). */
+  setLiveRaster(rasterId: string, value: ArrayBuffer | Blob): void {
+    const doc = this.documents.get(rasterId.split(':')[0]!);
+    this.rasters.set(doc ? documentRasterKey(doc, rasterId) : rasterId, value);
+  }
+
   async getSnapshotDocument(id: string): Promise<EditorDocument | undefined> {
     const stored = this.documentSnapshots.get(id);
     const stripped = stripStoredDocument(stored);
@@ -88,80 +106,35 @@ export class MemoryStorageDatabase implements StorageDatabase {
   async commitDocumentGeneration(
     input: CommitDocumentGenerationInput,
   ): Promise<CommitDocumentGenerationResult> {
-    const payload = input.rasters ?? new Map<string, ArrayBuffer>();
-    const mode = input.snapshot ?? 'guarded';
-    const liveBefore = new Map<string, ArrayBuffer>();
-    for (const rasterId of collectRasterIds(input.document)) {
-      const png = await this.getRaster(rasterId);
-      if (png) {
-        liveBefore.set(rasterId, png);
-      }
+    const projectId = input.document.projectId;
+    await this.beforeCommit?.();
+    // Plan first: a throw leaves every map untouched, like an aborted transaction.
+    const plan = planGeneration(
+      this.documents.get(projectId),
+      stripStoredDocument(this.documentSnapshots.get(projectId)),
+      input,
+    );
+    for (const [key, png] of plan.puts) {
+      this.rasters.set(key, png.slice(0));
     }
-
-    for (const [rasterId, png] of payload.entries()) {
-      await this.putRaster(rasterId, png);
+    this.commits.push([...(input.rasters?.keys() ?? [])].filter((id) => plan.document.rasterRevs?.[id] === plan.document.generation));
+    for (const key of plan.deletes) {
+      this.rasters.delete(key);
     }
-    await this.putDocument(input.document);
-    await this.putMeta(input.meta);
-
-    if (mode === 'none') {
-      return { snapshotUpdated: false };
+    if (plan.snapshot) {
+      this.documentSnapshots.set(projectId, { ...structuredClone(plan.snapshot), id: projectId });
     }
+    this.documents.set(projectId, structuredClone(plan.document));
+    this.meta.set(input.meta.id, { ...input.meta });
+    return { snapshotUpdated: true };
+  }
 
-    try {
-      if (this.failSnapshotQuota) {
-        const err = new Error('QuotaExceededError');
-        err.name = 'QuotaExceededError';
-        throw err;
-      }
-
-      if (mode === 'name-only') {
-        const liveOk = await documentLiveRastersAreValid((id) => this.getRaster(id), input.document);
-        if (!liveOk) {
-          return { snapshotUpdated: false };
-        }
-        const snap = await this.getSnapshotDocument(input.document.projectId);
-        if (!snap) {
-          return { snapshotUpdated: false };
-        }
-        snap.name = input.document.name;
-        this.documentSnapshots.set(snap.projectId, { ...structuredClone(snap), id: snap.projectId });
-        return { snapshotUpdated: true };
-      }
-
-      if (!snapshotGuardPasses(input.document, payload, liveBefore)) {
-        return { snapshotUpdated: false };
-      }
-
-      const existingSnapshot = new Map<string, ArrayBuffer>();
-      for (const rasterId of collectRasterIds(input.document)) {
-        const png = await this.getSnapshotRaster(rasterId);
-        if (png) {
-          existingSnapshot.set(rasterId, png);
-        }
-      }
-      const toPut = snapshotRastersToPut(input.document, payload, liveBefore, existingSnapshot);
-      this.documentSnapshots.set(input.document.projectId, {
-        ...structuredClone(input.document),
-        id: input.document.projectId,
-      });
-      for (const [rasterId, png] of toPut.entries()) {
-        this.rasterSnapshots.set(rasterId, png.slice(0));
-      }
-      const prefix = `${input.document.projectId}:`;
-      const keep = new Set(collectRasterIds(input.document));
-      for (const key of [...this.rasterSnapshots.keys()]) {
-        if (key.startsWith(prefix) && !keep.has(key)) {
-          this.rasterSnapshots.delete(key);
-        }
-      }
-      return { snapshotUpdated: true };
-    } catch (err) {
-      if (isQuotaExceededError(err) || this.failSnapshotQuota) {
-        return { snapshotUpdated: false };
-      }
-      return { snapshotUpdated: false };
-    }
+  async putLiveAtomic(input: {
+    document: EditorDocument;
+    meta: ProjectMeta;
+    rasters: ReadonlyMap<string, ArrayBuffer>;
+  }): Promise<void> {
+    await this.commitDocumentGeneration(input);
   }
 
   async deleteProjectRecords(projectId: string): Promise<void> {
@@ -185,19 +158,20 @@ export class MemoryStorageDatabase implements StorageDatabase {
   }
 
   async readProjectExportSnapshot(projectId: string): Promise<ProjectExportSnapshot | null> {
-    const doc = await this.getDocument(projectId);
-    if (!doc) {
+    const stored = await this.getDocument(projectId);
+    if (!stored) {
       return null;
     }
-    const rasterIds = collectRasterIds(doc);
+    const rasterIds = collectRasterIds(stored);
     const rasters = new Map<string, ArrayBuffer>();
     for (const rasterId of rasterIds) {
-      const png = await this.getRaster(rasterId);
+      const png = await this.getRaster(documentRasterKey(stored, rasterId));
       if (png) {
         rasters.set(rasterId, png.slice(0));
       }
     }
-    return { document: doc, rasters };
+    const { generation: _generation, rasterRevs: _rasterRevs, ...doc } = stored;
+    return { document: doc as EditorDocument, rasters };
   }
 
   async importProjectAtomic(payload: ProjectImportPayload): Promise<void> {

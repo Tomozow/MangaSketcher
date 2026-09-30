@@ -23,6 +23,7 @@ import { randomId } from './randomId';
 import { isStockPageItem } from '../domain/stockItems';
 import { previewSpreadPageIds } from '../domain/layout';
 import { clipRasterId, collectRasterIds, pageRasterId, pdfOpfsPath, rasterBelongsToProject } from './rasterIds';
+import { documentRasterKey, documentRasterKeys, isRevisionedRasterKey } from './generationSnapshot';
 import {
   copySharedTransparentPng,
   encodeTransparentPngBuffer,
@@ -107,7 +108,7 @@ export async function loadProjectRasters(
   const { db } = resolveDeps(deps);
   const encoded = new Map<string, ArrayBuffer>();
   for (const rasterId of collectRasterIds(document)) {
-    const png = await db.getRaster(rasterId);
+    const png = await db.getRaster(documentRasterKey(document, rasterId));
     if (png) {
       encoded.set(rasterId, png.slice(0));
     }
@@ -238,13 +239,17 @@ export async function runStartupGc(deps?: ProjectStoreDeps): Promise<void> {
   }
 
   const referenced = new Set<string>();
+  /** Live generation per project as read here; a save racing this pass only adds higher ones. */
+  const generationSeen = new Map<string, number>();
   for (const item of meta) {
-    const doc = await db.getDocument(item.id);
-    if (!doc) {
-      continue;
-    }
-    for (const rasterId of collectRasterIds(doc)) {
-      referenced.add(rasterId);
+    const live = await db.getDocument(item.id);
+    generationSeen.set(item.id, live?.generation ?? 0);
+    for (const doc of [live, await db.getSnapshotDocument(item.id)]) {
+      if (doc) {
+        for (const key of documentRasterKeys(doc)) {
+          referenced.add(key);
+        }
+      }
     }
   }
 
@@ -260,10 +265,15 @@ export async function runStartupGc(deps?: ProjectStoreDeps): Promise<void> {
     }
     if (!rasterBelongsToProject(rasterId, owner)) {
       await db.deleteRaster(rasterId);
+      continue;
+    }
+    // Revisions used by neither the live nor the fallback generation. Un-revisioned keys of a
+    // live project are left alone: they hold the pre-migration data (and `{projectId}:pdf`).
+    const rev = Number(rasterId.slice(rasterId.lastIndexOf('@') + 1));
+    if (isRevisionedRasterKey(rasterId) && rev <= (generationSeen.get(owner) ?? 0)) {
+      await db.deleteRaster(rasterId);
     }
   }
-  // Snapshot stores are not GC'd here. Home may show torn live thumbs until
-  // editor boot restores from snapshot.
 }
 
 const LIST_THUMB_PAGE_LIMIT = 2;
@@ -315,7 +325,7 @@ export async function loadProjectPreviewPages(
     if (!page) {
       continue;
     }
-    const png = await db.getRaster(page.rasterId);
+    const png = await db.getRaster(documentRasterKey(loaded, page.rasterId));
     pages.push({
       pageId,
       png: png ? png.slice(0) : null,

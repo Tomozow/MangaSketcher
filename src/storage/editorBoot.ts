@@ -7,11 +7,7 @@ import type { OpfsStorage } from './opfs';
 import { getDefaultOpfsStorage } from './opfs';
 import { loadProjectRasters } from './projectStore';
 import { collectRasterIds } from './rasterIds';
-import {
-  documentLiveRastersAreValid,
-  documentSnapshotRastersAreValid,
-  metaFromDocument,
-} from './generationSnapshot';
+import { documentRasterKey, documentRastersAreValid, metaFromDocument } from './generationSnapshot';
 import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 import { docShape, inkLog } from '@/src/web/ink/inkDebugLog';
 
@@ -27,6 +23,16 @@ export type EditorBootDeps = {
   opfs?: OpfsStorage;
 };
 
+/**
+ * PNG of a fallback document. One written before revisions existed (no `generation`) kept its
+ * PNGs in the snapshot store; later ones point at revisions in the live store.
+ */
+function snapshotRaster(db: StorageDatabase, snapshotDoc: EditorDocument, rasterId: string) {
+  return snapshotDoc.generation === undefined
+    ? db.getSnapshotRaster(rasterId)
+    : db.getRaster(documentRasterKey(snapshotDoc, rasterId));
+}
+
 async function restoreLiveFromSnapshot(
   db: StorageDatabase,
   snapshotDoc: EditorDocument,
@@ -34,7 +40,7 @@ async function restoreLiveFromSnapshot(
   const document = cloneEditorDocument(snapshotDoc);
   const rasters = new Map<string, ArrayBuffer>();
   for (const rasterId of collectRasterIds(document)) {
-    const png = await db.getSnapshotRaster(rasterId);
+    const png = await snapshotRaster(db, snapshotDoc, rasterId);
     if (png) {
       rasters.set(rasterId, png);
     }
@@ -43,8 +49,9 @@ async function restoreLiveFromSnapshot(
     document,
     meta: metaFromDocument(document, new Date().toISOString()),
     rasters,
-    snapshot: 'none',
   });
+  // Read back: the commit assigned the revisions the restored PNGs now live under.
+  const restored = (await db.getDocument(document.projectId)) ?? document;
   ipadDebugLog({
     sessionId: 'gen-snap',
     hypothesisId: 'GS2',
@@ -52,7 +59,7 @@ async function restoreLiveFromSnapshot(
     message: 'restored live from generation snapshot',
     data: { projectId: document.projectId },
   });
-  return document;
+  return restored;
 }
 
 /**
@@ -75,7 +82,7 @@ export async function loadEditorBoot(
   let loaded = await db.getDocument(projectId);
   const snapshotDoc = await db.getSnapshotDocument(projectId);
   const snapshotValid = snapshotDoc
-    ? await documentSnapshotRastersAreValid((id) => db.getSnapshotRaster(id), snapshotDoc)
+    ? await documentRastersAreValid((id) => snapshotRaster(db, snapshotDoc, id), snapshotDoc)
     : false;
 
   if (!loaded) {
@@ -85,7 +92,8 @@ export async function loadEditorBoot(
       return null;
     }
   } else if (meta) {
-    const liveOk = await documentLiveRastersAreValid((id) => db.getRaster(id), loaded);
+    const live = loaded;
+    const liveOk = await documentRastersAreValid((id) => db.getRaster(documentRasterKey(live, id)), live);
     if (!liveOk && snapshotValid && snapshotDoc) {
       loaded = await restoreLiveFromSnapshot(db, snapshotDoc);
     }
@@ -96,7 +104,7 @@ export async function loadEditorBoot(
   }
 
   const document = cloneEditorDocument(loaded);
-  const encodedPng = await loadProjectRasters(document, { db });
+  const encodedPng = await loadProjectRasters(loaded, { db });
   inkLog('editorBoot.loadEditorBoot', 'boot rasters', {
     projectId,
     doc: docShape(document, true),

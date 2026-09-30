@@ -94,7 +94,14 @@ function pushUnique(out: string[], seen: Set<string>, rasterId: string): void {
 }
 
 /**
- * Display = viewport inflated by one cell; pin = viewport inflated by two cells.
+ * A pinned raster keeps a full-size canvas (about 8MB per page). Beyond this many, the rest of
+ * the displayed rasters are painted from reduced previews and decoded only when edited.
+ */
+export const MAX_PINNED_RASTERS = 8;
+
+/**
+ * Display = viewport inflated by one cell; pin = viewport inflated by two cells, nearest first,
+ * capped at MAX_PINNED_RASTERS (`alwaysDisplayRasterIds` are never dropped).
  * Size 0 does not mount everything — only `alwaysDisplayRasterIds`.
  */
 export function cullWorkspaceInkRasters(input: CullWorkspaceInkInput): {
@@ -132,6 +139,14 @@ export function cullWorkspaceInkRasters(input: CullWorkspaceInkInput): {
 
   const pin: string[] = [];
   const pinSeen = new Set<string>();
+  for (const id of always) {
+    pushUnique(pin, pinSeen, id);
+  }
+  for (const item of items) {
+    if (worldAabbsIntersect(view, item.aabb)) {
+      pushUnique(pin, pinSeen, item.rasterId);
+    }
+  }
   for (const id of display) {
     pushUnique(pin, pinSeen, id);
   }
@@ -141,5 +156,5 @@ export function cullWorkspaceInkRasters(input: CullWorkspaceInkInput): {
     }
   }
 
-  return { displayRasterIds: display, pinRasterIds: pin };
+  return { displayRasterIds: display, pinRasterIds: pin.slice(0, Math.max(MAX_PINNED_RASTERS, always.length)) };
 }

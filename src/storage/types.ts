@@ -22,7 +22,8 @@ export type {
 export type PdfMeta = import('../domain/types').PdfDocument;
 
 export const DB_NAME = 'mangasketcher';
-export const DB_VERSION = 2;
+/** v3: revisioned raster keys (`rasterId@generation`). Older app builds must not open it. */
+export const DB_VERSION = 3;
 /** Reserved `meta` row for app UI settings (excluded from project lists). */
 export const APP_SETTINGS_META_ID = 'mangasketcher:app-settings';
 
@@ -44,7 +45,14 @@ export type ProjectMeta = {
   pageCount: number;
 };
 
-export type InkUndoPixels = ArrayBuffer | OffscreenCanvas;
+/** One rect of a raster. The edit it belongs to changed nothing outside this rect. */
+export type InkUndoPatch = { canvas: OffscreenCanvas; x: number; y: number };
+
+export type InkUndoPixels = ArrayBuffer | OffscreenCanvas | InkUndoPatch;
+
+export function isInkUndoPatch(value: InkUndoPixels): value is InkUndoPatch {
+  return !(value instanceof ArrayBuffer) && 'canvas' in value;
+}
 
 export type EditorHistoryEntry = {
   doc: EditorDocument;

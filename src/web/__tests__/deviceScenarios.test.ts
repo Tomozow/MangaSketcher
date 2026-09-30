@@ -1,3 +1,4 @@
+import { encodeTransparentPngBuffer } from '@/src/storage/transparentPng';
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -510,8 +511,23 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
   });
 
   test('9. ベイク後 encodedPng を hidden flush し、エンコード中は未保存ドット', async () => {
-    const rasterId = 'p1:page:a';
-    const engine = createTestEngine();
+    const doc = createEditorDocument({
+      projectId: 'p1',
+      name: 'ink',
+      pageCount: 1,
+      rasterWidth: 64,
+      rasterHeight: 64,
+      ids: sequentialIds('page'),
+    });
+    const rasterId = Object.values(doc.pages)[0]!.rasterId;
+    // Storage only accepts real PNG bytes; the fake canvas encoder does not produce them.
+    const engine = new InkEngine({
+      rasterWidth: 64,
+      rasterHeight: 64,
+      emptyPng: new ArrayBuffer(0),
+      canvasFactory: (width, height) => new FakeOffscreenCanvas(width, height) as unknown as OffscreenCanvas,
+      encodePng: async () => encodeTransparentPngBuffer(64, 64),
+    });
     engine.registerRaster(rasterId);
     const overlay = engine.beginPenOverlay(rasterId);
     overlay.fillStyle = '#000000';
@@ -532,18 +548,10 @@ describe('§13.2 実機利用シナリオ（自動契約。Pencil 実機合格�
     manager.notifyEncodingComplete(rasterId);
     expect(manager.getStatus().encodingCount).toBe(0);
 
-    const doc = createEditorDocument({
-      projectId: 'p1',
-      name: 'ink',
-      pageCount: 1,
-      rasterWidth: 64,
-      rasterHeight: 64,
-      ids: sequentialIds('page'),
-    });
     manager.scheduleSave(doc, [rasterId], false);
     manager.flushHidden();
     await vi.waitFor(async () => {
-      const stored = await db.getRaster(rasterId);
+      const stored = await db.liveRaster(rasterId);
       expect(stored?.byteLength).toBeGreaterThan(0);
     });
     manager.dispose();

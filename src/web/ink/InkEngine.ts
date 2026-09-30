@@ -8,7 +8,8 @@ import {
 } from '../clip/clipCanvas';
 import { intersectRects, polygonAabb } from '../clip/clipGeometry';
 import { encodedRasterDimensions, isPngBuffer, tryDecodeInkSnapshot } from './fakeCanvas';
-import type { InkUndoPixels } from '@/src/storage/types';
+import { tryDecodePngToRgba } from '@/src/storage/compactInkPng';
+import { isInkUndoPatch, type InkUndoPixels } from '@/src/storage/types';
 import { inkLog } from './inkDebugLog';
 
 /** §9.7 standard drag thumbnail size. */
@@ -40,6 +41,8 @@ export type InkEngineCallbacks = {
   onBake?: (rasterId: string) => void;
   /** Encoded pixels landed on the hot canvas (sync snapshot or async PNG). */
   onHotPixelsReady?: (rasterId: string) => void;
+  /** A reduced-size preview of a cold raster is ready to paint. */
+  onPreviewReady?: (rasterId: string) => void;
 };
 
 export type InkAutosaveSink = {
@@ -50,7 +53,9 @@ export type InkAutosaveSink = {
   scheduleDocumentSave(dirtyRasterIds: string[]): void;
 };
 
+/** Full-size canvases kept for rasters that are not pinned. */
 const HOT_CANVAS_LIMIT = 8;
+const PREVIEW_LIMIT = 96;
 /** iPad Safari fails encodes (and drops canvas backing) when many full-size convertToBlob run at once. */
 const MAX_CONCURRENT_ENCODES = 2;
 const ENCODE_MAX_ATTEMPTS = 3;
@@ -117,7 +122,15 @@ export class InkEngine {
   private readonly overlays = new Map<string, InkCanvas>();
   private readonly overlayCtx = new Map<string, Ink2DContext>();
   private readonly strokeUndoCanvas = new Map<string, InkCanvas>();
-  private readonly pendingUndo: { rasterId: string; canvas: InkCanvas }[] = [];
+  private readonly pendingUndo: { rasterId: string; canvas: InkUndoPixels }[] = [];
+  /** Centre-line bounds of the stroke in progress, so its undo keeps only the touched rect. */
+  private readonly strokeBounds = new Map<
+    string,
+    { minX: number; minY: number; maxX: number; maxY: number; lineWidth: number }
+  >();
+  /** Display-size bitmaps for rasters shown without a full-size hot canvas. */
+  private readonly previews = new Map<string, { bitmap: ImageBitmap; generation: number; width: number }>();
+  private readonly previewLoading = new Set<string>();
   private readonly pendingEncodeIds = new Set<string>();
   private readonly pendingEncodes = new Set<string>();
   private readonly thumbGeneration = new Map<string, number>();
@@ -210,8 +223,8 @@ export class InkEngine {
     }
     const dims = this.getRasterDimensions(sourceRasterId);
     this.registerClipRaster(destRasterId, dims.width, dims.height);
-    const source = this.decode(sourceRasterId);
     const dest = this.decode(destRasterId);
+    const source = this.decodeForEdit(sourceRasterId);
     const ctx = dest.getContext('2d');
     if (!ctx) {
       this.disposeRaster(destRasterId);
@@ -251,6 +264,9 @@ export class InkEngine {
     this.overlays.delete(rasterId);
     this.overlayCtx.delete(rasterId);
     this.strokeUndoCanvas.delete(rasterId);
+    this.strokeBounds.delete(rasterId);
+    this.previews.get(rasterId)?.bitmap.close();
+    this.previews.delete(rasterId);
     this.encodedPng.delete(rasterId);
     this.rasterDimensions.delete(rasterId);
     this.blitEpoch.delete(rasterId);
@@ -322,15 +338,51 @@ export class InkEngine {
     return canvas;
   }
 
+  /**
+   * decode() for callers about to read or change the pixels. A PNG still landing asynchronously
+   * would be dropped by the edit's revision bump (the ink is lost), so decode it right here.
+   */
+  private decodeForEdit(rasterId: string): InkCanvas {
+    const canvas = this.decode(rasterId);
+    if (!this.blitPending.has(rasterId)) {
+      return canvas;
+    }
+    const png = this.encodedPng.get(rasterId);
+    const decoded = png ? tryDecodePngToRgba(png) : null;
+    const ctx = canvas.getContext('2d');
+    if (!decoded || !ctx || decoded.width !== canvas.width || decoded.height !== canvas.height) {
+      inkLog('InkEngine.decodeForEdit', 'sync decode unavailable; edit may race the async decode', { rasterId });
+      return canvas;
+    }
+    const pixels = new Uint8ClampedArray(
+      decoded.rgba.buffer as ArrayBuffer,
+      decoded.rgba.byteOffset,
+      decoded.rgba.byteLength,
+    );
+    ctx.putImageData(
+      typeof ImageData !== 'undefined'
+        ? new ImageData(pixels, decoded.width, decoded.height)
+        : ({ data: pixels, width: decoded.width, height: decoded.height } as ImageData),
+      0,
+      0,
+    );
+    this.bumpBlitEpoch(rasterId);
+    this.blitPending.delete(rasterId);
+    return canvas;
+  }
+
   private touchLru(rasterId: string): void {
     const idx = this.lru.indexOf(rasterId);
     if (idx >= 0) {
       this.lru.splice(idx, 1);
     }
     this.lru.push(rasterId);
-    while (this.lru.length > HOT_CANVAS_LIMIT) {
+    let unpinned = this.lru.filter((id) => !this.pinnedHotRasterIds.has(id)).length;
+    while (unpinned > HOT_CANVAS_LIMIT) {
+      // Never the raster being touched: its caller is about to use the canvas.
       const evictIdx = this.lru.findIndex(
         (id) =>
+          id !== rasterId &&
           !this.pinnedHotRasterIds.has(id) &&
           !this.overlays.has(id) &&
           !this.strokeUndoCanvas.has(id) &&
@@ -346,6 +398,7 @@ export class InkEngine {
         inkLog('InkEngine.touchLru', 'evict hot', { rasterId: evictId, pngBytes: this.encodedPng.get(evictId)?.byteLength ?? 0 });
         this.hot.delete(evictId);
       }
+      unpinned -= 1;
     }
   }
 
@@ -457,7 +510,6 @@ export class InkEngine {
   }
 
   beginPenOverlay(rasterId: string): Ink2DContext {
-    this.decode(rasterId);
     this.captureStrokeUndo(rasterId);
     const dims = this.getRasterDimensions(rasterId);
     let overlay = this.overlays.get(rasterId);
@@ -488,7 +540,32 @@ export class InkEngine {
 
   /** §9.5 display copy: hot page + live pen overlay at CSS size. */
   paintDisplay(ctx: Ink2DContext, rasterId: string, width: number, height: number): void {
+    if (
+      !this.hot.has(rasterId) &&
+      !this.pinnedHotRasterIds.has(rasterId) &&
+      typeof createImageBitmap !== 'undefined'
+    ) {
+      // Cold raster (e.g. one of many pages in an overview): do not spend a full-size canvas on it.
+      const png = this.encodedPng.get(rasterId);
+      if (!png || png.byteLength === 0) {
+        ctx.clearRect(0, 0, width, height);
+        return;
+      }
+      if (isPngBuffer(png)) {
+        this.paintPreview(ctx, rasterId, png, width, height);
+        return;
+      }
+    }
     const page = this.decode(rasterId);
+    if (this.blitPending.has(rasterId) && !this.overlays.has(rasterId)) {
+      // Hot canvas is blank until its PNG lands (then onHotPixelsReady repaints); do not flash empty.
+      const cached = this.previews.get(rasterId);
+      if (cached?.generation === (this.encodedGeneration.get(rasterId) ?? 0)) {
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(cached.bitmap, 0, 0, width, height);
+      }
+      return;
+    }
     ctx.clearRect(0, 0, width, height);
     ctx.drawImage(page as unknown as CanvasImageSource, 0, 0, width, height);
     const overlay = this.overlays.get(rasterId);
@@ -497,12 +574,98 @@ export class InkEngine {
     }
   }
 
+  private paintPreview(ctx: Ink2DContext, rasterId: string, png: ArrayBuffer, width: number, height: number): void {
+    const generation = this.encodedGeneration.get(rasterId) ?? 0;
+    const cached = this.previews.get(rasterId);
+    if (cached?.generation === generation) {
+      ctx.clearRect(0, 0, width, height);
+      ctx.drawImage(cached.bitmap, 0, 0, width, height);
+      if (cached.width >= width) {
+        return;
+      }
+    }
+    // No current preview: keep whatever the display already shows until one is ready.
+    if (this.previewLoading.has(rasterId)) {
+      return;
+    }
+    this.previewLoading.add(rasterId);
+    const blob = new Blob([png], { type: 'image/png' });
+    void createImageBitmap(blob, { resizeWidth: width, resizeHeight: height, resizeQuality: 'high' })
+      .catch(() => createImageBitmap(blob))
+      .then((bitmap) => {
+        this.previewLoading.delete(rasterId);
+        if (!this.encodedPng.has(rasterId) || (this.encodedGeneration.get(rasterId) ?? 0) !== generation) {
+          bitmap.close();
+        } else {
+          this.previews.get(rasterId)?.bitmap.close();
+          this.previews.delete(rasterId);
+          this.previews.set(rasterId, { bitmap, generation, width });
+          for (const [oldId, old] of this.previews) {
+            if (this.previews.size <= PREVIEW_LIMIT) {
+              break;
+            }
+            old.bitmap.close();
+            this.previews.delete(oldId);
+          }
+        }
+        this.callbacks.onPreviewReady?.(rasterId);
+      })
+      .catch(() => {
+        this.previewLoading.delete(rasterId);
+      });
+  }
+
+  /**
+   * Record where the stroke in progress draws (raster pixels). Its undo then keeps only that rect.
+   * Every pixel the stroke changes must be covered; points are centres, `lineWidth` the widest line.
+   */
+  noteStrokePoints(rasterId: string, points: ReadonlyArray<{ x: number; y: number }>, lineWidth: number): void {
+    const bounds = this.strokeBounds.get(rasterId) ?? {
+      minX: Infinity,
+      minY: Infinity,
+      maxX: -Infinity,
+      maxY: -Infinity,
+      lineWidth: 0,
+    };
+    for (const point of points) {
+      bounds.minX = Math.min(bounds.minX, point.x);
+      bounds.minY = Math.min(bounds.minY, point.y);
+      bounds.maxX = Math.max(bounds.maxX, point.x);
+      bounds.maxY = Math.max(bounds.maxY, point.y);
+    }
+    bounds.lineWidth = Math.max(bounds.lineWidth, lineWidth);
+    this.strokeBounds.set(rasterId, bounds);
+  }
+
+  /** Full snapshot → patch of the noted stroke rect. Falls back to the full snapshot when unsure. */
+  private cropStrokeUndo(rasterId: string, snapshot: InkCanvas): InkUndoPixels {
+    const bounds = this.strokeBounds.get(rasterId);
+    this.strokeBounds.delete(rasterId);
+    if (!bounds) {
+      return snapshot;
+    }
+    const pad = bounds.lineWidth / 2 + 2;
+    const x = Math.max(0, Math.floor(bounds.minX - pad));
+    const y = Math.max(0, Math.floor(bounds.minY - pad));
+    const right = Math.min(snapshot.width, Math.ceil(bounds.maxX + pad));
+    const bottom = Math.min(snapshot.height, Math.ceil(bounds.maxY + pad));
+    if (!(right > x && bottom > y)) {
+      return snapshot;
+    }
+    const canvas = cropCanvasToRect(snapshot, { x, y, width: right - x, height: bottom - y }, (w, h) =>
+      this.canvasFactory(w, h),
+    );
+    snapshot.width = 0;
+    snapshot.height = 0;
+    return { canvas, x, y };
+  }
+
   /**
    * Overlay → page blit only. Heavy undo encode is deferred via drainPendingBakeWork.
    */
   blitPenOverlay(rasterId: string): void {
     const overlay = this.overlays.get(rasterId);
-    const page = this.decode(rasterId);
+    const page = this.decodeForEdit(rasterId);
     const pageCtx = page.getContext('2d');
     if (!overlay || !pageCtx) {
       return;
@@ -529,8 +692,8 @@ export class InkEngine {
   drainPendingBakeWork(
     maxUndo = Number.POSITIVE_INFINITY,
     options?: { encode?: boolean },
-  ): { rasterId: string; canvas: InkCanvas }[] {
-    const drained: { rasterId: string; canvas: InkCanvas }[] = [];
+  ): { rasterId: string; canvas: InkUndoPixels }[] {
+    const drained: { rasterId: string; canvas: InkUndoPixels }[] = [];
     let n = 0;
     while (this.pendingUndo.length > 0 && n < maxUndo) {
       const item = this.pendingUndo.shift();
@@ -568,13 +731,17 @@ export class InkEngine {
     this.blitPenOverlay(rasterId);
     const drained = this.drainPendingBakeWork();
     const found = drained.find((item) => item.rasterId === rasterId);
-    return found ? this.canvasToUndoBuffer(found.canvas) : new ArrayBuffer(0);
+    if (!found || found.canvas instanceof ArrayBuffer || isInkUndoPatch(found.canvas)) {
+      return new ArrayBuffer(0);
+    }
+    return this.canvasToUndoBuffer(found.canvas);
   }
 
   cancelPenOverlay(rasterId: string): void {
     this.overlays.delete(rasterId);
     this.overlayCtx.delete(rasterId);
     this.strokeUndoCanvas.delete(rasterId);
+    this.strokeBounds.delete(rasterId);
   }
 
   /**
@@ -582,7 +749,7 @@ export class InkEngine {
    */
   beginEraseDirect(rasterId: string): Ink2DContext {
     this.captureStrokeUndo(rasterId);
-    const ctx = this.decode(rasterId).getContext('2d');
+    const ctx = this.decodeForEdit(rasterId).getContext('2d');
     if (!ctx) {
       throw new Error(`beginEraseDirect: 2d context unavailable for ${rasterId}`);
     }
@@ -619,10 +786,31 @@ export class InkEngine {
     this.strokeUndoCanvas.delete(rasterId);
   }
 
-  restoreRasterFromUndo(rasterId: string, undo: ArrayBuffer | OffscreenCanvas): void {
-    inkLog('InkEngine.restoreRasterFromUndo', 'restore', { rasterId, kind: undo instanceof ArrayBuffer ? 'buffer' : 'canvas' });
+  restoreRasterFromUndo(rasterId: string, undo: InkUndoPixels): void {
+    inkLog('InkEngine.restoreRasterFromUndo', 'restore', {
+      rasterId,
+      kind: undo instanceof ArrayBuffer ? 'buffer' : isInkUndoPatch(undo) ? 'patch' : 'canvas',
+    });
     if (undo instanceof ArrayBuffer) {
       this.restoreRasterFromPng(rasterId, undo);
+      return;
+    }
+    if (isInkUndoPatch(undo)) {
+      const canvas = this.decodeForEdit(rasterId);
+      if (this.blitPending.has(rasterId)) {
+        // The rest of the raster is not on the canvas yet; a patch drawn now would replace it.
+        void this.ensureDecoded([rasterId]).then(() => this.restoreRasterFromUndo(rasterId, undo));
+        return;
+      }
+      this.cancelPendingEncode(rasterId);
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.clearRect(undo.x, undo.y, undo.canvas.width, undo.canvas.height);
+        ctx.drawImage(undo.canvas, undo.x, undo.y);
+      }
+      this.bumpHotRevision(rasterId);
+      this.invalidateThumb(rasterId);
+      this.pendingEncodeIds.add(rasterId);
       return;
     }
     this.cancelPendingEncode(rasterId);
@@ -693,7 +881,14 @@ export class InkEngine {
    * Live pixels for undo/redo capture. encodedPng lags behind hot until the deferred encode
    * finishes, so prefer a copy of the hot canvas; fall back to the encoded PNG when not hot.
    */
-  captureRasterPixels(rasterId: string): InkUndoPixels | undefined {
+  captureRasterPixels(rasterId: string, like?: InkUndoPixels): InkUndoPixels | undefined {
+    if (like && isInkUndoPatch(like)) {
+      const canvas = this.decodeForEdit(rasterId);
+      if (!this.blitPending.has(rasterId)) {
+        const rect = { x: like.x, y: like.y, width: like.canvas.width, height: like.canvas.height };
+        return { canvas: cropCanvasToRect(canvas, rect, (w, h) => this.canvasFactory(w, h)), x: like.x, y: like.y };
+      }
+    }
     const hot = this.hot.get(rasterId);
     if (hot) {
       const copy = this.canvasFactory(hot.width, hot.height);
@@ -894,8 +1089,8 @@ export class InkEngine {
     const w = Math.max(1, Math.round(rect.width));
     const h = Math.max(1, Math.round(rect.height));
     this.registerClipRaster(clipRasterId, w, h);
-    const page = this.decode(pageRasterId);
     const clip = this.decode(clipRasterId);
+    const page = this.decodeForEdit(pageRasterId);
     canvasCopyPageRect(page, clip, rect);
     const trim = inkAlphaBounds(clip);
     inkLog('InkEngine.marqueeCut', 'cut', {
@@ -951,8 +1146,8 @@ export class InkEngine {
     const w = Math.max(1, Math.round(rect.width));
     const h = Math.max(1, Math.round(rect.height));
     this.registerClipRaster(clipRasterId, w, h);
-    const page = this.decode(pageRasterId);
     const clip = this.decode(clipRasterId);
+    const page = this.decodeForEdit(pageRasterId);
     canvasCopyLassoRegion(page, clip, points, rect, (cw, ch) => this.canvasFactory(cw, ch));
     const trim = inkAlphaBounds(clip);
     inkLog('InkEngine.lassoCut', 'cut', {
@@ -1021,8 +1216,8 @@ export class InkEngine {
     const w = Math.max(1, Math.round(copyRect.width));
     const h = Math.max(1, Math.round(copyRect.height));
     this.registerClipRaster(destRasterId, w, h);
-    const source = this.decode(sourceRasterId);
     const dest = this.decode(destRasterId);
+    const source = this.decodeForEdit(sourceRasterId);
     canvasCopyLassoRegion(source, dest, points, copyRect, (cw, ch) => this.canvasFactory(cw, ch));
     const pieceBounds = inkAlphaBounds(dest);
     if (!pieceBounds) {
@@ -1091,8 +1286,8 @@ export class InkEngine {
   ): { pageUndo: InkUndoPixels; clipUndo: InkUndoPixels } {
     const clipDims = this.getRasterDimensions(clipRasterId);
     this.captureStrokeUndo(pageRasterId);
-    const page = this.decode(pageRasterId);
-    const clip = this.decode(clipRasterId);
+    const page = this.decodeForEdit(pageRasterId);
+    const clip = this.decodeForEdit(clipRasterId);
     const pageCtx = page.getContext('2d');
     if (!pageCtx) {
       throw new Error(`bakeClipOntoPage: page context unavailable for ${pageRasterId}`);
@@ -1146,7 +1341,7 @@ export class InkEngine {
     destCtx.clearRect(0, 0, dest.width, dest.height);
     for (const source of sources) {
       const dims = this.getRasterDimensions(source.rasterId);
-      const clip = this.decode(source.rasterId);
+      const clip = this.decodeForEdit(source.rasterId);
       canvasBakeClipOntoPage(
         destCtx,
         clip,
@@ -1178,7 +1373,8 @@ export class InkEngine {
   }
 
   private captureStrokeUndo(rasterId: string): void {
-    const page = this.decode(rasterId);
+    this.strokeBounds.delete(rasterId);
+    const page = this.decodeForEdit(rasterId);
     const dims = this.getRasterDimensions(rasterId);
     const snapshot = this.canvasFactory(dims.width, dims.height);
     const snapCtx = snapshot.getContext('2d');
@@ -1194,23 +1390,22 @@ export class InkEngine {
   takeStrokeUndoSnapshot(rasterId: string): InkUndoPixels {
     const snapshot = this.strokeUndoCanvas.get(rasterId);
     this.strokeUndoCanvas.delete(rasterId);
-    return snapshot ?? new ArrayBuffer(0);
+    return snapshot ? this.cropStrokeUndo(rasterId, snapshot) : new ArrayBuffer(0);
   }
 
   /** Snapshot undo PNG captured at stroke start; clears the pending snapshot. */
   takeStrokeUndoPng(rasterId: string): ArrayBuffer {
-    const snapshot = this.takeStrokeUndoSnapshot(rasterId);
-    if (snapshot instanceof ArrayBuffer) {
-      return snapshot;
-    }
-    return this.canvasToUndoBuffer(snapshot);
+    const snapshot = this.strokeUndoCanvas.get(rasterId);
+    this.strokeUndoCanvas.delete(rasterId);
+    this.strokeBounds.delete(rasterId);
+    return snapshot ? this.canvasToUndoBuffer(snapshot) : new ArrayBuffer(0);
   }
 
   private stashUndoSnapshot(rasterId: string): void {
     const snapshot = this.strokeUndoCanvas.get(rasterId);
     this.strokeUndoCanvas.delete(rasterId);
     if (snapshot) {
-      this.pendingUndo.push({ rasterId, canvas: snapshot });
+      this.pendingUndo.push({ rasterId, canvas: this.cropStrokeUndo(rasterId, snapshot) });
     }
   }
 
@@ -1312,13 +1507,13 @@ export class InkEngine {
 }
 
 export function createInkRestoreSink(engine: InkEngine): {
-  restoreRaster(rasterId: string, png: ArrayBuffer | OffscreenCanvas): void;
-  captureRaster(rasterId: string): InkUndoPixels | undefined;
+  restoreRaster(rasterId: string, png: InkUndoPixels): void;
+  captureRaster(rasterId: string, like?: InkUndoPixels): InkUndoPixels | undefined;
   invalidateThumb(rasterId: string): void;
 } {
   return {
     restoreRaster: (rasterId, png) => engine.restoreRasterFromUndo(rasterId, png),
-    captureRaster: (rasterId) => engine.captureRasterPixels(rasterId),
+    captureRaster: (rasterId, like) => engine.captureRasterPixels(rasterId, like),
     invalidateThumb: (rasterId) => engine.invalidateThumb(rasterId),
   };
 }

@@ -65,7 +65,7 @@ describe('buildProjectPackZip / parseProjectPackZip', () => {
 
     const rasters = new Map<string, ArrayBuffer>();
     for (const rasterId of collectRasterIds(document)) {
-      const png = await db.getRaster(rasterId);
+      const png = await db.liveRaster(rasterId);
       if (png) {
         rasters.set(rasterId, png);
       }
@@ -103,7 +103,7 @@ describe('buildProjectPackZip / parseProjectPackZip', () => {
 
     const rasters = new Map<string, ArrayBuffer>();
     for (const rasterId of collectRasterIds(document)) {
-      const png = await db.getRaster(rasterId);
+      const png = await db.liveRaster(rasterId);
       if (png) {
         rasters.set(rasterId, png);
       }
@@ -211,7 +211,7 @@ describe('exportProjectPack / importProjectPack', () => {
     expect(loaded?.projectId).toBe(imported.id);
     for (const rasterId of collectRasterIds(loaded!)) {
       expect(rasterId.startsWith(`${imported.id}:`)).toBe(true);
-      expect(await db.getRaster(rasterId)).toBeDefined();
+      expect(await db.liveRaster(rasterId)).toBeDefined();
     }
   });
 
@@ -278,7 +278,7 @@ describe('exportProjectPack / importProjectPack', () => {
     rgba[3] = 200;
     const grayAlpha = encodeInkGrayAlphaPng(rgba, width, height);
     expect(pngColorType(grayAlpha)).toBe(4);
-    await db.putRaster(rasterId, grayAlpha);
+    db.setLiveRaster(rasterId, grayAlpha);
 
     const zip = zipSync({
       [MANIFEST_JSON]: new TextEncoder().encode(
@@ -300,7 +300,7 @@ describe('exportProjectPack / importProjectPack', () => {
     });
     const loaded = await loadDocument(imported.id, { db, opfs });
     const importedRasterId = collectRasterIds(loaded!)[0]!;
-    const stored = await db.getRaster(importedRasterId);
+    const stored = await db.liveRaster(importedRasterId);
     expect(pngColorType(stored!)).toBe(6);
     expect(imported.id).not.toBe(meta.id);
   });
@@ -333,7 +333,7 @@ describe('pack layout', () => {
     const { document } = await createProject('layout', 1, { db, opfs });
     const rasters = new Map<string, ArrayBuffer>();
     for (const rasterId of collectRasterIds(document)) {
-      rasters.set(rasterId, (await db.getRaster(rasterId))!);
+      rasters.set(rasterId, (await db.liveRaster(rasterId))!);
     }
     const zip = buildProjectPackZip({ document, rasters });
     const entries = unzipSync(zip);

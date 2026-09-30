@@ -16,7 +16,7 @@ import { pageLocalFromWorld, screenToWorld, buildStripFrames, stripLayoutFromDoc
 import { defaultTextBox, findText, isTextContentEmpty, clampTextBoxOrigin, rectsOverlap, selectedTextForEditor, selectedTextIdsOf } from '@/src/domain/text';
 import type { StrokePoint } from '@/src/domain/stroke';
 import { AutosaveManager, type AutosaveStatus } from '@/src/storage/autosave';
-import { getAutosaveDelays, getInkIdleMs } from '@/src/storage/appSettings';
+import { getAutosaveDelays, getInkIdleMs, loadAppSettings } from '@/src/storage/appSettings';
 import { editorHistoryFromBoot, loadEditorBoot } from '@/src/storage/editorBoot';
 import { applyPdfViewSession, loadPdfViewSession, savePdfViewSession } from '@/src/storage/pdfViewSession';
 import { randomId } from '@/src/storage/randomId';
@@ -974,6 +974,7 @@ export function useEditorController(projectId: string): EditorController {
         },
         onStatusChange: setAutosaveStatus,
         getDelays: getAutosaveDelays,
+        storedPng: boot.encodedPng,
       });
 
       setReady(true);
@@ -1099,7 +1100,10 @@ export function useEditorController(projectId: string): EditorController {
   const dispatch = useCallback(
     (action: EditorDocumentAction) => {
       const viewOnly = isViewOnlyHistoryAction(action.type);
-      let pendingInkUndo: Map<string, InkUndoPixels> | undefined;
+      // Taken now, not inside the updater: React runs queued updaters later, so several dispatches
+      // in one handler (a cut across many pages) would hand every page's undo pixels to one entry
+      // and leave the other entries unable to restore their page.
+      const pendingInkUndo = viewOnly ? undefined : takePendingInkUndo(inkUndoRef.current);
       setHistory((prev) => {
         if (!prev) {
           return prev;
@@ -1116,10 +1120,13 @@ export function useEditorController(projectId: string): EditorController {
         }
         const nextPresent = reduceEditorDocument(prev.present, action, randomId);
         if (nextPresent === prev.present) {
+          // No entry was made; keep the pixels for the next action.
+          for (const [rasterId, undo] of pendingInkUndo ?? []) {
+            if (!inkUndoRef.current.has(rasterId)) {
+              inkUndoRef.current.set(rasterId, undo);
+            }
+          }
           return prev;
-        }
-        if (!viewOnly && pendingInkUndo === undefined) {
-          pendingInkUndo = takePendingInkUndo(inkUndoRef.current);
         }
         const inkForHistory = viewOnly ? new Map<string, InkUndoPixels>() : (pendingInkUndo ?? new Map());
         const nextHistory = pushEditorHistory(prev, nextPresent, inkForHistory, viewOnly, historyDepthRef.current);
@@ -1938,6 +1945,7 @@ export function useEditorController(projectId: string): EditorController {
             );
             if (last) {
               lastLiveInkRef.current.set(rasterId, last);
+              api.engine.noteStrokePoints(rasterId, [point], inkStrokeStyle(present, last.pressure, false).lineWidth);
             }
             visualBump = true;
             break;
@@ -1955,6 +1963,11 @@ export function useEditorController(projectId: string): EditorController {
             );
             if (last) {
               lastLiveInkRef.current.set(rasterId, last);
+              api.engine.noteStrokePoints(
+                rasterId,
+                effect.points,
+                inkStrokeStyle(present, last.pressure, false).lineWidth,
+              );
             }
             visualBump = true;
             break;
@@ -1993,6 +2006,7 @@ export function useEditorController(projectId: string): EditorController {
             );
             if (last) {
               lastLiveInkRef.current.set(rasterId, last);
+              api.engine.noteStrokePoints(rasterId, [point], inkStrokeStyle(present, last.pressure, true).lineWidth);
             }
             visualBump = true;
             break;
@@ -2196,6 +2210,16 @@ export function useEditorController(projectId: string): EditorController {
       });
       const layout = clipMergeLayout(layoutClips, present.rasterWidth, present.rasterHeight);
       if (!layout) {
+        return;
+      }
+      const mergeMaxPages = loadAppSettings().mergeMaxPages;
+      if (layout.destWidth * layout.destHeight > mergeMaxPages * present.rasterWidth * present.rasterHeight) {
+        // A canvas this large fails on iPad Safari, and allocating it makes Safari drop the
+        // backing store of every other canvas (the whole workspace goes blank).
+        inkLog('controller.mergeClips', 'refused: too large', { w: layout.destWidth, h: layout.destHeight });
+        window.alert(
+          `結合する範囲が広すぎます（上限 ${mergeMaxPages} ページ分）。近くにあるクリップだけを選ぶか、設定で上限を変えてください。`,
+        );
         return;
       }
       const sourceRasterIds = ordered.map((clip) => clip.rasterId);

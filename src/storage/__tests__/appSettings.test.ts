@@ -94,6 +94,9 @@ describe('appSettings', () => {
     );
     expect(parseAppSettings({ pageTurnUnit: 'nope' }).pageTurnUnit).toBe('page');
     expect(parseAppSettings({ historyDepth: 999 }).historyDepth).toBe(200);
+    expect(parseAppSettings({}).mergeMaxPages).toBe(4);
+    expect(parseAppSettings({ mergeMaxPages: 99 }).mergeMaxPages).toBe(8);
+    expect(parseAppSettings({ mergeMaxPages: 0 }).mergeMaxPages).toBe(1);
     expect(parseAppSettings({ inkIdleMs: 10 }).inkIdleMs).toBe(200);
   });
 

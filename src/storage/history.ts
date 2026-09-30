@@ -1,6 +1,13 @@
 import { cloneEditorDocument } from './editorDocument';
 import { withLiveTextSelection, withoutTextSelection } from '../domain/text';
-import { HISTORY_DEPTH, type EditorDocument, type EditorHistory, type EditorHistoryEntry, type InkUndoPixels } from './types';
+import {
+  HISTORY_DEPTH,
+  isInkUndoPatch,
+  type EditorDocument,
+  type EditorHistory,
+  type EditorHistoryEntry,
+  type InkUndoPixels,
+} from './types';
 
 function cloneHistoryStackDocument(doc: EditorDocument): EditorDocument {
   return withoutTextSelection(cloneEditorDocument(doc));
@@ -35,6 +42,9 @@ function cloneInkUndoPixels(value: InkUndoPixels): InkUndoPixels {
   if (value instanceof ArrayBuffer) {
     return value.slice(0);
   }
+  if (isInkUndoPatch(value)) {
+    return { canvas: cloneInkUndoPixels(value.canvas) as OffscreenCanvas, x: value.x, y: value.y };
+  }
   const copy = new OffscreenCanvas(value.width, value.height);
   copy.getContext('2d')?.drawImage(value, 0, 0);
   return copy;
@@ -52,8 +62,9 @@ function releaseEntry(entry: EditorHistoryEntry): void {
   for (const pixels of entry.inkUndo.values()) {
     if (!(pixels instanceof ArrayBuffer)) {
       // GC を待たず canvas のバッキングストアを手放す
-      pixels.width = 0;
-      pixels.height = 0;
+      const canvas = isInkUndoPatch(pixels) ? pixels.canvas : pixels;
+      canvas.width = 0;
+      canvas.height = 0;
     }
   }
   entry.inkUndo.clear();
@@ -118,7 +129,8 @@ export function trimEditorHistoryDepth(history: EditorHistory, maxDepth: number)
 
 export type InkRestoreSink = {
   restoreRaster(rasterId: string, png: InkUndoPixels): void;
-  captureRaster(rasterId: string): InkUndoPixels | undefined;
+  /** `like` is the entry about to be restored; a patch there is answered with the same rect. */
+  captureRaster(rasterId: string, like?: InkUndoPixels): InkUndoPixels | undefined;
   invalidateThumb(rasterId: string): void;
 };
 
@@ -135,8 +147,8 @@ export function undoEditorHistory(
     return null;
   }
   const futureInkUndo = new Map<string, InkUndoPixels>();
-  for (const rasterId of entry.inkUndo.keys()) {
-    const current = ink.captureRaster(rasterId);
+  for (const [rasterId, pixels] of entry.inkUndo.entries()) {
+    const current = ink.captureRaster(rasterId, pixels);
     if (current) {
       futureInkUndo.set(rasterId, current);
     }
@@ -170,8 +182,8 @@ export function redoEditorHistory(
     return null;
   }
   const pastInkUndo = new Map<string, InkUndoPixels>();
-  for (const rasterId of entry.inkUndo.keys()) {
-    const current = ink.captureRaster(rasterId);
+  for (const [rasterId, pixels] of entry.inkUndo.entries()) {
+    const current = ink.captureRaster(rasterId, pixels);
     if (current) {
       pastInkUndo.set(rasterId, current);
     }

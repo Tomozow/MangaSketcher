@@ -126,3 +126,24 @@ describe('workspaceViewportCulling', () => {
     expect(result.displayRasterIds).not.toContain('clip-out');
   });
 });
+
+describe('pin cap', () => {
+  test('an overview pins only the first rasters in view and still displays the rest', () => {
+    const pages = Array.from({ length: 20 }, (_, i) => ({
+      rasterId: `p${i}`,
+      aabb: pageInkWorldAabb({ x: i * PAGE_DISPLAY_W, y: 0, width: PAGE_DISPLAY_W }),
+    }));
+    const result = cullWorkspaceInkRasters({
+      surfaceWidth: PAGE_DISPLAY_W * 20,
+      surfaceHeight: PAGE_DISPLAY_H,
+      panX: 0,
+      panY: 0,
+      zoom: 1,
+      pages,
+      clips: [],
+      alwaysDisplayRasterIds: ['p19'],
+    });
+    expect(result.displayRasterIds).toHaveLength(20);
+    expect(result.pinRasterIds).toEqual(['p19', 'p0', 'p1', 'p2', 'p3', 'p4', 'p5', 'p6']);
+  });
+});

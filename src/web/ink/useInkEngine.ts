@@ -79,6 +79,7 @@ export function useInkEngine(options: UseInkEngineOptions): InkEngineApi {
         scheduleInkDisplay(rasterId);
         setRasterLayoutGen((n) => n + 1);
       },
+      onPreviewReady: (rasterId) => scheduleInkDisplay(rasterId),
     });
   }, [engine]);
 

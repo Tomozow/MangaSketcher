@@ -34,7 +34,7 @@ describe('runEditorCheckpoint', () => {
   test('consumes pending ink, schedules save, and flushes to IDB', async () => {
     const { doc, history, rasterId } = sampleHistory();
     const db = new MemoryStorageDatabase();
-    const encoded = new Map<string, ArrayBuffer>([[rasterId, new ArrayBuffer(8)]]);
+    const encoded = new Map<string, ArrayBuffer>([[rasterId, Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).buffer]]);
     const manager = new AutosaveManager({ db, getEncodedPng: () => encoded });
     let historyState = history;
     const calls: string[] = [];
@@ -72,7 +72,7 @@ describe('runEditorCheckpoint', () => {
     expect(calls).toEqual(['flushPendingEncodes', 'scheduleSave', 'flushRouteLeave']);
     const stored = await db.getDocument(doc.projectId);
     expect(stored?.inkGeneration).toBe(doc.inkGeneration + 1);
-    const png = await db.getRaster(rasterId);
+    const png = await db.liveRaster(rasterId);
     expect(png?.byteLength).toBe(8);
     manager.dispose();
   });
@@ -155,7 +155,7 @@ describe('runIdleInkAutosave', () => {
   test('commits pending strokes, encodes dirty rasters, and writes IndexedDB', async () => {
     const { doc, history, rasterId } = sampleHistory();
     const db = new MemoryStorageDatabase();
-    const encoded = new Map<string, ArrayBuffer>([[rasterId, new ArrayBuffer(8)]]);
+    const encoded = new Map<string, ArrayBuffer>([[rasterId, Uint8Array.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).buffer]]);
     const manager = new AutosaveManager({ db, getEncodedPng: () => encoded });
     let historyState = history;
     const calls: string[] = [];
@@ -196,7 +196,7 @@ describe('runIdleInkAutosave', () => {
     expect(calls).toEqual([`flushPendingEncodes`, `scheduleSave:${rasterId}`, 'flushRouteLeave']);
     const stored = await db.getDocument(doc.projectId);
     expect(stored?.inkGeneration).toBe(doc.inkGeneration + 1);
-    const png = await db.getRaster(rasterId);
+    const png = await db.liveRaster(rasterId);
     expect(png?.byteLength).toBe(8);
     manager.dispose();
   });

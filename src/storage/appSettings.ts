@@ -27,6 +27,13 @@ export const AUTOSAVE_MS_MIN = 500;
 export const AUTOSAVE_MS_MAX = 30_000;
 export const HISTORY_DEPTH_MIN = 10;
 export const HISTORY_DEPTH_MAX = 200;
+/**
+ * Largest merged clip, in page areas. 8 pages (about 16.3M pixels at 1200×1700) is just under
+ * iPad Safari's canvas limit; past it the canvas fails and Safari blanks every other canvas.
+ */
+export const MERGE_MAX_PAGES_MIN = 1;
+export const MERGE_MAX_PAGES_MAX = 8;
+export const MERGE_MAX_PAGES_DEFAULT = 4;
 
 export const DEFAULT_SHORTCUTS: ShortcutMap = {
   pen: 'KeyB',
@@ -73,6 +80,7 @@ export type AppSettings = {
   autosaveMs: number;
   inkIdleMs: number;
   historyDepth: number;
+  mergeMaxPages: number;
   navBarVisible: boolean;
   chromeFlip: boolean;
   swapTopbarAndStock: boolean;
@@ -99,6 +107,7 @@ export const DEFAULT_APP_SETTINGS: AppSettings = {
   autosaveMs: DOCUMENT_SAVE_DEBOUNCE_MS,
   inkIdleMs: INK_IDLE_AUTOSAVE_MS,
   historyDepth: HISTORY_DEPTH,
+  mergeMaxPages: MERGE_MAX_PAGES_DEFAULT,
   navBarVisible: true,
   chromeFlip: false,
   swapTopbarAndStock: false,
@@ -173,6 +182,10 @@ export function clampAutosaveMs(value: unknown): number {
 
 export function clampHistoryDepth(value: unknown): number {
   return clampInt(value, HISTORY_DEPTH_MIN, HISTORY_DEPTH_MAX, DEFAULT_APP_SETTINGS.historyDepth);
+}
+
+export function clampMergeMaxPages(value: unknown): number {
+  return clampInt(value, MERGE_MAX_PAGES_MIN, MERGE_MAX_PAGES_MAX, MERGE_MAX_PAGES_DEFAULT);
 }
 
 export function clampPenSize(value: unknown): number {
@@ -365,6 +378,7 @@ export function parseAppSettings(raw: unknown): AppSettings {
     autosaveMs?: unknown;
     inkIdleMs?: unknown;
     historyDepth?: unknown;
+    mergeMaxPages?: unknown;
     navBarVisible?: unknown;
     chromeFlip?: unknown;
     swapTopbarAndStock?: unknown;
@@ -397,6 +411,7 @@ export function parseAppSettings(raw: unknown): AppSettings {
     autosaveMs,
     inkIdleMs: clampInkIdleMs(record.inkIdleMs),
     historyDepth: clampHistoryDepth(record.historyDepth),
+    mergeMaxPages: clampMergeMaxPages(record.mergeMaxPages),
     navBarVisible: record.navBarVisible !== false,
     chromeFlip: record.chromeFlip === true,
     swapTopbarAndStock: record.swapTopbarAndStock === true,

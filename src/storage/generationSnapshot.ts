@@ -11,7 +11,7 @@ export type CommitDocumentGenerationInput = {
   document: EditorDocument;
   meta: ProjectMeta;
   rasters?: ReadonlyMap<string, ArrayBuffer>;
-  /** Default `guarded`. Restore writes live with `none`. rename uses `name-only`. */
+  /** No longer used: the previous generation is always kept as the fallback. */
   snapshot?: CommitSnapshotMode;
 };
 
@@ -82,18 +82,12 @@ export async function rasterIdsHaveValidPng(
   return true;
 }
 
-export async function documentLiveRastersAreValid(
+/** `getRaster` takes a raster id; the caller maps it to the store key of `doc`. */
+export async function documentRastersAreValid(
   getRaster: (rasterId: string) => Promise<ArrayBuffer | undefined>,
   doc: EditorDocument,
 ): Promise<boolean> {
   return rasterIdsHaveValidPng(collectRasterIds(doc), getRaster);
-}
-
-export async function documentSnapshotRastersAreValid(
-  getSnapshotRaster: (rasterId: string) => Promise<ArrayBuffer | undefined>,
-  doc: EditorDocument,
-): Promise<boolean> {
-  return rasterIdsHaveValidPng(collectRasterIds(doc), getSnapshotRaster);
 }
 
 export function metaFromDocument(doc: EditorDocument, updatedAt: string): ProjectMeta {
@@ -105,51 +99,73 @@ export function metaFromDocument(doc: EditorDocument, updatedAt: string): Projec
   };
 }
 
-/**
- * Snapshot guard: every collectRasterIds key must have a real PNG in this payload
- * (if present) or already in live. Invalid payload bytes fail the id (do not fall
- * back to live), so we never copy a torn encode onto snapshot.
- */
-export function snapshotGuardPasses(
-  doc: EditorDocument,
-  payload: ReadonlyMap<string, ArrayBuffer>,
-  liveBytes: ReadonlyMap<string, ArrayBuffer>,
-): boolean {
-  for (const rasterId of collectRasterIds(doc)) {
-    if (payload.has(rasterId)) {
-      if (!storedPngIsValid(payload.get(rasterId))) {
-        return false;
-      }
-      continue;
-    }
-    if (!storedPngIsValid(liveBytes.get(rasterId))) {
-      return false;
-    }
-  }
-  return true;
+/** `rasters` store key of one revision. Revision 0 is the key used before revisions existed. */
+export function rasterKey(rasterId: string, rev: number | undefined): string {
+  return rev ? `${rasterId}@${rev}` : rasterId;
 }
 
-/** Dirty payload PNGs plus live copies for snapshot keys that are still empty (lazy-fill). */
-export function snapshotRastersToPut(
-  doc: EditorDocument,
-  payload: ReadonlyMap<string, ArrayBuffer>,
-  liveBytes: ReadonlyMap<string, ArrayBuffer>,
-  existingSnapshot: ReadonlyMap<string, ArrayBuffer>,
-): Map<string, ArrayBuffer> {
-  const toPut = new Map<string, ArrayBuffer>();
-  for (const rasterId of collectRasterIds(doc)) {
-    const fromPayload = payload.get(rasterId);
-    if (fromPayload && storedPngIsValid(fromPayload)) {
-      toPut.set(rasterId, fromPayload);
+/** Key of the PNG a stored document uses for `rasterId`. Only valid for a document as read from storage. */
+export function documentRasterKey(doc: EditorDocument, rasterId: string): string {
+  return rasterKey(rasterId, doc.rasterRevs?.[rasterId]);
+}
+
+export function isRevisionedRasterKey(key: string): boolean {
+  return key.includes('@');
+}
+
+export function documentRasterKeys(doc: EditorDocument): string[] {
+  return collectRasterIds(doc).map((rasterId) => documentRasterKey(doc, rasterId));
+}
+
+export type GenerationPlan = {
+  /** The new live document, stamped with its generation and raster revisions. */
+  document: EditorDocument;
+  /** The previous live document; it becomes the fallback generation. */
+  snapshot: EditorDocument | undefined;
+  /** New PNGs by store key. Revisions are never overwritten. */
+  puts: Map<string, ArrayBuffer>;
+  /** Revisions no longer used by the new or the fallback generation. */
+  deletes: string[];
+};
+
+/**
+ * One save = one new generation. Changed rasters get a new immutable key; the document that
+ * references them is written in the same transaction; the previous document is kept as fallback.
+ * `prev` / `prev2` are the stored live and fallback documents. Throws on a payload that is not a PNG,
+ * so a bad encode can never become the saved state.
+ */
+export function planGeneration(
+  prev: EditorDocument | undefined,
+  prev2: EditorDocument | undefined,
+  input: Pick<CommitDocumentGenerationInput, 'document' | 'rasters'>,
+): GenerationPlan {
+  const generation = (prev?.generation ?? 0) + 1;
+  const prevRevs = prev?.rasterRevs ?? {};
+  const rasterRevs: Record<string, number> = {};
+  const puts = new Map<string, ArrayBuffer>();
+  for (const rasterId of collectRasterIds(input.document)) {
+    const png = input.rasters?.get(rasterId);
+    if (png === undefined) {
+      rasterRevs[rasterId] = prevRevs[rasterId] ?? 0;
       continue;
     }
-    if (existingSnapshot.has(rasterId)) {
-      continue;
+    if (!storedPngIsValid(png)) {
+      throw new Error(`raster ${rasterId} is not a PNG; generation not saved`);
     }
-    const fill = liveBytes.get(rasterId);
-    if (fill && storedPngIsValid(fill)) {
-      toPut.set(rasterId, fill);
+    rasterRevs[rasterId] = generation;
+    puts.set(rasterKey(rasterId, generation), png);
+  }
+  const deletes: string[] = [];
+  // Un-revisioned keys (rev 0) are never deleted here: they are the pre-migration data.
+  for (const [rasterId, rev] of Object.entries(prev2?.rasterRevs ?? {})) {
+    if (rev > 0 && prevRevs[rasterId] !== rev && rasterRevs[rasterId] !== rev) {
+      deletes.push(rasterKey(rasterId, rev));
     }
   }
-  return toPut;
+  return {
+    document: { ...input.document, generation, rasterRevs },
+    snapshot: prev ? { ...prev, generation: prev.generation ?? 0, rasterRevs: prevRevs } : undefined,
+    puts,
+    deletes,
+  };
 }

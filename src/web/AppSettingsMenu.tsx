@@ -9,6 +9,8 @@ import {
   HISTORY_DEPTH_MIN,
   INK_IDLE_MS_MAX,
   INK_IDLE_MS_MIN,
+  MERGE_MAX_PAGES_MAX,
+  MERGE_MAX_PAGES_MIN,
   SHORTCUT_ACTION_IDS,
   SHORTCUT_ACTION_LABELS,
   assignShortcut,
@@ -121,6 +123,18 @@ export function AppSettingsMenu({ settings, onChange }: AppSettingsMenuProps) {
               step={10}
               value={settings.historyDepth}
               onChange={(event) => onChange({ historyDepth: Number(event.target.value) })}
+            />
+          </div>
+          <div className={styles.sliderBlock}>
+            <label className={styles.sliderLabel}>クリップ結合の上限 {settings.mergeMaxPages} ページ分</label>
+            <input
+              className={styles.sliderInput}
+              type="range"
+              min={MERGE_MAX_PAGES_MIN}
+              max={MERGE_MAX_PAGES_MAX}
+              step={1}
+              value={settings.mergeMaxPages}
+              onChange={(event) => onChange({ mergeMaxPages: Number(event.target.value) })}
             />
           </div>
 

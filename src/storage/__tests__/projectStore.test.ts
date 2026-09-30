@@ -22,7 +22,7 @@ describe('projectStore CRUD', () => {
     expect(meta.name).toBe('ネーム');
     expect(Object.keys(document.pages)).toHaveLength(3);
     for (const rasterId of collectRasterIds(document)) {
-      expect(await db.getRaster(rasterId)).toBeDefined();
+      expect(await db.liveRaster(rasterId)).toBeDefined();
     }
     const listed = await listProjects({ db, opfs });
     expect(listed.some((item) => item.id === meta.id)).toBe(true);
@@ -87,7 +87,7 @@ describe('projectStore CRUD', () => {
       rotation: 0,
     });
     await db.putDocument(document);
-    const clipPng = new Uint8Array([137, 80, 78, 71, 1, 2, 3]).buffer;
+    const clipPng = new Uint8Array([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3]).buffer;
     await db.putRaster(clipRasterId(document.projectId, 'clip-1'), clipPng);
 
     const copied = await duplicateProject(document.projectId, {
@@ -111,16 +111,16 @@ describe('projectStore CRUD', () => {
     expect(clone!.pasteboardClips[0]?.rasterId).toBe(clipRasterId(copied.id, 'clip-1'));
 
     for (const rasterId of collectRasterIds(clone!)) {
-      expect(await db.getRaster(rasterId)).toBeDefined();
+      expect(await db.liveRaster(rasterId)).toBeDefined();
     }
-    expect(new Uint8Array((await db.getRaster(clipRasterId(copied.id, 'clip-1')))!)).toEqual(
+    expect(new Uint8Array((await db.liveRaster(clipRasterId(copied.id, 'clip-1')))!)).toEqual(
       new Uint8Array(clipPng),
     );
 
     await deleteProject(document.projectId, { db, opfs });
     expect(await loadDocument(copied.id, { db, opfs })).not.toBeNull();
     for (const rasterId of collectRasterIds(clone!)) {
-      expect(await db.getRaster(rasterId)).toBeDefined();
+      expect(await db.liveRaster(rasterId)).toBeDefined();
     }
   });
 });
@@ -138,7 +138,7 @@ describe('projectStore delete order §7.5', () => {
     expect(await db.getDocument(document.projectId)).toBeUndefined();
     expect(await db.getSnapshotDocument(document.projectId)).toBeUndefined();
     for (const rasterId of collectRasterIds(document)) {
-      expect(await db.getRaster(rasterId)).toBeUndefined();
+      expect(await db.liveRaster(rasterId)).toBeUndefined();
       expect(await db.getSnapshotRaster(rasterId)).toBeUndefined();
     }
   });
@@ -159,9 +159,9 @@ describe('projectStore delete order §7.5', () => {
 });
 
 describe('IndexedDB schema contract', () => {
-  test('uses mangasketcher version 2 live stores; snapshot stores are not in the wipe set', () => {
+  test('uses mangasketcher version 3 live stores; snapshot stores are not in the wipe set', () => {
     expect(DB_NAME).toBe('mangasketcher');
-    expect(DB_VERSION).toBe(2);
+    expect(DB_VERSION).toBe(3);
     expect([...REQUIRED_STORES]).toEqual(['meta', 'documents', 'rasters']);
   });
 });

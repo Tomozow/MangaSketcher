@@ -10,6 +10,7 @@ import { getDefaultStorageDatabase } from './idb';
 import { requestPersistentStorage } from './persistentStorage';
 import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 import { docShape, inkLog } from '@/src/web/ink/inkDebugLog';
+import { collectRasterIds } from './rasterIds';
 
 export type AutosaveStatus = {
   unsaved: boolean;
@@ -36,6 +37,14 @@ export class AutosaveCommitTimeoutError extends Error {
   }
 }
 
+/** Some raster has no fresh PNG (encode still running or given up); committing now would tear the generation. */
+export class AutosaveEncodePendingError extends Error {
+  constructor() {
+    super('autosave waiting for raster encodes');
+    this.name = 'AutosaveEncodePendingError';
+  }
+}
+
 export type AutosaveDelays = {
   documentMs: number;
   viewOnlyMs: number;
@@ -47,7 +56,27 @@ export type AutosaveManagerOptions = {
   onStatusChange?: (status: AutosaveStatus) => void;
   getDelays?: () => AutosaveDelays;
   commitTimeoutMs?: number;
+  encodeSettleMaxMs?: number;
+  /** PNGs as loaded from storage at boot. Rasters still byte-equal to these are not written again. */
+  storedPng?: ReadonlyMap<string, ArrayBuffer>;
 };
+
+function sameBytes(a: ArrayBuffer, b: ArrayBuffer): boolean {
+  if (a === b) {
+    return true;
+  }
+  if (a.byteLength !== b.byteLength) {
+    return false;
+  }
+  const x = new Uint8Array(a);
+  const y = new Uint8Array(b);
+  for (let i = 0; i < x.length; i += 1) {
+    if (x[i] !== y[i]) {
+      return false;
+    }
+  }
+  return true;
+}
 
 type PendingJob = {
   saveGen: number;
@@ -82,12 +111,20 @@ export class AutosaveManager {
   private failures = 0;
   private readonly failedEncodes = new Set<string>();
   private readonly commitTimeoutMs: number;
+  private readonly encodeSettleMaxMs: number;
+  /**
+   * PNG buffer known to be stored per raster (by identity). Only buffers that differ are written.
+   */
+  private committed = new Map<string, ArrayBuffer>();
+  private storedPng: ReadonlyMap<string, ArrayBuffer> | undefined;
 
   constructor(options: AutosaveManagerOptions) {
     this.explicitDb = options.db;
     this.getEncodedPng = options.getEncodedPng;
     this.onStatusChange = options.onStatusChange;
     this.commitTimeoutMs = options.commitTimeoutMs ?? COMMIT_TIMEOUT_MS;
+    this.encodeSettleMaxMs = options.encodeSettleMaxMs ?? ENCODE_SETTLE_MAX_MS;
+    this.storedPng = options.storedPng;
     this.getDelays =
       options.getDelays ??
       (() => ({
@@ -287,14 +324,11 @@ export class AutosaveManager {
         newer.viewOnly = newer.viewOnly && newer.dirtyRasterIds.size === 0;
         return;
       }
-      const encoded = this.getEncodedPng();
-      const rasters = new Map<string, ArrayBuffer>();
-      for (const rasterId of job.dirtyRasterIds) {
-        const png = encoded.get(rasterId);
-        if (png && png.byteLength > 0) {
-          rasters.set(rasterId, png.slice(0));
-        }
+      if (this.encoding.size > 0 || this.failedEncodes.size > 0) {
+        // The job stays queued; the encode's completion schedules the next attempt.
+        throw new AutosaveEncodePendingError();
       }
+      const { rasters, sources } = this.changedRasters(job.doc);
       const updatedAt = new Date().toISOString();
       const meta: ProjectMeta = {
         id: job.doc.projectId,
@@ -318,6 +352,7 @@ export class AutosaveManager {
         snapshot: 'guarded',
       });
       inkLog('autosave.executeJob', 'commit ok', { saveGen: job.saveGen, ms: Date.now() - startedAt });
+      this.noteCommitted(job.doc, sources);
       void requestPersistentStorage();
       this.setFailures(0);
       if (job.saveGen === this.saveGen) {
@@ -351,9 +386,54 @@ export class AutosaveManager {
     }
   }
 
+  /**
+   * PNGs this save must write: every raster of the document whose current PNG is not the one known
+   * to be stored. Not just the dirty ones: a clip brought back by undo is not dirty, but its stored
+   * revision may already have been dropped. `sources` keeps the uncopied buffers for noteCommitted.
+   */
+  private changedRasters(doc: EditorDocument): {
+    rasters: Map<string, ArrayBuffer>;
+    sources: Map<string, ArrayBuffer>;
+  } {
+    const encoded = this.getEncodedPng();
+    const rasterIds = collectRasterIds(doc);
+    if (this.storedPng) {
+      // First save of the session: what still equals the bytes boot loaded is already stored.
+      for (const rasterId of rasterIds) {
+        const png = encoded.get(rasterId);
+        const stored = this.storedPng.get(rasterId);
+        if (png && stored && sameBytes(png, stored)) {
+          this.committed.set(rasterId, png);
+        }
+      }
+      this.storedPng = undefined;
+    }
+    const rasters = new Map<string, ArrayBuffer>();
+    const sources = new Map<string, ArrayBuffer>();
+    for (const rasterId of rasterIds) {
+      const png = encoded.get(rasterId);
+      if (png && png.byteLength > 0 && this.committed.get(rasterId) !== png) {
+        rasters.set(rasterId, png.slice(0));
+        sources.set(rasterId, png);
+      }
+    }
+    return { rasters, sources };
+  }
+
+  private noteCommitted(doc: EditorDocument, sources: ReadonlyMap<string, ArrayBuffer>): void {
+    const next = new Map<string, ArrayBuffer>();
+    for (const rasterId of collectRasterIds(doc)) {
+      const png = sources.get(rasterId) ?? this.committed.get(rasterId);
+      if (png) {
+        next.set(rasterId, png);
+      }
+    }
+    this.committed = next;
+  }
+
   private async waitForEncodesSettled(): Promise<void> {
     const startedAt = Date.now();
-    while (this.encoding.size > 0 && !this.disposed && Date.now() - startedAt < ENCODE_SETTLE_MAX_MS) {
+    while (this.encoding.size > 0 && !this.disposed && Date.now() - startedAt < this.encodeSettleMaxMs) {
       await new Promise((resolve) => setTimeout(resolve, ENCODE_SETTLE_POLL_MS));
     }
   }
@@ -437,27 +517,19 @@ export class AutosaveManager {
    * Must NEVER update generation snapshots — unordered puts can tear live JSON/PNGs.
    */
   flushHidden(): void {
-    if (this.encoding.size > 0) {
+    if (this.encoding.size > 0 || this.failedEncodes.size > 0) {
       // Some dirty rasters have no fresh PNG yet. Writing the new document (or only some PNGs)
       // would tear live storage; keep the last consistent generation instead.
-      inkLog('autosave.flushHidden', 'skipped: encodes in flight', { encoding: [...this.encoding] });
+      inkLog('autosave.flushHidden', 'skipped: encodes not settled', {
+        encoding: [...this.encoding],
+        failed: [...this.failedEncodes],
+      });
       return;
     }
-    const encoded = this.getEncodedPng();
     const atomicDoc = this.pendingJob?.doc;
-    if (atomicDoc && this.db.putLiveAtomic) {
+    if (atomicDoc) {
       // One transaction: PNGs and the document that references them land together or not at all.
-      const rasters = new Map<string, ArrayBuffer>();
-      const dirty = new Set(this.pendingJob?.dirtyRasterIds);
-      for (const id of this.queuedAfterRun?.dirtyRasterIds ?? []) {
-        dirty.add(id);
-      }
-      for (const id of dirty) {
-        const png = encoded.get(id);
-        if (png && png.byteLength > 0) {
-          rasters.set(id, png.slice(0));
-        }
-      }
+      const { rasters, sources } = this.changedRasters(atomicDoc);
       void this.db
         .putLiveAtomic({
           document: atomicDoc,
@@ -469,60 +541,12 @@ export class AutosaveManager {
           },
           rasters,
         })
+        .then(() => this.noteCommitted(atomicDoc, sources))
         .catch((err) => {
           if (!(err instanceof DOMException && err.name === 'InvalidStateError')) {
             inkLog('autosave.flushHidden', 'atomic write failed', { msg: err instanceof Error ? err.message : String(err) });
           }
         });
-      return;
-    }
-    for (const [rasterId, png] of encoded.entries()) {
-      if (png.byteLength > 0) {
-        void this.db.putRaster(rasterId, png.slice(0)).catch((err) => {
-          // #region agent log
-          ipadDebugLog({
-            sessionId: 'adcc47',
-            ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-            hypothesisId: 'F',
-            location: 'autosave.ts:flushHidden',
-            message: 'flushHidden putRaster failed',
-            data: {
-              name: err instanceof Error ? err.name : typeof err,
-              msg: err instanceof Error ? err.message : String(err),
-            },
-          });
-          // #endregion
-        });
-      }
-    }
-    const pendingDoc = this.pendingJob?.doc;
-    if (pendingDoc) {
-      const updatedAt = new Date().toISOString();
-      const ignoreClosing = (err: unknown) => {
-        if (err instanceof DOMException && err.name === 'InvalidStateError') {
-          return;
-        }
-        // #region agent log
-        ipadDebugLog({
-          sessionId: 'adcc47',
-          ingest: 'http://127.0.0.1:7901/ingest/54982627-aba6-43f1-b873-18d991fc1426',
-          hypothesisId: 'F',
-          location: 'autosave.ts:flushHidden',
-          message: 'flushHidden doc/meta failed',
-          data: {
-            name: err instanceof Error ? err.name : typeof err,
-            msg: err instanceof Error ? err.message : String(err),
-          },
-        });
-        // #endregion
-      };
-      void this.db.putDocument(pendingDoc).catch(ignoreClosing);
-      void this.db.putMeta({
-        id: pendingDoc.projectId,
-        name: pendingDoc.name,
-        updatedAt,
-        pageCount: Object.keys(pendingDoc.pages).length,
-      }).catch(ignoreClosing);
     }
   }
 

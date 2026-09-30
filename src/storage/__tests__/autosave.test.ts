@@ -57,29 +57,24 @@ function sampleDoc(): EditorDocument {
   };
 }
 
-describe('AutosaveManager', () => {
-  test('route-leave flush writes rasters before documents without waiting debounce', async () => {
-    const db = new MemoryStorageDatabase();
-    const encoded = new Map<string, ArrayBuffer>([['p1:page:a', new ArrayBuffer(4)]]);
-    const order: string[] = [];
-    const originalPutRaster = db.putRaster.bind(db);
-    const originalPutDocument = db.putDocument.bind(db);
-    db.putRaster = async (id, png) => {
-      order.push(`raster:${id}`);
-      return originalPutRaster(id, png);
-    };
-    db.putDocument = async (doc) => {
-      order.push(`document:${doc.projectId}`);
-      return originalPutDocument(doc);
-    };
+function png(extra: number): ArrayBuffer {
+  const bytes = new Uint8Array(8 + extra);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  return bytes.buffer;
+}
 
+describe('AutosaveManager', () => {
+  test('route-leave flush writes the raster and the document in one commit without waiting debounce', async () => {
+    const db = new MemoryStorageDatabase();
+    const encoded = new Map<string, ArrayBuffer>([['p1:page:a', png(4)]]);
     const manager = new AutosaveManager({
       db,
       getEncodedPng: () => encoded,
     });
     manager.scheduleSave(sampleDoc(), ['p1:page:a'], false);
     await manager.flushRouteLeave();
-    expect(order).toEqual(['raster:p1:page:a', 'document:p1']);
+    expect(db.commits).toEqual([['p1:page:a']]);
+    expect((await db.liveRaster('p1:page:a'))?.byteLength).toBe(12);
     expect(manager.getStatus().unsaved).toBe(false);
     manager.dispose();
   });
@@ -111,19 +106,19 @@ describe('AutosaveManager', () => {
 
   test('flushHidden puts existing encoded PNG without debounce', async () => {
     const db = new MemoryStorageDatabase();
-    const encoded = new Map<string, ArrayBuffer>([['p1:page:a', new ArrayBuffer(9)]]);
+    const encoded = new Map<string, ArrayBuffer>([['p1:page:a', png(9)]]);
     const manager = new AutosaveManager({ db, getEncodedPng: () => encoded });
+    manager.scheduleSave(sampleDoc(), ['p1:page:a'], false);
     manager.flushHidden();
     await Promise.resolve();
-    const png = await db.getRaster('p1:page:a');
-    expect(png?.byteLength).toBe(9);
+    expect((await db.liveRaster('p1:page:a'))?.byteLength).toBe(17);
     manager.dispose();
   });
 
   test('flushHidden never calls convertToBlob or encoding pipeline', async () => {
     const db = new MemoryStorageDatabase();
     const convertToBlob = vi.fn(async () => new Blob());
-    const buffer = new ArrayBuffer(7);
+    const buffer = png(7);
     const encoded = new Map<string, ArrayBuffer>([['p1:page:a', buffer]]);
     let encodingStarted = false;
 
@@ -137,19 +132,20 @@ describe('AutosaveManager', () => {
       originalNotify(rasterId);
     };
 
+    manager.scheduleSave(sampleDoc(), ['p1:page:a'], false);
     manager.flushHidden();
     await Promise.resolve();
 
     expect(convertToBlob).not.toHaveBeenCalled();
     expect(encodingStarted).toBe(false);
-    const stored = await db.getRaster('p1:page:a');
+    const stored = await db.liveRaster('p1:page:a');
     expect(stored?.byteLength).toBe(buffer.byteLength);
     manager.dispose();
   });
 
   test('flushHidden writes pending document JSON', async () => {
     const db = new MemoryStorageDatabase();
-    const encoded = new Map<string, ArrayBuffer>([['p1:page:a', new ArrayBuffer(4)]]);
+    const encoded = new Map<string, ArrayBuffer>([['p1:page:a', png(4)]]);
     const manager = new AutosaveManager({ db, getEncodedPng: () => encoded });
     manager.scheduleSave(
       { ...sampleDoc(), pasteboardClips: [{ id: 'c1', rasterId: 'p1:clip:c1', x: 1, y: 2, scale: 1, rotation: 0 }] },
@@ -175,8 +171,8 @@ describe('AutosaveManager', () => {
       releaseFirstPut = resolve;
     });
     let putDocumentCalls = 0;
-    const originalPutDocument = db.putDocument.bind(db);
-    db.putDocument = async (doc) => {
+    const originalCommit = db.commitDocumentGeneration.bind(db);
+    db.commitDocumentGeneration = async (input) => {
       putDocumentCalls += 1;
       concurrentExecutes += 1;
       maxConcurrent = Math.max(maxConcurrent, concurrentExecutes);
@@ -184,13 +180,13 @@ describe('AutosaveManager', () => {
         await firstPutGate;
       }
       try {
-        return await originalPutDocument(doc);
+        return await originalCommit(input);
       } finally {
         concurrentExecutes -= 1;
       }
     };
 
-    const encoded = new Map<string, ArrayBuffer>([['p1:page:a', new ArrayBuffer(4)]]);
+    const encoded = new Map<string, ArrayBuffer>([['p1:page:a', png(4)]]);
     const manager = new AutosaveManager({
       db,
       getEncodedPng: () => encoded,
@@ -230,16 +226,16 @@ describe('AutosaveManager', () => {
       releaseFirstPut = resolve;
     });
     let putDocumentCalls = 0;
-    const originalPutDocument = db.putDocument.bind(db);
-    db.putDocument = async (doc) => {
+    const originalCommit = db.commitDocumentGeneration.bind(db);
+    db.commitDocumentGeneration = async (input) => {
       putDocumentCalls += 1;
       if (putDocumentCalls === 1) {
         await firstPutGate;
       }
-      return originalPutDocument(doc);
+      return originalCommit(input);
     };
 
-    const encoded = new Map<string, ArrayBuffer>([['p1:page:a', new ArrayBuffer(4)]]);
+    const encoded = new Map<string, ArrayBuffer>([['p1:page:a', png(4)]]);
     const manager = new AutosaveManager({
       db,
       getEncodedPng: () => encoded,
@@ -332,45 +328,63 @@ describe('AutosaveManager', () => {
     }
   });
 
-  test('writes only dirty rasters even when the document lists more', async () => {
+  test('the first save writes only rasters that differ from what boot loaded', async () => {
     const db = new MemoryStorageDatabase();
-    const written: string[] = [];
-    const originalPutRaster = db.putRaster.bind(db);
-    db.putRaster = async (id, png) => {
-      written.push(id);
-      return originalPutRaster(id, png);
-    };
     const encoded = new Map<string, ArrayBuffer>([
-      ['p1:page:a', new ArrayBuffer(4)],
-      ['p1:clip:c1', new ArrayBuffer(8)],
+      ['p1:page:a', png(4)],
+      ['p1:clip:c1', png(8)],
     ]);
-    const manager = new AutosaveManager({ db, getEncodedPng: () => encoded });
+    // Boot loaded the clip with these bytes; the page has been redrawn since.
+    const storedPng = new Map([
+      ['p1:page:a', png(1)],
+      ['p1:clip:c1', png(8)],
+    ]);
+    const manager = new AutosaveManager({ db, getEncodedPng: () => encoded, storedPng });
     const doc = sampleDoc();
     doc.pasteboardClips = [{ id: 'c1', rasterId: 'p1:clip:c1', x: 0, y: 0, scale: 1, rotation: 0 }];
-    manager.scheduleSave(doc, ['p1:page:a'], false);
+    manager.scheduleSave(doc, ['p1:page:a', 'p1:clip:c1'], false);
     await manager.flushRouteLeave();
-    expect(written).toEqual(['p1:page:a']);
-    expect(await db.getRaster('p1:clip:c1')).toBeUndefined();
+    expect(db.commits).toEqual([['p1:page:a']]);
     manager.dispose();
   });
 
   test('merges dirty raster ids across coalesced scheduleSave calls', async () => {
     const db = new MemoryStorageDatabase();
-    const written: string[] = [];
-    const originalPutRaster = db.putRaster.bind(db);
-    db.putRaster = async (id, png) => {
-      written.push(id);
-      return originalPutRaster(id, png);
-    };
     const encoded = new Map<string, ArrayBuffer>([
-      ['p1:page:a', new ArrayBuffer(4)],
-      ['p1:clip:c1', new ArrayBuffer(8)],
+      ['p1:page:a', png(4)],
+      ['p1:clip:c1', png(8)],
     ]);
     const manager = new AutosaveManager({ db, getEncodedPng: () => encoded });
-    manager.scheduleSave(sampleDoc(), ['p1:page:a'], false);
-    manager.scheduleSave(sampleDoc(), ['p1:clip:c1'], true);
+    const doc = sampleDoc();
+    doc.pasteboardClips = [{ id: 'c1', rasterId: 'p1:clip:c1', x: 0, y: 0, scale: 1, rotation: 0 }];
+    manager.scheduleSave(doc, ['p1:page:a'], false);
+    manager.scheduleSave(doc, ['p1:clip:c1'], true);
     await manager.flushRouteLeave();
-    expect(written.sort()).toEqual(['p1:clip:c1', 'p1:page:a']);
+    expect(db.commits.map((ids) => [...ids].sort())).toEqual([['p1:clip:c1', 'p1:page:a']]);
+    manager.dispose();
+  });
+
+  test('a raster that returns to the document is written again even though it is not dirty', async () => {
+    const db = new MemoryStorageDatabase();
+    const encoded = new Map<string, ArrayBuffer>([
+      ['p1:page:a', png(4)],
+      ['p1:clip:c1', png(8)],
+    ]);
+    const manager = new AutosaveManager({ db, getEncodedPng: () => encoded });
+    const withClip = sampleDoc();
+    withClip.pasteboardClips = [{ id: 'c1', rasterId: 'p1:clip:c1', x: 0, y: 0, scale: 1, rotation: 0 }];
+    manager.scheduleSave(withClip, ['p1:clip:c1'], false);
+    await manager.flushRouteLeave();
+    // Clip deleted: two saves later its stored revision is gone.
+    manager.scheduleSave(sampleDoc(), [], false);
+    await manager.flushRouteLeave();
+    manager.scheduleSave({ ...sampleDoc(), name: 'again' }, [], false);
+    await manager.flushRouteLeave();
+    expect((await db.listRasterIds()).filter((key) => key.startsWith('p1:clip:c1'))).toEqual([]);
+    // Undo brings the clip back without marking it dirty.
+    manager.scheduleSave(withClip, [], false);
+    await manager.flushRouteLeave();
+    expect((await db.liveRaster('p1:clip:c1'))?.byteLength).toBe(16);
     manager.dispose();
   });
 });
