@@ -302,6 +302,7 @@ export class InkEngine {
           !this.overlays.has(id) &&
           !this.strokeUndoCanvas.has(id) &&
           !this.pendingEncodes.has(id) &&
+          !this.pendingEncodeIds.has(id) &&
           (this.encodedPng.get(id)?.byteLength ?? 0) > 0,
       );
       if (evictIdx < 0) {
