@@ -128,8 +128,11 @@ describe('resolveWorkspaceHit ink tool priority', () => {
               id: 'tx1',
               content: 'あ',
               color: '#000',
-              fontSize: 18,
-              box: { x: 0, y: 0, width: 400, height: 600 },
+              // Hit-test uses the content-fitted box; the frame maps 1200×1700 raster to 216×306 world,
+              // so the click at frame+(40,80) is raster (222,444). Anchor a large horizontal glyph there.
+              fontSize: 100,
+              writingMode: 'horizontal',
+              box: { x: 200, y: 400, width: 400, height: 600 },
             },
           ],
         },
