@@ -30,6 +30,8 @@ import {
 import { copySharedTransparentPng, encodeTransparentPngBuffer } from '@/src/storage/transparentPng';
 import { buildProjectPackFileName, buildProjectPackZip } from '@/src/storage/projectPack';
 import { inkLog } from '@/src/web/ink/inkDebugLog';
+import { getDefaultStorageDatabase } from '@/src/storage/idb';
+import { recoverOrphanClips } from '@/src/storage/recoverOrphanClips';
 import { startExportDownload } from '@/src/web/export/saveExportZip';
 import { dirtyRasterIdsForAction } from '@/src/storage/dirtyRasters';
 import { releaseDefaultStorageDatabase, isDefaultStorageReleased } from '@/src/storage/idb';
@@ -648,6 +650,27 @@ type PendingCreate =
   | { pageId: string; x: number; y: number }
   | { pasteboard: true; x: number; y: number };
 
+/** `?recover=clips` or `?recover=<clipId>,<clipId>`: restore deleted clips from their stored PNGs, once. */
+async function recoverFromUrl(projectId: string): Promise<void> {
+  if (typeof window === 'undefined') {
+    return;
+  }
+  const url = new URL(window.location.href);
+  const param = url.searchParams.get('recover');
+  if (!param) {
+    return;
+  }
+  url.searchParams.delete('recover');
+  window.history.replaceState(null, '', url.toString());
+  try {
+    const only = param === 'clips' ? undefined : param.split(',').filter(Boolean);
+    const restored = await recoverOrphanClips(projectId, getDefaultStorageDatabase(), only);
+    inkLog('recoverFromUrl', 'recovered clips', { count: restored.length, ids: restored });
+  } catch (err) {
+    inkLog('recoverFromUrl', 'recover failed', { msg: err instanceof Error ? err.message : String(err) });
+  }
+}
+
 export function useEditorController(projectId: string): EditorController {
   const [appSettings] = useAppSettings();
   const historyDepthRef = useRef(appSettings.historyDepth);
@@ -918,6 +941,7 @@ export function useEditorController(projectId: string): EditorController {
     let cancelled = false;
 
     void (async () => {
+      await recoverFromUrl(projectId);
       const boot = await loadEditorBoot(projectId);
       if (cancelled) {
         return;
