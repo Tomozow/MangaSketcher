@@ -32,6 +32,10 @@ export type DrawTemplate = (ctx: Ink2DContext, width: number, height: number) =>
 export type InkEngineCallbacks = {
   onEncodingStarted?: (rasterId: string) => void;
   onEncodingComplete?: (rasterId: string, buffer: ArrayBuffer) => void;
+  /** Encode gave up (retries exhausted). PNG for this raster is stale until a later encode succeeds. */
+  onEncodingFailed?: (rasterId: string) => void;
+  /** Encode no longer applies (raster disposed / restored); do not wait for completion. */
+  onEncodingAborted?: (rasterId: string) => void;
   onBake?: (rasterId: string) => void;
   /** Encoded pixels landed on the hot canvas (sync snapshot or async PNG). */
   onHotPixelsReady?: (rasterId: string) => void;
@@ -40,10 +44,14 @@ export type InkEngineCallbacks = {
 export type InkAutosaveSink = {
   notifyEncodingStarted(rasterId: string): void;
   notifyEncodingComplete(rasterId: string, buffer: ArrayBuffer): void;
+  notifyEncodingFailed?(rasterId: string): void;
+  notifyEncodingAborted?(rasterId: string): void;
   scheduleDocumentSave(dirtyRasterIds: string[]): void;
 };
 
 const HOT_CANVAS_LIMIT = 8;
+const ENCODE_MAX_ATTEMPTS = 3;
+const ENCODE_RETRY_BASE_MS = 500;
 
 async function defaultEncodePng(canvas: InkCanvas): Promise<ArrayBuffer> {
   const blob = await canvas.convertToBlob({ type: 'image/png' });
@@ -228,6 +236,9 @@ export class InkEngine {
   }
 
   disposeRaster(rasterId: string): void {
+    if (this.pendingEncodes.delete(rasterId)) {
+      this.callbacks.onEncodingAborted?.(rasterId);
+    }
     this.hot.delete(rasterId);
     this.overlays.delete(rasterId);
     this.overlayCtx.delete(rasterId);
@@ -622,6 +633,7 @@ export class InkEngine {
     this.encodeGeneration.set(rasterId, (this.encodeGeneration.get(rasterId) ?? 0) + 1);
     this.pendingEncodes.delete(rasterId);
     this.deferredHotRefresh.delete(rasterId);
+    this.callbacks.onEncodingAborted?.(rasterId);
   }
 
   captureRasterPng(rasterId: string): ArrayBuffer | undefined {
@@ -1151,7 +1163,7 @@ export class InkEngine {
     return out.buffer;
   }
 
-  private startEncode(rasterId: string): void {
+  private startEncode(rasterId: string, attempt = 1): void {
     const canvas = this.hot.get(rasterId);
     if (!canvas) {
       return;
@@ -1169,7 +1181,7 @@ export class InkEngine {
         const revisionNow = this.hotRevision.get(rasterId) ?? 0;
         if (revisionNow !== hotRevisionAtStart) {
           this.pendingEncodes.delete(rasterId);
-          this.startEncode(rasterId);
+          this.startEncode(rasterId, attempt);
           return;
         }
         this.noteEncodedPng(rasterId, buffer);
@@ -1184,9 +1196,22 @@ export class InkEngine {
         this.callbacks.onEncodingComplete?.(rasterId, buffer);
       })
       .catch(() => {
-        if (this.encodeGeneration.get(rasterId) === gen) {
-          this.pendingEncodes.delete(rasterId);
+        if (this.encodeGeneration.get(rasterId) !== gen) {
+          return;
         }
+        if (attempt >= ENCODE_MAX_ATTEMPTS) {
+          this.pendingEncodes.delete(rasterId);
+          this.callbacks.onEncodingFailed?.(rasterId);
+          return;
+        }
+        // Keep pendingEncodes set so waiters and LRU treat it as in flight while backing off.
+        setTimeout(() => {
+          if (this.encodeGeneration.get(rasterId) !== gen) {
+            return;
+          }
+          this.pendingEncodes.delete(rasterId);
+          this.startEncode(rasterId, attempt + 1);
+        }, ENCODE_RETRY_BASE_MS * attempt);
       });
   }
 }
@@ -1210,6 +1235,8 @@ export function wireInkAutosave(engine: InkEngine, sink: InkAutosaveSink): () =>
       sink.notifyEncodingComplete(rasterId, buffer);
       sink.scheduleDocumentSave([rasterId]);
     },
+    onEncodingFailed: (rasterId) => sink.notifyEncodingFailed?.(rasterId),
+    onEncodingAborted: (rasterId) => sink.notifyEncodingAborted?.(rasterId),
     onBake: (rasterId) => sink.scheduleDocumentSave([rasterId]),
   });
   return () => engine.setCallbacks({});

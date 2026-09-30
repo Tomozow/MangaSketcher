@@ -99,6 +99,8 @@ type EditorLayoutProps = {
   clipLiveTransforms: Readonly<Record<string, ClipLiveTransform>>;
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
   autosaveStatus: AutosaveStatus;
+  onRetrySave: () => Promise<boolean>;
+  onExportRecoveryPack: () => void;
   getPageThumb: (pageId: PageId) => ImageBitmap | undefined;
   getClipRasterSize: (clipId: string) => { width: number; height: number };
   clearPageInk: (pageId: PageId) => void;
@@ -106,7 +108,13 @@ type EditorLayoutProps = {
   onTextDraftChange: (draft: string | null) => void;
 };
 
+/** Failures at or above this count offer the memory export in addition to retry. */
+const SAVE_FAILURES_OFFER_EXPORT = 2;
+
 function saveStatusLabel(status: AutosaveStatus): string {
+  if ((status.saveFailures ?? 0) > 0) {
+    return '保存できていません';
+  }
   if (status.encodingCount > 0) {
     return 'エンコード中';
   }
@@ -143,6 +151,8 @@ export function EditorLayout({
   clipLiveTransforms,
   textLiveTransforms,
   autosaveStatus,
+  onRetrySave,
+  onExportRecoveryPack,
   getPageThumb,
   getClipRasterSize,
   clearPageInk,
@@ -345,8 +355,16 @@ export function EditorLayout({
       : doc.stock;
   const stockFitUnits = Math.max(STOCK_GRID_MIN_FIT_PAGE_UNITS, stockGridFitPageUnits(stockFitItems));
   const bodyRef = useRef<HTMLDivElement>(null);
+  const saveFailures = autosaveStatus.saveFailures ?? 0;
   const saveKind =
-    autosaveStatus.encodingCount > 0 ? 'encoding' : autosaveStatus.unsaved ? 'unsaved' : 'idle';
+    saveFailures > 0
+      ? 'failed'
+      : autosaveStatus.encodingCount > 0
+        ? 'encoding'
+        : autosaveStatus.unsaved
+          ? 'unsaved'
+          : 'idle';
+  const [retrying, setRetrying] = useState(false);
 
   const [stockResizeGhost, setStockResizeGhost] = useState<{ w: number; h: number } | null>(null);
   const [pdfResizeGhost, setPdfResizeGhost] = useState<{ w: number; h: number } | null>(null);
@@ -938,13 +956,38 @@ export function EditorLayout({
         >
           <span
             className={`${styles.saveStatusDot} ${
-              autosaveStatus.encodingCount > 0
-                ? styles.saveStatusEncoding
-                : styles.saveStatusUnsaved
+              saveFailures > 0
+                ? styles.saveStatusFailed
+                : autosaveStatus.encodingCount > 0
+                  ? styles.saveStatusEncoding
+                  : styles.saveStatusUnsaved
             }`}
             aria-hidden
           />
           <span className={styles.saveStatusLabel}>{saveStatusLabel(autosaveStatus)}</span>
+          {saveFailures > 0 ? (
+            <>
+              <span className={styles.saveStatusHint}>
+                ページを再読み込みせず、再試行してください
+              </span>
+              <button
+                type="button"
+                className={styles.saveStatusAction}
+                disabled={retrying}
+                onClick={() => {
+                  setRetrying(true);
+                  void onRetrySave().finally(() => setRetrying(false));
+                }}
+              >
+                {retrying ? '再試行中…' : '再試行'}
+              </button>
+              {saveFailures >= SAVE_FAILURES_OFFER_EXPORT ? (
+                <button type="button" className={styles.saveStatusAction} onClick={onExportRecoveryPack}>
+                  書き出して退避
+                </button>
+              ) : null}
+            </>
+          ) : null}
         </div>
       ) : null}
     </div>

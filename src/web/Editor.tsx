@@ -47,6 +47,8 @@ export default function Editor({ projectId }: EditorProps) {
     clipLiveTransforms,
     textLiveTransforms,
     autosaveStatus,
+    retrySave,
+    exportRecoveryPack,
     getPageThumb,
     getClipRasterSize,
     clearPageInk,
@@ -156,6 +158,8 @@ export default function Editor({ projectId }: EditorProps) {
         clipLiveTransforms={clipLiveTransforms}
         textLiveTransforms={textLiveTransforms}
         autosaveStatus={autosaveStatus}
+        onRetrySave={retrySave}
+        onExportRecoveryPack={exportRecoveryPack}
         getPageThumb={getPageThumb}
         getClipRasterSize={getClipRasterSize}
         clearPageInk={clearPageInk}

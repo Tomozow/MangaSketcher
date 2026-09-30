@@ -27,7 +27,9 @@ import {
   trimEditorHistoryDepth,
   undoEditorHistory,
 } from '@/src/storage/history';
-import { copySharedTransparentPng } from '@/src/storage/transparentPng';
+import { copySharedTransparentPng, encodeTransparentPngBuffer } from '@/src/storage/transparentPng';
+import { buildProjectPackFileName, buildProjectPackZip } from '@/src/storage/projectPack';
+import { startExportDownload } from '@/src/web/export/saveExportZip';
 import { dirtyRasterIdsForAction } from '@/src/storage/dirtyRasters';
 import { releaseDefaultStorageDatabase, isDefaultStorageReleased } from '@/src/storage/idb';
 import { hardNavigate } from '@/src/web/hardNavigate';
@@ -492,6 +494,8 @@ type EditorController = {
   clipLiveTransforms: Readonly<Record<string, ClipLiveTransform>>;
   textLiveTransforms: Readonly<Record<string, TextLiveTransform>>;
   autosaveStatus: AutosaveStatus;
+  retrySave: () => Promise<boolean>;
+  exportRecoveryPack: () => void;
   getPageThumb: (pageId: PageId) => ImageBitmap | undefined;
   getClipRasterSize: (clipId: string) => { width: number; height: number };
   dispatch: (action: EditorDocumentAction) => void;
@@ -864,6 +868,12 @@ export function useEditorController(projectId: string): EditorController {
       notifyEncodingComplete: (rasterId, buffer) => {
         encodedPngRef.current.set(rasterId, buffer);
         autosaveRef.current?.notifyEncodingComplete(rasterId, buffer);
+      },
+      notifyEncodingFailed: (rasterId) => {
+        autosaveRef.current?.notifyEncodingFailed(rasterId);
+      },
+      notifyEncodingAborted: (rasterId) => {
+        autosaveRef.current?.notifyEncodingAborted(rasterId);
       },
       scheduleDocumentSave: (dirtyRasterIds) => {
         const present = historyRef.current?.present;
@@ -2307,6 +2317,55 @@ export function useEditorController(projectId: string): EditorController {
     }
   };
 
+  const retrySave = useCallback(async (): Promise<boolean> => {
+    const autosave = autosaveRef.current;
+    if (!autosave) {
+      return false;
+    }
+    const engine = inkApiRef.current?.engine;
+    if (engine) {
+      for (const rasterId of autosave.getFailedEncodeIds()) {
+        engine.restartEncode(rasterId);
+      }
+      for (const [rasterId, png] of engine.encodedPng) {
+        if (png.byteLength > 0) {
+          encodedPngRef.current.set(rasterId, png);
+        }
+      }
+    }
+    const present = historyRef.current?.present;
+    if (present) {
+      autosave.scheduleSave(present, collectRasterIds(present), false);
+    }
+    return autosave.retry();
+  }, []);
+
+  /** Last resort when IndexedDB writes keep failing: build the pack from memory, not from the DB. */
+  const exportRecoveryPack = useCallback(() => {
+    const present = historyRef.current?.present;
+    if (!present) {
+      return;
+    }
+    const engine = inkApiRef.current?.engine;
+    const rasters = new Map<string, ArrayBuffer>();
+    for (const rasterId of collectRasterIds(present)) {
+      const png = engine?.encodedPng.get(rasterId) ?? encodedPngRef.current.get(rasterId);
+      rasters.set(
+        rasterId,
+        png && png.byteLength > 0
+          ? png
+          : encodeTransparentPngBuffer(present.rasterWidth, present.rasterHeight),
+      );
+    }
+    const exportedAt = new Date();
+    const bytes = buildProjectPackZip({ document: present, rasters });
+    const file = new File([bytes.slice().buffer], buildProjectPackFileName(present.name, exportedAt), {
+      type: 'application/zip',
+      lastModified: exportedAt.getTime(),
+    });
+    startExportDownload(file);
+  }, []);
+
   const onPdfViewChange = useCallback(
     (patch: { currentPage?: number; zoom?: number; panX?: number; panY?: number }) => {
       dispatch({ type: 'setPdfView', ...patch });
@@ -2530,6 +2589,8 @@ export function useEditorController(projectId: string): EditorController {
     clipLiveTransforms,
     textLiveTransforms,
     autosaveStatus,
+    retrySave,
+    exportRecoveryPack,
     pendingInkCount,
     getPageThumb,
     getClipRasterSize,

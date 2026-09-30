@@ -13,7 +13,19 @@ import { ipadDebugLog } from '@/src/web/ipadDebugLog';
 export type AutosaveStatus = {
   unsaved: boolean;
   encodingCount: number;
+  /** Consecutive failed / timed-out writes. Omitted while healthy. */
+  saveFailures?: number;
 };
+
+/** A commit that has not settled by then is treated as hung and failed. */
+export const COMMIT_TIMEOUT_MS = 30_000;
+
+export class AutosaveCommitTimeoutError extends Error {
+  constructor() {
+    super('autosave commit timed out');
+    this.name = 'AutosaveCommitTimeoutError';
+  }
+}
 
 export type AutosaveDelays = {
   documentMs: number;
@@ -25,6 +37,7 @@ export type AutosaveManagerOptions = {
   getEncodedPng: () => ReadonlyMap<string, ArrayBuffer>;
   onStatusChange?: (status: AutosaveStatus) => void;
   getDelays?: () => AutosaveDelays;
+  commitTimeoutMs?: number;
 };
 
 type PendingJob = {
@@ -35,7 +48,11 @@ type PendingJob = {
 };
 
 function sameStatus(a: AutosaveStatus, b: AutosaveStatus): boolean {
-  return a.unsaved === b.unsaved && a.encodingCount === b.encodingCount;
+  return (
+    a.unsaved === b.unsaved &&
+    a.encodingCount === b.encodingCount &&
+    (a.saveFailures ?? 0) === (b.saveFailures ?? 0)
+  );
 }
 
 export class AutosaveManager {
@@ -53,11 +70,15 @@ export class AutosaveManager {
   private encoding = new Set<string>();
   private unsaved = false;
   private disposed = false;
+  private failures = 0;
+  private readonly failedEncodes = new Set<string>();
+  private readonly commitTimeoutMs: number;
 
   constructor(options: AutosaveManagerOptions) {
     this.db = options.db ?? getDefaultStorageDatabase();
     this.getEncodedPng = options.getEncodedPng;
     this.onStatusChange = options.onStatusChange;
+    this.commitTimeoutMs = options.commitTimeoutMs ?? COMMIT_TIMEOUT_MS;
     this.getDelays =
       options.getDelays ??
       (() => ({
@@ -67,7 +88,12 @@ export class AutosaveManager {
   }
 
   getStatus(): AutosaveStatus {
-    return { unsaved: this.unsaved, encodingCount: this.encoding.size };
+    const status: AutosaveStatus = { unsaved: this.unsaved, encodingCount: this.encoding.size };
+    const failures = this.failures + this.failedEncodes.size;
+    if (failures > 0) {
+      status.saveFailures = failures;
+    }
+    return status;
   }
 
   private emitStatus(): void {
@@ -96,10 +122,37 @@ export class AutosaveManager {
     this.setEncodingCount();
   }
 
+  /** Encode gave up: not "encoding" any more, but the saved PNG is stale. Surfaced as a failure. */
+  notifyEncodingFailed(rasterId: string): void {
+    if (this.disposed) {
+      return;
+    }
+    this.encoding.delete(rasterId);
+    this.failedEncodes.add(rasterId);
+    this.emitStatus();
+  }
+
+  /** Encode no longer applies (raster gone or replaced); stop reporting it as in flight. */
+  notifyEncodingAborted(rasterId: string): void {
+    if (this.disposed) {
+      return;
+    }
+    const had = this.encoding.delete(rasterId);
+    const hadFailed = this.failedEncodes.delete(rasterId);
+    if (had || hadFailed) {
+      this.emitStatus();
+    }
+  }
+
+  getFailedEncodeIds(): string[] {
+    return [...this.failedEncodes];
+  }
+
   notifyEncodingComplete(rasterId: string, _buffer: ArrayBuffer): void {
     if (this.disposed) {
       return;
     }
+    this.failedEncodes.delete(rasterId);
     this.encoding.delete(rasterId);
     this.setEncodingCount();
   }
@@ -164,7 +217,9 @@ export class AutosaveManager {
     const delay = mergedViewOnly ? Math.max(0, viewOnlyMs) : Math.max(0, documentMs);
     this.debounceTimer = setTimeout(() => {
       this.debounceTimer = null;
-      void this.runLatestJob();
+      this.runLatestJob().catch(() => {
+        // Failure is surfaced through status.saveFailures; the job is requeued.
+      });
     }, delay);
   }
 
@@ -220,17 +275,20 @@ export class AutosaveManager {
         updatedAt,
         pageCount: Object.keys(job.doc.pages).length,
       };
-      await this.db.commitDocumentGeneration({
+      await this.commitWithTimeout({
         document: job.doc,
         meta,
         rasters,
         snapshot: 'guarded',
       });
       void requestPersistentStorage();
+      this.setFailures(0);
       if (job.saveGen === this.saveGen) {
         this.setUnsaved(false);
       }
     } catch (err) {
+      this.requeueFailedJob(job);
+      this.setFailures(this.failures + 1);
       // #region agent log
       ipadDebugLog({
         sessionId: 'adcc47',
@@ -248,6 +306,56 @@ export class AutosaveManager {
     } finally {
       this.runningJob = null;
       done();
+    }
+  }
+
+  private commitWithTimeout(input: Parameters<StorageDatabase['commitDocumentGeneration']>[0]): Promise<unknown> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new AutosaveCommitTimeoutError()), this.commitTimeoutMs);
+      this.db.commitDocumentGeneration(input).then(
+        (value) => {
+          clearTimeout(timer);
+          resolve(value);
+        },
+        (err) => {
+          clearTimeout(timer);
+          reject(err);
+        },
+      );
+    });
+  }
+
+  private setFailures(value: number): void {
+    if (this.failures === value) {
+      return;
+    }
+    this.failures = value;
+    this.emitStatus();
+  }
+
+  /** Keep a failed write so the next attempt (retry or newer save) still carries its dirty rasters. */
+  private requeueFailedJob(job: PendingJob): void {
+    const pending = this.pendingJob;
+    if (pending) {
+      for (const id of job.dirtyRasterIds) {
+        pending.dirtyRasterIds.add(id);
+      }
+      pending.viewOnly = pending.viewOnly && job.viewOnly && pending.dirtyRasterIds.size === 0;
+      return;
+    }
+    this.pendingJob = job;
+  }
+
+  /** Manual retry after a failure. Resolves true when everything pending was written. */
+  async retry(): Promise<boolean> {
+    if (this.disposed) {
+      return false;
+    }
+    try {
+      await this.flushRouteLeave();
+      return true;
+    } catch {
+      return false;
     }
   }
 

@@ -1860,6 +1860,26 @@ html[data-ms-display='standalone'] .ms-editorRoot {
   background: #c45c26;
 }
 
+.ms-saveStatusFailed {
+  background: #c62828;
+}
+
+.ms-saveStatusHint {
+  white-space: normal;
+  max-width: 220px;
+}
+
+.ms-saveStatusAction {
+  pointer-events: auto;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 999px;
+  border: 1px solid var(--ms-chrome-hair);
+  background: transparent;
+}
+
 .ms-saveStatusEncoding {
   background: #3d5a80;
   animation: ms-pulse 1s ease-in-out infinite;

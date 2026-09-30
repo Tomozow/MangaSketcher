@@ -311,7 +311,16 @@ function deletePrefixWithCursor(
   request.onerror = () => onFail(request.error ?? new Error('idb prefix cursor failed'));
 }
 
+/** Stands in for bytes we know are a valid PNG without re-reading them; only `.has` / signature checks touch it. */
+const KNOWN_VALID_PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]).buffer;
+
 export class BrowserStorageDatabase implements StorageDatabase {
+  /**
+   * Raster ids whose live / snapshot copy this connection has already verified or written.
+   * Lets autosave skip re-reading every PNG of the document on each commit.
+   */
+  private readonly liveValid = new Set<string>();
+  private readonly snapshotPresent = new Set<string>();
   private dbPromise: Promise<IDBDatabase>;
   private connection: IDBDatabase | null = null;
 
@@ -406,11 +415,17 @@ export class BrowserStorageDatabase implements StorageDatabase {
   async putRaster(rasterId: string, png: ArrayBuffer): Promise<void> {
     const db = await this.db();
     await tx(db, [RASTERS], 'readwrite', ({ rasters }) => rasters.put({ rasterId, png }));
+    if (storedPngIsValid(png)) {
+      this.liveValid.add(rasterId);
+    } else {
+      this.liveValid.delete(rasterId);
+    }
   }
 
   async deleteRaster(rasterId: string): Promise<void> {
     const db = await this.db();
     await tx(db, [RASTERS], 'readwrite', ({ rasters }) => rasters.delete(rasterId));
+    this.liveValid.delete(rasterId);
   }
 
   async listRasterIds(): Promise<string[]> {
@@ -455,8 +470,31 @@ export class BrowserStorageDatabase implements StorageDatabase {
     const payload = input.rasters ?? new Map<string, ArrayBuffer>();
     const mode = input.snapshot ?? 'guarded';
     const rasterIds = collectRasterIds(input.document);
-    const liveBefore = await readRasterBytes(db, RASTERS, rasterIds);
+    // Only read what the caches cannot vouch for (first save of a session reads everything once).
+    const settled = (id: string) =>
+      this.liveValid.has(id) && (mode === 'name-only' || this.snapshotPresent.has(id));
+    const liveBefore = await readRasterBytes(
+      db,
+      RASTERS,
+      rasterIds.filter((id) => !payload.has(id) && !settled(id)),
+    );
+    for (const id of rasterIds) {
+      if (!payload.has(id) && !liveBefore.has(id) && settled(id)) {
+        liveBefore.set(id, KNOWN_VALID_PNG);
+      } else if (liveBefore.has(id) && storedPngIsValid(liveBefore.get(id))) {
+        this.liveValid.add(id);
+      }
+    }
 
+    const noteLiveWrites = () => {
+      for (const [rasterId, png] of payload.entries()) {
+        if (storedPngIsValid(png)) {
+          this.liveValid.add(rasterId);
+        } else {
+          this.liveValid.delete(rasterId);
+        }
+      }
+    };
     await new Promise<void>((resolve, reject) => {
       const transaction = db.transaction([RASTERS, DOCUMENTS, META], 'readwrite');
       const rasters = transaction.objectStore(RASTERS);
@@ -467,7 +505,10 @@ export class BrowserStorageDatabase implements StorageDatabase {
       }
       documents.put({ ...input.document, id: input.document.projectId });
       meta.put(input.meta);
-      transaction.oncomplete = () => resolve();
+      transaction.oncomplete = () => {
+        noteLiveWrites();
+        resolve();
+      };
       transaction.onerror = () => reject(transaction.error ?? new Error('commit live failed'));
       transaction.onabort = () => reject(transaction.error ?? new Error('commit live aborted'));
     });
@@ -496,10 +537,30 @@ export class BrowserStorageDatabase implements StorageDatabase {
       }
 
       const existingSnapshot = db.objectStoreNames.contains(RASTER_SNAPSHOTS)
-        ? await readRasterBytes(db, RASTER_SNAPSHOTS, rasterIds)
+        ? await readRasterBytes(
+            db,
+            RASTER_SNAPSHOTS,
+            rasterIds.filter((id) => !payload.has(id) && !this.snapshotPresent.has(id)),
+          )
         : new Map<string, ArrayBuffer>();
+      for (const id of rasterIds) {
+        if (!payload.has(id) && !existingSnapshot.has(id) && this.snapshotPresent.has(id)) {
+          existingSnapshot.set(id, KNOWN_VALID_PNG);
+        }
+      }
       const toPut = snapshotRastersToPut(input.document, payload, liveBefore, existingSnapshot);
       await this.commitSnapshotStores(db, input.document, toPut);
+      const keep = new Set(rasterIds);
+      for (const id of [...this.snapshotPresent]) {
+        if (id.startsWith(`${input.document.projectId}:`) && !keep.has(id)) {
+          this.snapshotPresent.delete(id);
+        }
+      }
+      for (const id of rasterIds) {
+        if (toPut.has(id) || existingSnapshot.has(id)) {
+          this.snapshotPresent.add(id);
+        }
+      }
       return { snapshotUpdated: true };
     } catch (err) {
       ipadDebugLog({
@@ -574,6 +635,13 @@ export class BrowserStorageDatabase implements StorageDatabase {
 
   async deleteProjectRecords(projectId: string): Promise<void> {
     const db = await this.db();
+    for (const cache of [this.liveValid, this.snapshotPresent]) {
+      for (const id of [...cache]) {
+        if (id.startsWith(`${projectId}:`)) {
+          cache.delete(id);
+        }
+      }
+    }
     await new Promise<void>((resolve, reject) => {
       const storeNames: StoreName[] = [RASTERS, DOCUMENTS, META];
       if (db.objectStoreNames.contains(DOCUMENT_SNAPSHOTS)) {
