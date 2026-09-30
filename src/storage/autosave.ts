@@ -56,7 +56,7 @@ function sameStatus(a: AutosaveStatus, b: AutosaveStatus): boolean {
 }
 
 export class AutosaveManager {
-  private readonly db: StorageDatabase;
+  private readonly explicitDb?: StorageDatabase;
   private readonly getEncodedPng: () => ReadonlyMap<string, ArrayBuffer>;
   private readonly onStatusChange?: (status: AutosaveStatus) => void;
   private readonly getDelays: () => AutosaveDelays;
@@ -75,7 +75,7 @@ export class AutosaveManager {
   private readonly commitTimeoutMs: number;
 
   constructor(options: AutosaveManagerOptions) {
-    this.db = options.db ?? getDefaultStorageDatabase();
+    this.explicitDb = options.db;
     this.getEncodedPng = options.getEncodedPng;
     this.onStatusChange = options.onStatusChange;
     this.commitTimeoutMs = options.commitTimeoutMs ?? COMMIT_TIMEOUT_MS;
@@ -85,6 +85,14 @@ export class AutosaveManager {
         documentMs: DOCUMENT_SAVE_DEBOUNCE_MS,
         viewOnlyMs: VIEW_ONLY_SAVE_DEBOUNCE_MS,
       }));
+  }
+
+  /**
+   * Resolved per use: pagehide / navigation closes the shared connection, and a manager that
+   * kept the old handle would fail every later save with "database connection is closing".
+   */
+  private get db(): StorageDatabase {
+    return this.explicitDb ?? getDefaultStorageDatabase();
   }
 
   getStatus(): AutosaveStatus {
