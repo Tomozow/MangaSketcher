@@ -9,6 +9,7 @@ import type { StorageDatabase } from './idb';
 import { getDefaultStorageDatabase } from './idb';
 import { requestPersistentStorage } from './persistentStorage';
 import { ipadDebugLog } from '@/src/web/ipadDebugLog';
+import { inkLog } from '@/src/web/ink/inkDebugLog';
 
 export type AutosaveStatus = {
   unsaved: boolean;
@@ -283,18 +284,32 @@ export class AutosaveManager {
         updatedAt,
         pageCount: Object.keys(job.doc.pages).length,
       };
+      const startedAt = Date.now();
+      inkLog('autosave.executeJob', 'commit start', {
+        saveGen: job.saveGen,
+        viewOnly: job.viewOnly,
+        dirty: [...job.dirtyRasterIds],
+        payload: [...rasters].map(([id, buf]) => [id, buf.byteLength]),
+        pageCount: meta.pageCount,
+      });
       await this.commitWithTimeout({
         document: job.doc,
         meta,
         rasters,
         snapshot: 'guarded',
       });
+      inkLog('autosave.executeJob', 'commit ok', { saveGen: job.saveGen, ms: Date.now() - startedAt });
       void requestPersistentStorage();
       this.setFailures(0);
       if (job.saveGen === this.saveGen) {
         this.setUnsaved(false);
       }
     } catch (err) {
+      inkLog('autosave.executeJob', 'commit failed', {
+        saveGen: job.saveGen,
+        name: err instanceof Error ? err.name : typeof err,
+        msg: err instanceof Error ? err.message : String(err),
+      });
       this.requeueFailedJob(job);
       this.setFailures(this.failures + 1);
       // #region agent log

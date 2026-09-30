@@ -13,6 +13,7 @@ import {
   metaFromDocument,
 } from './generationSnapshot';
 import { ipadDebugLog } from '@/src/web/ipadDebugLog';
+import { inkLog } from '@/src/web/ink/inkDebugLog';
 
 export type EditorBootResult = {
   document: EditorDocument;
@@ -96,6 +97,10 @@ export async function loadEditorBoot(
 
   const document = cloneEditorDocument(loaded);
   const encodedPng = await loadProjectRasters(document, { db });
+  inkLog('editorBoot.loadEditorBoot', 'boot rasters', {
+    projectId,
+    rasters: collectRasterIds(document).map((id) => [id, encodedPng.get(id)?.byteLength ?? -1]),
+  });
   let pdfFile: File | null = null;
   let pdfMissing = false;
   if (document.pdf?.opfsPath) {
