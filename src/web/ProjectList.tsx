@@ -34,6 +34,7 @@ import {
 import { useAppShellHeight } from '@/src/web/appShellHeight';
 import { prepareImportedProjectOffThread } from '@/src/web/projectImport/prepareImportedProjectOffThread';
 import { isGitHubPagesApp } from '@/src/web/displayMode';
+import { APP_NAME } from '@/src/web/appVariant';
 import { IpadCaQrButton } from '@/src/web/IpadCaQrButton';
 import {
   LanTransferControls,
@@ -469,7 +470,7 @@ export function ProjectList() {
               MS
             </div>
             <div>
-              <h1 className={styles.title}>MangaSketcher</h1>
+              <h1 className={styles.title}>{APP_NAME}</h1>
               {isGitHubPagesApp() ? null : (
                 <>
                   <span className={styles.subtitle}>端末内 · 自動保存</span>
