@@ -75,9 +75,10 @@ export async function putLanPackZip(
   code: string,
   file: File,
   signal?: AbortSignal,
+  name = '',
 ): Promise<number> {
   if (isLanPackRtcBase(hubBase)) {
-    return sendRtcZip(code, file, signal);
+    return sendRtcZip(code, file, name, signal);
   }
   const response = await fetch(lanPackApiUrl(hubBase, `/api/lan-pack/${code}`), {
     method: 'PUT',

@@ -2,6 +2,9 @@ import { describe, expect, test } from 'vitest';
 import {
   isLanPackCode,
   isLanPackRtcBase,
+  isLanPackRtcCode,
+  normalizeLanPackRtcCode,
+  randomLanPackRtcCode,
   lanPackApiUrl,
   lanPackOriginKind,
   normalizeLanPackDigits,
@@ -85,5 +88,22 @@ describe('lan pack RTC mode (GitHub Pages)', () => {
   test('unknown hosts still have no hub', () => {
     expect(resolveLanPackHubBase({ protocol: 'https:', hostname: 'example.com', port: '' })).toBeNull();
     expect(isLanPackRtcBase('')).toBe(false);
+  });
+});
+
+describe('lan pack RTC code', () => {
+  test('random codes are 3 digits + 2 unambiguous letters', () => {
+    for (let i = 0; i < 200; i += 1) {
+      const code = randomLanPackRtcCode();
+      expect(isLanPackRtcCode(code)).toBe(true);
+      expect(code).not.toMatch(/[IO]/);
+    }
+  });
+
+  test('normalizes full-width and lowercase input', () => {
+    expect(normalizeLanPackRtcCode('１２３ａｂ')).toBe('123AB');
+    expect(normalizeLanPackRtcCode(' 12-3cd9')).toBe('123CD');
+    expect(isLanPackRtcCode('123IO')).toBe(false);
+    expect(isLanPackRtcCode('123')).toBe(false);
   });
 });

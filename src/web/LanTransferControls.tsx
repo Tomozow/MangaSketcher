@@ -20,6 +20,9 @@ import {
 import {
   LAN_PACK_BAD_CODE,
   LAN_PACK_CODE_DIGITS,
+  LAN_PACK_DECLINED,
+  LAN_PACK_RECEIVE_MINUTES,
+  LAN_PACK_RTC_CODE_LENGTH,
   LAN_PACK_HUB_DOWN_MESSAGE,
   LAN_PACK_PDF_NOTICE,
   LAN_PACK_SENT,
@@ -27,13 +30,30 @@ import {
   LAN_PACK_RTC_DOWN_MESSAGE,
   isLanPackCode,
   isLanPackRtcBase,
+  isLanPackRtcCode,
   normalizeLanPackDigits,
+  normalizeLanPackRtcCode,
   resolveLanPackHubBase,
 } from '@/src/web/lanPack/hubUrl';
+import { setRtcOfferHandler } from '@/src/web/lanPack/rtcTransport';
 import styles from '@/app/page.module.css';
 
 function downMessage(): string {
   return isLanPackRtcBase(hubBaseFromWindow()) ? LAN_PACK_RTC_DOWN_MESSAGE : LAN_PACK_HUB_DOWN_MESSAGE;
+}
+
+function isRtcMode(): boolean {
+  return isLanPackRtcBase(hubBaseFromWindow());
+}
+
+/** 届いた作品を取り込む前に必ず聞く。LAN 上の誰でも番号宛てに送れるため。 */
+function confirmReceive(name: string | null, size: number): boolean {
+  const what = name ? `「${name}」` : '作品';
+  const mb = (size / 1024 / 1024).toFixed(1);
+  return window.confirm(
+    `LANで${what}（${mb}MB）が届いています。受け取りますか？
+心当たりがなければ「キャンセル」を選んでください。`,
+  );
 }
 
 function waitForPaint(): Promise<void> {
@@ -92,10 +112,15 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
     const [sendProjectName, setSendProjectName] = useState<string | null>(null);
     const [recvCode, setRecvCode] = useState<string | null>(null);
     const [hubDown, setHubDown] = useState(false);
+    /** 受け取りは「LANで受け取る」を押したときだけ、一定時間だけ待ち受ける。 */
+    const [receiving, setReceiving] = useState(false);
     const [status, setStatus] = useState<string | null>(null);
     const [sendError, setSendError] = useState<string | null>(null);
     const [sendPhase, setSendPhase] = useState<'form' | 'sending'>('form');
     const hubDownMessage = downMessage();
+    const rtc = isRtcMode();
+    const codeValid = (value: string) => (rtc ? isLanPackRtcCode(value) : isLanPackCode(value));
+    const normalizeCode = (value: string) => (rtc ? normalizeLanPackRtcCode(value) : normalizeLanPackDigits(value));
     const sendAbortRef = useRef<AbortController | null>(null);
     const recvCodeRef = useRef<string | null>(null);
 
@@ -177,7 +202,20 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
     importReceivedRef.current = importReceived;
 
     useEffect(() => {
-      if (mode === 'send-code') {
+      setRtcOfferHandler(({ name, size }) => confirmReceive(name, size));
+      return () => setRtcOfferHandler(null);
+    }, []);
+
+    useEffect(() => {
+      if (!receiving) {
+        return;
+      }
+      const timer = window.setTimeout(() => setReceiving(false), LAN_PACK_RECEIVE_MINUTES * 60_000);
+      return () => window.clearTimeout(timer);
+    }, [receiving]);
+
+    useEffect(() => {
+      if (mode === 'send-code' || !receiving) {
         dropRecvCode(recvCodeRef.current);
         recvCodeRef.current = null;
         setRecvCode(null);
@@ -241,7 +279,12 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
                 return;
               }
               if (got.status === 200 && got.file) {
-                await importReceivedRef.current(got.file);
+                // Pages 版は送信前に確認済み。ハブ版はここで聞く。
+                if (isLanPackRtcBase(hubBase) || confirmReceive(null, got.file.size)) {
+                  await importReceivedRef.current(got.file);
+                  setReceiving(false);
+                  return;
+                }
                 continue;
               }
               if (got.status === 404) {
@@ -276,7 +319,7 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
         dropRecvCode(recvCodeRef.current);
         recvCodeRef.current = null;
       };
-    }, [dropRecvCode, mode]);
+    }, [dropRecvCode, mode, receiving]);
 
     const startSend = useCallback(
       async (project: ProjectMeta) => {
@@ -302,7 +345,7 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
     useImperativeHandle(ref, () => ({ startSend }), [startSend]);
 
     const confirmSend = useCallback(async () => {
-      if (busy || listBusy || sendProjectId == null || !isLanPackCode(codeInput)) {
+      if (busy || listBusy || sendProjectId == null || !codeValid(codeInput)) {
         return;
       }
       const hubBase = hubBaseFromWindow();
@@ -328,7 +371,7 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
           return;
         }
         logLanPack('put', { bytes: file.size, origin: window.location.origin });
-        const statusCode = await putLanPackZip(hubBase, codeInput, file, abort.signal);
+        const statusCode = await putLanPackZip(hubBase, codeInput, file, abort.signal, sendProjectName ?? '');
         if (abort.signal.aborted) {
           return;
         }
@@ -339,6 +382,11 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
         }
         if (statusCode === 404) {
           setSendError(LAN_PACK_BAD_CODE);
+          setSendPhase('form');
+          return;
+        }
+        if (statusCode === 403) {
+          setSendError(LAN_PACK_DECLINED);
           setSendPhase('form');
           return;
         }
@@ -361,21 +409,40 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
         }
         setBusy(false);
       }
-    }, [busy, closeSend, codeInput, listBusy, sendProjectId, setNotice]);
+    }, [busy, closeSend, codeInput, listBusy, sendProjectId, sendProjectName, setNotice]);
 
     return (
       <>
         {mode !== 'send-code' ? (
           <div className={styles.lanRecvStrip} aria-live="polite">
-            {recvCode ? (
-              <>
-                <span className={styles.lanRecvLabel}>LAN受け取り番号</span>
-                <span className={styles.lanCodeDisplay}>{recvCode}</span>
-              </>
-            ) : hubDown ? (
-              <span className={styles.lanRecvHint}>{hubDownMessage}</span>
+            {!receiving ? (
+              <button
+                type="button"
+                className={styles.secondaryButton}
+                disabled={busy || listBusy}
+                onClick={() => {
+                  setError(null);
+                  setReceiving(true);
+                }}
+              >
+                LANで受け取る
+              </button>
             ) : (
-              <span className={styles.lanRecvHint}>LAN受け取りを準備しています…</span>
+              <>
+                {recvCode ? (
+                  <>
+                    <span className={styles.lanRecvLabel}>LAN受け取り番号</span>
+                    <span className={styles.lanCodeDisplay}>{recvCode}</span>
+                  </>
+                ) : hubDown ? (
+                  <span className={styles.lanRecvHint}>{hubDownMessage}</span>
+                ) : (
+                  <span className={styles.lanRecvHint}>LAN受け取りを準備しています…</span>
+                )}
+                <button type="button" className={styles.secondaryButton} onClick={() => setReceiving(false)}>
+                  終了
+                </button>
+              </>
             )}
           </div>
         ) : null}
@@ -405,29 +472,29 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
                     <input
                       className={styles.lanCodeInput}
                       type="text"
-                      inputMode="numeric"
+                      inputMode={rtc ? 'text' : 'numeric'}
                       enterKeyHint="send"
                       autoComplete="one-time-code"
                       autoCorrect="off"
-                      autoCapitalize="off"
+                      autoCapitalize={rtc ? 'characters' : 'off'}
                       spellCheck={false}
-                      maxLength={LAN_PACK_CODE_DIGITS}
+                      maxLength={rtc ? LAN_PACK_RTC_CODE_LENGTH : LAN_PACK_CODE_DIGITS}
                       value={codeInput}
                       autoFocus
                       aria-label="受け取り号"
                       onPointerDown={(event) => event.stopPropagation()}
                       onKeyDown={(event) => event.stopPropagation()}
                       onChange={(event) => {
-                        setCodeInput(normalizeLanPackDigits(event.target.value));
+                        setCodeInput(normalizeCode(event.target.value));
                       }}
                       onCompositionEnd={(event) => {
-                        setCodeInput(normalizeLanPackDigits(event.currentTarget.value));
+                        setCodeInput(normalizeCode(event.currentTarget.value));
                       }}
                     />
                     <button
                       type="submit"
                       className={styles.newButton}
-                      disabled={!isLanPackCode(codeInput) || sendProjectId == null}
+                      disabled={!codeValid(codeInput) || sendProjectId == null}
                     >
                       送る
                     </button>

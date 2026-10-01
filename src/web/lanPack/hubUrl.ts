@@ -4,6 +4,10 @@ export const LAN_PACK_HUB_DOWN_MESSAGE =
 export const LAN_PACK_RTC_DOWN_MESSAGE =
   'LAN転送の接続準備に失敗しました。同じWi-Fiか、ネット接続を確認してください。';
 
+export const LAN_PACK_DECLINED = '受け取られませんでした。相手の画面で「受け取る」を選んでもらってください。';
+
+export const LAN_PACK_RECEIVE_MINUTES = 5;
+
 export const LAN_PACK_PDF_NOTICE =
   '参照PDFは含まれません。送り先で付け直してください。相手の一覧には複製として追加されます。';
 
@@ -38,6 +42,35 @@ export function isLanPackCode(value: string): boolean {
 export function normalizeLanPackDigits(raw: string): string {
   const halfWidth = raw.replace(/[０-９]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0));
   return halfWidth.replace(/\D/g, '').slice(0, LAN_PACK_CODE_DIGITS);
+}
+
+/**
+ * Pages 版の番号: 数字3桁 + 英字2文字 (I/O は除外)。PeerJS の名前空間は全利用者で共有なので、
+ * 3桁 (1000通り) だと買い占め・誤送信が容易になる。
+ */
+const RTC_CODE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+export const LAN_PACK_RTC_CODE_LENGTH = LAN_PACK_CODE_DIGITS + 2;
+
+export function isLanPackRtcCode(value: string): boolean {
+  return /^[0-9]{3}[A-HJ-NP-Z]{2}$/.test(value);
+}
+
+export function normalizeLanPackRtcCode(raw: string): string {
+  const halfWidth = raw.replace(/[！-～]/g, (ch) => String.fromCharCode(ch.charCodeAt(0) - 0xfee0));
+  return halfWidth.toUpperCase().replace(/[^0-9A-Z]/g, '').slice(0, LAN_PACK_RTC_CODE_LENGTH);
+}
+
+export function randomLanPackRtcCode(): string {
+  const r = new Uint32Array(LAN_PACK_RTC_CODE_LENGTH);
+  crypto.getRandomValues(r);
+  let code = '';
+  for (let i = 0; i < LAN_PACK_CODE_DIGITS; i += 1) {
+    code += String(r[i] % 10);
+  }
+  for (let i = LAN_PACK_CODE_DIGITS; i < LAN_PACK_RTC_CODE_LENGTH; i += 1) {
+    code += RTC_CODE_LETTERS[r[i] % RTC_CODE_LETTERS.length];
+  }
+  return code;
 }
 
 export function padLanPackCode(n: number): string {

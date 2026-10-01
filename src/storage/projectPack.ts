@@ -14,6 +14,8 @@ export const DOCUMENT_JSON = 'document.json';
 export const MAX_PACK_ZIP_BYTES = 200 * 1024 * 1024;
 export const MAX_PACK_ENTRIES = 4096;
 export const MAX_PACK_RASTER_BYTES = 32 * 1024 * 1024;
+/** Sum of declared uncompressed sizes. Packs are mostly PNGs, so this is well above any real pack. */
+export const MAX_PACK_TOTAL_BYTES = 512 * 1024 * 1024;
 
 export class ProjectPackError extends Error {
   constructor(message: string) {
@@ -179,7 +181,7 @@ export function validateImportedDocument(raw: unknown): EditorDocument {
   return stripPdfForPack(doc);
 }
 
-function unzipPackFilter(file: UnzipFile, entryCount: { n: number }): boolean {
+function unzipPackFilter(file: UnzipFile, entryCount: { n: number; bytes: number }): boolean {
   const path = file.name;
   if (path.endsWith('/')) {
     return false;
@@ -195,6 +197,10 @@ function unzipPackFilter(file: UnzipFile, entryCount: { n: number }): boolean {
   if (size > MAX_PACK_RASTER_BYTES) {
     throw new ProjectPackError('ZIPのエントリが大きすぎます。');
   }
+  entryCount.bytes += size;
+  if (entryCount.bytes > MAX_PACK_TOTAL_BYTES) {
+    throw new ProjectPackError('ZIPの展開後のサイズが大きすぎます。');
+  }
   return true;
 }
 
@@ -209,7 +215,7 @@ function safeUnzipPack(bytes: Uint8Array): Record<string, Uint8Array> {
   if (bytes.byteLength > MAX_PACK_ZIP_BYTES) {
     throw new ProjectPackError('ZIPファイルが大きすぎます。');
   }
-  const entryCount = { n: 0 };
+  const entryCount = { n: 0, bytes: 0 };
   try {
     return unzipSync(bytes, {
       filter(file: UnzipFile) {
@@ -226,7 +232,7 @@ export function parseProjectPackZipAsync(bytes: Uint8Array): Promise<ParsedProje
     return Promise.reject(new ProjectPackError('ZIPファイルが大きすぎます。'));
   }
   return new Promise((resolve, reject) => {
-    const entryCount = { n: 0 };
+    const entryCount = { n: 0, bytes: 0 };
     unzip(
       bytes,
       {

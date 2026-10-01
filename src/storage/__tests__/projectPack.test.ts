@@ -154,6 +154,22 @@ describe('buildProjectPackZip / parseProjectPackZip', () => {
     entries[MANIFEST_JSON] = new TextEncoder().encode(JSON.stringify(manifest));
     expect(() => parseProjectPackZip(zipSync(entries))).toThrow(ProjectPackError);
   });
+
+  test('rejects packs whose declared uncompressed total is too large', () => {
+    const entries: Record<string, Uint8Array> = {};
+    for (let i = 0; i < 20; i += 1) {
+      entries[`rasters/page__p${i}.png`] = PNG_HEADER;
+    }
+    const zip = zipSync(entries, { level: 0 });
+    // Claim 30MB per entry in the central directory: each passes the per-entry cap, the sum does not.
+    const view = new DataView(zip.buffer, zip.byteOffset, zip.byteLength);
+    for (let at = 0; at + 4 <= zip.byteLength; at += 1) {
+      if (view.getUint32(at, true) === 0x02014b50) {
+        view.setUint32(at + 24, 30 * 1024 * 1024, true);
+      }
+    }
+    expect(() => parseProjectPackZip(zip)).toThrow('展開後のサイズ');
+  });
 });
 
 describe('rewriteImportedDocument', () => {
