@@ -1948,7 +1948,7 @@ export function useEditorController(projectId: string): EditorController {
             );
             if (last) {
               lastLiveInkRef.current.set(rasterId, last);
-              api.engine.noteStrokePoints(rasterId, [point], inkStrokeStyle(present, last.pressure, false).lineWidth);
+              api.engine.noteStrokePoints(rasterId, [point], inkStrokeStyle(present, 1, false).lineWidth);
             }
             visualBump = true;
             break;
@@ -1969,7 +1969,7 @@ export function useEditorController(projectId: string): EditorController {
               api.engine.noteStrokePoints(
                 rasterId,
                 effect.points,
-                inkStrokeStyle(present, last.pressure, false).lineWidth,
+                inkStrokeStyle(present, 1, false).lineWidth,
               );
             }
             visualBump = true;
@@ -2009,7 +2009,7 @@ export function useEditorController(projectId: string): EditorController {
             );
             if (last) {
               lastLiveInkRef.current.set(rasterId, last);
-              api.engine.noteStrokePoints(rasterId, [point], inkStrokeStyle(present, last.pressure, true).lineWidth);
+              api.engine.noteStrokePoints(rasterId, [point], inkStrokeStyle(present, 1, true).lineWidth);
             }
             visualBump = true;
             break;
