@@ -24,15 +24,16 @@ import {
   LAN_PACK_PDF_NOTICE,
   LAN_PACK_SENT,
   LAN_PACK_TOO_LARGE,
+  LAN_PACK_RTC_DOWN_MESSAGE,
   isLanPackCode,
+  isLanPackRtcBase,
   normalizeLanPackDigits,
   resolveLanPackHubBase,
 } from '@/src/web/lanPack/hubUrl';
-import { isGitHubPagesApp } from '@/src/web/displayMode';
 import styles from '@/app/page.module.css';
 
-function hideLanHubDownHint(): boolean {
-  return isGitHubPagesApp();
+function downMessage(): string {
+  return isLanPackRtcBase(hubBaseFromWindow()) ? LAN_PACK_RTC_DOWN_MESSAGE : LAN_PACK_HUB_DOWN_MESSAGE;
 }
 
 function waitForPaint(): Promise<void> {
@@ -48,6 +49,9 @@ function waitForPaint(): Promise<void> {
 }
 
 function hubBaseFromWindow(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
   return resolveLanPackHubBase({
     protocol: window.location.protocol,
     hostname: window.location.hostname,
@@ -91,6 +95,7 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
     const [status, setStatus] = useState<string | null>(null);
     const [sendError, setSendError] = useState<string | null>(null);
     const [sendPhase, setSendPhase] = useState<'form' | 'sending'>('form');
+    const hubDownMessage = downMessage();
     const sendAbortRef = useRef<AbortController | null>(null);
     const recvCodeRef = useRef<string | null>(null);
 
@@ -124,12 +129,12 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
     const requireHub = useCallback(async (): Promise<string | null> => {
       const hubBase = hubBaseFromWindow();
       if (hubBase == null) {
-        setError(LAN_PACK_HUB_DOWN_MESSAGE);
+        setError(downMessage());
         return null;
       }
       const ok = await probeLanPackHub(hubBase);
       if (!ok) {
-        setError(LAN_PACK_HUB_DOWN_MESSAGE);
+        setError(downMessage());
         logLanPack('health-fail', { hubBase, origin: window.location.origin });
         return null;
       }
@@ -302,12 +307,12 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
       }
       const hubBase = hubBaseFromWindow();
       if (hubBase == null) {
-        setSendError(LAN_PACK_HUB_DOWN_MESSAGE);
+        setSendError(downMessage());
         return;
       }
       const hubOk = await probeLanPackHub(hubBase);
       if (!hubOk) {
-        setSendError(LAN_PACK_HUB_DOWN_MESSAGE);
+        setSendError(downMessage());
         return;
       }
       setBusy(true);
@@ -342,7 +347,7 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
           setSendPhase('form');
           return;
         }
-        setSendError(LAN_PACK_HUB_DOWN_MESSAGE);
+        setSendError(downMessage());
         setSendPhase('form');
       } catch (err) {
         if (abort.signal.aborted || (err instanceof DOMException && err.name === 'AbortError')) {
@@ -360,7 +365,7 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
 
     return (
       <>
-        {mode !== 'send-code' && !hideLanHubDownHint() ? (
+        {mode !== 'send-code' ? (
           <div className={styles.lanRecvStrip} aria-live="polite">
             {recvCode ? (
               <>
@@ -368,7 +373,7 @@ export const LanTransferControls = forwardRef<LanTransferControlsHandle, Props>(
                 <span className={styles.lanCodeDisplay}>{recvCode}</span>
               </>
             ) : hubDown ? (
-              <span className={styles.lanRecvHint}>{LAN_PACK_HUB_DOWN_MESSAGE}</span>
+              <span className={styles.lanRecvHint}>{hubDownMessage}</span>
             ) : (
               <span className={styles.lanRecvHint}>LAN受け取りを準備しています…</span>
             )}

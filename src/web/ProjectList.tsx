@@ -632,20 +632,18 @@ export function ProjectList() {
                       >
                         エクスポート
                       </button>
-                      {isGitHubPagesApp() ? null : (
-                        <button
-                          type="button"
-                          role="menuitem"
-                          className={styles.secondaryButton}
-                          disabled={rowBusy || listBusy}
-                          onClick={() => {
-                            setMenuId(null);
-                            void lanTransferRef.current?.startSend(project);
-                          }}
-                        >
-                          LANで送る
-                        </button>
-                      )}
+                      <button
+                        type="button"
+                        role="menuitem"
+                        className={styles.secondaryButton}
+                        disabled={rowBusy || listBusy}
+                        onClick={() => {
+                          setMenuId(null);
+                          void lanTransferRef.current?.startSend(project);
+                        }}
+                      >
+                        LANで送る
+                      </button>
                       <button
                         type="button"
                         role="menuitem"

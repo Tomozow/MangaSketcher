@@ -1,5 +1,6 @@
 import { ipadDebugLog } from '@/src/web/ipadDebugLog';
-import { isLanPackCode, lanPackApiUrl } from './hubUrl';
+import { isLanPackCode, isLanPackRtcBase, lanPackApiUrl } from './hubUrl';
+import { mintRtcCode, probeRtc, releaseRtcCode, sendRtcZip, waitRtcZip } from './rtcTransport';
 
 export const LAN_PACK_FETCH_TIMEOUT_MS = 4000;
 
@@ -22,6 +23,9 @@ async function lanPackFetch(
 }
 
 export async function probeLanPackHub(hubBase: string, signal?: AbortSignal): Promise<boolean> {
+  if (isLanPackRtcBase(hubBase)) {
+    return probeRtc();
+  }
   try {
     const response = await lanPackFetch(
       lanPackApiUrl(hubBase, '/api/lan-pack/health'),
@@ -34,6 +38,9 @@ export async function probeLanPackHub(hubBase: string, signal?: AbortSignal): Pr
 }
 
 export async function mintLanPackCode(hubBase: string, signal?: AbortSignal): Promise<{ code: string }> {
+  if (isLanPackRtcBase(hubBase)) {
+    return mintRtcCode();
+  }
   const response = await lanPackFetch(lanPackApiUrl(hubBase, '/api/lan-pack'), {
     method: 'POST',
     signal,
@@ -49,6 +56,10 @@ export async function mintLanPackCode(hubBase: string, signal?: AbortSignal): Pr
 }
 
 export function releaseLanPackCode(hubBase: string, code: string): void {
+  if (isLanPackRtcBase(hubBase)) {
+    releaseRtcCode();
+    return;
+  }
   if (!isLanPackCode(code)) {
     return;
   }
@@ -65,6 +76,9 @@ export async function putLanPackZip(
   file: File,
   signal?: AbortSignal,
 ): Promise<number> {
+  if (isLanPackRtcBase(hubBase)) {
+    return sendRtcZip(code, file, signal);
+  }
   const response = await fetch(lanPackApiUrl(hubBase, `/api/lan-pack/${code}`), {
     method: 'PUT',
     headers: { 'Content-Type': 'application/zip' },
@@ -80,6 +94,9 @@ export async function getLanPackZip(
   code: string,
   signal?: AbortSignal,
 ): Promise<{ status: number; file: File | null }> {
+  if (isLanPackRtcBase(hubBase)) {
+    return waitRtcZip(code, signal);
+  }
   const ac = new AbortController();
   const timer = setTimeout(() => ac.abort(), LAN_PACK_FETCH_TIMEOUT_MS);
   const onOuterAbort = () => ac.abort();

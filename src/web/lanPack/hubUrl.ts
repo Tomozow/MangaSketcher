@@ -1,6 +1,9 @@
 export const LAN_PACK_HUB_DOWN_MESSAGE =
   'LAN転送には PC版の起動（ポート3443）が必要です。';
 
+export const LAN_PACK_RTC_DOWN_MESSAGE =
+  'LAN転送の接続準備に失敗しました。同じWi-Fiか、ネット接続を確認してください。';
+
 export const LAN_PACK_PDF_NOTICE =
   '参照PDFは含まれません。送り先で付け直してください。相手の一覧には複製として追加されます。';
 
@@ -13,6 +16,18 @@ export const LAN_PACK_BAD_CODE = '番号が違います。受け側の番号を�
 export const LAN_PACK_TOO_LARGE = 'サイズが上限（200MB）を超えています。';
 
 const HUB_PORT = '3443';
+
+/** Pages 版 (静的ホスト): ハブの代わりに WebRTC で端末間直結する印。 */
+export const LAN_PACK_RTC_BASE = 'rtc:';
+
+export function isLanPackRtcBase(hubBase: string | null): boolean {
+  return hubBase === LAN_PACK_RTC_BASE;
+}
+
+function isPagesHost(hostname: string): boolean {
+  const host = hostname.toLowerCase();
+  return host === 'github.io' || host.endsWith('.github.io');
+}
 
 export const LAN_PACK_CODE_DIGITS = 3;
 
@@ -43,6 +58,9 @@ export function resolveLanPackHubBase(location: {
   }
   if (port === '3001' && (location.hostname === '127.0.0.1' || location.hostname === 'localhost')) {
     return '';
+  }
+  if (isPagesHost(location.hostname)) {
+    return LAN_PACK_RTC_BASE;
   }
   return null;
 }

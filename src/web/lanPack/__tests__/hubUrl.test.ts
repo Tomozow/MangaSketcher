@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'vitest';
 import {
   isLanPackCode,
+  isLanPackRtcBase,
   lanPackApiUrl,
   lanPackOriginKind,
   normalizeLanPackDigits,
@@ -71,5 +72,18 @@ describe('lan pack codes and CORS kinds', () => {
     expect(lanPackOriginKind('https://evil.example:3000', ips)).toBe('reject');
     expect(lanPackOriginKind('http://192.168.0.2:3001', ips)).toBe('reject');
     expect(lanPackOriginKind('https://192.168.0.2:3001', ips)).toBe('reject');
+  });
+});
+
+describe('lan pack RTC mode (GitHub Pages)', () => {
+  test('github.io resolves to the RTC sentinel', () => {
+    const base = resolveLanPackHubBase({ protocol: 'https:', hostname: 'user.github.io', port: '' });
+    expect(base).toBe('rtc:');
+    expect(isLanPackRtcBase(base)).toBe(true);
+  });
+
+  test('unknown hosts still have no hub', () => {
+    expect(resolveLanPackHubBase({ protocol: 'https:', hostname: 'example.com', port: '' })).toBeNull();
+    expect(isLanPackRtcBase('')).toBe(false);
   });
 });
