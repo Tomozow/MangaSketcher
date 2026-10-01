@@ -74,6 +74,10 @@ export function pressureFromWeb(
   if (!state.contacting || event.buttons === 0) {
     return state.lastPressure;
   }
+  // Mice report a fixed 0.5 while pressed; treat as full pressure so ink matches the set size.
+  if (event.pointerType === 'mouse') {
+    return 1;
+  }
   const raw = event.pressure;
   if (raw === 0) {
     return state.lastPressure;

@@ -534,6 +534,7 @@ export function EditorLayout({
               selectedClipId={doc.selectedClipId}
               selectedClipIds={doc.selectedClipIds}
               tool={doc.tool}
+              tools={doc.tools}
               zoom={doc.workspaceZoom}
               panX={doc.workspacePanX}
               panY={doc.workspacePanY}

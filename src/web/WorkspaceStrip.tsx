@@ -6,6 +6,7 @@ import { spreadPageIdsContaining } from '@/src/domain/layout';
 import {
   buildStripFrames,
   NUMBER_BAND,
+  PAGE_DISPLAY_W,
   pageLocalFromWorld,
   pageInkFrameAtWorld,
   stripLayoutFromDoc,
@@ -23,7 +24,9 @@ import {
   type SelectTargetFlags,
   type TextId,
   type ToolId,
+  type ToolProperties,
 } from '@/src/domain/types';
+import { brushRadius, pressureAffectsOf } from '@/src/domain/pointers';
 import type { PageMeta } from '@/src/storage/types';
 import { createWorkspacePointerPipeline, type WorkspaceEffect } from '@/src/web/gestures';
 import {
@@ -78,6 +81,7 @@ type WorkspaceStripProps = {
   onDuplicateText: (textId: TextId) => void;
   onConfirmText?: () => void;
   tool: ToolId;
+  tools: ToolProperties;
   zoom: number;
   panX: number;
   panY: number;
@@ -121,6 +125,7 @@ export function WorkspaceStrip({
   onDuplicateText,
   onConfirmText,
   tool,
+  tools,
   zoom,
   panX,
   panY,
@@ -139,6 +144,7 @@ export function WorkspaceStrip({
   onClearPageInk,
 }: WorkspaceStripProps) {
   const surfaceRef = useRef<HTMLDivElement>(null);
+  const eraserCursorRef = useRef<HTMLDivElement>(null);
   const pipelineRef = useRef<ReturnType<typeof createWorkspacePointerPipeline> | null>(null);
   const inkMapCacheRef = useRef<{
     pageId: PageId;
@@ -343,6 +349,7 @@ export function WorkspaceStrip({
     selectLasso,
     scissorsLasso,
     tool,
+    tools,
     panX,
     panY,
     zoom,
@@ -366,6 +373,7 @@ export function WorkspaceStrip({
     selectLasso,
     scissorsLasso,
     tool,
+    tools,
     panX,
     panY,
     zoom,
@@ -574,9 +582,49 @@ export function WorkspaceStrip({
     };
     surface.addEventListener('pointermove', onPointerMove);
 
+    // Eraser outline: mouse hover/drag, or pencil while pressed (not hover, not touch).
+    // ponytail: always page scale; clips scaled on the pasteboard get a page-sized circle.
+    const updateEraserCursor = (event: PointerEvent) => {
+      const cursor = eraserCursorRef.current;
+      if (!cursor) {
+        return;
+      }
+      const { tool: curTool, tools: curTools, zoom: curZoom, rasterWidth: rw } = ctxRef.current;
+      const isPen = event.pointerType === 'pen';
+      const show =
+        curTool === 'eraser' &&
+        event.type !== 'pointerleave' &&
+        (event.pointerType === 'mouse' || (isPen && event.buttons > 0 && event.type !== 'pointerup'));
+      surface.style.cursor = curTool === 'eraser' && event.pointerType === 'mouse' ? 'none' : '';
+      if (!show) {
+        cursor.style.display = 'none';
+        return;
+      }
+      // Mouse ink uses full pressure (see pressureFromWeb).
+      const radius = brushRadius(
+        curTools.eraserSize,
+        isPen ? event.pressure : 1,
+        'pencil',
+        pressureAffectsOf(curTools, true).size,
+      );
+      const d = 2 * radius * (PAGE_DISPLAY_W / Math.max(1, rw)) * curZoom;
+      const rect = surface.getBoundingClientRect();
+      cursor.style.display = 'block';
+      cursor.style.width = `${d}px`;
+      cursor.style.height = `${d}px`;
+      cursor.style.transform = `translate(${event.clientX - rect.left - d / 2}px, ${event.clientY - rect.top - d / 2}px)`;
+    };
+    const eraserEvents = ['pointermove', 'pointerdown', 'pointerup', 'pointerleave'] as const;
+    for (const type of eraserEvents) {
+      surface.addEventListener(type, updateEraserCursor);
+    }
+
     const unbind = pipeline.bind(surface, 'workspace');
     return () => {
       surface.removeEventListener('pointermove', onPointerMove);
+      for (const type of eraserEvents) {
+        surface.removeEventListener(type, updateEraserCursor);
+      }
       unbind();
       pipeline.reset();
       pipelineRef.current = null;
@@ -585,6 +633,22 @@ export function WorkspaceStrip({
 
   return (
     <div ref={surfaceRef} className={styles.workspaceSurface} data-ms-shell="workspace">
+      <div
+        ref={eraserCursorRef}
+        aria-hidden
+        style={{
+          display: 'none',
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          zIndex: 50,
+          pointerEvents: 'none',
+          borderRadius: '50%',
+          border: '1px solid #000',
+          boxShadow: '0 0 0 1px #fff',
+          boxSizing: 'border-box',
+        }}
+      />
       {grabbedPageId && dragPointer && !pointOverStockUi(dragPointer.x, dragPointer.y) ? (
         <PageDragThumbnail
           pageId={grabbedPageId}

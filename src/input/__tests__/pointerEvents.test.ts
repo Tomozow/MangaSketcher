@@ -57,6 +57,12 @@ describe('pointerEvents (Web)', () => {
     expect(pressureFromWeb({ pressure: 0.2, buttons: 0 } as PointerEvent, state)).toBe(1);
   });
 
+  test('筆圧: マウスは押下中の固定値 0.5 ではなく 1', () => {
+    const state = createPressureState();
+    markPointerDown(state);
+    expect(pressureFromWeb({ pointerType: 'mouse', pressure: 0.5, buttons: 1 } as PointerEvent, state)).toBe(1);
+  });
+
   test('Pencil hover (buttons===0) は無視対象', () => {
     expect(isPencilHover({ buttons: 0, pressure: 0.5 } as PointerEvent, 'pencil')).toBe(true);
     expect(isPencilHover({ buttons: 1, pressure: 0.5 } as PointerEvent, 'pencil')).toBe(false);
