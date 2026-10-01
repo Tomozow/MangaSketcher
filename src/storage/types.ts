@@ -21,7 +21,8 @@ export type {
 /** Spec alias — same shape as domain `PdfDocument`. */
 export type PdfMeta = import('../domain/types').PdfDocument;
 
-export const DB_NAME = 'mangasketcher';
+/** Test deploys on the same github.io origin set their own name so they never touch production data. */
+export const DB_NAME = process.env.NEXT_PUBLIC_DB_NAME || 'mangasketcher';
 /** v3: revisioned raster keys (`rasterId@generation`). Older app builds must not open it. */
 export const DB_VERSION = 3;
 /** Reserved `meta` row for app UI settings (excluded from project lists). */

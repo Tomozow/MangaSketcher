@@ -36,9 +36,16 @@ jobs:
           else
             echo "path=/$name" >> "$GITHUB_OUTPUT"
           fi
+          # Same github.io origin shares IndexedDB: only the production repo uses the default DB name.
+          if [[ "$name" == "MangaSketcher" ]]; then
+            echo "db=" >> "$GITHUB_OUTPUT"
+          else
+            echo "db=mangasketcher-$name" >> "$GITHUB_OUTPUT"
+          fi
       - run: npm run build:static
         env:
           NEXT_PUBLIC_BASE_PATH: ${{ steps.base.outputs.path }}
+          NEXT_PUBLIC_DB_NAME: ${{ steps.base.outputs.db }}
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out
