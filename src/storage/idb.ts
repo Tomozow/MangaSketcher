@@ -30,9 +30,10 @@ export type DocumentsStore = 'documents';
 export type RastersStore = 'rasters';
 export type DocumentSnapshotsStore = 'documentSnapshots';
 export type RasterSnapshotsStore = 'rasterSnapshots';
+export type PreV3DocumentsStore = 'preV3Documents';
 
 export type LiveStoreName = MetaStore | DocumentsStore | RastersStore;
-export type StoreName = LiveStoreName | DocumentSnapshotsStore | RasterSnapshotsStore;
+export type StoreName = LiveStoreName | DocumentSnapshotsStore | RasterSnapshotsStore | PreV3DocumentsStore;
 
 export interface StorageDatabase {
   listMeta(): Promise<ProjectMeta[]>;
@@ -70,6 +71,11 @@ export type DeleteProjectRecordsOptions = {
 const META = 'meta';
 const DOCUMENTS = 'documents';
 const RASTERS = 'rasters';
+/**
+ * Document rows as they stood before revisions, keyed `[source store, projectId]`. JSON only: the
+ * PNGs they use (un-revisioned `rasters` keys, `rasterSnapshots`) are kept while the project exists.
+ */
+export const PRE_V3_DOCUMENTS = 'preV3Documents';
 
 /** Wipe-set for missing-schema deleteDatabase. Snapshot stores must NOT be listed. */
 export const REQUIRED_STORES: LiveStoreName[] = [META, DOCUMENTS, RASTERS];
@@ -94,6 +100,30 @@ function ensureObjectStores(db: IDBDatabase): void {
   }
   if (!db.objectStoreNames.contains(RASTER_SNAPSHOTS)) {
     db.createObjectStore(RASTER_SNAPSHOTS, { keyPath: 'rasterId' });
+  }
+  if (!db.objectStoreNames.contains(PRE_V3_DOCUMENTS)) {
+    db.createObjectStore(PRE_V3_DOCUMENTS);
+  }
+}
+
+/**
+ * Same upgrade transaction as the version bump: if the copy fails, the database stays at its old
+ * version untouched rather than being migrated without a way back.
+ */
+function backupPreV3Documents(transaction: IDBTransaction, oldVersion: number): void {
+  if (oldVersion === 0 || oldVersion >= 3) {
+    return;
+  }
+  const backup = transaction.objectStore(PRE_V3_DOCUMENTS);
+  for (const source of [DOCUMENTS, DOCUMENT_SNAPSHOTS]) {
+    const request = transaction.objectStore(source).openCursor();
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (cursor) {
+        backup.put(cursor.value, [source, cursor.key]);
+        cursor.continue();
+      }
+    };
   }
 }
 
@@ -135,8 +165,9 @@ function openBrowserDatabase(allowReset = true): Promise<IDBDatabase> {
         message: 'indexedDB.open blocked (another tab holds an older version)',
       });
     };
-    request.onupgradeneeded = () => {
+    request.onupgradeneeded = (event) => {
       ensureObjectStores(request.result);
+      backupPreV3Documents(request.transaction!, event.oldVersion);
     };
     request.onsuccess = () => {
       const db = request.result;
@@ -473,6 +504,11 @@ export class BrowserStorageDatabase implements StorageDatabase {
       if (db.objectStoreNames.contains(RASTER_SNAPSHOTS)) {
         storeNames.push(RASTER_SNAPSHOTS);
       }
+      // Absent in databases created at v3 before the copy existed.
+      const hasPreV3 = db.objectStoreNames.contains(PRE_V3_DOCUMENTS);
+      if (hasPreV3) {
+        storeNames.push(PRE_V3_DOCUMENTS);
+      }
       const transaction = db.transaction(storeNames, 'readwrite');
       const rasters = transaction.objectStore(RASTERS);
       const documents = transaction.objectStore(DOCUMENTS);
@@ -494,6 +530,11 @@ export class BrowserStorageDatabase implements StorageDatabase {
             documents.delete(projectId);
             snapshotDocs?.delete(projectId);
             meta.delete(projectId);
+            if (hasPreV3) {
+              const preV3 = transaction.objectStore(PRE_V3_DOCUMENTS);
+              preV3.delete([DOCUMENTS, projectId]);
+              preV3.delete([DOCUMENT_SNAPSHOTS, projectId]);
+            }
           };
           if (!snapshotRasters) {
             afterSnapshotRasters();

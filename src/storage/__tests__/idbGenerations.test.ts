@@ -5,7 +5,8 @@ import { beforeEach, describe, expect, test } from 'vitest';
 import { createEditorDocument, sequentialIds } from '../../domain/document';
 import { loadEditorBoot } from '../editorBoot';
 import { documentRasterKey } from '../generationSnapshot';
-import { BrowserStorageDatabase } from '../idb';
+import { BrowserStorageDatabase, PRE_V3_DOCUMENTS } from '../idb';
+import { runStartupGc } from '../projectStore';
 import { MemoryOpfsStorage } from '../testUtils/memoryOpfs';
 import { DB_NAME, type EditorDocument, type ProjectMeta } from '../types';
 
@@ -130,5 +131,127 @@ describe('BrowserStorageDatabase generations', () => {
 
   test('the database name is unchanged', () => {
     expect(DB_NAME).toBe('mangasketcher');
+  });
+});
+
+const V2_STORES = ['meta', 'documents', 'rasters', 'documentSnapshots', 'rasterSnapshots'] as const;
+type V2Rows = Partial<Record<(typeof V2_STORES)[number], object[]>>;
+
+/** The stores and rows a version-2 build left behind; closed so the next open upgrades it. */
+function seedV2(rows: V2Rows): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, 2);
+    request.onupgradeneeded = () => {
+      for (const name of V2_STORES) {
+        request.result.createObjectStore(name, { keyPath: name.startsWith('raster') ? 'rasterId' : 'id' });
+      }
+    };
+    request.onsuccess = () => {
+      const db = request.result;
+      const transaction = db.transaction([...V2_STORES], 'readwrite');
+      for (const name of V2_STORES) {
+        for (const row of rows[name] ?? []) {
+          transaction.objectStore(name).put(row);
+        }
+      }
+      transaction.oncomplete = () => {
+        db.close();
+        resolve();
+      };
+      transaction.onerror = () => reject(transaction.error);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function readPreV3(source: string): Promise<(EditorDocument & { id: string }) | undefined> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME);
+    request.onsuccess = () => {
+      const db = request.result;
+      const get = db.transaction([PRE_V3_DOCUMENTS]).objectStore(PRE_V3_DOCUMENTS).get([source, 'p']);
+      get.onsuccess = () => {
+        db.close();
+        resolve(get.result);
+      };
+      get.onerror = () => reject(get.error);
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+const v2Doc = (name: string) => ({ ...doc(name), id: 'p' });
+const bytes = (buffer: ArrayBuffer | undefined) => new Uint8Array(buffer!);
+
+describe('upgrade from a version-2 database', () => {
+  test('opens in place, keeps saving across GC and reloads, and keeps the pre-migration rows', async () => {
+    await seedV2({
+      meta: [meta(doc('live'))],
+      documents: [v2Doc('live')],
+      rasters: [{ rasterId: A, png: png(1) }, { rasterId: B, png: png(2) }],
+      documentSnapshots: [v2Doc('snap')],
+      rasterSnapshots: [{ rasterId: A, png: png(7) }, { rasterId: B, png: png(8) }],
+    });
+    const db = new BrowserStorageDatabase();
+    const opfs = new MemoryOpfsStorage();
+
+    const boot = (await loadEditorBoot('p', { db, opfs }))!;
+    expect(boot.document.name).toBe('live');
+    expect(bytes(boot.encodedPng.get(A))).toEqual(bytes(png(1)));
+
+    for (const tag of [3, 4, 5]) {
+      const next = { ...boot.document, name: `gen${tag}` };
+      await db.commitDocumentGeneration({ document: next, meta: meta(next), rasters: new Map([[A, png(tag)]]) });
+      await runStartupGc({ db, opfs });
+    }
+
+    const reboot = (await loadEditorBoot('p', { db, opfs }))!;
+    expect(reboot.document.name).toBe('gen5');
+    expect(bytes(reboot.encodedPng.get(A))).toEqual(bytes(png(5)));
+    expect(bytes(reboot.encodedPng.get(B))).toEqual(bytes(png(2)));
+    const pack = (await db.readProjectExportSnapshot('p'))!;
+    expect(bytes(pack.rasters.get(A))).toEqual(bytes(png(5)));
+    expect(bytes(pack.rasters.get(B))).toEqual(bytes(png(2)));
+
+    // Everything the version-2 state needs is still there: both document rows and their PNGs.
+    expect((await readPreV3('documents'))?.name).toBe('live');
+    expect((await readPreV3('documentSnapshots'))?.name).toBe('snap');
+    expect(bytes(await db.getRaster(A))).toEqual(bytes(png(1)));
+    expect(bytes(await db.getSnapshotRaster(B))).toEqual(bytes(png(8)));
+
+    await db.deleteProjectRecords('p');
+    expect(await readPreV3('documents')).toBeUndefined();
+    expect(await readPreV3('documentSnapshots')).toBeUndefined();
+  });
+
+  test('a torn version-2 live document boots from the version-2 fallback and saves on from it', async () => {
+    await seedV2({
+      meta: [meta(doc('live'))],
+      documents: [v2Doc('live')],
+      rasters: [{ rasterId: A, png: png(1) }],
+      documentSnapshots: [v2Doc('snap')],
+      rasterSnapshots: [{ rasterId: A, png: png(7) }, { rasterId: B, png: png(8) }],
+    });
+    const db = new BrowserStorageDatabase();
+    const opfs = new MemoryOpfsStorage();
+
+    const boot = (await loadEditorBoot('p', { db, opfs }))!;
+    expect(boot.document.name).toBe('snap');
+    expect(bytes(boot.encodedPng.get(A))).toEqual(bytes(png(7)));
+    expect(bytes(boot.encodedPng.get(B))).toEqual(bytes(png(8)));
+
+    const next = { ...boot.document, name: 'after' };
+    await db.commitDocumentGeneration({ document: next, meta: meta(next), rasters: new Map([[A, png(9)]]) });
+    await runStartupGc({ db, opfs });
+    const reboot = (await loadEditorBoot('p', { db, opfs }))!;
+    expect(reboot.document.name).toBe('after');
+    expect(bytes(reboot.encodedPng.get(A))).toEqual(bytes(png(9)));
+    expect(bytes(reboot.encodedPng.get(B))).toEqual(bytes(png(8)));
+  });
+
+  test('a database created at the current version gets the store but no rows', async () => {
+    const db = new BrowserStorageDatabase();
+    await db.commitDocumentGeneration({ document: doc(), meta: meta(doc()), rasters: new Map([[A, png(1)], [B, png(2)]]) });
+    expect(await readPreV3('documents')).toBeUndefined();
   });
 });
