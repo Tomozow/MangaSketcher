@@ -9,7 +9,6 @@ import type { StorageDatabase } from './idb';
 import { getDefaultStorageDatabase } from './idb';
 import { requestPersistentStorage } from './persistentStorage';
 import { ipadDebugLog } from '@/src/web/ipadDebugLog';
-import { docShape, inkLog } from '@/src/web/ink/inkDebugLog';
 import { collectRasterIds } from './rasterIds';
 
 export type AutosaveStatus = {
@@ -360,22 +359,12 @@ export class AutosaveManager {
         updatedAt,
         pageCount: Object.keys(job.doc.pages).length,
       };
-      const startedAt = Date.now();
-      inkLog('autosave.executeJob', 'commit start', {
-        saveGen: job.saveGen,
-        viewOnly: job.viewOnly,
-        dirty: [...job.dirtyRasterIds],
-        payload: [...rasters].map(([id, buf]) => [id, buf.byteLength]),
-        pageCount: meta.pageCount,
-        doc: docShape(job.doc, false),
-      });
       await this.commitWithTimeout({
         document: job.doc,
         meta,
         rasters,
         snapshot: 'guarded',
       });
-      inkLog('autosave.executeJob', 'commit ok', { saveGen: job.saveGen, ms: Date.now() - startedAt });
       this.noteCommitted(job.doc, sources);
       void requestPersistentStorage();
       this.setFailures(0);
@@ -383,11 +372,6 @@ export class AutosaveManager {
         this.setUnsaved(false);
       }
     } catch (err) {
-      inkLog('autosave.executeJob', 'commit failed', {
-        saveGen: job.saveGen,
-        name: err instanceof Error ? err.name : typeof err,
-        msg: err instanceof Error ? err.message : String(err),
-      });
       this.requeueFailedJob(job);
       this.setFailures(this.failures + 1);
       // #region agent log
@@ -547,10 +531,6 @@ export class AutosaveManager {
   flushHidden(): void {
     if (this.blocked()) {
       // The document depends on a PNG that is not ready; keep the last stored generation instead.
-      inkLog('autosave.flushHidden', 'skipped: document needs an unfinished encode', {
-        encoding: this.idsIn('encoding'),
-        failed: this.idsIn('failed'),
-      });
       return;
     }
     const atomicDoc = this.pendingJob?.doc;
@@ -569,10 +549,8 @@ export class AutosaveManager {
           rasters,
         })
         .then(() => this.noteCommitted(atomicDoc, sources))
-        .catch((err) => {
-          if (!(err instanceof DOMException && err.name === 'InvalidStateError')) {
-            inkLog('autosave.flushHidden', 'atomic write failed', { msg: err instanceof Error ? err.message : String(err) });
-          }
+        .catch(() => {
+          // The page is going away; the next boot falls back to the last whole generation.
         });
     }
   }

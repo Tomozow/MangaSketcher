@@ -10,7 +10,6 @@ import { intersectRects, polygonAabb } from '../clip/clipGeometry';
 import { encodedRasterDimensions, isPngBuffer, tryDecodeInkSnapshot } from './fakeCanvas';
 import { tryDecodePngToRgba } from '@/src/storage/compactInkPng';
 import { isInkUndoPatch, type InkUndoPixels } from '@/src/storage/types';
-import { inkLog } from './inkDebugLog';
 
 /** §9.7 standard drag thumbnail size. */
 export const THUMB_WIDTH = 144;
@@ -263,7 +262,6 @@ export class InkEngine {
   }
 
   disposeRaster(rasterId: string): void {
-    inkLog('InkEngine.disposeRaster', 'dispose', { rasterId, pendingEncode: this.pendingEncodes.has(rasterId) });
     if (this.pendingEncodes.delete(rasterId)) {
       this.callbacks.onEncodingAborted?.(rasterId);
     }
@@ -323,13 +321,6 @@ export class InkEngine {
       const png = this.encodedPng.get(rasterId);
       const epoch = this.bumpBlitEpoch(rasterId);
       const ctx = canvas.getContext('2d');
-      inkLog('InkEngine.decode', 'hot recreated', {
-        rasterId,
-        pngBytes: png?.byteLength ?? 0,
-        pendingEncode: this.pendingEncodes.has(rasterId),
-        pendingEncodeId: this.pendingEncodeIds.has(rasterId),
-        hotCount: this.hot.size,
-      });
       if (this.pendingEncodes.has(rasterId)) {
         // Encode in flight may carry fresher pixels than encodedPng; refresh on complete.
         ctx?.clearRect(0, 0, dims.width, dims.height);
@@ -358,7 +349,6 @@ export class InkEngine {
     const decoded = png ? tryDecodePngToRgba(png) : null;
     const ctx = canvas.getContext('2d');
     if (!decoded || !ctx || decoded.width !== canvas.width || decoded.height !== canvas.height) {
-      inkLog('InkEngine.decodeForEdit', 'sync decode unavailable; edit may race the async decode', { rasterId });
       return canvas;
     }
     const pixels = new Uint8ClampedArray(
@@ -402,7 +392,6 @@ export class InkEngine {
       }
       const evictId = this.lru.splice(evictIdx, 1)[0];
       if (evictId) {
-        inkLog('InkEngine.touchLru', 'evict hot', { rasterId: evictId, pngBytes: this.encodedPng.get(evictId)?.byteLength ?? 0 });
         this.hot.delete(evictId);
       }
       unpinned -= 1;
@@ -717,12 +706,6 @@ export class InkEngine {
   }
 
   flushPendingEncodes(): void {
-    if (this.pendingEncodeIds.size > 0) {
-      inkLog('InkEngine.flushPendingEncodes', 'flush', {
-        ids: [...this.pendingEncodeIds],
-        hot: [...this.pendingEncodeIds].map((id) => this.hot.has(id)),
-      });
-    }
     for (const rasterId of this.pendingEncodeIds) {
       void this.generateThumb(rasterId);
       this.startEncode(rasterId);
@@ -794,10 +777,6 @@ export class InkEngine {
   }
 
   restoreRasterFromUndo(rasterId: string, undo: InkUndoPixels): void {
-    inkLog('InkEngine.restoreRasterFromUndo', 'restore', {
-      rasterId,
-      kind: undo instanceof ArrayBuffer ? 'buffer' : isInkUndoPatch(undo) ? 'patch' : 'canvas',
-    });
     if (undo instanceof ArrayBuffer) {
       this.restoreRasterFromPng(rasterId, undo);
       return;
@@ -1103,16 +1082,6 @@ export class InkEngine {
     const page = this.decodeForEdit(pageRasterId);
     canvasCopyPageRect(page, clip, rect);
     const trim = inkAlphaBounds(clip);
-    inkLog('InkEngine.marqueeCut', 'cut', {
-      pageRasterId,
-      clipRasterId,
-      rect,
-      trim,
-      pageHot: this.hot.has(pageRasterId),
-      pagePngBytes: this.encodedPng.get(pageRasterId)?.byteLength ?? 0,
-      pendingEncode: this.pendingEncodes.has(pageRasterId),
-      pendingEncodeId: this.pendingEncodeIds.has(pageRasterId),
-    });
     if (!trim) {
       this.disposeRaster(clipRasterId);
       return { pageUndo: new ArrayBuffer(0), trim: null };
@@ -1161,16 +1130,6 @@ export class InkEngine {
     const page = this.decodeForEdit(pageRasterId);
     canvasCopyLassoRegion(page, clip, points, rect, (cw, ch) => this.canvasFactory(cw, ch));
     const trim = inkAlphaBounds(clip);
-    inkLog('InkEngine.lassoCut', 'cut', {
-      pageRasterId,
-      clipRasterId,
-      rect,
-      trim,
-      pageHot: this.hot.has(pageRasterId),
-      pagePngBytes: this.encodedPng.get(pageRasterId)?.byteLength ?? 0,
-      pendingEncode: this.pendingEncodes.has(pageRasterId),
-      pendingEncodeId: this.pendingEncodeIds.has(pageRasterId),
-    });
     if (!trim) {
       this.disposeRaster(clipRasterId);
       return { pageUndo: new ArrayBuffer(0), trim: null };
@@ -1457,13 +1416,11 @@ export class InkEngine {
   private startEncode(rasterId: string, attempt = 1): void {
     const canvas = this.hot.get(rasterId);
     if (!canvas) {
-      inkLog('InkEngine.startEncode', 'encode skipped: no hot canvas', { rasterId });
       return;
     }
     const gen = (this.encodeGeneration.get(rasterId) ?? 0) + 1;
     this.encodeGeneration.set(rasterId, gen);
     const hotRevisionAtStart = this.hotRevision.get(rasterId) ?? 0;
-    inkLog('InkEngine.startEncode', 'encode start', { rasterId, attempt, gen, w: canvas.width, h: canvas.height });
     this.pendingEncodes.add(rasterId);
     this.callbacks.onEncodingStarted?.(rasterId);
     void this.encodeLimited(canvas)
@@ -1477,12 +1434,6 @@ export class InkEngine {
           this.startEncode(rasterId, attempt);
           return;
         }
-        inkLog('InkEngine.startEncode', 'encode done', {
-          rasterId,
-          bytes: buffer.byteLength,
-          prevBytes: this.encodedPng.get(rasterId)?.byteLength ?? 0,
-          deferredRefresh: this.deferredHotRefresh.has(rasterId),
-        });
         this.noteEncodedPng(rasterId, buffer);
         this.pendingEncodes.delete(rasterId);
         if (this.deferredHotRefresh.delete(rasterId)) {
@@ -1494,13 +1445,7 @@ export class InkEngine {
         }
         this.callbacks.onEncodingComplete?.(rasterId, buffer);
       })
-      .catch((err) => {
-        inkLog('InkEngine.startEncode', 'encode error', {
-          rasterId,
-          attempt,
-          staleGen: this.encodeGeneration.get(rasterId) !== gen,
-          msg: err instanceof Error ? err.message : String(err),
-        });
+      .catch(() => {
         if (this.encodeGeneration.get(rasterId) !== gen) {
           return;
         }

@@ -29,7 +29,6 @@ import {
 } from '@/src/storage/history';
 import { copySharedTransparentPng, encodeTransparentPngBuffer } from '@/src/storage/transparentPng';
 import { buildProjectPackFileName, buildProjectPackZip } from '@/src/storage/projectPack';
-import { inkLog } from '@/src/web/ink/inkDebugLog';
 import { getDefaultStorageDatabase } from '@/src/storage/idb';
 import { recoverOrphanClips } from '@/src/storage/recoverOrphanClips';
 import { startExportDownload } from '@/src/web/export/saveExportZip';
@@ -664,10 +663,9 @@ async function recoverFromUrl(projectId: string): Promise<void> {
   window.history.replaceState(null, '', url.toString());
   try {
     const only = param === 'clips' ? undefined : param.split(',').filter(Boolean);
-    const restored = await recoverOrphanClips(projectId, getDefaultStorageDatabase(), only);
-    inkLog('recoverFromUrl', 'recovered clips', { count: restored.length, ids: restored });
-  } catch (err) {
-    inkLog('recoverFromUrl', 'recover failed', { msg: err instanceof Error ? err.message : String(err) });
+    await recoverOrphanClips(projectId, getDefaultStorageDatabase(), only);
+  } catch {
+    // Best effort: the document is left as it was.
   }
 }
 
@@ -1201,7 +1199,6 @@ export function useEditorController(projectId: string): EditorController {
       }
       if (api.engine.needsDecode(clip.rasterId) || api.engine.needsDecode(page.rasterId)) {
         // Baking onto a still-blank canvas would overwrite the page and drop the clip's ink.
-        inkLog('controller.bakeClip', 'wait for decode', { clipId, pageRasterId: page.rasterId, clipRasterId: clip.rasterId });
         void api.engine.ensureDecoded([clip.rasterId, page.rasterId]).then(() => {
           const latest = historyRef.current?.present;
           if (latest) {
@@ -2219,7 +2216,6 @@ export function useEditorController(projectId: string): EditorController {
       if (layout.destWidth * layout.destHeight > mergeMaxPages * present.rasterWidth * present.rasterHeight) {
         // A canvas this large fails on iPad Safari, and allocating it makes Safari drop the
         // backing store of every other canvas (the whole workspace goes blank).
-        inkLog('controller.mergeClips', 'refused: too large', { w: layout.destWidth, h: layout.destHeight });
         window.alert(
           `結合する範囲が広すぎます（上限 ${mergeMaxPages} ページ分）。近くにあるクリップだけを選ぶか、設定で上限を変えてください。`,
         );
@@ -2228,15 +2224,11 @@ export function useEditorController(projectId: string): EditorController {
       const sourceRasterIds = ordered.map((clip) => clip.rasterId);
       if (sourceRasterIds.some((id) => api.engine.needsDecode(id))) {
         // Merging blank canvases would delete the source clips without their ink.
-        inkLog('controller.mergeClips', 'wait for decode', { sources: sourceRasterIds.length });
         void api.engine.ensureDecoded(sourceRasterIds).then(() => mergeSelectedClips(clipId));
         return;
       }
       const nextClipId = randomId();
       const nextRasterId = clipRasterId(present.projectId, nextClipId);
-      inkLog('controller.mergeClips', 'merge', {
-        sources: sourceRasterIds.map((id) => [id.slice(-4), api.engine.encodedPng.get(id)?.byteLength ?? 0, api.engine.hot.has(id)]),
-      });
       const merged = api.engine.mergeClipsOntoRaster(
         nextRasterId,
         layout.destWidth,
@@ -2254,7 +2246,6 @@ export function useEditorController(projectId: string): EditorController {
           };
         }),
       );
-      inkLog('controller.mergeClips', 'merged', { dest: nextRasterId.slice(-4), trim: merged.trim });
       if (!merged.trim) {
         return;
       }
